@@ -24,6 +24,7 @@
   ],
   "files": [
     "dist",
+    "ambient",
     "README.md"
   ],
   "publishConfig": {
@@ -39,31 +40,40 @@
       "types": "./dist/index.d.ts",
       "browser": "./dist/index.js",
       "import": "./dist/index.js"
+    },
+    "./ambient/mindcraft.microbit-v2.d.ts": {
+      "default": "./ambient/mindcraft.microbit-v2.d.ts"
     }
   },
   "scripts": {
+    "build:deps": "npm run build:node --prefix ../../external/mindcraft-lang/packages/core && npm run build:esm --prefix ../../external/mindcraft-lang/packages/core && npm run build:prod --prefix ../../external/mindcraft-lang/packages/ts-compiler",
+    "prebuild": "npm run build:deps",
     "build": "tsc -p tsconfig.json",
     "build:prod": "tsc --build tsconfig.prod.json",
     "clean": "tsc --build tsconfig.json --clean",
+    "pregenerate:ambient": "npm run build:deps",
+    "generate:ambient": "tsx --tsconfig scripts/tsconfig.json scripts/generate-ambient.ts",
     "lint:only": "biome lint ./src",
     "check:only": "biome check ./src",
     "format:only": "biome format ./src",
     "lint": "biome lint ./src --write",
     "check": "biome check ./src --write",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.spec.json",
+    "pretypecheck": "npm run build:deps",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.spec.json && tsc --noEmit -p ambient/tsconfig.json && tsc --noEmit -p scripts/tsconfig.json",
     "format": "biome format ./src --write",
-    "pretest": "npm run build:prod",
+    "pretest": "npm run build:deps && npm run build:prod",
     "test": "tsx --tsconfig tsconfig.spec.json --test $(find src -name '*.spec.ts')",
     "release:patch": "node ../../external/mindcraft-lang/scripts/release.js patch",
     "release:minor": "node ../../external/mindcraft-lang/scripts/release.js minor",
     "release:major": "node ../../external/mindcraft-lang/scripts/release.js major"
   },
   "dependencies": {
-    "@mindcraft-lang/core": "file:../core",
+    "@mindcraft-lang/core": "file:../../external/mindcraft-lang/packages/core",
     "typescript": "~5.9.3"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.15",
+    "@mindcraft-lang/ts-compiler": "file:../../external/mindcraft-lang/packages/ts-compiler",
     "tsx": "^4.21.0"
   }
 }
