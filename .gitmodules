@@ -1,0 +1,3 @@
+[submodule "external/mindcraft-lang"]
+	path = external/mindcraft-lang
+	url = https://github.com/humanapp/mindcraft-lang
