@@ -66,6 +66,16 @@ export {
   type WodalBytecodeValidationCode,
   type WodalBytecodeValidationError,
 } from "./mindcraft/bytecode-loader";
-export { createMicroBitV2Module, WODAL_MICROBIT_V2_MODULE_ID } from "./mindcraft/microbit-v2-module";
+export {
+  getMicroBitContextDevice,
+  isWodalMicroBitRuntimeContext,
+  type WodalMicroBitExecutionContext,
+  type WodalMicroBitRuntimeContext,
+} from "./mindcraft/microbit-v2-context";
+export {
+  createMicroBitV2Module,
+  WODAL_MICROBIT_V2_MODULE_ID,
+  WODAL_MICROBIT_V2_TYPE_IDS,
+} from "./mindcraft/microbit-v2-module";
 export { NRF52FlashManager, type NRF52FlashSnapshot } from "./nrf52/nrf52-flash-manager";
 export { NRF52Serial, type NRF52SerialSnapshot } from "./nrf52/nrf52-serial";
