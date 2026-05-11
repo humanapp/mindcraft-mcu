@@ -77,5 +77,10 @@ export {
   WODAL_MICROBIT_V2_MODULE_ID,
   WODAL_MICROBIT_V2_TYPE_IDS,
 } from "./mindcraft/microbit-v2-module";
+export {
+  WodalMicroBitRuntime,
+  type WodalMicroBitRuntimeOptions,
+} from "./mindcraft/microbit-v2-runtime";
 export { NRF52FlashManager, type NRF52FlashSnapshot } from "./nrf52/nrf52-flash-manager";
 export { NRF52Serial, type NRF52SerialSnapshot } from "./nrf52/nrf52-serial";
+export { MISSING_WODAL_PROGRAM, WodalError, type WodalErrorCode, wodalError } from "./wodal-error";
