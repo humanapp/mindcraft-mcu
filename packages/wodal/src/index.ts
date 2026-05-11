@@ -58,9 +58,13 @@ export {
 export { Timer } from "./core/timer";
 export { MicroBit, MicroBitDisplay, type MicroBitSnapshot } from "./microbit-v2";
 export {
+  INVALID_BYTECODE_VERSION,
+  MISSING_BYTECODE_PROGRAM,
   type WodalBytecodeImage,
   WodalBytecodeLoader,
   type WodalBytecodeValidation,
+  type WodalBytecodeValidationCode,
+  type WodalBytecodeValidationError,
 } from "./mindcraft/bytecode-loader";
 export { NRF52FlashManager, type NRF52FlashSnapshot } from "./nrf52/nrf52-flash-manager";
 export { NRF52Serial, type NRF52SerialSnapshot } from "./nrf52/nrf52-serial";
