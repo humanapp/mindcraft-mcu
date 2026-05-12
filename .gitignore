@@ -33,3 +33,5 @@ drizzle/meta/
 
 #
 generated-docs/
+*.afdesign~lock~
+*.afphoto~lock~

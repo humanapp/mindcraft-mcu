@@ -40,6 +40,9 @@
     },
     "js/ts.tsdk.promptToUseWorkspaceVersion": true,
     "js/ts.tsdk.path": "external/mindcraft-lang/packages/ts-compiler/node_modules/typescript/lib",
-    "git.addAICoAuthor": "off"
+    "git.addAICoAuthor": "off",
+    "[xml]": {
+      "editor.defaultFormatter": "redhat.vscode-xml"
+    }
   }
 }
