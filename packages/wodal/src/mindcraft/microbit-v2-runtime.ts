@@ -1,9 +1,11 @@
 import { Dict, type ExecutionContext, List, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
 import {
+  BrainRuntime,
   createCallsiteStore,
   createProgramServices,
   createRuleVariableServices,
   HandleTable,
+  type LinkedBrainProgram,
   NIL_VALUE,
   type PlatformServices,
   type ProgramArtifact,
@@ -11,8 +13,10 @@ import {
   type Scheduler,
   type Value,
   VM,
+  type VmEvents,
   type VmRunResult,
 } from "@mindcraft-lang/core/runtime";
+import { toNonNegativeInteger } from "../core/numeric";
 import { MicroBit, type MicroBitSnapshot } from "../microbit-v2";
 import { MISSING_WODAL_PROGRAM, wodalError } from "../wodal-error";
 import { type WodalBytecodeImage, WodalBytecodeLoader, type WodalBytecodeValidation } from "./bytecode-loader";
@@ -31,6 +35,9 @@ export interface WodalMicroBitRuntimeOptions {
 
   /** Maximum number of pending async handles. Defaults to 100. */
   readonly maxHandles?: number;
+
+  /** Optional VM event observer for runtime diagnostics. */
+  readonly vmEvents?: VmEvents;
 }
 
 interface LoadedMicroBitProgram {
@@ -55,8 +62,10 @@ export class WodalMicroBitRuntime {
   private readonly environment: MindcraftEnvironment;
   private readonly instructionBudget: number;
   private readonly maxHandles: number;
+  private readonly vmEvents: VmEvents | undefined;
   private readonly bytecodeLoader = new WodalBytecodeLoader();
   private loaded: LoadedMicroBitProgram | undefined;
+  private loadedBrain: BrainRuntime | undefined;
 
   /**
    * Creates a runtime facade.
@@ -68,6 +77,7 @@ export class WodalMicroBitRuntime {
     this.microbit = options.microbit ?? new MicroBit();
     this.instructionBudget = options.instructionBudget ?? 1000;
     this.maxHandles = options.maxHandles ?? 100;
+    this.vmEvents = options.vmEvents;
   }
 
   /**
@@ -76,6 +86,13 @@ export class WodalMicroBitRuntime {
    * @param program - Program artifact produced by the web compiler/linker.
    */
   loadProgram(program: ProgramArtifact): void {
+    const loadedProgram = this.createLoadedProgram(program);
+    this.loadedBrain?.shutdown();
+    this.loadedBrain = undefined;
+    this.loaded = loadedProgram;
+  }
+
+  private createLoadedProgram(program: ProgramArtifact): LoadedMicroBitProgram {
     const callsiteStore = createCallsiteStore();
     const ruleVariableStores: RuleVariableStores = new Dict<number, Dict<string, Value>>();
     const variables = createVariableSlots(program);
@@ -85,9 +102,9 @@ export class WodalMicroBitRuntime {
       variableSlotsByName,
     });
     const handles = new HandleTable(this.maxHandles);
-    const vm = new VM(program, services, { handles });
+    const vm = new VM(program, services, { handles, events: this.vmEvents });
 
-    this.loaded = {
+    return {
       program,
       vm,
       services,
@@ -116,6 +133,34 @@ export class WodalMicroBitRuntime {
   }
 
   /**
+   * Validates and loads a linked Mindcraft brain program for the microbit-v2 runtime.
+   *
+   * @param image - Bytecode image containing a core linked brain program.
+   * @returns Validation result from the bytecode loader.
+   */
+  loadBrainImage(image: WodalBytecodeImage<LinkedBrainProgram>): WodalBytecodeValidation {
+    const validation = this.bytecodeLoader.validate(image);
+    if (!validation.ok) {
+      return validation;
+    }
+
+    const brainRuntime = new BrainRuntime(
+      image.program.program,
+      image.program.pages,
+      createHostServices(this.environment),
+      { microbit: this.microbit } satisfies WodalMicroBitRuntimeContext,
+      undefined,
+      this.vmEvents
+    );
+    brainRuntime.startup();
+
+    this.loadedBrain?.shutdown();
+    this.loadedBrain = brainRuntime;
+    this.loaded = undefined;
+    return this.bytecodeLoader.load(image);
+  }
+
+  /**
    * Runs the loaded program entry function once.
    *
    * @returns VM run result for the entry-fiber slice.
@@ -130,6 +175,23 @@ export class WodalMicroBitRuntime {
     return loaded.vm.runFiber(fiber, createScheduler());
   }
 
+  /**
+   * Advances simulated device time and runs one program entry slice.
+   *
+   * @param milliseconds - Elapsed simulated time in milliseconds.
+   * @returns VM run result for the entry-fiber slice.
+   */
+  tick(milliseconds: number): VmRunResult | undefined {
+    this.getLoadedRuntime();
+    this.microbit.sleep(toNonNegativeInteger(milliseconds));
+    this.microbit.idleCallback();
+    if (this.loadedBrain !== undefined) {
+      this.loadedBrain.think(this.microbit.systemTime());
+      return undefined;
+    }
+    return this.runOnce();
+  }
+
   /** Returns the current simulated device snapshot. */
   snapshot(): MicroBitSnapshot {
     return this.microbit.snapshot();
@@ -140,6 +202,12 @@ export class WodalMicroBitRuntime {
       throw wodalError(MISSING_WODAL_PROGRAM, "No WODAL microbit program has been loaded.");
     }
     return this.loaded;
+  }
+
+  private getLoadedRuntime(): void {
+    if (this.loaded === undefined && this.loadedBrain === undefined) {
+      throw wodalError(MISSING_WODAL_PROGRAM, "No WODAL microbit program has been loaded.");
+    }
   }
 }
 
@@ -168,6 +236,11 @@ function createRuntimeServices(
       callsite: callsiteStore,
     },
   };
+}
+
+function createHostServices(environment: MindcraftEnvironment): Omit<PlatformServices, "brain"> {
+  const { runtime, shared, app } = environment.brainServices;
+  return { runtime, shared, app };
 }
 
 function createBrainVariableServices(variableStorage: VariableStorage): PlatformServices["brain"]["brainVars"] {

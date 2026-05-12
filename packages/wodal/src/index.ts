@@ -58,8 +58,6 @@ export {
 export { Timer } from "./core/timer";
 export { MicroBit, MicroBitDisplay, type MicroBitSnapshot } from "./microbit-v2";
 export {
-  INVALID_BYTECODE_VERSION,
-  MISSING_BYTECODE_PROGRAM,
   type WodalBytecodeImage,
   WodalBytecodeLoader,
   type WodalBytecodeValidation,
