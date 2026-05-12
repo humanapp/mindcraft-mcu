@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { WodalBytecodeLoader } from "./bytecode-loader";
+import { WodalBytecodeLoader, WodalBytecodeValidationCode } from "./bytecode-loader";
 
 describe("WodalBytecodeLoader", () => {
   it("accepts a valid image envelope", () => {
@@ -21,7 +21,7 @@ describe("WodalBytecodeLoader", () => {
     assert.equal(validation.ok, false);
     assert.deepEqual(
       validation.errors.map((error) => error.code),
-      ["INVALID_BYTECODE_VERSION", "MISSING_BYTECODE_PROGRAM"]
+      [WodalBytecodeValidationCode.INVALID_BYTECODE_VERSION, WodalBytecodeValidationCode.MISSING_BYTECODE_PROGRAM]
     );
     assert.deepEqual(
       validation.errors.map((error) => error.message),

@@ -24,7 +24,7 @@ import {
   UserTileProject,
 } from "@mindcraft-lang/ts-compiler";
 import { MicroBit } from "../microbit-v2";
-import { MISSING_WODAL_PROGRAM, WodalError } from "../wodal-error";
+import { WodalError, WodalErrorCode } from "../wodal-error";
 import { createMicroBitV2Module } from "./microbit-v2-module";
 import { WodalMicroBitRuntime } from "./microbit-v2-runtime";
 
@@ -66,7 +66,7 @@ test("WodalMicroBitRuntime reports missing loaded program with a stable code", (
 
   assert.throws(
     () => runtime.tick(16),
-    (error) => error instanceof WodalError && error.code === MISSING_WODAL_PROGRAM
+    (error) => error instanceof WodalError && error.code === WodalErrorCode.MISSING_WODAL_PROGRAM
   );
   assert.equal(runtime.snapshot().time, 0);
 });

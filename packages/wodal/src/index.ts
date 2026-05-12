@@ -63,7 +63,7 @@ export {
   type WodalBytecodeImage,
   WodalBytecodeLoader,
   type WodalBytecodeValidation,
-  type WodalBytecodeValidationCode,
+  WodalBytecodeValidationCode,
   type WodalBytecodeValidationError,
 } from "./mindcraft/bytecode-loader";
 export {
@@ -81,6 +81,21 @@ export {
   WodalMicroBitRuntime,
   type WodalMicroBitRuntimeOptions,
 } from "./mindcraft/microbit-v2-runtime";
+export {
+  getWodalProjectTarget,
+  MINDCRAFT_PROJECT_FORMAT,
+  parseWodalProjectDocument,
+  validateWodalProjectDocument,
+  WODAL_MICROBIT_V2_PROFILE,
+  WODAL_PROJECT_TARGET_KEY,
+  type WodalProjectDocument,
+  type WodalProjectFile,
+  type WodalProjectParseResult,
+  type WodalProjectProfile,
+  type WodalProjectTarget,
+  WodalProjectValidationCode,
+  type WodalProjectValidationError,
+} from "./mindcraft/project-document";
 export { NRF52FlashManager, type NRF52FlashSnapshot } from "./nrf52/nrf52-flash-manager";
 export { NRF52Serial, type NRF52SerialSnapshot } from "./nrf52/nrf52-serial";
-export { MISSING_WODAL_PROGRAM, WodalError, type WodalErrorCode, wodalError } from "./wodal-error";
+export { WodalError, WodalErrorCode, wodalError } from "./wodal-error";

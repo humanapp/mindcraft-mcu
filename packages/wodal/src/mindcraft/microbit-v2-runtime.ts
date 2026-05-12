@@ -18,7 +18,7 @@ import {
 } from "@mindcraft-lang/core/runtime";
 import { toNonNegativeInteger } from "../core/numeric";
 import { MicroBit, type MicroBitSnapshot } from "../microbit-v2";
-import { MISSING_WODAL_PROGRAM, wodalError } from "../wodal-error";
+import { WodalErrorCode, wodalError } from "../wodal-error";
 import { type WodalBytecodeImage, WodalBytecodeLoader, type WodalBytecodeValidation } from "./bytecode-loader";
 import type { WodalMicroBitRuntimeContext } from "./microbit-v2-context";
 
@@ -199,14 +199,14 @@ export class WodalMicroBitRuntime {
 
   private getLoadedProgram(): LoadedMicroBitProgram {
     if (this.loaded === undefined) {
-      throw wodalError(MISSING_WODAL_PROGRAM, "No WODAL microbit program has been loaded.");
+      throw wodalError(WodalErrorCode.MISSING_WODAL_PROGRAM, "No WODAL microbit program has been loaded.");
     }
     return this.loaded;
   }
 
   private getLoadedRuntime(): void {
     if (this.loaded === undefined && this.loadedBrain === undefined) {
-      throw wodalError(MISSING_WODAL_PROGRAM, "No WODAL microbit program has been loaded.");
+      throw wodalError(WodalErrorCode.MISSING_WODAL_PROGRAM, "No WODAL microbit program has been loaded.");
     }
   }
 }

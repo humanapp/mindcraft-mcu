@@ -1,8 +1,10 @@
-/** Error code used when no Mindcraft program has been loaded. */
-export const MISSING_WODAL_PROGRAM = "MISSING_WODAL_PROGRAM";
+/** Error code constants used by WODAL APIs. */
+export const WodalErrorCode = {
+  MISSING_WODAL_PROGRAM: "MISSING_WODAL_PROGRAM",
+} as const;
 
-/** Stable identifiers for errors thrown by WODAL APIs. */
-export type WodalErrorCode = typeof MISSING_WODAL_PROGRAM;
+/** Union of all {@link WodalErrorCode} values. */
+export type WodalErrorCode = (typeof WodalErrorCode)[keyof typeof WodalErrorCode];
 
 /**
  * Error thrown by WODAL APIs.

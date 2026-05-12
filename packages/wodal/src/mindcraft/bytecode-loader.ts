@@ -1,7 +1,14 @@
 import { UINT16_MAX } from "../core/numeric";
 
 /** Stable bytecode validation error code. */
-export type WodalBytecodeValidationCode = "INVALID_BYTECODE_VERSION" | "MISSING_BYTECODE_PROGRAM";
+export const WodalBytecodeValidationCode = {
+  INVALID_BYTECODE_VERSION: "INVALID_BYTECODE_VERSION",
+  MISSING_BYTECODE_PROGRAM: "MISSING_BYTECODE_PROGRAM",
+} as const;
+
+/** Union of all {@link WodalBytecodeValidationCode} values. */
+export type WodalBytecodeValidationCode =
+  (typeof WodalBytecodeValidationCode)[keyof typeof WodalBytecodeValidationCode];
 
 /** Validation diagnostic for a rejected bytecode image. */
 export interface WodalBytecodeValidationError {
@@ -43,13 +50,13 @@ export class WodalBytecodeLoader<TPayload = unknown> {
     const errors: WodalBytecodeValidationError[] = [];
     if (!Number.isInteger(image.version) || image.version < 1 || image.version > UINT16_MAX) {
       errors.push({
-        code: "INVALID_BYTECODE_VERSION",
+        code: WodalBytecodeValidationCode.INVALID_BYTECODE_VERSION,
         message: "Invalid bytecode version.",
       });
     }
     if (image.program === undefined || image.program === null) {
       errors.push({
-        code: "MISSING_BYTECODE_PROGRAM",
+        code: WodalBytecodeValidationCode.MISSING_BYTECODE_PROGRAM,
         message: "Missing bytecode program.",
       });
     }

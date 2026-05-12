@@ -46,7 +46,7 @@
     }
   },
   "scripts": {
-    "build:deps": "npm run build:node --prefix ../../external/mindcraft-lang/packages/core && npm run build:esm --prefix ../../external/mindcraft-lang/packages/core && npm run build:prod --prefix ../../external/mindcraft-lang/packages/ts-compiler",
+    "build:deps": "npm run build:node --prefix ../../external/mindcraft-lang/packages/core && npm run build:esm --prefix ../../external/mindcraft-lang/packages/core && npm run build:prod --prefix ../../external/mindcraft-lang/packages/ts-compiler && npm run build:prod --prefix ../../external/mindcraft-lang/packages/service-api",
     "prebuild": "npm run build:deps",
     "build": "tsc -p tsconfig.json",
     "build:prod": "tsc --build tsconfig.prod.json",
@@ -69,6 +69,7 @@
   },
   "dependencies": {
     "@mindcraft-lang/core": "file:../../external/mindcraft-lang/packages/core",
+    "@mindcraft-lang/service-api": "file:../../external/mindcraft-lang/packages/service-api",
     "typescript": "~5.9.3"
   },
   "devDependencies": {
