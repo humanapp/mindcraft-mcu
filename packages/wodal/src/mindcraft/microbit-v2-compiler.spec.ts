@@ -4,6 +4,8 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { Dict, List, UniqueSet } from "@mindcraft-lang/core";
 import { coreModule, createMindcraftEnvironment, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
+import type { IBrainTileDef } from "@mindcraft-lang/core/brain";
+import { BrainDef } from "@mindcraft-lang/core/brain/model";
 import {
   BYTECODE_VERSION,
   type LinkedBrainProgram,
@@ -13,7 +15,14 @@ import {
   VmStatus,
   VOID_VALUE,
 } from "@mindcraft-lang/core/runtime";
-import { type AmbientFile, compileUserTile, type UserAuthoredProgram } from "@mindcraft-lang/ts-compiler";
+import {
+  type AmbientFile,
+  buildCompiledActionBundle,
+  compileUserTile,
+  type ProjectCompileResult,
+  type UserAuthoredProgram,
+  UserTileProject,
+} from "@mindcraft-lang/ts-compiler";
 import { MicroBit } from "../microbit-v2";
 import { MISSING_WODAL_PROGRAM, WodalError } from "../wodal-error";
 import { createMicroBitV2Module } from "./microbit-v2-module";
@@ -115,6 +124,22 @@ test("linked brain root rules route display calls through WODAL MicroBitDisplay"
   assert.equal(display.pixels[1 * display.width + 3], 77);
 });
 
+test("test-only bundled brain runs WHEN button A pressed DO display actuator", () => {
+  const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const microbit = new MicroBit();
+  const runtime = new WodalMicroBitRuntime({ environment, microbit });
+  const linkedBrain = createTestOnlyButtonDisplayBrain(environment);
+
+  assert.deepEqual(runtime.loadBrainImage({ version: 1, program: linkedBrain }), { ok: true, errors: [] });
+  assert.equal(runtime.tick(16), undefined);
+  assert.equal(runtime.snapshot().display.pixels[0], 0);
+
+  microbit.setButtonPressed("A", true);
+  assert.equal(runtime.tick(16), undefined);
+
+  assert.equal(runtime.snapshot().display.pixels[0], 201);
+});
+
 interface DisplayActuatorOptions {
   readonly brightness: number;
   readonly x: number;
@@ -181,6 +206,86 @@ function wodalAmbientFiles(): readonly AmbientFile[] {
 
 function readText(relativePath: string): string {
   return readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), "utf8");
+}
+
+function createTestOnlyButtonDisplayBrain(environment: MindcraftEnvironment): LinkedBrainProgram {
+  const bundle = compileTestOnlyButtonDisplayBundle(environment);
+  environment.replaceActionBundle(bundle);
+
+  const sensorTile = findBundleTile(bundle.tiles, "sensor");
+  const actuatorTile = findBundleTile(bundle.tiles, "actuator");
+  const brainDef = BrainDef.emptyBrainDef(environment.brainServices, "test-only button display brain");
+  const rule = brainDef.pages().get(0)!.children().get(0)!;
+  rule.when().appendTile(sensorTile);
+  rule.do().appendTile(actuatorTile);
+
+  const brain = environment.createBrain(brainDef);
+  const program = brain.getProgram();
+  assert.ok(program);
+  const linkedBrain: LinkedBrainProgram = {
+    program,
+    ruleIndex: new Dict<string, number>(),
+    pages: brain.getPages(),
+  };
+  brain.dispose();
+  return linkedBrain;
+}
+
+function compileTestOnlyButtonDisplayBundle(environment: MindcraftEnvironment) {
+  const project = new UserTileProject({ ambientFiles: wodalAmbientFiles(), services: environment.brainServices });
+  project.setFiles(
+    new Map([
+      [
+        "button-a-pressed.ts",
+        `
+import { Sensor, type Context } from "mindcraft";
+
+export default Sensor({
+  name: "test-button-a-pressed",
+  onExecute(ctx: Context): boolean {
+    return ctx.microbit.buttonA.isPressed() !== 0;
+  },
+});
+`,
+      ],
+      [
+        "set-display-pixel.ts",
+        `
+import { Actuator, type Context } from "mindcraft";
+
+export default Actuator({
+  name: "test-set-display-pixel",
+  onExecute(ctx: Context): void {
+    ctx.microbit.display.setPixelValue(0, 0, 201);
+  },
+});
+`,
+      ],
+    ])
+  );
+  const compileResult = project.compileAll();
+  assertProjectCompiled(compileResult);
+  const bundle = buildCompiledActionBundle(compileResult, { services: environment.brainServices });
+  assert.ok(bundle);
+  return bundle;
+}
+
+function assertProjectCompiled(result: ProjectCompileResult): void {
+  assert.equal(result.tsErrors.size, 0, `Unexpected TypeScript diagnostics: ${JSON.stringify([...result.tsErrors])}`);
+  for (const [path, compileResult] of result.results) {
+    assert.deepEqual(
+      compileResult.diagnostics,
+      [],
+      `Unexpected compiler diagnostics for ${path}: ${JSON.stringify(compileResult.diagnostics)}`
+    );
+    assert.ok(compileResult.program, `Expected compiled program for ${path}`);
+  }
+}
+
+function findBundleTile(tiles: readonly IBrainTileDef[], kind: "actuator" | "sensor"): IBrainTileDef {
+  const tile = tiles.find((candidate) => candidate.kind === kind);
+  assert.ok(tile);
+  return tile;
 }
 
 function createLinkedBrainProgram(
