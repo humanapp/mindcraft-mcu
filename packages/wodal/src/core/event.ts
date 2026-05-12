@@ -13,7 +13,10 @@ export const MICROBIT_ID_BUTTON_A = 1;
 export const MICROBIT_ID_BUTTON_B = 2;
 
 /** Event source ID used by the virtual A+B button. */
-export const MICROBIT_ID_BUTTON_AB = 26;
+export const MICROBIT_ID_BUTTON_AB = 3;
+
+/** Event source ID used by the microbit-v2 touch logo. */
+export const MICROBIT_ID_LOGO = 121;
 
 /** Button transition event emitted when a button becomes pressed. */
 export const MICROBIT_BUTTON_EVT_DOWN = 1;

@@ -20,6 +20,7 @@ export {
   MICROBIT_ID_BUTTON_A,
   MICROBIT_ID_BUTTON_AB,
   MICROBIT_ID_BUTTON_B,
+  MICROBIT_ID_LOGO,
   MicroBitEvent,
   type MicroBitEventHandler,
 } from "./core/event";
@@ -56,6 +57,7 @@ export {
   type Uint32,
 } from "./core/numeric";
 export { Timer } from "./core/timer";
+export { TouchButton, type TouchButtonSnapshot } from "./core/touch-button";
 export { MicroBit, MicroBitDisplay, type MicroBitSnapshot } from "./microbit-v2";
 export {
   type WodalBytecodeImage,

@@ -34,6 +34,23 @@ test("compiled Mindcraft code routes display calls through WODAL MicroBitDisplay
   assert.equal(display.pixels[2 * display.width + 1], 255);
 });
 
+test("compiled Mindcraft code reads WODAL Button state", () => {
+  const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const program = compileButtonDisplayActuator(environment, { brightness: 128, x: 2, y: 3 });
+  const microbit = new MicroBit();
+  const runtime = new WodalMicroBitRuntime({ environment, microbit });
+
+  assert.deepEqual(runtime.loadImage({ version: 1, program }), { ok: true, errors: [] });
+  assert.equal(runtime.tick(16)?.status, VmStatus.DONE);
+  assert.equal(runtime.snapshot().display.pixels[3 * runtime.snapshot().display.width + 2], 0);
+
+  microbit.setButtonPressed("A", true);
+  assert.equal(runtime.tick(16)?.status, VmStatus.DONE);
+
+  const display = runtime.snapshot().display;
+  assert.equal(display.pixels[3 * display.width + 2], 128);
+});
+
 test("WodalMicroBitRuntime reports missing loaded program with a stable code", () => {
   const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
   const runtime = new WodalMicroBitRuntime({ environment });
@@ -116,6 +133,31 @@ export default Actuator({
   name: "set-display-pixel",
   onExecute(ctx: Context): void {
     ctx.microbit.display.setPixelValue(${options.x}, ${options.y}, ${options.brightness});
+  },
+});
+`,
+    { ambientFiles: wodalAmbientFiles(), services: environment.brainServices }
+  );
+
+  assert.deepEqual(result.diagnostics, [], `Unexpected diagnostics: ${JSON.stringify(result.diagnostics)}`);
+  assert.ok(result.program);
+  return result.program;
+}
+
+function compileButtonDisplayActuator(
+  environment: MindcraftEnvironment,
+  options: DisplayActuatorOptions
+): UserAuthoredProgram {
+  const result = compileUserTile(
+    `
+import { Actuator, type Context } from "mindcraft";
+
+export default Actuator({
+  name: "set-display-pixel-when-button-a-pressed",
+  onExecute(ctx: Context): void {
+    if (ctx.microbit.buttonA.isPressed()) {
+      ctx.microbit.display.setPixelValue(${options.x}, ${options.y}, ${options.brightness});
+    }
   },
 });
 `,

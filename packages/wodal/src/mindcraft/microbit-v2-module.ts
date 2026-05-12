@@ -17,6 +17,9 @@ import {
   type Value,
   VOID_VALUE,
 } from "@mindcraft-lang/core/app";
+import { Button } from "../core/button";
+import type { MultiButton } from "../core/multi-button";
+import { TouchButton } from "../core/touch-button";
 import { MicroBit, MicroBitDisplay } from "../microbit-v2";
 import { getMicroBitContextDevice } from "./microbit-v2-context";
 
@@ -30,6 +33,15 @@ export const WODAL_MICROBIT_V2_TYPE_IDS = {
 
   /** Native-backed display facade for the simulated microbit device. */
   MicroBitDisplay: mkTypeId(NativeType.Struct, "MicroBitDisplay"),
+
+  /** Native-backed button facade for the simulated microbit device. */
+  Button: mkTypeId(NativeType.Struct, "Button"),
+
+  /** Native-backed multi-button facade for the simulated microbit device. */
+  MultiButton: mkTypeId(NativeType.Struct, "MultiButton"),
+
+  /** Native-backed touch button facade for the simulated microbit device. */
+  TouchButton: mkTypeId(NativeType.Struct, "TouchButton"),
 } as const;
 
 /** Creates the Mindcraft module for the WODAL microbit-v2 profile. */
@@ -39,6 +51,7 @@ export function createMicroBitV2Module(): MindcraftModule {
     install(api: MindcraftModuleApi): void {
       registerMicroBitTypes(api);
       registerMicroBitDisplayFunctions(api);
+      registerButtonFunctions(api);
     },
   };
 }
@@ -75,14 +88,89 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
     ]),
   });
 
+  types.addStructType("Button", {
+    fields: List.empty(),
+    fieldGetter: () => undefined,
+    methods: List.from([
+      {
+        name: "isPressed",
+        params: List.empty(),
+        returnTypeId: CoreTypeIds.Number,
+      },
+    ]),
+  });
+
+  types.addStructType("MultiButton", {
+    fields: List.empty(),
+    fieldGetter: () => undefined,
+    methods: List.from([
+      {
+        name: "isPressed",
+        params: List.empty(),
+        returnTypeId: CoreTypeIds.Number,
+      },
+    ]),
+  });
+
+  types.addStructType("TouchButton", {
+    fields: List.empty(),
+    fieldGetter: () => undefined,
+    methods: List.from([
+      {
+        name: "isPressed",
+        params: List.empty(),
+        returnTypeId: CoreTypeIds.Number,
+      },
+      {
+        name: "getThreshold",
+        params: List.empty(),
+        returnTypeId: CoreTypeIds.Number,
+      },
+      {
+        name: "setThreshold",
+        params: List.from([{ name: "threshold", typeId: CoreTypeIds.Number }]),
+        returnTypeId: CoreTypeIds.Void,
+      },
+      {
+        name: "getValue",
+        params: List.empty(),
+        returnTypeId: CoreTypeIds.Number,
+      },
+      {
+        name: "setValue",
+        params: List.from([{ name: "value", typeId: CoreTypeIds.Number }]),
+        returnTypeId: CoreTypeIds.Void,
+      },
+    ]),
+  });
+
   types.addStructType("MicroBit", {
-    fields: List.from([{ name: "display", typeId: WODAL_MICROBIT_V2_TYPE_IDS.MicroBitDisplay }]),
+    fields: List.from([
+      { name: "display", typeId: WODAL_MICROBIT_V2_TYPE_IDS.MicroBitDisplay },
+      { name: "buttonA", typeId: WODAL_MICROBIT_V2_TYPE_IDS.Button },
+      { name: "buttonB", typeId: WODAL_MICROBIT_V2_TYPE_IDS.Button },
+      { name: "buttonAB", typeId: WODAL_MICROBIT_V2_TYPE_IDS.MultiButton },
+      { name: "logo", typeId: WODAL_MICROBIT_V2_TYPE_IDS.TouchButton },
+    ]),
     fieldGetter: (source, fieldName) => {
-      if (fieldName !== "display") {
-        return undefined;
-      }
       const microbit = getNativeMicroBit(source);
-      return microbit ? mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.MicroBitDisplay, microbit.display) : NIL_VALUE;
+      if (!microbit) {
+        return NIL_VALUE;
+      }
+      switch (fieldName) {
+        case "display":
+          return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.MicroBitDisplay, microbit.display);
+        case "buttonA":
+          return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.Button, microbit.buttonA);
+        case "buttonB":
+          return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.Button, microbit.buttonB);
+        case "buttonAB":
+          return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.MultiButton, microbit.buttonAB);
+        case "logo":
+          return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.TouchButton, microbit.logo);
+        default:
+          return undefined;
+      }
     },
   });
 
@@ -139,12 +227,92 @@ function registerMicroBitDisplayFunctions(api: MindcraftModuleApi): void {
   });
 }
 
+function registerButtonFunctions(api: MindcraftModuleApi): void {
+  const emptyCallDef = mkCallDef({ type: "bag", items: [] });
+
+  for (const typeName of ["Button", "MultiButton", "TouchButton"]) {
+    api.registerFunction({
+      name: `${typeName}.isPressed`,
+      isAsync: false,
+      fn: {
+        exec: (_ctx: ExecutionContext, args: ReadonlyList<Value>) =>
+          mkNumberValue(getButtonReceiver(args)?.isPressed() ?? 0),
+      },
+      callDef: emptyCallDef,
+    });
+  }
+
+  api.registerFunction({
+    name: "TouchButton.getThreshold",
+    isAsync: false,
+    fn: {
+      exec: (_ctx: ExecutionContext, args: ReadonlyList<Value>) =>
+        mkNumberValue(getTouchButtonReceiver(args)?.getThreshold() ?? 0),
+    },
+    callDef: emptyCallDef,
+  });
+
+  api.registerFunction({
+    name: "TouchButton.setThreshold",
+    isAsync: false,
+    fn: {
+      exec: (_ctx: ExecutionContext, args: ReadonlyList<Value>) => {
+        getTouchButtonReceiver(args)?.setThreshold(numberArg(args, 1));
+        return VOID_VALUE;
+      },
+    },
+    callDef: emptyCallDef,
+  });
+
+  api.registerFunction({
+    name: "TouchButton.getValue",
+    isAsync: false,
+    fn: {
+      exec: (_ctx: ExecutionContext, args: ReadonlyList<Value>) =>
+        mkNumberValue(getTouchButtonReceiver(args)?.getValue() ?? 0),
+    },
+    callDef: emptyCallDef,
+  });
+
+  api.registerFunction({
+    name: "TouchButton.setValue",
+    isAsync: false,
+    fn: {
+      exec: (ctx: ExecutionContext, args: ReadonlyList<Value>) => {
+        getTouchButtonReceiver(args)?.setValue(numberArg(args, 1), ctx.time);
+        return VOID_VALUE;
+      },
+    },
+    callDef: emptyCallDef,
+  });
+}
+
 function getDisplayReceiver(args: ReadonlyList<Value>): MicroBitDisplay | undefined {
   const receiver = args.get(0);
   if (!isStructNative(receiver, WODAL_MICROBIT_V2_TYPE_IDS.MicroBitDisplay)) {
     return undefined;
   }
   return receiver.native instanceof MicroBitDisplay ? receiver.native : undefined;
+}
+
+function getButtonReceiver(args: ReadonlyList<Value>): Button | MultiButton | TouchButton | undefined {
+  const receiver = args.get(0);
+  if (
+    !isStructNative(receiver, WODAL_MICROBIT_V2_TYPE_IDS.Button) &&
+    !isStructNative(receiver, WODAL_MICROBIT_V2_TYPE_IDS.MultiButton) &&
+    !isStructNative(receiver, WODAL_MICROBIT_V2_TYPE_IDS.TouchButton)
+  ) {
+    return undefined;
+  }
+  return receiver.native instanceof Button ? receiver.native : undefined;
+}
+
+function getTouchButtonReceiver(args: ReadonlyList<Value>): TouchButton | undefined {
+  const receiver = args.get(0);
+  if (!isStructNative(receiver, WODAL_MICROBIT_V2_TYPE_IDS.TouchButton)) {
+    return undefined;
+  }
+  return receiver.native instanceof TouchButton ? receiver.native : undefined;
 }
 
 function getNativeMicroBit(value: StructValue): MicroBit | undefined {

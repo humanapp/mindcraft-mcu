@@ -10,9 +10,11 @@ import {
   MICROBIT_ID_BUTTON_A,
   MICROBIT_ID_BUTTON_AB,
   MICROBIT_ID_BUTTON_B,
+  MICROBIT_ID_LOGO,
 } from "./event";
 import { MessageBus } from "./message-bus";
 import { MultiButton } from "./multi-button";
+import { TouchButton } from "./touch-button";
 
 describe("Button", () => {
   it("emits down, up, and click events after a press cycle", () => {
@@ -80,5 +82,36 @@ describe("MultiButton", () => {
       ]
     );
     assert.equal(buttonAB.isPressed(), 0);
+  });
+});
+
+describe("TouchButton", () => {
+  it("tracks readings against the touch threshold", () => {
+    const bus = new MessageBus();
+    const events: MicroBitEvent[] = [];
+    const button = new TouchButton(MICROBIT_ID_LOGO, bus, 10);
+    bus.listen(button.id, 0, (event) => events.push(event));
+
+    button.setValue(9, 1);
+    button.setValue(10, 2);
+    button.setValue(8, 3);
+    bus.drain();
+
+    assert.equal(button.isPressed(), 0);
+    assert.deepEqual(
+      events.map((event) => [event.value, event.timestamp]),
+      [
+        [MICROBIT_BUTTON_EVT_DOWN, 2],
+        [MICROBIT_BUTTON_EVT_UP, 3],
+        [MICROBIT_BUTTON_EVT_CLICK, 3],
+      ]
+    );
+    assert.deepEqual(button.snapshot(), {
+      id: MICROBIT_ID_LOGO,
+      pressed: false,
+      pressCount: 1,
+      threshold: 10,
+      value: 8,
+    });
   });
 });

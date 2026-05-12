@@ -1,10 +1,11 @@
 import { Accelerometer } from "../core/accelerometer";
 import { Button, type ButtonSnapshot } from "../core/button";
-import { MICROBIT_ID_BUTTON_A, MICROBIT_ID_BUTTON_AB, MICROBIT_ID_BUTTON_B } from "../core/event";
+import { MICROBIT_ID_BUTTON_A, MICROBIT_ID_BUTTON_AB, MICROBIT_ID_BUTTON_B, MICROBIT_ID_LOGO } from "../core/event";
 import { MessageBus, type MessageBusSnapshot } from "../core/message-bus";
 import { MultiButton, type MultiButtonSnapshot } from "../core/multi-button";
 import { toUint32 } from "../core/numeric";
 import { Timer } from "../core/timer";
+import { TouchButton, type TouchButtonSnapshot } from "../core/touch-button";
 import { NRF52FlashManager, type NRF52FlashSnapshot } from "../nrf52/nrf52-flash-manager";
 import { NRF52Serial, type NRF52SerialSnapshot } from "../nrf52/nrf52-serial";
 import { MicroBitDisplay } from "./microbit-display";
@@ -22,6 +23,9 @@ export interface MicroBitSnapshot {
 
   /** State of virtual button A+B. */
   readonly buttonAB: MultiButtonSnapshot;
+
+  /** State of the capacitive touch logo. */
+  readonly logo: TouchButtonSnapshot;
 
   /** Current LED matrix state. */
   readonly display: ReturnType<MicroBitDisplay["snapshot"]>;
@@ -64,6 +68,9 @@ export class MicroBit {
 
   /** Virtual button that is pressed when buttons A and B are pressed together. */
   public readonly buttonAB = new MultiButton(this.buttonA, this.buttonB, MICROBIT_ID_BUTTON_AB, this.messageBus);
+
+  /** Capacitive touch logo button. */
+  public readonly logo = new TouchButton(MICROBIT_ID_LOGO, this.messageBus);
 
   /** Three-axis accelerometer model. */
   public readonly accelerometer = new Accelerometer();
@@ -131,6 +138,15 @@ export class MicroBit {
   }
 
   /**
+   * Applies host-provided logo touch input.
+   *
+   * @param touched - True when the logo is touched.
+   */
+  setLogoTouched(touched: boolean): void {
+    this.logo.setTouched(touched, this.systemTime());
+  }
+
+  /**
    * Advances runtime time and drains queued events.
    *
    * @param milliseconds - Runtime time in milliseconds.
@@ -147,6 +163,7 @@ export class MicroBit {
       buttonA: this.buttonA.snapshot(),
       buttonB: this.buttonB.snapshot(),
       buttonAB: this.buttonAB.snapshot(),
+      logo: this.logo.snapshot(),
       display: this.display.snapshot(),
       messageBus: this.messageBus.snapshot(),
       serial: this.serial.snapshot(),

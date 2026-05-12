@@ -38,6 +38,22 @@ describe("MicroBit", () => {
     assert.equal(microbit.snapshot().messageBus.queuedEventCount, 0);
   });
 
+  it("queues logo touch input events", () => {
+    const microbit = new MicroBit();
+    const events: MicroBitEvent[] = [];
+    microbit.messageBus.listen(microbit.logo.id, 0, (event) => events.push(event));
+
+    microbit.setLogoTouched(true);
+    microbit.setLogoTouched(false);
+    microbit.tick(20);
+
+    assert.deepEqual(
+      events.map((event) => event.value),
+      [MICROBIT_BUTTON_EVT_DOWN, MICROBIT_BUTTON_EVT_UP, MICROBIT_BUTTON_EVT_CLICK]
+    );
+    assert.equal(microbit.snapshot().logo.pressed, false);
+  });
+
   it("reports display and serial state in snapshots", () => {
     const microbit = new MicroBit();
 
