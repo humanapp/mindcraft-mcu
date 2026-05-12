@@ -67,6 +67,14 @@ export {
   type WodalBytecodeValidationError,
 } from "./mindcraft/bytecode-loader";
 export {
+  getWodalDeviceProfile,
+  isWodalDeviceProfileId,
+  WODAL_DEVICE_PROFILE_IDS,
+  WODAL_DEVICE_PROFILES,
+  type WodalDeviceProfile,
+  WodalDeviceProfileId,
+} from "./mindcraft/device-profile";
+export {
   getMicroBitContextDevice,
   isWodalMicroBitRuntimeContext,
   type WodalMicroBitExecutionContext,
@@ -86,12 +94,10 @@ export {
   MINDCRAFT_PROJECT_FORMAT,
   parseWodalProjectDocument,
   validateWodalProjectDocument,
-  WODAL_MICROBIT_V2_PROFILE,
   WODAL_PROJECT_TARGET_KEY,
   type WodalProjectDocument,
   type WodalProjectFile,
   type WodalProjectParseResult,
-  type WodalProjectProfile,
   type WodalProjectTarget,
   WodalProjectValidationCode,
   type WodalProjectValidationError,

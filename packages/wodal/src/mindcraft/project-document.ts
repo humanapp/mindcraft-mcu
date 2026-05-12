@@ -7,6 +7,7 @@ import {
   validateMindcraftProjectDocument,
 } from "@mindcraft-lang/service-api";
 import { name as wodalPackageName } from "../../package.json";
+import { isWodalDeviceProfileId, WODAL_DEVICE_PROFILE_IDS, type WodalDeviceProfileId } from "./device-profile";
 
 export { MINDCRAFT_PROJECT_FORMAT };
 
@@ -19,9 +20,6 @@ export type WodalProjectTargetKey = string & {
 
 /** Target key used for WODAL-owned project metadata. */
 export const WODAL_PROJECT_TARGET_KEY = wodalPackageName as WodalProjectTargetKey;
-
-/** First WODAL device profile supported by shared project documents. */
-export const WODAL_MICROBIT_V2_PROFILE = "microbit-v2";
 
 /** Validation code constants used by WODAL project document diagnostics. */
 export const WodalProjectValidationCode = {
@@ -36,16 +34,13 @@ export const WodalProjectValidationCode = {
 /** Union of all {@link WodalProjectValidationCode} values. */
 export type WodalProjectValidationCode = (typeof WodalProjectValidationCode)[keyof typeof WodalProjectValidationCode];
 
-/** WODAL profile names accepted in shared project documents. */
-export type WodalProjectProfile = typeof WODAL_MICROBIT_V2_PROFILE;
-
 /** WODAL-owned target metadata inside a shared Mindcraft project document. */
 export interface WodalProjectTarget {
   /** Version of the WODAL package that wrote or upgraded this target metadata. */
   readonly packageVersion: string;
 
   /** Device profile used for WODAL build and deploy commands. */
-  readonly profile: WodalProjectProfile;
+  readonly profile: WodalDeviceProfileId;
 }
 
 export type { MindcraftProjectFile as WodalProjectFile };
@@ -189,15 +184,15 @@ function readWodalTarget(value: unknown, errors: WodalProjectValidationError[]):
     });
   }
 
-  if (profile !== undefined && profile !== WODAL_MICROBIT_V2_PROFILE) {
+  if (profile !== undefined && !isWodalDeviceProfileId(profile)) {
     errors.push({
       code: WodalProjectValidationCode.UNSUPPORTED_WODAL_PROFILE,
       path: `$.targets["${WODAL_PROJECT_TARGET_KEY}"].profile`,
-      message: `WODAL target profile must be "${WODAL_MICROBIT_V2_PROFILE}".`,
+      message: `WODAL target profile must be one of: ${WODAL_DEVICE_PROFILE_IDS.join(", ")}.`,
     });
   }
 
-  if (packageVersion === undefined || profile !== WODAL_MICROBIT_V2_PROFILE) {
+  if (packageVersion === undefined || profile === undefined || !isWodalDeviceProfileId(profile)) {
     return undefined;
   }
 

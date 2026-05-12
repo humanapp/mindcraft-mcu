@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { WodalDeviceProfileId } from "./device-profile";
 import {
   getWodalProjectTarget,
   MINDCRAFT_PROJECT_FORMAT,
   parseWodalProjectDocument,
   validateWodalProjectDocument,
-  WODAL_MICROBIT_V2_PROFILE,
   WODAL_PROJECT_TARGET_KEY,
   type WodalProjectDocument,
   WodalProjectValidationCode,
@@ -30,7 +30,7 @@ const VALID_DOCUMENT = {
   targets: {
     [WODAL_PROJECT_TARGET_KEY]: {
       packageVersion: "0.2.1",
-      profile: WODAL_MICROBIT_V2_PROFILE,
+      profile: WodalDeviceProfileId.MICROBIT_V2,
     },
     "@mindcraft-lang/microbit-sim": {
       packageVersion: "0.1.0",
@@ -74,7 +74,7 @@ describe("validateWodalProjectDocument", () => {
     });
 
     assert.equal(result.ok, true);
-    assert.equal(getWodalProjectTarget(result.document).profile, WODAL_MICROBIT_V2_PROFILE);
+    assert.equal(getWodalProjectTarget(result.document).profile, WodalDeviceProfileId.MICROBIT_V2);
   });
 
   it("preserves unknown target entries for callers that rewrite documents", () => {
@@ -126,7 +126,7 @@ describe("validateWodalProjectDocument", () => {
         targets: {
           [WODAL_PROJECT_TARGET_KEY]: {
             packageVersion: "0.2.1",
-            profile: WODAL_MICROBIT_V2_PROFILE,
+            profile: WodalDeviceProfileId.MICROBIT_V2,
             brainId: "blink",
           },
         },
