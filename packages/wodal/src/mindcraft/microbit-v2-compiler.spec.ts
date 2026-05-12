@@ -12,11 +12,11 @@ import { WodalMicroBitRuntime } from "./microbit-v2-runtime";
 
 test("compiled Mindcraft code routes display calls through WODAL MicroBitDisplay", () => {
   const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
-  const program = compileDisplayActuator(environment);
+  const program = compileDisplayActuator(environment, { brightness: 255, x: 1, y: 2 });
   const microbit = new MicroBit();
   const runtime = new WodalMicroBitRuntime({ environment, microbit });
 
-  runtime.loadProgram(program);
+  assert.deepEqual(runtime.loadImage({ version: 1, program }), { ok: true, errors: [] });
   const result = runtime.runOnce();
 
   assert.equal(result.status, VmStatus.DONE);
@@ -34,7 +34,39 @@ test("WodalMicroBitRuntime reports missing loaded program with a stable code", (
   );
 });
 
-function compileDisplayActuator(environment: MindcraftEnvironment): UserAuthoredProgram {
+test("WodalMicroBitRuntime keeps the active program when image validation fails", () => {
+  const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const runtime = new WodalMicroBitRuntime({ environment });
+  const firstProgram = compileDisplayActuator(environment, { brightness: 111, x: 0, y: 0 });
+  const secondProgram = compileDisplayActuator(environment, { brightness: 222, x: 4, y: 4 });
+
+  assert.deepEqual(runtime.loadImage({ version: 1, program: firstProgram }), { ok: true, errors: [] });
+  assert.equal(runtime.runOnce().status, VmStatus.DONE);
+
+  runtime.microbit.display.clear();
+  const validation = runtime.loadImage({ version: 65536, program: null });
+  assert.equal(validation.ok, false);
+  assert.equal(runtime.runOnce().status, VmStatus.DONE);
+  assert.equal(runtime.snapshot().display.pixels[0], 111);
+
+  runtime.microbit.display.clear();
+  assert.deepEqual(runtime.loadImage({ version: 1, program: secondProgram }), { ok: true, errors: [] });
+  assert.equal(runtime.runOnce().status, VmStatus.DONE);
+  const display = runtime.snapshot().display;
+  assert.equal(display.pixels[0], 0);
+  assert.equal(display.pixels[4 * display.width + 4], 222);
+});
+
+interface DisplayActuatorOptions {
+  readonly brightness: number;
+  readonly x: number;
+  readonly y: number;
+}
+
+function compileDisplayActuator(
+  environment: MindcraftEnvironment,
+  options: DisplayActuatorOptions
+): UserAuthoredProgram {
   const result = compileUserTile(
     `
 import { Actuator, type Context } from "mindcraft";
@@ -42,7 +74,7 @@ import { Actuator, type Context } from "mindcraft";
 export default Actuator({
   name: "set-display-pixel",
   onExecute(ctx: Context): void {
-    ctx.microbit.display.setPixelValue(1, 2, 255);
+    ctx.microbit.display.setPixelValue(${options.x}, ${options.y}, ${options.brightness});
   },
 });
 `,

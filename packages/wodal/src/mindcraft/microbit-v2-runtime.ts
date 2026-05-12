@@ -15,6 +15,7 @@ import {
 } from "@mindcraft-lang/core/runtime";
 import { MicroBit, type MicroBitSnapshot } from "../microbit-v2";
 import { MISSING_WODAL_PROGRAM, wodalError } from "../wodal-error";
+import { type WodalBytecodeImage, WodalBytecodeLoader, type WodalBytecodeValidation } from "./bytecode-loader";
 import type { WodalMicroBitRuntimeContext } from "./microbit-v2-context";
 
 /** Construction options for the WODAL microbit-v2 runtime facade. */
@@ -54,6 +55,7 @@ export class WodalMicroBitRuntime {
   private readonly environment: MindcraftEnvironment;
   private readonly instructionBudget: number;
   private readonly maxHandles: number;
+  private readonly bytecodeLoader = new WodalBytecodeLoader();
   private loaded: LoadedMicroBitProgram | undefined;
 
   /**
@@ -95,6 +97,22 @@ export class WodalMicroBitRuntime {
       tickCount: 0,
       previousTime: this.microbit.systemTime(),
     };
+  }
+
+  /**
+   * Validates and loads a bytecode image for the microbit-v2 runtime.
+   *
+   * @param image - Bytecode image produced by the web compiler/linker.
+   * @returns Validation result from the bytecode loader.
+   */
+  loadImage(image: WodalBytecodeImage): WodalBytecodeValidation {
+    const validation = this.bytecodeLoader.validate(image);
+    if (!validation.ok) {
+      return validation;
+    }
+
+    this.loadProgram(image.program as ProgramArtifact);
+    return this.bytecodeLoader.load(image);
   }
 
   /**
