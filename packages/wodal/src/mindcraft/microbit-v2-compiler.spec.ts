@@ -82,6 +82,22 @@ test("WodalMicroBitRuntime loads linked brain images through core BrainRuntime",
   assert.equal(runtime.snapshot().time, 25);
 });
 
+test("linked brain root rules route display calls through WODAL MicroBitDisplay", () => {
+  const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const program = compileDisplayActuator(environment, { brightness: 77, x: 3, y: 1 });
+  const microbit = new MicroBit();
+  const runtime = new WodalMicroBitRuntime({ environment, microbit });
+  const linkedBrain = createLinkedBrainProgram(program, [program.entryFuncId]);
+
+  assert.deepEqual(runtime.loadBrainImage({ version: 1, program: linkedBrain }), { ok: true, errors: [] });
+  const result = runtime.tick(16);
+
+  assert.equal(result, undefined);
+  const display = runtime.snapshot().display;
+  assert.equal(runtime.snapshot().time, 16);
+  assert.equal(display.pixels[1 * display.width + 3], 77);
+});
+
 interface DisplayActuatorOptions {
   readonly brightness: number;
   readonly x: number;
@@ -125,8 +141,28 @@ function readText(relativePath: string): string {
   return readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), "utf8");
 }
 
-function createLinkedBrainProgram(): LinkedBrainProgram {
-  const program: Program = {
+function createLinkedBrainProgram(
+  program: Program = createNoopProgram(),
+  rootRuleFuncIds: readonly number[] = [0]
+): LinkedBrainProgram {
+  const page: PageMetadata = {
+    pageIndex: 0,
+    pageId: "page-1-id",
+    pageName: "page-1",
+    rootRuleFuncIds: List.from(rootRuleFuncIds),
+    actionCallSites: List.empty(),
+    sensors: new UniqueSet<string>(),
+    actuators: new UniqueSet<string>(),
+  };
+  return {
+    program,
+    ruleIndex: createRuleIndex(rootRuleFuncIds),
+    pages: List.from([page]),
+  };
+}
+
+function createNoopProgram(): Program {
+  return {
     version: BYTECODE_VERSION,
     functions: List.from([{ code: List.from([{ op: Op.PUSH_CONST_VAL, a: 0 }, { op: Op.RET }]), numParams: 0 }]),
     constantPools: {
@@ -136,18 +172,12 @@ function createLinkedBrainProgram(): LinkedBrainProgram {
     },
     variableNames: List.empty<string>(),
   };
-  const page: PageMetadata = {
-    pageIndex: 0,
-    pageId: "page-1-id",
-    pageName: "page-1",
-    rootRuleFuncIds: List.from([0]),
-    actionCallSites: List.empty(),
-    sensors: new UniqueSet<string>(),
-    actuators: new UniqueSet<string>(),
-  };
-  return {
-    program,
-    ruleIndex: new Dict<string, number>(),
-    pages: List.from([page]),
-  };
+}
+
+function createRuleIndex(rootRuleFuncIds: readonly number[]): Dict<string, number> {
+  const ruleIndex = new Dict<string, number>();
+  for (let i = 0; i < rootRuleFuncIds.length; i++) {
+    ruleIndex.set(`page-1/${i}`, rootRuleFuncIds[i]!);
+  }
+  return ruleIndex;
 }
