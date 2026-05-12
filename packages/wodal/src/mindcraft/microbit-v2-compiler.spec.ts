@@ -140,6 +140,72 @@ test("test-only bundled brain runs WHEN button A pressed DO display actuator", (
   assert.equal(runtime.snapshot().display.pixels[0], 201);
 });
 
+test("WodalMicroBitRuntime replaces active linked brain images", () => {
+  const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const microbit = new MicroBit();
+  const runtime = new WodalMicroBitRuntime({ environment, microbit });
+  const firstBrain = createTestOnlyButtonDisplayBrain(environment, { brightness: 31, x: 0, y: 0 });
+  const secondBrain = createTestOnlyButtonDisplayBrain(environment, { brightness: 202, x: 1, y: 0 });
+
+  assert.deepEqual(runtime.loadBrainImage({ version: 1, program: firstBrain }), { ok: true, errors: [] });
+  microbit.setButtonPressed("A", true);
+  assert.equal(runtime.tick(16), undefined);
+  assert.equal(runtime.snapshot().display.pixels[0], 31);
+
+  microbit.display.clear();
+  assert.deepEqual(runtime.loadBrainImage({ version: 1, program: secondBrain }), { ok: true, errors: [] });
+  assert.equal(runtime.tick(16), undefined);
+
+  const display = runtime.snapshot().display;
+  assert.equal(display.pixels[0], 0);
+  assert.equal(display.pixels[1], 202);
+});
+
+test("WodalMicroBitRuntime keeps active linked brain when brain image validation fails", () => {
+  const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const microbit = new MicroBit();
+  const runtime = new WodalMicroBitRuntime({ environment, microbit });
+  const linkedBrain = createTestOnlyButtonDisplayBrain(environment, { brightness: 61, x: 0, y: 0 });
+
+  assert.deepEqual(runtime.loadBrainImage({ version: 1, program: linkedBrain }), { ok: true, errors: [] });
+  microbit.setButtonPressed("A", true);
+  assert.equal(runtime.tick(16), undefined);
+  assert.equal(runtime.snapshot().display.pixels[0], 61);
+
+  microbit.display.clear();
+  const validation = runtime.loadBrainImage({ version: 65536, program: null as unknown as LinkedBrainProgram });
+  assert.equal(validation.ok, false);
+  assert.equal(runtime.tick(16), undefined);
+  assert.equal(runtime.snapshot().display.pixels[0], 61);
+});
+
+test("WodalMicroBitRuntime keeps action artifacts and linked brains mutually exclusive", () => {
+  const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const microbit = new MicroBit();
+  const runtime = new WodalMicroBitRuntime({ environment, microbit });
+  const linkedBrain = createTestOnlyButtonDisplayBrain(environment, { brightness: 211, x: 0, y: 0 });
+  const program = compileDisplayActuator(environment, { brightness: 99, x: 4, y: 4 });
+
+  assert.deepEqual(runtime.loadBrainImage({ version: 1, program: linkedBrain }), { ok: true, errors: [] });
+  microbit.setButtonPressed("A", true);
+  assert.equal(runtime.tick(16), undefined);
+  assert.equal(runtime.snapshot().display.pixels[0], 211);
+
+  microbit.display.clear();
+  assert.deepEqual(runtime.loadImage({ version: 1, program }), { ok: true, errors: [] });
+  assert.equal(runtime.tick(16)?.status, VmStatus.DONE);
+  let display = runtime.snapshot().display;
+  assert.equal(display.pixels[0], 0);
+  assert.equal(display.pixels[4 * display.width + 4], 99);
+
+  microbit.display.clear();
+  assert.deepEqual(runtime.loadBrainImage({ version: 1, program: linkedBrain }), { ok: true, errors: [] });
+  assert.equal(runtime.tick(16), undefined);
+  display = runtime.snapshot().display;
+  assert.equal(display.pixels[0], 211);
+  assert.equal(display.pixels[4 * display.width + 4], 0);
+});
+
 interface DisplayActuatorOptions {
   readonly brightness: number;
   readonly x: number;
@@ -208,8 +274,11 @@ function readText(relativePath: string): string {
   return readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), "utf8");
 }
 
-function createTestOnlyButtonDisplayBrain(environment: MindcraftEnvironment): LinkedBrainProgram {
-  const bundle = compileTestOnlyButtonDisplayBundle(environment);
+function createTestOnlyButtonDisplayBrain(
+  environment: MindcraftEnvironment,
+  options: DisplayActuatorOptions = { brightness: 201, x: 0, y: 0 }
+): LinkedBrainProgram {
+  const bundle = compileTestOnlyButtonDisplayBundle(environment, options);
   environment.replaceActionBundle(bundle);
 
   const sensorTile = findBundleTile(bundle.tiles, "sensor");
@@ -231,7 +300,7 @@ function createTestOnlyButtonDisplayBrain(environment: MindcraftEnvironment): Li
   return linkedBrain;
 }
 
-function compileTestOnlyButtonDisplayBundle(environment: MindcraftEnvironment) {
+function compileTestOnlyButtonDisplayBundle(environment: MindcraftEnvironment, options: DisplayActuatorOptions) {
   const project = new UserTileProject({ ambientFiles: wodalAmbientFiles(), services: environment.brainServices });
   project.setFiles(
     new Map([
@@ -256,7 +325,7 @@ import { Actuator, type Context } from "mindcraft";
 export default Actuator({
   name: "test-set-display-pixel",
   onExecute(ctx: Context): void {
-    ctx.microbit.display.setPixelValue(0, 0, 201);
+    ctx.microbit.display.setPixelValue(${options.x}, ${options.y}, ${options.brightness});
   },
 });
 `,
