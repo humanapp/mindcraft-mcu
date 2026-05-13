@@ -74,6 +74,18 @@ export {
   WodalDeviceProfileId,
 } from "./mindcraft/device-profile";
 export {
+  parseWodalProgramImage,
+  validateWodalProgramImage,
+  WODAL_BINARY_PROGRAM_IMAGE_MAGIC,
+  WODAL_PROGRAM_IMAGE_FORMAT,
+  WODAL_PROGRAM_IMAGE_VERSION,
+  type WodalProgramImage,
+  WodalProgramImageEncoding,
+  type WodalProgramImageParseResult,
+  WodalProgramImageValidationCode,
+  type WodalProgramImageValidationError,
+} from "./mindcraft/program-image";
+export {
   getWodalProjectTarget,
   MINDCRAFT_PROJECT_FORMAT,
   parseWodalProjectDocument,
