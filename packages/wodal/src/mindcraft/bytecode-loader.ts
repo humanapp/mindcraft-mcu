@@ -4,6 +4,7 @@ import { UINT16_MAX } from "../core/numeric";
 export const WodalBytecodeValidationCode = {
   INVALID_BYTECODE_VERSION: "INVALID_BYTECODE_VERSION",
   MISSING_BYTECODE_PROGRAM: "MISSING_BYTECODE_PROGRAM",
+  UNSUPPORTED_DEVICE_PROFILE: "UNSUPPORTED_DEVICE_PROFILE",
 } as const;
 
 /** Union of all {@link WodalBytecodeValidationCode} values. */

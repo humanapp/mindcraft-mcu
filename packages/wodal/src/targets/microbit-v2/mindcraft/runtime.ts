@@ -21,7 +21,10 @@ import {
   type WodalBytecodeImage,
   WodalBytecodeLoader,
   type WodalBytecodeValidation,
+  WodalBytecodeValidationCode,
 } from "../../../mindcraft/bytecode-loader";
+import { WodalDeviceProfileId } from "../../../mindcraft/device-profile";
+import { type WodalProgramImage, wodalProgramImageToBytecodeImage } from "../../../mindcraft/program-image";
 import { WodalErrorCode, wodalError } from "../../../wodal-error";
 import { MicroBit, type MicroBitSnapshot } from "../microbit";
 import type { WodalMicroBitRuntimeContext } from "./context";
@@ -162,6 +165,28 @@ export class WodalMicroBitRuntime {
     this.loadedBrain = brainRuntime;
     this.loaded = undefined;
     return this.bytecodeLoader.load(image);
+  }
+
+  /**
+   * Validates and loads a WODAL program image for the microbit-v2 runtime.
+   *
+   * @param image - Program image with an embedded WODAL profile id.
+   * @returns Validation result from the runtime load path.
+   */
+  loadWodalProgramImage(image: WodalProgramImage<LinkedBrainProgram>): WodalBytecodeValidation {
+    if (image.profileId !== WodalDeviceProfileId.MICROBIT_V2) {
+      return {
+        ok: false,
+        errors: [
+          {
+            code: WodalBytecodeValidationCode.UNSUPPORTED_DEVICE_PROFILE,
+            message: "Program image profile is not supported by the microbit-v2 runtime.",
+          },
+        ],
+      };
+    }
+
+    return this.loadBrainImage(wodalProgramImageToBytecodeImage(image));
   }
 
   /**

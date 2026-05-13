@@ -23,9 +23,17 @@ import {
   type UserAuthoredProgram,
   UserTileProject,
 } from "@mindcraft-lang/ts-compiler";
+import { WodalBytecodeValidationCode } from "../../../mindcraft/bytecode-loader";
+import { WodalDeviceProfileId } from "../../../mindcraft/device-profile";
+import {
+  WODAL_PROGRAM_IMAGE_FORMAT,
+  WODAL_PROGRAM_IMAGE_VERSION,
+  type WodalProgramImage,
+} from "../../../mindcraft/program-image";
 import { WodalError, WodalErrorCode } from "../../../wodal-error";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Module } from "./module";
+import { createMicroBitV2ProgramImage } from "./program-image";
 import { WodalMicroBitRuntime } from "./runtime";
 
 test("compiled Mindcraft code routes display calls through WODAL MicroBitDisplay", () => {
@@ -108,6 +116,27 @@ test("WodalMicroBitRuntime loads linked brain images through core BrainRuntime",
   assert.equal(runtime.snapshot().time, 25);
 });
 
+test("WodalMicroBitRuntime loads linked brain program images through the embedded profile id", () => {
+  const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const runtime = new WodalMicroBitRuntime({ environment });
+  const linkedBrain = createLinkedBrainProgram();
+
+  assert.deepEqual(createMicroBitV2ProgramImage(linkedBrain), {
+    format: WODAL_PROGRAM_IMAGE_FORMAT,
+    version: WODAL_PROGRAM_IMAGE_VERSION,
+    profileId: WodalDeviceProfileId.MICROBIT_V2,
+    program: linkedBrain,
+  });
+  assert.deepEqual(runtime.loadWodalProgramImage(createMicroBitV2ProgramImage(linkedBrain)), {
+    ok: true,
+    errors: [],
+  });
+  const result = runtime.tick(25);
+
+  assert.equal(result, undefined);
+  assert.equal(runtime.snapshot().time, 25);
+});
+
 test("linked brain root rules route display calls through WODAL MicroBitDisplay", () => {
   const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
   const program = compileDisplayActuator(environment, { brightness: 77, x: 3, y: 1 });
@@ -177,6 +206,34 @@ test("WodalMicroBitRuntime keeps active linked brain when brain image validation
   assert.equal(validation.ok, false);
   assert.equal(runtime.tick(16), undefined);
   assert.equal(runtime.snapshot().display.pixels[0], 61);
+});
+
+test("WodalMicroBitRuntime rejects program images for another profile without replacing the active brain", () => {
+  const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const microbit = new MicroBit();
+  const runtime = new WodalMicroBitRuntime({ environment, microbit });
+  const linkedBrain = createTestOnlyButtonDisplayBrain(environment, { brightness: 61, x: 0, y: 0 });
+  const otherBrain = createTestOnlyButtonDisplayBrain(environment, { brightness: 202, x: 1, y: 0 });
+
+  assert.deepEqual(runtime.loadWodalProgramImage(createMicroBitV2ProgramImage(linkedBrain)), { ok: true, errors: [] });
+  microbit.setButtonPressed("A", true);
+  assert.equal(runtime.tick(16), undefined);
+  assert.equal(runtime.snapshot().display.pixels[0], 61);
+
+  microbit.display.clear();
+  const validation = runtime.loadWodalProgramImage({
+    ...createMicroBitV2ProgramImage(otherBrain),
+    profileId: "other-profile" as WodalDeviceProfileId,
+  });
+  assert.equal(validation.ok, false);
+  assert.deepEqual(
+    validation.errors.map((error) => error.code),
+    [WodalBytecodeValidationCode.UNSUPPORTED_DEVICE_PROFILE]
+  );
+  assert.equal(runtime.tick(16), undefined);
+  const display = runtime.snapshot().display;
+  assert.equal(display.pixels[0], 61);
+  assert.equal(display.pixels[1], 0);
 });
 
 test("WodalMicroBitRuntime keeps action artifacts and linked brains mutually exclusive", () => {

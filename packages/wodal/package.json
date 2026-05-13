@@ -41,6 +41,11 @@
       "browser": "./dist/index.js",
       "import": "./dist/index.js"
     },
+    "./targets/microbit-v2": {
+      "types": "./dist/targets/microbit-v2/index.d.ts",
+      "browser": "./dist/targets/microbit-v2/index.js",
+      "import": "./dist/targets/microbit-v2/index.js"
+    },
     "./ambient/mindcraft.microbit-v2.d.ts": {
       "default": "./ambient/mindcraft.microbit-v2.d.ts"
     }
