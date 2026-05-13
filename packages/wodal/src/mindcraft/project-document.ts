@@ -2,7 +2,6 @@ import {
   MINDCRAFT_PROJECT_FORMAT,
   type MindcraftProjectDocument,
   MindcraftProjectDocumentValidationCode,
-  type MindcraftProjectFile,
   parseMindcraftProjectDocument,
   validateMindcraftProjectDocument,
 } from "@mindcraft-lang/service-api";
@@ -43,11 +42,6 @@ export interface WodalProjectTarget {
   readonly profile: WodalDeviceProfileId;
 }
 
-export type { MindcraftProjectFile as WodalProjectFile };
-
-/** Shared Mindcraft project document fields consumed by WODAL. */
-export type WodalProjectDocument = MindcraftProjectDocument;
-
 /** Validation diagnostic for a rejected project document. */
 export interface WodalProjectValidationError {
   /** Stable machine-readable validation code. */
@@ -67,7 +61,7 @@ export type WodalProjectParseResult =
       readonly ok: true;
 
       /** Parsed shared project document with WODAL target metadata. */
-      readonly document: WodalProjectDocument;
+      readonly document: MindcraftProjectDocument;
 
       /** Empty diagnostics list for a valid document. */
       readonly errors: readonly [];
@@ -113,7 +107,7 @@ export function validateWodalProjectDocument(value: unknown): WodalProjectParseR
  *
  * @param document - Project document returned by WODAL validation or parsing.
  */
-export function getWodalProjectTarget(document: WodalProjectDocument): WodalProjectTarget {
+export function getWodalProjectTarget(document: MindcraftProjectDocument): WodalProjectTarget {
   return document.targets[WODAL_PROJECT_TARGET_KEY] as WodalProjectTarget;
 }
 
@@ -137,7 +131,6 @@ function validateWodalTarget(document: MindcraftProjectDocument): WodalProjectPa
     ok: true,
     document: {
       ...document,
-      files: document.files as readonly MindcraftProjectFile[],
       targets: {
         ...document.targets,
         [WODAL_PROJECT_TARGET_KEY]: wodalTarget as WodalProjectTarget,

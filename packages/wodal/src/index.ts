@@ -58,8 +58,8 @@ export {
   createWodalProgramImageForProfile,
 } from "./mindcraft/build-program-image";
 export {
+  validateWodalBytecodeImage,
   type WodalBytecodeImage,
-  WodalBytecodeLoader,
   type WodalBytecodeValidation,
   WodalBytecodeValidationCode,
   type WodalBytecodeValidationError,
@@ -80,7 +80,6 @@ export {
   type WodalProgramImageParseResult,
   WodalProgramImageValidationCode,
   type WodalProgramImageValidationError,
-  wodalProgramImageToBytecodeImage,
 } from "./mindcraft/program-image";
 export {
   type HydrateWodalProjectBrainOptions,
@@ -102,8 +101,6 @@ export {
   parseWodalProjectDocument,
   validateWodalProjectDocument,
   WODAL_PROJECT_TARGET_KEY,
-  type WodalProjectDocument,
-  type WodalProjectFile,
   type WodalProjectParseResult,
   type WodalProjectTarget,
   WodalProjectValidationCode,

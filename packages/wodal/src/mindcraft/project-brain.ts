@@ -3,10 +3,10 @@ import {
   type MindcraftProjectBrainSelectionCode,
   type MindcraftProjectBrainSelectionResult,
   type MindcraftProjectBrainSelector,
+  type MindcraftProjectDocument,
   type MindcraftProjectSelectedBrain,
   selectMindcraftProjectBrain,
 } from "@mindcraft-lang/service-api";
-import type { WodalProjectDocument } from "./project-document";
 
 export {
   MindcraftProjectBrainSelectionCode,
@@ -31,7 +31,7 @@ export type WodalProjectBrainHydrationErrorCode = MindcraftProjectBrainSelection
 /** Caller-owned inputs for WODAL project brain hydration. */
 export interface HydrateWodalProjectBrainOptions {
   /** Project document returned by WODAL validation or parsing. */
-  readonly document: WodalProjectDocument;
+  readonly document: MindcraftProjectDocument;
 
   /** Mindcraft environment whose installed modules match the document target profile. */
   readonly environment: MindcraftEnvironment;
@@ -85,7 +85,7 @@ export type WodalProjectBrainHydrationResult =
  * @param selector - Brain selector. Omit only when the project contains one brain.
  */
 export function selectWodalProjectBrain(
-  document: WodalProjectDocument,
+  document: MindcraftProjectDocument,
   selector?: MindcraftProjectBrainSelector
 ): MindcraftProjectBrainSelectionResult {
   return selectMindcraftProjectBrain(document, selector);

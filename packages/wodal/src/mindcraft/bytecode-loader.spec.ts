@@ -1,22 +1,17 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { WodalBytecodeLoader, WodalBytecodeValidationCode } from "./bytecode-loader";
+import { validateWodalBytecodeImage, WodalBytecodeValidationCode } from "./bytecode-loader";
 
-describe("WodalBytecodeLoader", () => {
+describe("validateWodalBytecodeImage", () => {
   it("accepts a valid image envelope", () => {
-    const loader = new WodalBytecodeLoader();
-    const image = { version: 1, program: { functions: [] } };
-
-    assert.deepEqual(loader.load(image), { ok: true, errors: [] });
-    assert.equal(loader.getActiveImage(), image);
+    assert.deepEqual(validateWodalBytecodeImage({ version: 1, program: { functions: [] } }), {
+      ok: true,
+      errors: [],
+    });
   });
 
-  it("rejects invalid image envelopes without replacing the active image", () => {
-    const loader = new WodalBytecodeLoader();
-    const image = { version: 1, program: { functions: [] } };
-    loader.load(image);
-
-    const validation = loader.load({ version: 65536, program: null });
+  it("rejects invalid image envelopes with stable codes", () => {
+    const validation = validateWodalBytecodeImage({ version: 65536, program: null });
 
     assert.equal(validation.ok, false);
     assert.deepEqual(
@@ -27,6 +22,5 @@ describe("WodalBytecodeLoader", () => {
       validation.errors.map((error) => error.message),
       ["Invalid bytecode version.", "Missing bytecode program."]
     );
-    assert.equal(loader.getActiveImage(), image);
   });
 });

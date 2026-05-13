@@ -8,7 +8,6 @@ import {
   serializeMindcraftProgramImageJson,
   validateMindcraftProgramImage,
 } from "@mindcraft-lang/service-api";
-import type { WodalBytecodeImage } from "./bytecode-loader";
 import { isWodalDeviceProfileId, type WodalDeviceProfileId } from "./device-profile-id";
 
 /** Validation code constants used by WODAL program image diagnostics. */
@@ -122,20 +121,6 @@ export function validateWodalProgramImage(value: unknown): WodalProgramImagePars
  */
 export function serializeWodalProgramImageJson<TProgram>(image: WodalProgramImage<TProgram>): string {
   return serializeMindcraftProgramImageJson(image);
-}
-
-/**
- * Converts a validated program image envelope into the current loader image shape.
- *
- * @param image - Program image envelope returned by validation or parsing.
- */
-export function wodalProgramImageToBytecodeImage<TProgram>(
-  image: WodalProgramImage<TProgram>
-): WodalBytecodeImage<TProgram> {
-  return {
-    version: image.version,
-    program: image.program,
-  };
 }
 
 function parseWodalProgramImageJson(content: string): WodalProgramImageParseResult {

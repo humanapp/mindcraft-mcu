@@ -13,7 +13,6 @@ import {
   validateWodalProgramImage,
   type WodalProgramImage,
   WodalProgramImageValidationCode,
-  wodalProgramImageToBytecodeImage,
 } from "./program-image";
 
 type ProgramImageValidationCode =
@@ -130,17 +129,5 @@ describe("serializeWodalProgramImageJson", () => {
     assert.equal(result.ok, true);
     assert.equal(result.image.profileId, WodalDeviceProfileId.MICROBIT_V2);
     assert.deepEqual(result.image, VALID_IMAGE);
-  });
-});
-
-describe("program image bytecode conversion", () => {
-  it("converts a validated program image to the current bytecode loader image shape", () => {
-    const result = validateWodalProgramImage(VALID_IMAGE);
-    assert.equal(result.ok, true);
-
-    assert.deepEqual(wodalProgramImageToBytecodeImage(result.image), {
-      version: MINDCRAFT_PROGRAM_IMAGE_VERSION,
-      program: VALID_IMAGE.program,
-    });
   });
 });

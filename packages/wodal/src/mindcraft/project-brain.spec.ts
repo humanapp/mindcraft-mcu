@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { coreModule, createMindcraftEnvironment } from "@mindcraft-lang/core/app";
+import type { MindcraftProjectDocument } from "@mindcraft-lang/service-api";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "./device-profile";
 import {
   hydrateWodalProjectBrain,
@@ -10,12 +11,7 @@ import {
   WodalProjectBrainHydrationCode,
   type WodalProjectBrainHydrationResult,
 } from "./project-brain";
-import {
-  MINDCRAFT_PROJECT_FORMAT,
-  parseWodalProjectDocument,
-  WODAL_PROJECT_TARGET_KEY,
-  type WodalProjectDocument,
-} from "./project-document";
+import { MINDCRAFT_PROJECT_FORMAT, parseWodalProjectDocument, WODAL_PROJECT_TARGET_KEY } from "./project-document";
 
 type BrainSelectionCode = (typeof MindcraftProjectBrainSelectionCode)[keyof typeof MindcraftProjectBrainSelectionCode];
 type BrainHydrationCode =
@@ -44,7 +40,7 @@ const VALID_DOCUMENT = {
       profile: WodalDeviceProfileId.MICROBIT_V2,
     },
   },
-} satisfies WodalProjectDocument;
+} satisfies MindcraftProjectDocument;
 
 function selectionCodes(result: MindcraftProjectBrainSelectionResult): readonly BrainSelectionCode[] {
   assert.equal(result.ok, false);

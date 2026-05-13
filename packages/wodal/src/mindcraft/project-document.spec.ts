@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import type { MindcraftProjectDocument } from "@mindcraft-lang/service-api";
 import { WodalDeviceProfileId } from "./device-profile";
 import {
   getWodalProjectTarget,
@@ -7,7 +8,6 @@ import {
   parseWodalProjectDocument,
   validateWodalProjectDocument,
   WODAL_PROJECT_TARGET_KEY,
-  type WodalProjectDocument,
   WodalProjectValidationCode,
 } from "./project-document";
 
@@ -36,7 +36,7 @@ const VALID_DOCUMENT = {
       packageVersion: "0.1.0",
     },
   },
-} satisfies WodalProjectDocument;
+} satisfies MindcraftProjectDocument;
 
 function errorCodes(value: unknown): readonly ProjectValidationCode[] {
   const result = validateWodalProjectDocument(value);

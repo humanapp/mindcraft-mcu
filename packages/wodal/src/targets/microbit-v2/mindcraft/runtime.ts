@@ -20,13 +20,13 @@ import {
 } from "@mindcraft-lang/core/runtime";
 import { toNonNegativeInteger } from "../../../core/numeric";
 import {
+  validateWodalBytecodeImage,
   type WodalBytecodeImage,
-  WodalBytecodeLoader,
   type WodalBytecodeValidation,
   WodalBytecodeValidationCode,
 } from "../../../mindcraft/bytecode-loader";
 import { WodalDeviceProfileId } from "../../../mindcraft/device-profile";
-import { type WodalProgramImage, wodalProgramImageToBytecodeImage } from "../../../mindcraft/program-image";
+import type { WodalProgramImage } from "../../../mindcraft/program-image";
 import { WodalErrorCode, wodalError } from "../../../wodal-error";
 import { MicroBit, type MicroBitSnapshot } from "../microbit";
 import type { WodalMicroBitRuntimeContext } from "./context";
@@ -72,7 +72,6 @@ export class WodalMicroBitRuntime {
   private readonly instructionBudget: number;
   private readonly maxHandles: number;
   private readonly vmEvents: VmEvents | undefined;
-  private readonly bytecodeLoader = new WodalBytecodeLoader();
   private loaded: LoadedMicroBitProgram | undefined;
   private loadedBrain: BrainRuntime | undefined;
 
@@ -129,33 +128,37 @@ export class WodalMicroBitRuntime {
    * Validates and loads a bytecode image for the microbit-v2 runtime.
    *
    * @param image - Bytecode image produced by the web compiler/linker.
-   * @returns Validation result from the bytecode loader.
+   * @returns Validation result from the raw bytecode image checks.
    */
   loadImage(image: WodalBytecodeImage): WodalBytecodeValidation {
-    const validation = this.bytecodeLoader.validate(image);
+    const validation = validateWodalBytecodeImage(image);
     if (!validation.ok) {
       return validation;
     }
 
     this.loadProgram(image.program as ProgramArtifact);
-    return this.bytecodeLoader.load(image);
+    return validation;
   }
 
   /**
    * Validates and loads a linked Mindcraft brain program for the microbit-v2 runtime.
    *
    * @param image - Bytecode image containing a core linked brain program.
-   * @returns Validation result from the bytecode loader.
+   * @returns Validation result from the raw bytecode image checks.
    */
   loadBrainImage(image: WodalBytecodeImage<LinkedBrainProgram>): WodalBytecodeValidation {
-    const validation = this.bytecodeLoader.validate(image);
+    const validation = validateWodalBytecodeImage(image);
     if (!validation.ok) {
       return validation;
     }
 
+    return this.loadLinkedBrainProgram(image.program);
+  }
+
+  private loadLinkedBrainProgram(program: LinkedBrainProgram): WodalBytecodeValidation {
     const brainRuntime = new BrainRuntime(
-      image.program.program,
-      image.program.pages,
+      program.program,
+      program.pages,
       createHostServices(this.environment),
       { microbit: this.microbit } satisfies WodalMicroBitRuntimeContext,
       undefined,
@@ -166,7 +169,7 @@ export class WodalMicroBitRuntime {
     this.loadedBrain?.shutdown();
     this.loadedBrain = brainRuntime;
     this.loaded = undefined;
-    return this.bytecodeLoader.load(image);
+    return { ok: true, errors: [] };
   }
 
   /**
@@ -188,7 +191,7 @@ export class WodalMicroBitRuntime {
       };
     }
 
-    return this.loadBrainImage(wodalProgramImageToBytecodeImage(image));
+    return this.loadLinkedBrainProgram(image.program);
   }
 
   /**
