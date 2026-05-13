@@ -34,6 +34,9 @@ export interface WodalProgramImageValidationError {
 
   /** Human-readable diagnostic message. */
   readonly message: string;
+
+  /** Original thrown value when parsing or hydration fails. */
+  readonly cause?: unknown;
 }
 
 /** Result of validating or parsing a WODAL program image. */
@@ -139,7 +142,7 @@ function parseWodalProgramImageJson(content: string): WodalProgramImageParseResu
   let parsed: unknown;
   try {
     parsed = JSON.parse(content);
-  } catch {
+  } catch (cause) {
     return {
       ok: false,
       encoding: MindcraftProgramImageEncoding.JSON,
@@ -148,6 +151,7 @@ function parseWodalProgramImageJson(content: string): WodalProgramImageParseResu
           code: WodalProgramImageValidationCode.INVALID_PROGRAM_IMAGE_JSON,
           path: "$",
           message: "Program image is not valid JSON.",
+          cause,
         },
       ],
     };

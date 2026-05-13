@@ -4,6 +4,7 @@ import { UINT16_MAX } from "../core/numeric";
 export const WodalBytecodeValidationCode = {
   INVALID_BYTECODE_VERSION: "INVALID_BYTECODE_VERSION",
   MISSING_BYTECODE_PROGRAM: "MISSING_BYTECODE_PROGRAM",
+  INVALID_SERIALIZED_PROGRAM: "INVALID_SERIALIZED_PROGRAM",
   UNSUPPORTED_DEVICE_PROFILE: "UNSUPPORTED_DEVICE_PROFILE",
 } as const;
 
@@ -18,6 +19,9 @@ export interface WodalBytecodeValidationError {
 
   /** Human-readable diagnostic message. */
   readonly message: string;
+
+  /** Optional thrown value associated with the diagnostic. */
+  readonly cause?: unknown;
 }
 
 /** Bytecode image accepted by the WODAL loader facade. */

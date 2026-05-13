@@ -198,9 +198,37 @@ export class WodalMicroBitRuntime {
    * @returns Validation result from the runtime load path.
    */
   loadSerializedWodalProgramImage(image: WodalProgramImage<LinkedBrainProgramJson>): WodalBytecodeValidation {
+    if (image.profileId !== WodalDeviceProfileId.MICROBIT_V2) {
+      return {
+        ok: false,
+        errors: [
+          {
+            code: WodalBytecodeValidationCode.UNSUPPORTED_DEVICE_PROFILE,
+            message: "Program image profile is not supported by the microbit-v2 runtime.",
+          },
+        ],
+      };
+    }
+
+    let program: LinkedBrainProgram;
+    try {
+      program = linkedBrainProgramFromJson(image.program);
+    } catch (cause) {
+      return {
+        ok: false,
+        errors: [
+          {
+            code: WodalBytecodeValidationCode.INVALID_SERIALIZED_PROGRAM,
+            message: "Serialized linked brain program could not be hydrated.",
+            cause,
+          },
+        ],
+      };
+    }
+
     return this.loadWodalProgramImage({
       ...image,
-      program: linkedBrainProgramFromJson(image.program),
+      program,
     });
   }
 

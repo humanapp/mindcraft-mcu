@@ -65,6 +65,7 @@ describe("parseWodalProgramImage", () => {
       result.errors.map((error) => error.code),
       [WodalProgramImageValidationCode.INVALID_PROGRAM_IMAGE_JSON]
     );
+    assert.ok(result.errors[0]?.cause);
   });
 
   it("returns a stable code for recognized binary program images", () => {

@@ -9,6 +9,7 @@ import { BrainDef } from "@mindcraft-lang/core/brain/model";
 import {
   BYTECODE_VERSION,
   type LinkedBrainProgram,
+  type LinkedBrainProgramJson,
   Op,
   type PageMetadata,
   type Program,
@@ -231,6 +232,39 @@ test("WodalMicroBitRuntime rejects program images for another profile without re
   const display = runtime.snapshot().display;
   assert.equal(display.pixels[0], 61);
   assert.equal(display.pixels[1], 0);
+});
+
+test("WodalMicroBitRuntime rejects malformed serialized linked brain programs without replacing the active brain", () => {
+  const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const microbit = new MicroBit();
+  const runtime = new WodalMicroBitRuntime({ environment, microbit });
+  const linkedBrain = createTestOnlyButtonDisplayBrain(environment, { brightness: 61, x: 0, y: 0 });
+
+  assert.deepEqual(runtime.loadWodalProgramImage(createMicroBitV2ProgramImage(linkedBrain)), { ok: true, errors: [] });
+  microbit.setButtonPressed("A", true);
+  assert.equal(runtime.tick(16), undefined);
+  assert.equal(runtime.snapshot().display.pixels[0], 61);
+
+  microbit.display.clear();
+  const validation = runtime.loadSerializedWodalProgramImage({
+    format: MINDCRAFT_PROGRAM_IMAGE_FORMAT,
+    version: MINDCRAFT_PROGRAM_IMAGE_VERSION,
+    profileId: WodalDeviceProfileId.MICROBIT_V2,
+    program: {
+      program: null,
+      ruleIndex: [],
+      pages: [],
+    } as unknown as LinkedBrainProgramJson,
+  });
+
+  assert.equal(validation.ok, false);
+  assert.deepEqual(
+    validation.errors.map((error) => error.code),
+    [WodalBytecodeValidationCode.INVALID_SERIALIZED_PROGRAM]
+  );
+  assert.ok(validation.errors[0]?.cause);
+  assert.equal(runtime.tick(16), undefined);
+  assert.equal(runtime.snapshot().display.pixels[0], 61);
 });
 
 test("WodalMicroBitRuntime keeps action artifacts and linked brains mutually exclusive", () => {
