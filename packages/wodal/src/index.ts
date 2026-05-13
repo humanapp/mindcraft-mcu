@@ -20,6 +20,8 @@ export {
   type WodalProgramImageValidationError,
 } from "./mindcraft/program-image";
 export {
+  type WodalProgramLoadFailure,
+  type WodalProgramLoadSuccess,
   type WodalProgramLoadValidation,
   WodalProgramLoadValidationCode,
   type WodalProgramLoadValidationError,

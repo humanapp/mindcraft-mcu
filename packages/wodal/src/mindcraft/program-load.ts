@@ -20,11 +20,20 @@ export interface WodalProgramLoadValidationError {
   readonly cause?: unknown;
 }
 
-/** Result of validating and loading a program image. */
-export interface WodalProgramLoadValidation {
-  /** True when the program image was installed. */
-  readonly ok: boolean;
-
-  /** Validation diagnostics for rejected program images. */
-  readonly errors: readonly WodalProgramLoadValidationError[];
+/** Successful program image load result. */
+export interface WodalProgramLoadSuccess {
+  /** Indicates that the program image was installed. */
+  readonly ok: true;
 }
+
+/** Failed program image load result. */
+export interface WodalProgramLoadFailure {
+  /** Indicates that the program image was rejected. */
+  readonly ok: false;
+
+  /** Validation diagnostics for the rejected program image. */
+  readonly errors: readonly [WodalProgramLoadValidationError, ...WodalProgramLoadValidationError[]];
+}
+
+/** Result of validating and loading a program image. */
+export type WodalProgramLoadValidation = WodalProgramLoadSuccess | WodalProgramLoadFailure;

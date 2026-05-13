@@ -57,7 +57,7 @@ describe("microbit-v2 .mcprogram fixtures", () => {
     const runtime = new WodalMicroBitRuntime({ environment });
     const image = parsed.image as WodalProgramImage<LinkedBrainProgramJson>;
 
-    assert.deepEqual(runtime.loadSerializedWodalProgramImage(image), { ok: true, errors: [] });
+    assert.deepEqual(runtime.loadSerializedWodalProgramImage(image), { ok: true });
     assert.equal(runtime.tick(10), undefined);
     assert.equal(runtime.snapshot().time, 10);
   });

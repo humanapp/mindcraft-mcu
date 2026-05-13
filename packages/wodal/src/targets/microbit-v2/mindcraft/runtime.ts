@@ -61,7 +61,7 @@ export class WodalMicroBitRuntime {
     brainRuntime.startup();
 
     this.replaceLoadedBrain(brainRuntime);
-    return { ok: true, errors: [] };
+    return { ok: true };
   }
 
   /**
