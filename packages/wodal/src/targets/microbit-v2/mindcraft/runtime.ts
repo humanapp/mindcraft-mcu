@@ -53,12 +53,20 @@ interface LoadedMicroBitProgram {
   readonly program: ProgramArtifact;
   readonly vm: VM;
   readonly services: PlatformServices;
-  readonly handles: HandleTable;
   readonly variables: List<Value | undefined>;
-  readonly variableSlotsByName: Dict<string, number>;
   tickCount: number;
   previousTime: number;
 }
+
+type LoadedMicroBitRuntime =
+  | {
+      readonly kind: "action";
+      readonly program: LoadedMicroBitProgram;
+    }
+  | {
+      readonly kind: "brain";
+      readonly brain: BrainRuntime;
+    };
 
 /**
  * WODAL runtime facade for executing one loaded Mindcraft program against a
@@ -72,8 +80,7 @@ export class WodalMicroBitRuntime {
   private readonly instructionBudget: number;
   private readonly maxHandles: number;
   private readonly vmEvents: VmEvents | undefined;
-  private loaded: LoadedMicroBitProgram | undefined;
-  private loadedBrain: BrainRuntime | undefined;
+  private loadedRuntime: LoadedMicroBitRuntime | undefined;
 
   /**
    * Creates a runtime facade.
@@ -95,9 +102,7 @@ export class WodalMicroBitRuntime {
    */
   loadProgram(program: ProgramArtifact): void {
     const loadedProgram = this.createLoadedProgram(program);
-    this.loadedBrain?.shutdown();
-    this.loadedBrain = undefined;
-    this.loaded = loadedProgram;
+    this.replaceLoadedRuntime({ kind: "action", program: loadedProgram });
   }
 
   private createLoadedProgram(program: ProgramArtifact): LoadedMicroBitProgram {
@@ -116,9 +121,7 @@ export class WodalMicroBitRuntime {
       program,
       vm,
       services,
-      handles,
       variables,
-      variableSlotsByName,
       tickCount: 0,
       previousTime: this.microbit.systemTime(),
     };
@@ -166,9 +169,7 @@ export class WodalMicroBitRuntime {
     );
     brainRuntime.startup();
 
-    this.loadedBrain?.shutdown();
-    this.loadedBrain = brainRuntime;
-    this.loaded = undefined;
+    this.replaceLoadedRuntime({ kind: "brain", brain: brainRuntime });
     return { ok: true, errors: [] };
   }
 
@@ -229,10 +230,7 @@ export class WodalMicroBitRuntime {
       };
     }
 
-    return this.loadWodalProgramImage({
-      ...image,
-      program,
-    });
+    return this.loadLinkedBrainProgram(program);
   }
 
   /**
@@ -242,6 +240,10 @@ export class WodalMicroBitRuntime {
    */
   runOnce(): VmRunResult {
     const loaded = this.getLoadedProgram();
+    return this.runLoadedProgramOnce(loaded);
+  }
+
+  private runLoadedProgramOnce(loaded: LoadedMicroBitProgram): VmRunResult {
     const time = this.microbit.systemTime();
     const executionContext = createExecutionContext(loaded, this.microbit, time);
     const fiber = loaded.vm.spawnFiber(1, loaded.program.entryFuncId, List.empty<Value>(), executionContext);
@@ -257,14 +259,14 @@ export class WodalMicroBitRuntime {
    * @returns VM run result for the entry-fiber slice.
    */
   tick(milliseconds: number): VmRunResult | undefined {
-    this.getLoadedRuntime();
+    const loadedRuntime = this.getLoadedRuntime();
     this.microbit.sleep(toNonNegativeInteger(milliseconds));
     this.microbit.idleCallback();
-    if (this.loadedBrain !== undefined) {
-      this.loadedBrain.think(this.microbit.systemTime());
+    if (loadedRuntime.kind === "brain") {
+      loadedRuntime.brain.think(this.microbit.systemTime());
       return undefined;
     }
-    return this.runOnce();
+    return this.runLoadedProgramOnce(loadedRuntime.program);
   }
 
   /** Returns the current simulated device snapshot. */
@@ -273,16 +275,25 @@ export class WodalMicroBitRuntime {
   }
 
   private getLoadedProgram(): LoadedMicroBitProgram {
-    if (this.loaded === undefined) {
+    const loadedRuntime = this.getLoadedRuntime();
+    if (loadedRuntime.kind !== "action") {
       throw wodalError(WodalErrorCode.MISSING_WODAL_PROGRAM, "No WODAL microbit program has been loaded.");
     }
-    return this.loaded;
+    return loadedRuntime.program;
   }
 
-  private getLoadedRuntime(): void {
-    if (this.loaded === undefined && this.loadedBrain === undefined) {
+  private getLoadedRuntime(): LoadedMicroBitRuntime {
+    if (this.loadedRuntime === undefined) {
       throw wodalError(WodalErrorCode.MISSING_WODAL_PROGRAM, "No WODAL microbit program has been loaded.");
     }
+    return this.loadedRuntime;
+  }
+
+  private replaceLoadedRuntime(runtime: LoadedMicroBitRuntime): void {
+    if (this.loadedRuntime?.kind === "brain") {
+      this.loadedRuntime.brain.shutdown();
+    }
+    this.loadedRuntime = runtime;
   }
 }
 
