@@ -1,0 +1,21 @@
+{
+  "format": "mindcraft.program",
+  "version": 1,
+  "profileId": "microbit-v2",
+  "program": {
+    "program": {
+      "version": 1,
+      "functions": [],
+      "constantPools": {
+        "numbers": [],
+        "strings": [],
+        "values": []
+      },
+      "variableNames": [],
+      "ruleFuncIds": [],
+      "ruleAncestors": []
+    },
+    "ruleIndex": [],
+    "pages": []
+  }
+}
