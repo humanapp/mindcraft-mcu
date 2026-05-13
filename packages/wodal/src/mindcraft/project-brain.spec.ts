@@ -1,17 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { coreModule, createMindcraftEnvironment } from "@mindcraft-lang/core/app";
-import type { MindcraftProjectDocument } from "@mindcraft-lang/service-api";
+import { MindcraftProjectBrainSelectionCode, type MindcraftProjectDocument } from "@mindcraft-lang/service-api";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "./device-profile";
 import {
   hydrateWodalProjectBrain,
-  MindcraftProjectBrainSelectionCode,
-  type MindcraftProjectBrainSelectionResult,
-  selectWodalProjectBrain,
   WodalProjectBrainHydrationCode,
   type WodalProjectBrainHydrationResult,
 } from "./project-brain";
-import { MINDCRAFT_PROJECT_FORMAT, parseWodalProjectDocument, WODAL_PROJECT_TARGET_KEY } from "./project-document";
+import { MINDCRAFT_PROJECT_FORMAT, WODAL_PROJECT_TARGET_KEY } from "./project-document";
 
 type BrainSelectionCode = (typeof MindcraftProjectBrainSelectionCode)[keyof typeof MindcraftProjectBrainSelectionCode];
 type BrainHydrationCode =
@@ -42,11 +39,6 @@ const VALID_DOCUMENT = {
   },
 } satisfies MindcraftProjectDocument;
 
-function selectionCodes(result: MindcraftProjectBrainSelectionResult): readonly BrainSelectionCode[] {
-  assert.equal(result.ok, false);
-  return result.errors.map((error) => error.code);
-}
-
 function hydrationCodes(result: WodalProjectBrainHydrationResult): readonly BrainHydrationCode[] {
   assert.equal(result.ok, false);
   return result.errors.map((error) => error.code);
@@ -56,37 +48,6 @@ function createMicroBitV2Environment() {
   const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
   return createMindcraftEnvironment({ modules: [coreModule(), profile.createMindcraftModule()] });
 }
-
-describe("selectWodalProjectBrain", () => {
-  it("selects a brain from a parsed WODAL project document by id", () => {
-    const parsed = parseWodalProjectDocument(JSON.stringify(VALID_DOCUMENT));
-    assert.equal(parsed.ok, true);
-
-    const result = selectWodalProjectBrain(parsed.document, { kind: "id", id: "blink" });
-
-    assert.equal(result.ok, true);
-    assert.equal(result.brain.id, "blink");
-    assert.equal(result.brain.name, "Blink");
-    assert.deepEqual(result.brain.document, VALID_DOCUMENT.brains.blink);
-  });
-
-  it("selects a brain by display name without reading WODAL target metadata", () => {
-    const result = selectWodalProjectBrain(VALID_DOCUMENT, { kind: "name", name: "Button" });
-
-    assert.equal(result.ok, true);
-    assert.equal(result.brain.id, "button");
-    assert.equal(result.brain.name, "Button");
-  });
-
-  it("preserves shared stable selection codes", () => {
-    assert.deepEqual(selectionCodes(selectWodalProjectBrain(VALID_DOCUMENT)), [
-      MindcraftProjectBrainSelectionCode.MISSING_BRAIN_SELECTOR,
-    ]);
-    assert.deepEqual(selectionCodes(selectWodalProjectBrain(VALID_DOCUMENT, { kind: "id", id: "missing" })), [
-      MindcraftProjectBrainSelectionCode.BRAIN_NOT_FOUND,
-    ]);
-  });
-});
 
 describe("hydrateWodalProjectBrain", () => {
   it("hydrates a selected brain with a caller-owned profile environment", () => {

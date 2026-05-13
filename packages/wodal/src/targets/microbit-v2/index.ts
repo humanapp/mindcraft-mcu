@@ -19,7 +19,6 @@ export { MicroBitDisplay } from "./microbit-display";
 export {
   getMicroBitContextDevice,
   isWodalMicroBitRuntimeContext,
-  type WodalMicroBitExecutionContext,
   type WodalMicroBitRuntimeContext,
 } from "./mindcraft/context";
 export {

@@ -7,12 +7,6 @@ export interface WodalMicroBitRuntimeContext {
   readonly microbit: MicroBit;
 }
 
-/** Execution context with WODAL microbit-v2 runtime data attached. */
-export interface WodalMicroBitExecutionContext extends ExecutionContext {
-  /** WODAL microbit-v2 runtime data. */
-  readonly data: WodalMicroBitRuntimeContext;
-}
-
 /**
  * Checks whether a value is WODAL microbit-v2 runtime context data.
  *

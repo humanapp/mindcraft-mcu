@@ -84,12 +84,6 @@ export {
 export {
   type HydrateWodalProjectBrainOptions,
   hydrateWodalProjectBrain,
-  MindcraftProjectBrainSelectionCode,
-  type MindcraftProjectBrainSelectionError,
-  type MindcraftProjectBrainSelectionResult,
-  type MindcraftProjectBrainSelector,
-  type MindcraftProjectSelectedBrain,
-  selectWodalProjectBrain,
   WodalProjectBrainHydrationCode,
   type WodalProjectBrainHydrationError,
   type WodalProjectBrainHydrationErrorCode,

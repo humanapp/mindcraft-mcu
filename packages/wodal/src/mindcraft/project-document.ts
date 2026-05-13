@@ -10,15 +10,8 @@ import { isWodalDeviceProfileId, WODAL_DEVICE_PROFILE_IDS, type WodalDeviceProfi
 
 export { MINDCRAFT_PROJECT_FORMAT };
 
-declare const WODAL_PROJECT_TARGET_KEY_BRAND: unique symbol;
-
-/** Package-name target key used for WODAL-owned project metadata. */
-export type WodalProjectTargetKey = string & {
-  readonly [WODAL_PROJECT_TARGET_KEY_BRAND]: "WodalProjectTargetKey";
-};
-
 /** Target key used for WODAL-owned project metadata. */
-export const WODAL_PROJECT_TARGET_KEY = wodalPackageName as WodalProjectTargetKey;
+export const WODAL_PROJECT_TARGET_KEY = wodalPackageName;
 
 /** Validation code constants used by WODAL project document diagnostics. */
 export const WodalProjectValidationCode = {

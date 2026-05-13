@@ -1,19 +1,9 @@
 import type { IBrainDef, MindcraftEnvironment } from "@mindcraft-lang/core/app";
 import {
   type MindcraftProjectBrainSelectionCode,
-  type MindcraftProjectBrainSelectionResult,
   type MindcraftProjectBrainSelector,
   type MindcraftProjectDocument,
-  type MindcraftProjectSelectedBrain,
   selectMindcraftProjectBrain,
-} from "@mindcraft-lang/service-api";
-
-export {
-  MindcraftProjectBrainSelectionCode,
-  type MindcraftProjectBrainSelectionError,
-  type MindcraftProjectBrainSelectionResult,
-  type MindcraftProjectBrainSelector,
-  type MindcraftProjectSelectedBrain,
 } from "@mindcraft-lang/service-api";
 
 /** Validation code constants used by WODAL project brain hydration diagnostics. */
@@ -79,25 +69,12 @@ export type WodalProjectBrainHydrationResult =
     };
 
 /**
- * Selects a serialized brain from a WODAL-validated project document.
- *
- * @param document - Project document returned by WODAL validation or parsing.
- * @param selector - Brain selector. Omit only when the project contains one brain.
- */
-export function selectWodalProjectBrain(
-  document: MindcraftProjectDocument,
-  selector?: MindcraftProjectBrainSelector
-): MindcraftProjectBrainSelectionResult {
-  return selectMindcraftProjectBrain(document, selector);
-}
-
-/**
  * Selects and hydrates a serialized brain from a WODAL project document.
  *
  * @param options - Project document, caller-owned environment, and optional selector.
  */
 export function hydrateWodalProjectBrain(options: HydrateWodalProjectBrainOptions): WodalProjectBrainHydrationResult {
-  const selected = selectWodalProjectBrain(options.document, options.selector);
+  const selected = selectMindcraftProjectBrain(options.document, options.selector);
   if (!selected.ok) {
     return selected;
   }
