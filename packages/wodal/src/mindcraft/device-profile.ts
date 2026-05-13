@@ -1,5 +1,5 @@
 import type { MindcraftModule } from "@mindcraft-lang/core/app";
-import { createMicroBitV2Module } from "./microbit-v2-module";
+import { createMicroBitV2Module } from "../targets/microbit-v2/mindcraft/module";
 
 /** WODAL device profile identifiers. */
 export const WodalDeviceProfileId = {

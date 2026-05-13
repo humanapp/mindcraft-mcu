@@ -58,7 +58,6 @@ export {
 } from "./core/numeric";
 export { Timer } from "./core/timer";
 export { TouchButton, type TouchButtonSnapshot } from "./core/touch-button";
-export { MicroBit, MicroBitDisplay, type MicroBitSnapshot } from "./microbit-v2";
 export {
   type WodalBytecodeImage,
   WodalBytecodeLoader,
@@ -75,21 +74,6 @@ export {
   WodalDeviceProfileId,
 } from "./mindcraft/device-profile";
 export {
-  getMicroBitContextDevice,
-  isWodalMicroBitRuntimeContext,
-  type WodalMicroBitExecutionContext,
-  type WodalMicroBitRuntimeContext,
-} from "./mindcraft/microbit-v2-context";
-export {
-  createMicroBitV2Module,
-  WODAL_MICROBIT_V2_MODULE_ID,
-  WODAL_MICROBIT_V2_TYPE_IDS,
-} from "./mindcraft/microbit-v2-module";
-export {
-  WodalMicroBitRuntime,
-  type WodalMicroBitRuntimeOptions,
-} from "./mindcraft/microbit-v2-runtime";
-export {
   getWodalProjectTarget,
   MINDCRAFT_PROJECT_FORMAT,
   parseWodalProjectDocument,
@@ -104,4 +88,20 @@ export {
 } from "./mindcraft/project-document";
 export { NRF52FlashManager, type NRF52FlashSnapshot } from "./nrf52/nrf52-flash-manager";
 export { NRF52Serial, type NRF52SerialSnapshot } from "./nrf52/nrf52-serial";
+export { MicroBit, MicroBitDisplay, type MicroBitSnapshot } from "./targets/microbit-v2";
+export {
+  getMicroBitContextDevice,
+  isWodalMicroBitRuntimeContext,
+  type WodalMicroBitExecutionContext,
+  type WodalMicroBitRuntimeContext,
+} from "./targets/microbit-v2/mindcraft/context";
+export {
+  createMicroBitV2Module,
+  WODAL_MICROBIT_V2_MODULE_ID,
+  WODAL_MICROBIT_V2_TYPE_IDS,
+} from "./targets/microbit-v2/mindcraft/module";
+export {
+  WodalMicroBitRuntime,
+  type WodalMicroBitRuntimeOptions,
+} from "./targets/microbit-v2/mindcraft/runtime";
 export { WodalError, WodalErrorCode, wodalError } from "./wodal-error";

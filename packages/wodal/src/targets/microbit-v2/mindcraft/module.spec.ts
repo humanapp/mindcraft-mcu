@@ -15,8 +15,8 @@ import {
   NIL_VALUE,
   type StructTypeDef,
 } from "@mindcraft-lang/core/app";
-import { MicroBit } from "../microbit-v2";
-import { createMicroBitV2Module, WODAL_MICROBIT_V2_TYPE_IDS } from "./microbit-v2-module";
+import { MicroBit } from "../microbit";
+import { createMicroBitV2Module, WODAL_MICROBIT_V2_TYPE_IDS } from "./module";
 
 test("Context.microbit exposes the native WODAL microbit device", () => {
   const env = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });

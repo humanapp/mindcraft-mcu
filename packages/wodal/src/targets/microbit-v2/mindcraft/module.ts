@@ -17,11 +17,12 @@ import {
   type Value,
   VOID_VALUE,
 } from "@mindcraft-lang/core/app";
-import { Button } from "../core/button";
-import type { MultiButton } from "../core/multi-button";
-import { TouchButton } from "../core/touch-button";
-import { MicroBit, MicroBitDisplay } from "../microbit-v2";
-import { getMicroBitContextDevice } from "./microbit-v2-context";
+import { Button } from "../../../core/button";
+import type { MultiButton } from "../../../core/multi-button";
+import { TouchButton } from "../../../core/touch-button";
+import { MicroBit } from "../microbit";
+import { MicroBitDisplay } from "../microbit-display";
+import { getMicroBitContextDevice } from "./context";
 
 /** Mindcraft module ID for the WODAL microbit-v2 profile. */
 export const WODAL_MICROBIT_V2_MODULE_ID = "mindcraft.microbit-v2";

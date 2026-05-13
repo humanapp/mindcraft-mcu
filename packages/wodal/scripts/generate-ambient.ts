@@ -3,7 +3,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { coreModule, createMindcraftEnvironment } from "@mindcraft-lang/core/app";
 import { buildPlatformAmbientDeclarations } from "@mindcraft-lang/ts-compiler";
-import { createMicroBitV2Module } from "../src/mindcraft/microbit-v2-module";
+import { createMicroBitV2Module } from "../src/targets/microbit-v2/mindcraft/module";
 
 const packageDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const ambientPath = resolve(packageDir, "ambient/mindcraft.microbit-v2.d.ts");

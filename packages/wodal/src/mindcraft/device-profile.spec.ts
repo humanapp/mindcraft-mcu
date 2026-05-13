@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { WODAL_MICROBIT_V2_MODULE_ID } from "../targets/microbit-v2/mindcraft/module";
 import {
   getWodalDeviceProfile,
   isWodalDeviceProfileId,
@@ -7,7 +8,6 @@ import {
   WODAL_DEVICE_PROFILES,
   WodalDeviceProfileId,
 } from "./device-profile";
-import { WODAL_MICROBIT_V2_MODULE_ID } from "./microbit-v2-module";
 
 describe("WODAL device profiles", () => {
   it("maps the microbit-v2 profile id to its Mindcraft module factory", () => {

@@ -1,5 +1,5 @@
 import type { ExecutionContext } from "@mindcraft-lang/core/app";
-import { MicroBit } from "../microbit-v2";
+import { MicroBit } from "../microbit";
 
 /** Runtime context data required by the WODAL microbit-v2 Mindcraft module. */
 export interface WodalMicroBitRuntimeContext {

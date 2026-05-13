@@ -1,4 +1,4 @@
-import { LEDMatrix, type LEDMatrixSnapshot } from "../core/led-matrix";
+import { LEDMatrix, type LEDMatrixSnapshot } from "../../core/led-matrix";
 
 /** CODAL-style microbit display facade over a 5x5 LED matrix. */
 export class MicroBitDisplay {

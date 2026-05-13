@@ -16,11 +16,15 @@ import {
   type VmEvents,
   type VmRunResult,
 } from "@mindcraft-lang/core/runtime";
-import { toNonNegativeInteger } from "../core/numeric";
-import { MicroBit, type MicroBitSnapshot } from "../microbit-v2";
-import { WodalErrorCode, wodalError } from "../wodal-error";
-import { type WodalBytecodeImage, WodalBytecodeLoader, type WodalBytecodeValidation } from "./bytecode-loader";
-import type { WodalMicroBitRuntimeContext } from "./microbit-v2-context";
+import { toNonNegativeInteger } from "../../../core/numeric";
+import {
+  type WodalBytecodeImage,
+  WodalBytecodeLoader,
+  type WodalBytecodeValidation,
+} from "../../../mindcraft/bytecode-loader";
+import { WodalErrorCode, wodalError } from "../../../wodal-error";
+import { MicroBit, type MicroBitSnapshot } from "../microbit";
+import type { WodalMicroBitRuntimeContext } from "./context";
 
 /** Construction options for the WODAL microbit-v2 runtime facade. */
 export interface WodalMicroBitRuntimeOptions {

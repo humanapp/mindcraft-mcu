@@ -23,10 +23,10 @@ import {
   type UserAuthoredProgram,
   UserTileProject,
 } from "@mindcraft-lang/ts-compiler";
-import { MicroBit } from "../microbit-v2";
-import { WodalError, WodalErrorCode } from "../wodal-error";
-import { createMicroBitV2Module } from "./microbit-v2-module";
-import { WodalMicroBitRuntime } from "./microbit-v2-runtime";
+import { WodalError, WodalErrorCode } from "../../../wodal-error";
+import { MicroBit } from "../microbit";
+import { createMicroBitV2Module } from "./module";
+import { WodalMicroBitRuntime } from "./runtime";
 
 test("compiled Mindcraft code routes display calls through WODAL MicroBitDisplay", () => {
   const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
@@ -264,9 +264,9 @@ function wodalAmbientFiles(): readonly AmbientFile[] {
   return [
     {
       path: "mindcraft.core.d.ts",
-      content: readText("../../../../external/mindcraft-lang/packages/core/ambient/mindcraft.core.d.ts"),
+      content: readText("../../../../../../external/mindcraft-lang/packages/core/ambient/mindcraft.core.d.ts"),
     },
-    { path: "mindcraft.microbit-v2.d.ts", content: readText("../../ambient/mindcraft.microbit-v2.d.ts") },
+    { path: "mindcraft.microbit-v2.d.ts", content: readText("../../../../ambient/mindcraft.microbit-v2.d.ts") },
   ];
 }
 

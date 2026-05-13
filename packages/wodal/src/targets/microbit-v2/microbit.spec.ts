@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { MicroBitEvent } from "../core/event";
-import { MICROBIT_BUTTON_EVT_CLICK, MICROBIT_BUTTON_EVT_DOWN, MICROBIT_BUTTON_EVT_UP } from "../core/event";
+import type { MicroBitEvent } from "../../core/event";
+import { MICROBIT_BUTTON_EVT_CLICK, MICROBIT_BUTTON_EVT_DOWN, MICROBIT_BUTTON_EVT_UP } from "../../core/event";
 import { MicroBit } from "./microbit";
 
 describe("MicroBit", () => {
