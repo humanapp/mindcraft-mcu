@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
+import { coreModule, createMindcraftEnvironment } from "@mindcraft-lang/core/app";
 import type { LinkedBrainProgramJson } from "@mindcraft-lang/core/runtime";
 import {
   MINDCRAFT_PROGRAM_IMAGE_FORMAT,
@@ -14,6 +15,8 @@ import {
   serializeWodalProgramImageJson,
   type WodalProgramImage,
 } from "../../../mindcraft/program-image";
+import { createMicroBitV2Module } from "./module";
+import { WodalMicroBitRuntime } from "./runtime";
 
 const MINIMAL_PROGRAM_FIXTURE_PATH = fileURLToPath(new URL("./__fixtures__/minimal.mcprogram", import.meta.url));
 
@@ -43,5 +46,19 @@ describe("microbit-v2 .mcprogram fixtures", () => {
 
     assert.equal(reparsed.ok, true);
     assert.equal(reparsed.image.profileId, WodalDeviceProfileId.MICROBIT_V2);
+  });
+
+  it("loads the minimal program image fixture through the microbit-v2 runtime", () => {
+    const content = readFileSync(MINIMAL_PROGRAM_FIXTURE_PATH, "utf8");
+    const parsed = parseWodalProgramImage(content);
+    assert.equal(parsed.ok, true);
+
+    const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+    const runtime = new WodalMicroBitRuntime({ environment });
+    const image = parsed.image as WodalProgramImage<LinkedBrainProgramJson>;
+
+    assert.deepEqual(runtime.loadSerializedWodalProgramImage(image), { ok: true, errors: [] });
+    assert.equal(runtime.tick(10), undefined);
+    assert.equal(runtime.snapshot().time, 10);
   });
 });

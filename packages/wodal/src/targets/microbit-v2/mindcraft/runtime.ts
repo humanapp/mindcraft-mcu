@@ -6,6 +6,8 @@ import {
   createRuleVariableServices,
   HandleTable,
   type LinkedBrainProgram,
+  type LinkedBrainProgramJson,
+  linkedBrainProgramFromJson,
   NIL_VALUE,
   type PlatformServices,
   type ProgramArtifact,
@@ -187,6 +189,19 @@ export class WodalMicroBitRuntime {
     }
 
     return this.loadBrainImage(wodalProgramImageToBytecodeImage(image));
+  }
+
+  /**
+   * Validates, hydrates, and loads a serialized linked brain program image.
+   *
+   * @param image - Program image with a JSON-safe linked brain payload.
+   * @returns Validation result from the runtime load path.
+   */
+  loadSerializedWodalProgramImage(image: WodalProgramImage<LinkedBrainProgramJson>): WodalBytecodeValidation {
+    return this.loadWodalProgramImage({
+      ...image,
+      program: linkedBrainProgramFromJson(image.program),
+    });
   }
 
   /**
