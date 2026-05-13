@@ -59,6 +59,10 @@ export {
 export { Timer } from "./core/timer";
 export { TouchButton, type TouchButtonSnapshot } from "./core/touch-button";
 export {
+  type CreateWodalProgramImageForProfileOptions,
+  createWodalProgramImageForProfile,
+} from "./mindcraft/build-program-image";
+export {
   type WodalBytecodeImage,
   WodalBytecodeLoader,
   type WodalBytecodeValidation,
