@@ -83,6 +83,14 @@ export {
   wodalProgramImageToBytecodeImage,
 } from "./mindcraft/program-image";
 export {
+  MindcraftProjectBrainSelectionCode,
+  type MindcraftProjectBrainSelectionError,
+  type MindcraftProjectBrainSelectionResult,
+  type MindcraftProjectBrainSelector,
+  type MindcraftProjectSelectedBrain,
+  selectWodalProjectBrain,
+} from "./mindcraft/project-brain";
+export {
   getWodalProjectTarget,
   MINDCRAFT_PROJECT_FORMAT,
   parseWodalProjectDocument,
