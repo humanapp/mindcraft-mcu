@@ -1,10 +1,10 @@
-import { MICROBIT_EVT_ANY, MICROBIT_ID_ANY, MicroBitEvent, type MicroBitEventHandler } from "./event";
+import { WODAL_EVT_ANY, WODAL_ID_ANY, WodalEvent, type WodalEventHandler } from "./event";
 import { toNonNegativeInteger, toUint16 } from "./numeric";
 
 interface ListenerEntry {
   readonly source: number;
   readonly value: number;
-  readonly handler: MicroBitEventHandler;
+  readonly handler: WodalEventHandler;
 }
 
 /** Delivery mode for newly raised events. */
@@ -27,17 +27,17 @@ export interface MessageBusSnapshot {
  */
 export class MessageBus {
   private readonly listeners: ListenerEntry[] = [];
-  private readonly queue: MicroBitEvent[] = [];
+  private readonly queue: WodalEvent[] = [];
 
   /**
    * Registers a handler for a source/value pair.
    *
-   * @param source - Event source ID, or `MICROBIT_ID_ANY`.
-   * @param value - Event value, or `MICROBIT_EVT_ANY`.
+   * @param source - Event source ID, or `WODAL_ID_ANY`.
+   * @param value - Event value, or `WODAL_EVT_ANY`.
    * @param handler - Function invoked when a matching event is delivered.
    * @returns A function that removes this listener.
    */
-  listen(source: number, value: number, handler: MicroBitEventHandler): () => void {
+  listen(source: number, value: number, handler: WodalEventHandler): () => void {
     const entry: ListenerEntry = { source: toUint16(source), value: toUint16(value), handler };
     this.listeners.push(entry);
     return () => this.ignore(entry.source, entry.value, handler);
@@ -50,7 +50,7 @@ export class MessageBus {
    * @param value - Event value used during registration.
    * @param handler - Optional handler to remove a single registration.
    */
-  ignore(source: number, value: number, handler?: MicroBitEventHandler): void {
+  ignore(source: number, value: number, handler?: WodalEventHandler): void {
     const normalizedSource = toUint16(source);
     const normalizedValue = toUint16(value);
     for (let i = this.listeners.length - 1; i >= 0; i--) {
@@ -71,7 +71,7 @@ export class MessageBus {
    * @param event - Event to enqueue or deliver.
    * @param delivery - Delivery mode. The default preserves host-loop single entry.
    */
-  send(event: MicroBitEvent, delivery: MessageBusDelivery = "queue"): void {
+  send(event: WodalEvent, delivery: MessageBusDelivery = "queue"): void {
     if (delivery === "immediate") {
       this.deliver(event);
       return;
@@ -88,7 +88,7 @@ export class MessageBus {
    * @param delivery - Delivery mode. The default preserves host-loop single entry.
    */
   fire(source: number, value: number, timestamp = 0, delivery: MessageBusDelivery = "queue"): void {
-    this.send(new MicroBitEvent(source, value, timestamp), delivery);
+    this.send(new WodalEvent(source, value, timestamp), delivery);
   }
 
   /**
@@ -124,11 +124,11 @@ export class MessageBus {
     };
   }
 
-  private deliver(event: MicroBitEvent): void {
+  private deliver(event: WodalEvent): void {
     const listeners = this.listeners.slice();
     for (const listener of listeners) {
-      const sourceMatches = listener.source === event.source || listener.source === MICROBIT_ID_ANY;
-      const valueMatches = listener.value === event.value || listener.value === MICROBIT_EVT_ANY;
+      const sourceMatches = listener.source === event.source || listener.source === WODAL_ID_ANY;
+      const valueMatches = listener.value === event.value || listener.value === WODAL_EVT_ANY;
       if (sourceMatches && valueMatches) {
         listener.handler(event);
       }

@@ -16,14 +16,14 @@ export interface Sample3D {
 export type CoordinateSystem = "simple" | "raw";
 
 /** Gesture value reported when no gesture has been recognized. */
-export const MICROBIT_ACCELEROMETER_EVT_NONE = 0;
+export const ACCELEROMETER_EVT_NONE = 0;
 
 /** Software accelerometer model with injectable sample data. */
 export class Accelerometer {
   private period = 20;
   private range = 2;
   private sample: Sample3D = { x: 0, y: 0, z: -1000 };
-  private gesture = MICROBIT_ACCELEROMETER_EVT_NONE;
+  private gesture = ACCELEROMETER_EVT_NONE;
 
   /**
    * Sets the requested sample period.

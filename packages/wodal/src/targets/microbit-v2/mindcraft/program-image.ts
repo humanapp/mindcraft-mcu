@@ -1,10 +1,7 @@
 import type { LinkedBrainProgram } from "@mindcraft-lang/core/runtime";
+import { MINDCRAFT_PROGRAM_IMAGE_FORMAT, MINDCRAFT_PROGRAM_IMAGE_VERSION } from "@mindcraft-lang/service-api";
 import { WodalDeviceProfileId } from "../../../mindcraft/device-profile-id";
-import {
-  WODAL_PROGRAM_IMAGE_FORMAT,
-  WODAL_PROGRAM_IMAGE_VERSION,
-  type WodalProgramImage,
-} from "../../../mindcraft/program-image";
+import type { WodalProgramImage } from "../../../mindcraft/program-image";
 
 /**
  * Creates a WODAL program image for the microbit-v2 runtime.
@@ -13,8 +10,8 @@ import {
  */
 export function createMicroBitV2ProgramImage(program: LinkedBrainProgram): WodalProgramImage<LinkedBrainProgram> {
   return {
-    format: WODAL_PROGRAM_IMAGE_FORMAT,
-    version: WODAL_PROGRAM_IMAGE_VERSION,
+    format: MINDCRAFT_PROGRAM_IMAGE_FORMAT,
+    version: MINDCRAFT_PROGRAM_IMAGE_VERSION,
     profileId: WodalDeviceProfileId.MICROBIT_V2,
     program,
   };

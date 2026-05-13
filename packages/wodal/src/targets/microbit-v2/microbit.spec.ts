@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { MicroBitEvent } from "../../core/event";
-import { MICROBIT_BUTTON_EVT_CLICK, MICROBIT_BUTTON_EVT_DOWN, MICROBIT_BUTTON_EVT_UP } from "../../core/event";
+import type { WodalEvent } from "../../core/event";
+import { MICROBIT_BUTTON_EVT_CLICK, MICROBIT_BUTTON_EVT_DOWN, MICROBIT_BUTTON_EVT_UP } from "./constants";
 import { MicroBit } from "./microbit";
 
 describe("MicroBit", () => {
@@ -23,7 +23,7 @@ describe("MicroBit", () => {
 
   it("queues input events and drains them during tick", () => {
     const microbit = new MicroBit();
-    const events: MicroBitEvent[] = [];
+    const events: WodalEvent[] = [];
     microbit.messageBus.listen(microbit.buttonA.id, 0, (event) => events.push(event));
 
     microbit.setButtonPressed("A", true);
@@ -40,7 +40,7 @@ describe("MicroBit", () => {
 
   it("queues logo touch input events", () => {
     const microbit = new MicroBit();
-    const events: MicroBitEvent[] = [];
+    const events: WodalEvent[] = [];
     microbit.messageBus.listen(microbit.logo.id, 0, (event) => events.push(event));
 
     microbit.setLogoTouched(true);
@@ -56,7 +56,7 @@ describe("MicroBit", () => {
 
   it("maps app-facing input methods to button and logo state", () => {
     const microbit = new MicroBit();
-    const events: MicroBitEvent[] = [];
+    const events: WodalEvent[] = [];
     microbit.messageBus.listen(microbit.buttonA.id, 0, (event) => events.push(event));
     microbit.messageBus.listen(microbit.buttonB.id, 0, (event) => events.push(event));
     microbit.messageBus.listen(microbit.buttonAB.id, 0, (event) => events.push(event));

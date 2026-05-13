@@ -1,40 +1,28 @@
 import { toUint16, toUint32 } from "./numeric";
 
 /** Matches any event source or value in a message bus listener. */
-export const MICROBIT_EVT_ANY = 0;
+export const WODAL_EVT_ANY = 0;
 
 /** Matches any event source in a message bus listener. */
-export const MICROBIT_ID_ANY = 0;
-
-/** Event source ID used by microbit button A. */
-export const MICROBIT_ID_BUTTON_A = 1;
-
-/** Event source ID used by microbit button B. */
-export const MICROBIT_ID_BUTTON_B = 2;
-
-/** Event source ID used by the virtual A+B button. */
-export const MICROBIT_ID_BUTTON_AB = 3;
-
-/** Event source ID used by the microbit-v2 touch logo. */
-export const MICROBIT_ID_LOGO = 121;
+export const WODAL_ID_ANY = 0;
 
 /** Button transition event emitted when a button becomes pressed. */
-export const MICROBIT_BUTTON_EVT_DOWN = 1;
+export const DEVICE_BUTTON_EVT_DOWN = 1;
 
 /** Button transition event emitted when a button becomes released. */
-export const MICROBIT_BUTTON_EVT_UP = 2;
+export const DEVICE_BUTTON_EVT_UP = 2;
 
 /** Button click event emitted after a press and release cycle. */
-export const MICROBIT_BUTTON_EVT_CLICK = 3;
+export const DEVICE_BUTTON_EVT_CLICK = 3;
 
-/** Button long-click event value reserved by the microbit button API. */
-export const MICROBIT_BUTTON_EVT_LONG_CLICK = 4;
+/** Button long-click event value reserved by the button API. */
+export const DEVICE_BUTTON_EVT_LONG_CLICK = 4;
 
-/** Button hold event value reserved by the microbit button API. */
-export const MICROBIT_BUTTON_EVT_HOLD = 5;
+/** Button hold event value reserved by the button API. */
+export const DEVICE_BUTTON_EVT_HOLD = 5;
 
-/** Button double-click event value reserved by the microbit button API. */
-export const MICROBIT_BUTTON_EVT_DOUBLE_CLICK = 6;
+/** Button double-click event value reserved by the button API. */
+export const DEVICE_BUTTON_EVT_DOUBLE_CLICK = 6;
 
 /** Event configuration that emits only down and up transitions. */
 export const DEVICE_BUTTON_SIMPLE_EVENTS = 1;
@@ -43,10 +31,10 @@ export const DEVICE_BUTTON_SIMPLE_EVENTS = 1;
 export const DEVICE_BUTTON_ALL_EVENTS = 2;
 
 /** Describes which button events a simulated button should emit. */
-export type ButtonEventConfiguration = typeof DEVICE_BUTTON_SIMPLE_EVENTS | typeof DEVICE_BUTTON_ALL_EVENTS;
+export type DeviceButtonEventConfiguration = typeof DEVICE_BUTTON_SIMPLE_EVENTS | typeof DEVICE_BUTTON_ALL_EVENTS;
 
 /** Numeric event emitted by a CODAL-style device component. */
-export class MicroBitEvent {
+export class WodalEvent {
   /** Numeric ID of the component that produced the event. */
   public readonly source: number;
 
@@ -71,4 +59,4 @@ export class MicroBitEvent {
 }
 
 /** Function invoked for a delivered message bus event. */
-export type MicroBitEventHandler = (event: MicroBitEvent) => void;
+export type WodalEventHandler = (event: WodalEvent) => void;

@@ -4,7 +4,7 @@ import { LEDMatrix } from "./led-matrix";
 
 describe("LEDMatrix", () => {
   it("clamps pixel brightness to uint8 range", () => {
-    const matrix = new LEDMatrix();
+    const matrix = new LEDMatrix(5, 5);
 
     matrix.setPixelValue(1, 2, 300);
     matrix.setPixelValue(2, 2, -1);
@@ -14,7 +14,7 @@ describe("LEDMatrix", () => {
   });
 
   it("ignores out-of-range coordinates", () => {
-    const matrix = new LEDMatrix();
+    const matrix = new LEDMatrix(5, 5);
 
     matrix.setPixelValue(5, 0, 255);
     matrix.setPixelValue(0, -1, 255);
@@ -27,7 +27,7 @@ describe("LEDMatrix", () => {
   });
 
   it("loads row-major pixel data", () => {
-    const matrix = new LEDMatrix();
+    const matrix = new LEDMatrix(5, 5);
 
     matrix.setPixels([1, 2, 3, 4, 5, 6]);
 

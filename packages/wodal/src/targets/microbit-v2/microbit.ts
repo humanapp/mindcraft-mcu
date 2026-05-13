@@ -1,6 +1,5 @@
 import { Accelerometer } from "../../core/accelerometer";
 import { Button, type ButtonSnapshot } from "../../core/button";
-import { MICROBIT_ID_BUTTON_A, MICROBIT_ID_BUTTON_AB, MICROBIT_ID_BUTTON_B, MICROBIT_ID_LOGO } from "../../core/event";
 import { MessageBus, type MessageBusSnapshot } from "../../core/message-bus";
 import { MultiButton, type MultiButtonSnapshot } from "../../core/multi-button";
 import { toUint32 } from "../../core/numeric";
@@ -8,6 +7,7 @@ import { Timer } from "../../core/timer";
 import { TouchButton, type TouchButtonSnapshot } from "../../core/touch-button";
 import { NRF52FlashManager, type NRF52FlashSnapshot } from "../../nrf52/nrf52-flash-manager";
 import { NRF52Serial, type NRF52SerialSnapshot } from "../../nrf52/nrf52-serial";
+import { MICROBIT_ID_BUTTON_A, MICROBIT_ID_BUTTON_AB, MICROBIT_ID_BUTTON_B, MICROBIT_ID_LOGO } from "./constants";
 import { MicroBitDisplay } from "./microbit-display";
 
 /** Snapshot of the microbit-v2 profile state exposed to app adapters. */

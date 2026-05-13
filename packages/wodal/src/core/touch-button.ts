@@ -1,5 +1,5 @@
 import { Button, type ButtonSnapshot } from "./button";
-import { type ButtonEventConfiguration, DEVICE_BUTTON_ALL_EVENTS } from "./event";
+import { DEVICE_BUTTON_ALL_EVENTS, type DeviceButtonEventConfiguration } from "./event";
 import type { MessageBus } from "./message-bus";
 import { toInt32 } from "./numeric";
 
@@ -29,7 +29,7 @@ export class TouchButton extends Button {
     id: number,
     messageBus: MessageBus,
     threshold = 1,
-    eventConfiguration: ButtonEventConfiguration = DEVICE_BUTTON_ALL_EVENTS
+    eventConfiguration: DeviceButtonEventConfiguration = DEVICE_BUTTON_ALL_EVENTS
   ) {
     super(id, messageBus, eventConfiguration);
     this.threshold = toInt32(threshold);

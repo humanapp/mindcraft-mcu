@@ -1,27 +1,28 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { Button } from "./button";
-import type { MicroBitEvent } from "./event";
+import type { WodalEvent } from "./event";
 import {
+  DEVICE_BUTTON_EVT_CLICK,
+  DEVICE_BUTTON_EVT_DOWN,
+  DEVICE_BUTTON_EVT_UP,
   DEVICE_BUTTON_SIMPLE_EVENTS,
-  MICROBIT_BUTTON_EVT_CLICK,
-  MICROBIT_BUTTON_EVT_DOWN,
-  MICROBIT_BUTTON_EVT_UP,
-  MICROBIT_ID_BUTTON_A,
-  MICROBIT_ID_BUTTON_AB,
-  MICROBIT_ID_BUTTON_B,
-  MICROBIT_ID_LOGO,
 } from "./event";
 import { MessageBus } from "./message-bus";
 import { MultiButton } from "./multi-button";
 import { TouchButton } from "./touch-button";
 
+const TEST_BUTTON_A_ID = 1;
+const TEST_BUTTON_B_ID = 2;
+const TEST_BUTTON_AB_ID = 3;
+const TEST_TOUCH_BUTTON_ID = 121;
+
 describe("Button", () => {
   it("emits down, up, and click events after a press cycle", () => {
     const bus = new MessageBus();
-    const events: MicroBitEvent[] = [];
-    const button = new Button(MICROBIT_ID_BUTTON_A, bus);
-    bus.listen(MICROBIT_ID_BUTTON_A, 0, (event) => events.push(event));
+    const events: WodalEvent[] = [];
+    const button = new Button(TEST_BUTTON_A_ID, bus);
+    bus.listen(TEST_BUTTON_A_ID, 0, (event) => events.push(event));
 
     button.setPressed(true, 10);
     button.setPressed(false, 20);
@@ -30,19 +31,19 @@ describe("Button", () => {
     assert.deepEqual(
       events.map((event) => [event.value, event.timestamp]),
       [
-        [MICROBIT_BUTTON_EVT_DOWN, 10],
-        [MICROBIT_BUTTON_EVT_UP, 20],
-        [MICROBIT_BUTTON_EVT_CLICK, 20],
+        [DEVICE_BUTTON_EVT_DOWN, 10],
+        [DEVICE_BUTTON_EVT_UP, 20],
+        [DEVICE_BUTTON_EVT_CLICK, 20],
       ]
     );
-    assert.deepEqual(button.snapshot(), { id: MICROBIT_ID_BUTTON_A, pressed: false, pressCount: 1 });
+    assert.deepEqual(button.snapshot(), { id: TEST_BUTTON_A_ID, pressed: false, pressCount: 1 });
   });
 
   it("suppresses click events in simple event mode", () => {
     const bus = new MessageBus();
-    const events: MicroBitEvent[] = [];
-    const button = new Button(MICROBIT_ID_BUTTON_A, bus, DEVICE_BUTTON_SIMPLE_EVENTS);
-    bus.listen(MICROBIT_ID_BUTTON_A, 0, (event) => events.push(event));
+    const events: WodalEvent[] = [];
+    const button = new Button(TEST_BUTTON_A_ID, bus, DEVICE_BUTTON_SIMPLE_EVENTS);
+    bus.listen(TEST_BUTTON_A_ID, 0, (event) => events.push(event));
 
     button.setPressed(true);
     button.setPressed(false);
@@ -50,7 +51,7 @@ describe("Button", () => {
 
     assert.deepEqual(
       events.map((event) => event.value),
-      [MICROBIT_BUTTON_EVT_DOWN, MICROBIT_BUTTON_EVT_UP]
+      [DEVICE_BUTTON_EVT_DOWN, DEVICE_BUTTON_EVT_UP]
     );
     assert.equal(button.snapshot().pressCount, 0);
   });
@@ -59,11 +60,11 @@ describe("Button", () => {
 describe("MultiButton", () => {
   it("tracks the combined state of two source buttons", () => {
     const bus = new MessageBus();
-    const events: MicroBitEvent[] = [];
-    const buttonA = new Button(MICROBIT_ID_BUTTON_A, bus);
-    const buttonB = new Button(MICROBIT_ID_BUTTON_B, bus);
-    const buttonAB = new MultiButton(buttonA, buttonB, MICROBIT_ID_BUTTON_AB, bus);
-    bus.listen(MICROBIT_ID_BUTTON_AB, 0, (event) => events.push(event));
+    const events: WodalEvent[] = [];
+    const buttonA = new Button(TEST_BUTTON_A_ID, bus);
+    const buttonB = new Button(TEST_BUTTON_B_ID, bus);
+    const buttonAB = new MultiButton(buttonA, buttonB, TEST_BUTTON_AB_ID, bus);
+    bus.listen(TEST_BUTTON_AB_ID, 0, (event) => events.push(event));
 
     buttonA.setPressed(true, 1);
     buttonAB.update(1);
@@ -76,9 +77,9 @@ describe("MultiButton", () => {
     assert.deepEqual(
       events.map((event) => [event.value, event.timestamp]),
       [
-        [MICROBIT_BUTTON_EVT_DOWN, 2],
-        [MICROBIT_BUTTON_EVT_UP, 3],
-        [MICROBIT_BUTTON_EVT_CLICK, 3],
+        [DEVICE_BUTTON_EVT_DOWN, 2],
+        [DEVICE_BUTTON_EVT_UP, 3],
+        [DEVICE_BUTTON_EVT_CLICK, 3],
       ]
     );
     assert.equal(buttonAB.isPressed(), 0);
@@ -88,8 +89,8 @@ describe("MultiButton", () => {
 describe("TouchButton", () => {
   it("tracks readings against the touch threshold", () => {
     const bus = new MessageBus();
-    const events: MicroBitEvent[] = [];
-    const button = new TouchButton(MICROBIT_ID_LOGO, bus, 10);
+    const events: WodalEvent[] = [];
+    const button = new TouchButton(TEST_TOUCH_BUTTON_ID, bus, 10);
     bus.listen(button.id, 0, (event) => events.push(event));
 
     button.setValue(9, 1);
@@ -101,13 +102,13 @@ describe("TouchButton", () => {
     assert.deepEqual(
       events.map((event) => [event.value, event.timestamp]),
       [
-        [MICROBIT_BUTTON_EVT_DOWN, 2],
-        [MICROBIT_BUTTON_EVT_UP, 3],
-        [MICROBIT_BUTTON_EVT_CLICK, 3],
+        [DEVICE_BUTTON_EVT_DOWN, 2],
+        [DEVICE_BUTTON_EVT_UP, 3],
+        [DEVICE_BUTTON_EVT_CLICK, 3],
       ]
     );
     assert.deepEqual(button.snapshot(), {
-      id: MICROBIT_ID_LOGO,
+      id: TEST_TOUCH_BUTTON_ID,
       pressed: false,
       pressCount: 1,
       threshold: 10,

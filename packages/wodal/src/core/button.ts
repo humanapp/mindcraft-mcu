@@ -1,9 +1,9 @@
 import {
-  type ButtonEventConfiguration,
   DEVICE_BUTTON_ALL_EVENTS,
-  MICROBIT_BUTTON_EVT_CLICK,
-  MICROBIT_BUTTON_EVT_DOWN,
-  MICROBIT_BUTTON_EVT_UP,
+  DEVICE_BUTTON_EVT_CLICK,
+  DEVICE_BUTTON_EVT_DOWN,
+  DEVICE_BUTTON_EVT_UP,
+  type DeviceButtonEventConfiguration,
 } from "./event";
 import type { MessageBus } from "./message-bus";
 import { toUint16, toUint32 } from "./numeric";
@@ -29,7 +29,7 @@ export interface ButtonSnapshot {
 export class Button {
   private pressed = false;
   private pressCount = 0;
-  private eventConfiguration: ButtonEventConfiguration;
+  private eventConfiguration: DeviceButtonEventConfiguration;
 
   /**
    * Creates a button bound to a message bus source ID.
@@ -41,7 +41,7 @@ export class Button {
   constructor(
     id: number,
     private readonly messageBus: MessageBus,
-    eventConfiguration: ButtonEventConfiguration = DEVICE_BUTTON_ALL_EVENTS
+    eventConfiguration: DeviceButtonEventConfiguration = DEVICE_BUTTON_ALL_EVENTS
   ) {
     this.id = toUint16(id);
     this.eventConfiguration = eventConfiguration;
@@ -60,7 +60,7 @@ export class Button {
    *
    * @param eventConfiguration - Event set used for future transitions.
    */
-  setEventConfiguration(eventConfiguration: ButtonEventConfiguration): void {
+  setEventConfiguration(eventConfiguration: DeviceButtonEventConfiguration): void {
     this.eventConfiguration = eventConfiguration;
   }
 
@@ -76,11 +76,11 @@ export class Button {
     }
 
     this.pressed = pressed;
-    this.messageBus.fire(this.id, pressed ? MICROBIT_BUTTON_EVT_DOWN : MICROBIT_BUTTON_EVT_UP, timestamp);
+    this.messageBus.fire(this.id, pressed ? DEVICE_BUTTON_EVT_DOWN : DEVICE_BUTTON_EVT_UP, timestamp);
 
     if (!pressed && this.eventConfiguration === DEVICE_BUTTON_ALL_EVENTS) {
       this.pressCount = toUint32(this.pressCount + 1);
-      this.messageBus.fire(this.id, MICROBIT_BUTTON_EVT_CLICK, timestamp);
+      this.messageBus.fire(this.id, DEVICE_BUTTON_EVT_CLICK, timestamp);
     }
   }
 

@@ -1,56 +1,30 @@
+import {
+  detectMindcraftProgramImageEncoding,
+  type MindcraftProgramImage,
+  MindcraftProgramImageEncoding,
+  type MindcraftProgramImageParseResult,
+  MindcraftProgramImageValidationCode,
+  type MindcraftProgramImageValidationError,
+  serializeMindcraftProgramImageJson,
+  validateMindcraftProgramImage,
+} from "@mindcraft-lang/service-api";
 import type { WodalBytecodeImage } from "./bytecode-loader";
 import { isWodalDeviceProfileId, type WodalDeviceProfileId } from "./device-profile-id";
 
-/** Program image format identifier used by JSON-encoded `.mcprogram` files. */
-export const WODAL_PROGRAM_IMAGE_FORMAT = "mindcraft.program";
-
-/** Program image envelope version accepted by WODAL. */
-export const WODAL_PROGRAM_IMAGE_VERSION = 1;
-
-/** Binary `.mcprogram` magic bytes for Mindcraft program images. */
-export const WODAL_BINARY_PROGRAM_IMAGE_MAGIC = [0x4d, 0x43, 0x50, 0x52, 0x4f, 0x47] as const;
-
-/** Program image encodings recognized by the WODAL program image reader. */
-export const WodalProgramImageEncoding = {
-  JSON: "json",
-  BINARY: "binary",
-} as const;
-
-/** Union of all {@link WodalProgramImageEncoding} values. */
-export type WodalProgramImageEncoding = (typeof WodalProgramImageEncoding)[keyof typeof WodalProgramImageEncoding];
-
 /** Validation code constants used by WODAL program image diagnostics. */
 export const WodalProgramImageValidationCode = {
-  INVALID_PROGRAM_IMAGE_ENCODING: "WODAL_PROGRAM_IMAGE_INVALID_ENCODING",
-  UNSUPPORTED_BINARY_PROGRAM_IMAGE: "WODAL_PROGRAM_IMAGE_UNSUPPORTED_BINARY_ENCODING",
-  INVALID_PROGRAM_IMAGE_JSON: "WODAL_PROGRAM_IMAGE_INVALID_JSON",
-  INVALID_PROGRAM_IMAGE_ROOT: "WODAL_PROGRAM_IMAGE_INVALID_ROOT",
-  INVALID_PROGRAM_IMAGE_FORMAT: "WODAL_PROGRAM_IMAGE_INVALID_FORMAT",
-  INVALID_PROGRAM_IMAGE_VERSION: "WODAL_PROGRAM_IMAGE_INVALID_VERSION",
+  ...MindcraftProgramImageValidationCode,
   UNSUPPORTED_PROGRAM_IMAGE_PROFILE: "WODAL_PROGRAM_IMAGE_UNSUPPORTED_PROFILE",
-  MISSING_PROGRAM_IMAGE_PROGRAM: "WODAL_PROGRAM_IMAGE_MISSING_PROGRAM",
 } as const;
 
 /** Union of all {@link WodalProgramImageValidationCode} values. */
 export type WodalProgramImageValidationCode =
   (typeof WodalProgramImageValidationCode)[keyof typeof WodalProgramImageValidationCode];
 
-/** Serialized Mindcraft program image envelope consumed by WODAL. */
-export interface WodalProgramImage<TProgram = unknown> {
-  /** Program image format identifier. */
-  readonly format: typeof WODAL_PROGRAM_IMAGE_FORMAT;
+/** Serialized Mindcraft program image envelope accepted by WODAL. */
+export type WodalProgramImage<TProgram = unknown> = MindcraftProgramImage<TProgram, WodalDeviceProfileId>;
 
-  /** Program image envelope version. */
-  readonly version: typeof WODAL_PROGRAM_IMAGE_VERSION;
-
-  /** WODAL device profile required by the program image. */
-  readonly profileId: WodalDeviceProfileId;
-
-  /** Linked Mindcraft program payload. */
-  readonly program: TProgram;
-}
-
-/** Validation diagnostic for a rejected program image. */
+/** Validation diagnostic for a rejected WODAL program image. */
 export interface WodalProgramImageValidationError {
   /** Stable machine-readable validation code. */
   readonly code: WodalProgramImageValidationCode;
@@ -65,11 +39,11 @@ export interface WodalProgramImageValidationError {
 /** Result of validating or parsing a WODAL program image. */
 export type WodalProgramImageParseResult<TProgram = unknown> =
   | {
-      /** True when a valid program image was produced. */
+      /** True when a valid WODAL program image was produced. */
       readonly ok: true;
 
       /** Encoding used by the parsed program image. */
-      readonly encoding: typeof WodalProgramImageEncoding.JSON;
+      readonly encoding: typeof MindcraftProgramImageEncoding.JSON;
 
       /** Parsed program image envelope. */
       readonly image: WodalProgramImage<TProgram>;
@@ -82,14 +56,14 @@ export type WodalProgramImageParseResult<TProgram = unknown> =
       readonly ok: false;
 
       /** Encoding detected before validation failed, when available. */
-      readonly encoding?: WodalProgramImageEncoding;
+      readonly encoding?: MindcraftProgramImageEncoding;
 
       /** Validation diagnostics. */
       readonly errors: readonly WodalProgramImageValidationError[];
     };
 
 /**
- * Parses a `.mcprogram` image from JSON text or bytes.
+ * Parses a `.mcprogram` image from JSON text or bytes and validates it for WODAL.
  *
  * @param input - Program image contents.
  */
@@ -98,7 +72,7 @@ export function parseWodalProgramImage(input: string | Uint8Array): WodalProgram
     return parseWodalProgramImageJson(input);
   }
 
-  const encoding = detectWodalProgramImageEncoding(input);
+  const encoding = detectMindcraftProgramImageEncoding(input);
   if (encoding === undefined) {
     return {
       ok: false,
@@ -112,7 +86,7 @@ export function parseWodalProgramImage(input: string | Uint8Array): WodalProgram
     };
   }
 
-  if (encoding === WodalProgramImageEncoding.BINARY) {
+  if (encoding === MindcraftProgramImageEncoding.BINARY) {
     return {
       ok: false,
       encoding,
@@ -130,96 +104,12 @@ export function parseWodalProgramImage(input: string | Uint8Array): WodalProgram
 }
 
 /**
- * Validates a parsed JSON program image envelope.
+ * Validates a parsed JSON program image envelope for WODAL.
  *
  * @param value - Parsed JSON value from a program image.
  */
 export function validateWodalProgramImage(value: unknown): WodalProgramImageParseResult {
-  if (!isRecord(value)) {
-    return {
-      ok: false,
-      encoding: WodalProgramImageEncoding.JSON,
-      errors: [
-        {
-          code: WodalProgramImageValidationCode.INVALID_PROGRAM_IMAGE_ROOT,
-          path: "$",
-          message: "Program image root must be an object.",
-        },
-      ],
-    };
-  }
-
-  const errors: WodalProgramImageValidationError[] = [];
-  const format = readString(
-    value,
-    "format",
-    "$.format",
-    WodalProgramImageValidationCode.INVALID_PROGRAM_IMAGE_FORMAT,
-    errors
-  );
-  const version = readNumber(
-    value,
-    "version",
-    "$.version",
-    WodalProgramImageValidationCode.INVALID_PROGRAM_IMAGE_VERSION,
-    errors
-  );
-  const profileId = readString(
-    value,
-    "profileId",
-    "$.profileId",
-    WodalProgramImageValidationCode.UNSUPPORTED_PROGRAM_IMAGE_PROFILE,
-    errors
-  );
-  const program = value.program;
-
-  if (format !== undefined && format !== WODAL_PROGRAM_IMAGE_FORMAT) {
-    errors.push({
-      code: WodalProgramImageValidationCode.INVALID_PROGRAM_IMAGE_FORMAT,
-      path: "$.format",
-      message: `Program image format must be "${WODAL_PROGRAM_IMAGE_FORMAT}".`,
-    });
-  }
-
-  if (version !== undefined && version !== WODAL_PROGRAM_IMAGE_VERSION) {
-    errors.push({
-      code: WodalProgramImageValidationCode.INVALID_PROGRAM_IMAGE_VERSION,
-      path: "$.version",
-      message: `Program image version must be ${WODAL_PROGRAM_IMAGE_VERSION}.`,
-    });
-  }
-
-  if (profileId !== undefined && !isWodalDeviceProfileId(profileId)) {
-    errors.push({
-      code: WodalProgramImageValidationCode.UNSUPPORTED_PROGRAM_IMAGE_PROFILE,
-      path: "$.profileId",
-      message: "Program image profileId is not supported.",
-    });
-  }
-
-  if (program === undefined || program === null) {
-    errors.push({
-      code: WodalProgramImageValidationCode.MISSING_PROGRAM_IMAGE_PROGRAM,
-      path: "$.program",
-      message: "Program image program payload is required.",
-    });
-  }
-
-  if (errors.length > 0) {
-    return { ok: false, encoding: WodalProgramImageEncoding.JSON, errors };
-  }
-
-  return {
-    ok: true,
-    encoding: WodalProgramImageEncoding.JSON,
-    image: {
-      format: WODAL_PROGRAM_IMAGE_FORMAT,
-      version: WODAL_PROGRAM_IMAGE_VERSION,
-      profileId: profileId as WodalDeviceProfileId,
-      program,
-    },
-    errors: [],
-  };
+  return validateMindcraftResultForWodal(validateMindcraftProgramImage(value), value);
 }
 
 /**
@@ -228,7 +118,7 @@ export function validateWodalProgramImage(value: unknown): WodalProgramImagePars
  * @param image - Program image envelope to serialize.
  */
 export function serializeWodalProgramImageJson<TProgram>(image: WodalProgramImage<TProgram>): string {
-  return JSON.stringify(image);
+  return serializeMindcraftProgramImageJson(image);
 }
 
 /**
@@ -252,7 +142,7 @@ function parseWodalProgramImageJson(content: string): WodalProgramImageParseResu
   } catch {
     return {
       ok: false,
-      encoding: WodalProgramImageEncoding.JSON,
+      encoding: MindcraftProgramImageEncoding.JSON,
       errors: [
         {
           code: WodalProgramImageValidationCode.INVALID_PROGRAM_IMAGE_JSON,
@@ -266,74 +156,84 @@ function parseWodalProgramImageJson(content: string): WodalProgramImageParseResu
   return validateWodalProgramImage(parsed);
 }
 
-function detectWodalProgramImageEncoding(bytes: Uint8Array): WodalProgramImageEncoding | undefined {
-  const firstByte = firstContentByte(bytes);
-  if (firstByte === undefined) {
+function validateMindcraftResultForWodal<TProgram>(
+  result: MindcraftProgramImageParseResult<TProgram>,
+  source?: unknown
+): WodalProgramImageParseResult<TProgram> {
+  if (!result.ok) {
+    const unsupportedProfileError =
+      source === undefined ? undefined : readUnsupportedWodalProfileError(source, result.encoding);
+    const errors = result.errors.map(toWodalProgramImageValidationError);
+    return {
+      ...result,
+      errors: insertUnsupportedProfileError(errors, unsupportedProfileError),
+    };
+  }
+
+  if (!isWodalDeviceProfileId(result.image.profileId)) {
+    return {
+      ok: false,
+      encoding: result.encoding,
+      errors: [
+        {
+          code: WodalProgramImageValidationCode.UNSUPPORTED_PROGRAM_IMAGE_PROFILE,
+          path: "$.profileId",
+          message: "Program image profileId is not supported by WODAL.",
+        },
+      ],
+    };
+  }
+
+  return {
+    ok: true,
+    encoding: result.encoding,
+    image: result.image as WodalProgramImage<TProgram>,
+    errors: [],
+  };
+}
+
+function insertUnsupportedProfileError(
+  errors: readonly WodalProgramImageValidationError[],
+  unsupportedProfileError: WodalProgramImageValidationError | undefined
+): readonly WodalProgramImageValidationError[] {
+  if (unsupportedProfileError === undefined) {
+    return errors;
+  }
+  const missingProgramIndex = errors.findIndex(
+    (error) => error.code === WodalProgramImageValidationCode.MISSING_PROGRAM_IMAGE_PROGRAM
+  );
+  if (missingProgramIndex === -1) {
+    return [...errors, unsupportedProfileError];
+  }
+  return [...errors.slice(0, missingProgramIndex), unsupportedProfileError, ...errors.slice(missingProgramIndex)];
+}
+
+function readUnsupportedWodalProfileError(
+  value: unknown,
+  encoding?: MindcraftProgramImageEncoding
+): WodalProgramImageValidationError | undefined {
+  if (encoding !== MindcraftProgramImageEncoding.JSON || !isRecord(value)) {
     return undefined;
   }
-  if (firstByte === 0x7b || firstByte === 0x5b) {
-    return WodalProgramImageEncoding.JSON;
-  }
-  return hasBinaryMagic(bytes) ? WodalProgramImageEncoding.BINARY : undefined;
-}
-
-function firstContentByte(bytes: Uint8Array): number | undefined {
-  for (const byte of bytes) {
-    if (byte !== 0x09 && byte !== 0x0a && byte !== 0x0d && byte !== 0x20) {
-      return byte;
-    }
-  }
-  return undefined;
-}
-
-function hasBinaryMagic(bytes: Uint8Array): boolean {
-  if (bytes.length < WODAL_BINARY_PROGRAM_IMAGE_MAGIC.length) {
-    return false;
-  }
-  for (let index = 0; index < WODAL_BINARY_PROGRAM_IMAGE_MAGIC.length; index += 1) {
-    if (bytes[index] !== WODAL_BINARY_PROGRAM_IMAGE_MAGIC[index]) {
-      return false;
-    }
-  }
-  return true;
-}
-
-function readString(
-  record: Readonly<Record<string, unknown>>,
-  key: string,
-  path: string,
-  code: WodalProgramImageValidationCode,
-  errors: WodalProgramImageValidationError[]
-): string | undefined {
-  const value = record[key];
-  if (typeof value !== "string") {
-    errors.push({
-      code,
-      path,
-      message: `${path} must be a string.`,
-    });
+  const profileId = value.profileId;
+  if (typeof profileId !== "string" || isWodalDeviceProfileId(profileId)) {
     return undefined;
   }
-  return value;
+  return {
+    code: WodalProgramImageValidationCode.UNSUPPORTED_PROGRAM_IMAGE_PROFILE,
+    path: "$.profileId",
+    message: "Program image profileId is not supported by WODAL.",
+  };
 }
 
-function readNumber(
-  record: Readonly<Record<string, unknown>>,
-  key: string,
-  path: string,
-  code: WodalProgramImageValidationCode,
-  errors: WodalProgramImageValidationError[]
-): number | undefined {
-  const value = record[key];
-  if (typeof value !== "number" || !Number.isInteger(value)) {
-    errors.push({
-      code,
-      path,
-      message: `${path} must be an integer.`,
-    });
-    return undefined;
-  }
-  return value;
+function toWodalProgramImageValidationError(
+  error: MindcraftProgramImageValidationError
+): WodalProgramImageValidationError {
+  return {
+    code: error.code,
+    path: error.path,
+    message: error.message,
+  };
 }
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {

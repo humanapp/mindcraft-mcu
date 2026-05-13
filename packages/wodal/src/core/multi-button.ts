@@ -1,5 +1,5 @@
 import { Button, type ButtonSnapshot } from "./button";
-import type { ButtonEventConfiguration } from "./event";
+import type { DeviceButtonEventConfiguration } from "./event";
 import type { MessageBus } from "./message-bus";
 
 /** Snapshot of a simulated multi-button state. */
@@ -27,7 +27,7 @@ export class MultiButton extends Button {
     private readonly buttonB: Button,
     id: number,
     messageBus: MessageBus,
-    eventConfiguration?: ButtonEventConfiguration
+    eventConfiguration?: DeviceButtonEventConfiguration
   ) {
     super(id, messageBus, eventConfiguration);
   }

@@ -1,8 +1,5 @@
 import { clampUint8, type Uint8 } from "./numeric";
 
-/** Fixed side length of the microbit LED matrix. */
-export const MICROBIT_LED_MATRIX_SIZE = 5;
-
 /** Brightness value for one LED matrix pixel in the range 0..255. */
 export type LedBrightness = Uint8;
 
@@ -18,15 +15,27 @@ export interface LEDMatrixSnapshot {
   readonly pixels: readonly number[];
 }
 
-/** Software representation of a 5x5 LED matrix. */
+/** Software representation of an LED matrix. */
 export class LEDMatrix {
-  private readonly pixels = new Uint8Array(MICROBIT_LED_MATRIX_SIZE * MICROBIT_LED_MATRIX_SIZE);
+  private readonly pixels: Uint8Array;
 
   /** Matrix width in pixels. */
-  readonly width = MICROBIT_LED_MATRIX_SIZE;
+  readonly width: number;
 
   /** Matrix height in pixels. */
-  readonly height = MICROBIT_LED_MATRIX_SIZE;
+  readonly height: number;
+
+  /**
+   * Creates an LED matrix.
+   *
+   * @param width - Matrix width in pixels.
+   * @param height - Matrix height in pixels.
+   */
+  constructor(width: number, height: number) {
+    this.width = Math.max(0, Math.trunc(width));
+    this.height = Math.max(0, Math.trunc(height));
+    this.pixels = new Uint8Array(this.width * this.height);
+  }
 
   /**
    * Sets a pixel brightness.

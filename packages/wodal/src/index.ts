@@ -1,34 +1,29 @@
 export {
+  ACCELEROMETER_EVT_NONE,
   Accelerometer,
   type CoordinateSystem,
-  MICROBIT_ACCELEROMETER_EVT_NONE,
   type Sample3D,
 } from "./core/accelerometer";
 export { Button, type ButtonSnapshot } from "./core/button";
 export {
-  type ButtonEventConfiguration,
   DEVICE_BUTTON_ALL_EVENTS,
+  DEVICE_BUTTON_EVT_CLICK,
+  DEVICE_BUTTON_EVT_DOUBLE_CLICK,
+  DEVICE_BUTTON_EVT_DOWN,
+  DEVICE_BUTTON_EVT_HOLD,
+  DEVICE_BUTTON_EVT_LONG_CLICK,
+  DEVICE_BUTTON_EVT_UP,
   DEVICE_BUTTON_SIMPLE_EVENTS,
-  MICROBIT_BUTTON_EVT_CLICK,
-  MICROBIT_BUTTON_EVT_DOUBLE_CLICK,
-  MICROBIT_BUTTON_EVT_DOWN,
-  MICROBIT_BUTTON_EVT_HOLD,
-  MICROBIT_BUTTON_EVT_LONG_CLICK,
-  MICROBIT_BUTTON_EVT_UP,
-  MICROBIT_EVT_ANY,
-  MICROBIT_ID_ANY,
-  MICROBIT_ID_BUTTON_A,
-  MICROBIT_ID_BUTTON_AB,
-  MICROBIT_ID_BUTTON_B,
-  MICROBIT_ID_LOGO,
-  MicroBitEvent,
-  type MicroBitEventHandler,
+  type DeviceButtonEventConfiguration,
+  WODAL_EVT_ANY,
+  WODAL_ID_ANY,
+  WodalEvent,
+  type WodalEventHandler,
 } from "./core/event";
 export {
   LEDMatrix,
   type LEDMatrixSnapshot,
   type LedBrightness,
-  MICROBIT_LED_MATRIX_SIZE,
 } from "./core/led-matrix";
 export { MessageBus, type MessageBusDelivery, type MessageBusSnapshot } from "./core/message-bus";
 export { MultiButton, type MultiButtonSnapshot } from "./core/multi-button";
@@ -81,11 +76,7 @@ export {
   parseWodalProgramImage,
   serializeWodalProgramImageJson,
   validateWodalProgramImage,
-  WODAL_BINARY_PROGRAM_IMAGE_MAGIC,
-  WODAL_PROGRAM_IMAGE_FORMAT,
-  WODAL_PROGRAM_IMAGE_VERSION,
   type WodalProgramImage,
-  WodalProgramImageEncoding,
   type WodalProgramImageParseResult,
   WodalProgramImageValidationCode,
   type WodalProgramImageValidationError,

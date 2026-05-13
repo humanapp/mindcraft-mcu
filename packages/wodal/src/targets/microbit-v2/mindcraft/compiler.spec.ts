@@ -15,6 +15,7 @@ import {
   VmStatus,
   VOID_VALUE,
 } from "@mindcraft-lang/core/runtime";
+import { MINDCRAFT_PROGRAM_IMAGE_FORMAT, MINDCRAFT_PROGRAM_IMAGE_VERSION } from "@mindcraft-lang/service-api";
 import {
   type AmbientFile,
   buildCompiledActionBundle,
@@ -25,11 +26,7 @@ import {
 } from "@mindcraft-lang/ts-compiler";
 import { WodalBytecodeValidationCode } from "../../../mindcraft/bytecode-loader";
 import { WodalDeviceProfileId } from "../../../mindcraft/device-profile";
-import {
-  WODAL_PROGRAM_IMAGE_FORMAT,
-  WODAL_PROGRAM_IMAGE_VERSION,
-  type WodalProgramImage,
-} from "../../../mindcraft/program-image";
+import type { WodalProgramImage } from "../../../mindcraft/program-image";
 import { WodalError, WodalErrorCode } from "../../../wodal-error";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Module } from "./module";
@@ -122,8 +119,8 @@ test("WodalMicroBitRuntime loads linked brain program images through the embedde
   const linkedBrain = createLinkedBrainProgram();
 
   assert.deepEqual(createMicroBitV2ProgramImage(linkedBrain), {
-    format: WODAL_PROGRAM_IMAGE_FORMAT,
-    version: WODAL_PROGRAM_IMAGE_VERSION,
+    format: MINDCRAFT_PROGRAM_IMAGE_FORMAT,
+    version: MINDCRAFT_PROGRAM_IMAGE_VERSION,
     profileId: WodalDeviceProfileId.MICROBIT_V2,
     program: linkedBrain,
   });

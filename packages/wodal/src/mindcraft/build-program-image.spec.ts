@@ -1,14 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { LinkedBrainProgram } from "@mindcraft-lang/core/runtime";
+import { MINDCRAFT_PROGRAM_IMAGE_FORMAT, MINDCRAFT_PROGRAM_IMAGE_VERSION } from "@mindcraft-lang/service-api";
 import { createWodalProgramImageForProfile } from "./build-program-image";
 import { WodalDeviceProfileId } from "./device-profile";
-import {
-  parseWodalProgramImage,
-  serializeWodalProgramImageJson,
-  WODAL_PROGRAM_IMAGE_FORMAT,
-  WODAL_PROGRAM_IMAGE_VERSION,
-} from "./program-image";
+import { parseWodalProgramImage, serializeWodalProgramImageJson } from "./program-image";
 
 describe("createWodalProgramImageForProfile", () => {
   it("creates a microbit-v2 program image through the device profile registry", () => {
@@ -19,8 +15,8 @@ describe("createWodalProgramImageForProfile", () => {
     });
 
     assert.deepEqual(image, {
-      format: WODAL_PROGRAM_IMAGE_FORMAT,
-      version: WODAL_PROGRAM_IMAGE_VERSION,
+      format: MINDCRAFT_PROGRAM_IMAGE_FORMAT,
+      version: MINDCRAFT_PROGRAM_IMAGE_VERSION,
       profileId: WodalDeviceProfileId.MICROBIT_V2,
       program: linkedBrain,
     });

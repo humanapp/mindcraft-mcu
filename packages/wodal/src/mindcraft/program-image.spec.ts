@@ -1,15 +1,17 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import {
+  MINDCRAFT_BINARY_PROGRAM_IMAGE_MAGIC,
+  MINDCRAFT_PROGRAM_IMAGE_FORMAT,
+  MINDCRAFT_PROGRAM_IMAGE_VERSION,
+  MindcraftProgramImageEncoding,
+} from "@mindcraft-lang/service-api";
 import { WodalDeviceProfileId } from "./device-profile";
 import {
   parseWodalProgramImage,
   serializeWodalProgramImageJson,
   validateWodalProgramImage,
-  WODAL_BINARY_PROGRAM_IMAGE_MAGIC,
-  WODAL_PROGRAM_IMAGE_FORMAT,
-  WODAL_PROGRAM_IMAGE_VERSION,
   type WodalProgramImage,
-  WodalProgramImageEncoding,
   WodalProgramImageValidationCode,
   wodalProgramImageToBytecodeImage,
 } from "./program-image";
@@ -21,8 +23,8 @@ const VALID_IMAGE: WodalProgramImage<{
   readonly entry: string;
   readonly bytecode: readonly number[];
 }> = {
-  format: WODAL_PROGRAM_IMAGE_FORMAT,
-  version: WODAL_PROGRAM_IMAGE_VERSION,
+  format: MINDCRAFT_PROGRAM_IMAGE_FORMAT,
+  version: MINDCRAFT_PROGRAM_IMAGE_VERSION,
   profileId: WodalDeviceProfileId.MICROBIT_V2,
   program: {
     entry: "main",
@@ -41,7 +43,7 @@ describe("parseWodalProgramImage", () => {
     const result = parseWodalProgramImage(JSON.stringify(VALID_IMAGE));
 
     assert.equal(result.ok, true);
-    assert.equal(result.encoding, WodalProgramImageEncoding.JSON);
+    assert.equal(result.encoding, MindcraftProgramImageEncoding.JSON);
     assert.deepEqual(result.image, VALID_IMAGE);
   });
 
@@ -50,7 +52,7 @@ describe("parseWodalProgramImage", () => {
     const result = parseWodalProgramImage(bytes);
 
     assert.equal(result.ok, true);
-    assert.equal(result.encoding, WodalProgramImageEncoding.JSON);
+    assert.equal(result.encoding, MindcraftProgramImageEncoding.JSON);
     assert.deepEqual(result.image, VALID_IMAGE);
   });
 
@@ -58,7 +60,7 @@ describe("parseWodalProgramImage", () => {
     const result = parseWodalProgramImage("{not json");
 
     assert.equal(result.ok, false);
-    assert.equal(result.encoding, WodalProgramImageEncoding.JSON);
+    assert.equal(result.encoding, MindcraftProgramImageEncoding.JSON);
     assert.deepEqual(
       result.errors.map((error) => error.code),
       [WodalProgramImageValidationCode.INVALID_PROGRAM_IMAGE_JSON]
@@ -66,10 +68,10 @@ describe("parseWodalProgramImage", () => {
   });
 
   it("returns a stable code for recognized binary program images", () => {
-    const result = parseWodalProgramImage(new Uint8Array([...WODAL_BINARY_PROGRAM_IMAGE_MAGIC, 1, 2, 3]));
+    const result = parseWodalProgramImage(new Uint8Array([...MINDCRAFT_BINARY_PROGRAM_IMAGE_MAGIC, 1, 2, 3]));
 
     assert.equal(result.ok, false);
-    assert.equal(result.encoding, WodalProgramImageEncoding.BINARY);
+    assert.equal(result.encoding, MindcraftProgramImageEncoding.BINARY);
     assert.deepEqual(
       result.errors.map((error) => error.code),
       [WodalProgramImageValidationCode.UNSUPPORTED_BINARY_PROGRAM_IMAGE]
@@ -136,7 +138,7 @@ describe("program image bytecode conversion", () => {
     assert.equal(result.ok, true);
 
     assert.deepEqual(wodalProgramImageToBytecodeImage(result.image), {
-      version: WODAL_PROGRAM_IMAGE_VERSION,
+      version: MINDCRAFT_PROGRAM_IMAGE_VERSION,
       program: VALID_IMAGE.program,
     });
   });
