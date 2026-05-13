@@ -79,6 +79,7 @@ export {
 } from "./mindcraft/device-profile";
 export {
   parseWodalProgramImage,
+  serializeWodalProgramImageJson,
   validateWodalProgramImage,
   WODAL_BINARY_PROGRAM_IMAGE_MAGIC,
   WODAL_PROGRAM_IMAGE_FORMAT,

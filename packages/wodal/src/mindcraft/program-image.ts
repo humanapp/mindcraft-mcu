@@ -223,6 +223,15 @@ export function validateWodalProgramImage(value: unknown): WodalProgramImagePars
 }
 
 /**
+ * Serializes a WODAL program image envelope as JSON text.
+ *
+ * @param image - Program image envelope to serialize.
+ */
+export function serializeWodalProgramImageJson<TProgram>(image: WodalProgramImage<TProgram>): string {
+  return JSON.stringify(image);
+}
+
+/**
  * Converts a validated program image envelope into the current loader image shape.
  *
  * @param image - Program image envelope returned by validation or parsing.

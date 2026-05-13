@@ -3,10 +3,12 @@ import { describe, it } from "node:test";
 import { WodalDeviceProfileId } from "./device-profile";
 import {
   parseWodalProgramImage,
+  serializeWodalProgramImageJson,
   validateWodalProgramImage,
   WODAL_BINARY_PROGRAM_IMAGE_MAGIC,
   WODAL_PROGRAM_IMAGE_FORMAT,
   WODAL_PROGRAM_IMAGE_VERSION,
+  type WodalProgramImage,
   WodalProgramImageEncoding,
   WodalProgramImageValidationCode,
   wodalProgramImageToBytecodeImage,
@@ -15,7 +17,10 @@ import {
 type ProgramImageValidationCode =
   (typeof WodalProgramImageValidationCode)[keyof typeof WodalProgramImageValidationCode];
 
-const VALID_IMAGE = {
+const VALID_IMAGE: WodalProgramImage<{
+  readonly entry: string;
+  readonly bytecode: readonly number[];
+}> = {
   format: WODAL_PROGRAM_IMAGE_FORMAT,
   version: WODAL_PROGRAM_IMAGE_VERSION,
   profileId: WodalDeviceProfileId.MICROBIT_V2,
@@ -111,6 +116,17 @@ describe("validateWodalProgramImage", () => {
 
   it("rejects non-object JSON roots", () => {
     assert.deepEqual(errorCodes([]), [WodalProgramImageValidationCode.INVALID_PROGRAM_IMAGE_ROOT]);
+  });
+});
+
+describe("serializeWodalProgramImageJson", () => {
+  it("preserves the embedded profile id across JSON serialization", () => {
+    const serialized = serializeWodalProgramImageJson(VALID_IMAGE);
+    const result = parseWodalProgramImage(serialized);
+
+    assert.equal(result.ok, true);
+    assert.equal(result.image.profileId, WodalDeviceProfileId.MICROBIT_V2);
+    assert.deepEqual(result.image, VALID_IMAGE);
   });
 });
 

@@ -3,7 +3,12 @@ import { describe, it } from "node:test";
 import type { LinkedBrainProgram } from "@mindcraft-lang/core/runtime";
 import { createWodalProgramImageForProfile } from "./build-program-image";
 import { WodalDeviceProfileId } from "./device-profile";
-import { WODAL_PROGRAM_IMAGE_FORMAT, WODAL_PROGRAM_IMAGE_VERSION } from "./program-image";
+import {
+  parseWodalProgramImage,
+  serializeWodalProgramImageJson,
+  WODAL_PROGRAM_IMAGE_FORMAT,
+  WODAL_PROGRAM_IMAGE_VERSION,
+} from "./program-image";
 
 describe("createWodalProgramImageForProfile", () => {
   it("creates a microbit-v2 program image through the device profile registry", () => {
@@ -20,5 +25,18 @@ describe("createWodalProgramImageForProfile", () => {
       program: linkedBrain,
     });
     assert.equal(image.program, linkedBrain);
+  });
+
+  it("preserves the registry-created profile id across JSON serialization", () => {
+    const linkedBrain = { program: "linked-brain" } as unknown as LinkedBrainProgram;
+    const image = createWodalProgramImageForProfile({
+      profileId: WodalDeviceProfileId.MICROBIT_V2,
+      program: linkedBrain,
+    });
+    const result = parseWodalProgramImage(serializeWodalProgramImageJson(image));
+
+    assert.equal(result.ok, true);
+    assert.equal(result.image.profileId, WodalDeviceProfileId.MICROBIT_V2);
+    assert.deepEqual(result.image.program, linkedBrain);
   });
 });
