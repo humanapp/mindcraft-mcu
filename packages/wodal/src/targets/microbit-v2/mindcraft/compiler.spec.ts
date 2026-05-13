@@ -13,7 +13,6 @@ import {
   Op,
   type PageMetadata,
   type Program,
-  VmStatus,
   VOID_VALUE,
 } from "@mindcraft-lang/core/runtime";
 import { MINDCRAFT_PROGRAM_IMAGE_FORMAT, MINDCRAFT_PROGRAM_IMAGE_VERSION } from "@mindcraft-lang/service-api";
@@ -25,9 +24,9 @@ import {
   type UserAuthoredProgram,
   UserTileProject,
 } from "@mindcraft-lang/ts-compiler";
-import { WodalBytecodeValidationCode } from "../../../mindcraft/bytecode-loader";
 import { WodalDeviceProfileId } from "../../../mindcraft/device-profile";
 import type { WodalProgramImage } from "../../../mindcraft/program-image";
+import { WodalProgramLoadValidationCode } from "../../../mindcraft/program-load";
 import { WodalError, WodalErrorCode } from "../../../wodal-error";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Module } from "./module";
@@ -40,10 +39,17 @@ test("compiled Mindcraft code routes display calls through WODAL MicroBitDisplay
   const microbit = new MicroBit();
   const runtime = new WodalMicroBitRuntime({ environment, microbit });
 
-  assert.deepEqual(runtime.loadImage({ version: 1, program }), { ok: true, errors: [] });
-  const result = runtime.tick(16);
+  assert.deepEqual(
+    runtime.loadWodalProgramImage(
+      createMicroBitV2ProgramImage(createLinkedBrainProgram(program, [program.entryFuncId]))
+    ),
+    {
+      ok: true,
+      errors: [],
+    }
+  );
+  runtime.tick(16);
 
-  assert.equal(result?.status, VmStatus.DONE);
   const display = runtime.snapshot().display;
   assert.equal(runtime.snapshot().time, 16);
   assert.equal(display.pixels[2 * display.width + 1], 255);
@@ -55,12 +61,20 @@ test("compiled Mindcraft code reads WODAL Button state", () => {
   const microbit = new MicroBit();
   const runtime = new WodalMicroBitRuntime({ environment, microbit });
 
-  assert.deepEqual(runtime.loadImage({ version: 1, program }), { ok: true, errors: [] });
-  assert.equal(runtime.tick(16)?.status, VmStatus.DONE);
+  assert.deepEqual(
+    runtime.loadWodalProgramImage(
+      createMicroBitV2ProgramImage(createLinkedBrainProgram(program, [program.entryFuncId]))
+    ),
+    {
+      ok: true,
+      errors: [],
+    }
+  );
+  runtime.tick(16);
   assert.equal(runtime.snapshot().display.pixels[3 * runtime.snapshot().display.width + 2], 0);
 
   microbit.setButtonPressed("A", true);
-  assert.equal(runtime.tick(16)?.status, VmStatus.DONE);
+  runtime.tick(16);
 
   const display = runtime.snapshot().display;
   assert.equal(display.pixels[3 * display.width + 2], 128);
@@ -77,37 +91,12 @@ test("WodalMicroBitRuntime reports missing loaded program with a stable code", (
   assert.equal(runtime.snapshot().time, 0);
 });
 
-test("WodalMicroBitRuntime keeps the active program when image validation fails", () => {
-  const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
-  const runtime = new WodalMicroBitRuntime({ environment });
-  const firstProgram = compileDisplayActuator(environment, { brightness: 111, x: 0, y: 0 });
-  const secondProgram = compileDisplayActuator(environment, { brightness: 222, x: 4, y: 4 });
-
-  assert.deepEqual(runtime.loadImage({ version: 1, program: firstProgram }), { ok: true, errors: [] });
-  assert.equal(runtime.tick(10)?.status, VmStatus.DONE);
-
-  runtime.microbit.display.clear();
-  const validation = runtime.loadImage({ version: 65536, program: null });
-  assert.equal(validation.ok, false);
-  assert.equal(runtime.tick(10)?.status, VmStatus.DONE);
-  assert.equal(runtime.snapshot().time, 20);
-  assert.equal(runtime.snapshot().display.pixels[0], 111);
-
-  runtime.microbit.display.clear();
-  assert.deepEqual(runtime.loadImage({ version: 1, program: secondProgram }), { ok: true, errors: [] });
-  assert.equal(runtime.tick(10)?.status, VmStatus.DONE);
-  assert.equal(runtime.snapshot().time, 30);
-  const display = runtime.snapshot().display;
-  assert.equal(display.pixels[0], 0);
-  assert.equal(display.pixels[4 * display.width + 4], 222);
-});
-
-test("WodalMicroBitRuntime loads linked brain images through core BrainRuntime", () => {
+test("WodalMicroBitRuntime loads linked brain program images through core BrainRuntime", () => {
   const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
   const runtime = new WodalMicroBitRuntime({ environment });
   const linkedBrain = createLinkedBrainProgram();
 
-  assert.deepEqual(runtime.loadBrainImage({ version: 1, program: linkedBrain }), { ok: true, errors: [] });
+  assert.deepEqual(runtime.loadWodalProgramImage(createMicroBitV2ProgramImage(linkedBrain)), { ok: true, errors: [] });
   const result = runtime.tick(25);
 
   assert.equal(result, undefined);
@@ -142,7 +131,7 @@ test("linked brain root rules route display calls through WODAL MicroBitDisplay"
   const runtime = new WodalMicroBitRuntime({ environment, microbit });
   const linkedBrain = createLinkedBrainProgram(program, [program.entryFuncId]);
 
-  assert.deepEqual(runtime.loadBrainImage({ version: 1, program: linkedBrain }), { ok: true, errors: [] });
+  assert.deepEqual(runtime.loadWodalProgramImage(createMicroBitV2ProgramImage(linkedBrain)), { ok: true, errors: [] });
   const result = runtime.tick(16);
 
   assert.equal(result, undefined);
@@ -157,7 +146,7 @@ test("test-only bundled brain runs WHEN button A pressed DO display actuator", (
   const runtime = new WodalMicroBitRuntime({ environment, microbit });
   const linkedBrain = createTestOnlyButtonDisplayBrain(environment);
 
-  assert.deepEqual(runtime.loadBrainImage({ version: 1, program: linkedBrain }), { ok: true, errors: [] });
+  assert.deepEqual(runtime.loadWodalProgramImage(createMicroBitV2ProgramImage(linkedBrain)), { ok: true, errors: [] });
   assert.equal(runtime.tick(16), undefined);
   assert.equal(runtime.snapshot().display.pixels[0], 0);
 
@@ -174,36 +163,18 @@ test("WodalMicroBitRuntime replaces active linked brain images", () => {
   const firstBrain = createTestOnlyButtonDisplayBrain(environment, { brightness: 31, x: 0, y: 0 });
   const secondBrain = createTestOnlyButtonDisplayBrain(environment, { brightness: 202, x: 1, y: 0 });
 
-  assert.deepEqual(runtime.loadBrainImage({ version: 1, program: firstBrain }), { ok: true, errors: [] });
+  assert.deepEqual(runtime.loadWodalProgramImage(createMicroBitV2ProgramImage(firstBrain)), { ok: true, errors: [] });
   microbit.setButtonPressed("A", true);
   assert.equal(runtime.tick(16), undefined);
   assert.equal(runtime.snapshot().display.pixels[0], 31);
 
   microbit.display.clear();
-  assert.deepEqual(runtime.loadBrainImage({ version: 1, program: secondBrain }), { ok: true, errors: [] });
+  assert.deepEqual(runtime.loadWodalProgramImage(createMicroBitV2ProgramImage(secondBrain)), { ok: true, errors: [] });
   assert.equal(runtime.tick(16), undefined);
 
   const display = runtime.snapshot().display;
   assert.equal(display.pixels[0], 0);
   assert.equal(display.pixels[1], 202);
-});
-
-test("WodalMicroBitRuntime keeps active linked brain when brain image validation fails", () => {
-  const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
-  const microbit = new MicroBit();
-  const runtime = new WodalMicroBitRuntime({ environment, microbit });
-  const linkedBrain = createTestOnlyButtonDisplayBrain(environment, { brightness: 61, x: 0, y: 0 });
-
-  assert.deepEqual(runtime.loadBrainImage({ version: 1, program: linkedBrain }), { ok: true, errors: [] });
-  microbit.setButtonPressed("A", true);
-  assert.equal(runtime.tick(16), undefined);
-  assert.equal(runtime.snapshot().display.pixels[0], 61);
-
-  microbit.display.clear();
-  const validation = runtime.loadBrainImage({ version: 65536, program: null as unknown as LinkedBrainProgram });
-  assert.equal(validation.ok, false);
-  assert.equal(runtime.tick(16), undefined);
-  assert.equal(runtime.snapshot().display.pixels[0], 61);
 });
 
 test("WodalMicroBitRuntime rejects program images for another profile without replacing the active brain", () => {
@@ -226,7 +197,7 @@ test("WodalMicroBitRuntime rejects program images for another profile without re
   assert.equal(validation.ok, false);
   assert.deepEqual(
     validation.errors.map((error) => error.code),
-    [WodalBytecodeValidationCode.UNSUPPORTED_DEVICE_PROFILE]
+    [WodalProgramLoadValidationCode.UNSUPPORTED_DEVICE_PROFILE]
   );
   assert.equal(runtime.tick(16), undefined);
   const display = runtime.snapshot().display;
@@ -260,38 +231,11 @@ test("WodalMicroBitRuntime rejects malformed serialized linked brain programs wi
   assert.equal(validation.ok, false);
   assert.deepEqual(
     validation.errors.map((error) => error.code),
-    [WodalBytecodeValidationCode.INVALID_SERIALIZED_PROGRAM]
+    [WodalProgramLoadValidationCode.INVALID_SERIALIZED_PROGRAM]
   );
   assert.ok(validation.errors[0]?.cause);
   assert.equal(runtime.tick(16), undefined);
   assert.equal(runtime.snapshot().display.pixels[0], 61);
-});
-
-test("WodalMicroBitRuntime keeps action artifacts and linked brains mutually exclusive", () => {
-  const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
-  const microbit = new MicroBit();
-  const runtime = new WodalMicroBitRuntime({ environment, microbit });
-  const linkedBrain = createTestOnlyButtonDisplayBrain(environment, { brightness: 211, x: 0, y: 0 });
-  const program = compileDisplayActuator(environment, { brightness: 99, x: 4, y: 4 });
-
-  assert.deepEqual(runtime.loadBrainImage({ version: 1, program: linkedBrain }), { ok: true, errors: [] });
-  microbit.setButtonPressed("A", true);
-  assert.equal(runtime.tick(16), undefined);
-  assert.equal(runtime.snapshot().display.pixels[0], 211);
-
-  microbit.display.clear();
-  assert.deepEqual(runtime.loadImage({ version: 1, program }), { ok: true, errors: [] });
-  assert.equal(runtime.tick(16)?.status, VmStatus.DONE);
-  let display = runtime.snapshot().display;
-  assert.equal(display.pixels[0], 0);
-  assert.equal(display.pixels[4 * display.width + 4], 99);
-
-  microbit.display.clear();
-  assert.deepEqual(runtime.loadBrainImage({ version: 1, program: linkedBrain }), { ok: true, errors: [] });
-  assert.equal(runtime.tick(16), undefined);
-  display = runtime.snapshot().display;
-  assert.equal(display.pixels[0], 211);
-  assert.equal(display.pixels[4 * display.width + 4], 0);
 });
 
 interface DisplayActuatorOptions {

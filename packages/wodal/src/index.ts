@@ -58,13 +58,6 @@ export {
   createWodalProgramImageForProfile,
 } from "./mindcraft/build-program-image";
 export {
-  validateWodalBytecodeImage,
-  type WodalBytecodeImage,
-  type WodalBytecodeValidation,
-  WodalBytecodeValidationCode,
-  type WodalBytecodeValidationError,
-} from "./mindcraft/bytecode-loader";
-export {
   getWodalDeviceProfile,
   isWodalDeviceProfileId,
   WODAL_DEVICE_PROFILE_IDS,
@@ -81,6 +74,11 @@ export {
   WodalProgramImageValidationCode,
   type WodalProgramImageValidationError,
 } from "./mindcraft/program-image";
+export {
+  type WodalProgramLoadValidation,
+  WodalProgramLoadValidationCode,
+  type WodalProgramLoadValidationError,
+} from "./mindcraft/program-load";
 export {
   type HydrateWodalProjectBrainOptions,
   hydrateWodalProjectBrain,
