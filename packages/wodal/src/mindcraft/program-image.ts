@@ -1,3 +1,4 @@
+import type { WodalBytecodeImage } from "./bytecode-loader";
 import { isWodalDeviceProfileId, type WodalDeviceProfileId } from "./device-profile";
 
 /** Program image format identifier used by JSON-encoded `.mcprogram` files. */
@@ -218,6 +219,20 @@ export function validateWodalProgramImage(value: unknown): WodalProgramImagePars
       program,
     },
     errors: [],
+  };
+}
+
+/**
+ * Converts a validated program image envelope into the current loader image shape.
+ *
+ * @param image - Program image envelope returned by validation or parsing.
+ */
+export function wodalProgramImageToBytecodeImage<TProgram>(
+  image: WodalProgramImage<TProgram>
+): WodalBytecodeImage<TProgram> {
+  return {
+    version: image.version,
+    program: image.program,
   };
 }
 

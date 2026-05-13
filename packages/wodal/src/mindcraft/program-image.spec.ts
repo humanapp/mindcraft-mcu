@@ -9,6 +9,7 @@ import {
   WODAL_PROGRAM_IMAGE_VERSION,
   WodalProgramImageEncoding,
   WodalProgramImageValidationCode,
+  wodalProgramImageToBytecodeImage,
 } from "./program-image";
 
 type ProgramImageValidationCode =
@@ -110,5 +111,17 @@ describe("validateWodalProgramImage", () => {
 
   it("rejects non-object JSON roots", () => {
     assert.deepEqual(errorCodes([]), [WodalProgramImageValidationCode.INVALID_PROGRAM_IMAGE_ROOT]);
+  });
+});
+
+describe("program image bytecode conversion", () => {
+  it("converts a validated program image to the current bytecode loader image shape", () => {
+    const result = validateWodalProgramImage(VALID_IMAGE);
+    assert.equal(result.ok, true);
+
+    assert.deepEqual(wodalProgramImageToBytecodeImage(result.image), {
+      version: WODAL_PROGRAM_IMAGE_VERSION,
+      program: VALID_IMAGE.program,
+    });
   });
 });

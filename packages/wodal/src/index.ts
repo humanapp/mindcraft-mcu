@@ -84,6 +84,7 @@ export {
   type WodalProgramImageParseResult,
   WodalProgramImageValidationCode,
   type WodalProgramImageValidationError,
+  wodalProgramImageToBytecodeImage,
 } from "./mindcraft/program-image";
 export {
   getWodalProjectTarget,
