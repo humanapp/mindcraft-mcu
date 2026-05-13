@@ -1,5 +1,5 @@
 import type { LinkedBrainProgram } from "@mindcraft-lang/core/runtime";
-import { WodalDeviceProfileId } from "../../../mindcraft/device-profile";
+import { WodalDeviceProfileId } from "../../../mindcraft/device-profile-id";
 import {
   WODAL_PROGRAM_IMAGE_FORMAT,
   WODAL_PROGRAM_IMAGE_VERSION,

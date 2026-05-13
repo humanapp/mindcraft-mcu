@@ -1,5 +1,5 @@
 import type { WodalBytecodeImage } from "./bytecode-loader";
-import { isWodalDeviceProfileId, type WodalDeviceProfileId } from "./device-profile";
+import { isWodalDeviceProfileId, type WodalDeviceProfileId } from "./device-profile-id";
 
 /** Program image format identifier used by JSON-encoded `.mcprogram` files. */
 export const WODAL_PROGRAM_IMAGE_FORMAT = "mindcraft.program";

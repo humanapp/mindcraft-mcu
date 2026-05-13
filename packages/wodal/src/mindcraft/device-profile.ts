@@ -1,48 +1,45 @@
 import type { MindcraftModule } from "@mindcraft-lang/core/app";
+import type { LinkedBrainProgram } from "@mindcraft-lang/core/runtime";
 import { createMicroBitV2Module } from "../targets/microbit-v2/mindcraft/module";
+import { createMicroBitV2ProgramImage } from "../targets/microbit-v2/mindcraft/program-image";
+import {
+  WodalDeviceProfileId as WodalDeviceProfileIds,
+  type WodalDeviceProfileId as WodalDeviceProfileIdValue,
+} from "./device-profile-id";
+import type { WodalProgramImage } from "./program-image";
 
-/** WODAL device profile identifiers. */
-export const WodalDeviceProfileId = {
-  MICROBIT_V2: "microbit-v2",
-} as const;
-
-/** Union of all {@link WodalDeviceProfileId} values. */
-export type WodalDeviceProfileId = (typeof WodalDeviceProfileId)[keyof typeof WodalDeviceProfileId];
+export {
+  isWodalDeviceProfileId,
+  WODAL_DEVICE_PROFILE_IDS,
+  WodalDeviceProfileId,
+} from "./device-profile-id";
 
 /** Mindcraft integration metadata for a WODAL device profile. */
 export interface WodalDeviceProfile {
   /** Stable profile id used in WODAL project documents and build artifacts. */
-  readonly profileId: WodalDeviceProfileId;
+  readonly profileId: WodalDeviceProfileIdValue;
 
   /** Creates the Mindcraft module for this profile. */
   readonly createMindcraftModule: () => MindcraftModule;
-}
 
-/** Supported WODAL device profile ids. */
-export const WODAL_DEVICE_PROFILE_IDS = Object.freeze([WodalDeviceProfileId.MICROBIT_V2] as const);
+  /** Creates a WODAL program image for this profile. */
+  readonly createProgramImage: (program: LinkedBrainProgram) => WodalProgramImage<LinkedBrainProgram>;
+}
 
 /** Supported WODAL device profiles keyed by profile id. */
 export const WODAL_DEVICE_PROFILES = Object.freeze({
-  [WodalDeviceProfileId.MICROBIT_V2]: Object.freeze({
-    profileId: WodalDeviceProfileId.MICROBIT_V2,
+  [WodalDeviceProfileIds.MICROBIT_V2]: Object.freeze({
+    profileId: WodalDeviceProfileIds.MICROBIT_V2,
     createMindcraftModule: createMicroBitV2Module,
+    createProgramImage: createMicroBitV2ProgramImage,
   } satisfies WodalDeviceProfile),
-} satisfies Readonly<Record<WodalDeviceProfileId, WodalDeviceProfile>>);
-
-/**
- * Checks whether a value is a supported WODAL device profile id.
- *
- * @param value - Candidate profile id.
- */
-export function isWodalDeviceProfileId(value: unknown): value is WodalDeviceProfileId {
-  return typeof value === "string" && (WODAL_DEVICE_PROFILE_IDS as readonly string[]).includes(value);
-}
+} satisfies Readonly<Record<WodalDeviceProfileIdValue, WodalDeviceProfile>>);
 
 /**
  * Returns Mindcraft integration metadata for a supported WODAL device profile.
  *
  * @param profileId - Supported WODAL device profile id.
  */
-export function getWodalDeviceProfile(profileId: WodalDeviceProfileId): WodalDeviceProfile {
+export function getWodalDeviceProfile(profileId: WodalDeviceProfileIdValue): WodalDeviceProfile {
   return WODAL_DEVICE_PROFILES[profileId];
 }
