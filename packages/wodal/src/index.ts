@@ -1,6 +1,6 @@
 export {
-  type CreateWodalProgramImageForProfileOptions,
-  createWodalProgramImageForProfile,
+  createWodalProgramImage,
+  type WodalProgramImageCreateOptions,
 } from "./mindcraft/build-program-image";
 export {
   getWodalDeviceProfile,
@@ -25,11 +25,11 @@ export {
   type WodalProgramLoadValidationError,
 } from "./mindcraft/program-load";
 export {
-  type HydrateWodalProjectBrainOptions,
   hydrateWodalProjectBrain,
   WodalProjectBrainHydrationCode,
   type WodalProjectBrainHydrationError,
   type WodalProjectBrainHydrationErrorCode,
+  type WodalProjectBrainHydrationOptions,
   type WodalProjectBrainHydrationResult,
 } from "./mindcraft/project-brain";
 export {

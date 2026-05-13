@@ -19,7 +19,7 @@ export type WodalProjectBrainHydrationCode =
 export type WodalProjectBrainHydrationErrorCode = MindcraftProjectBrainSelectionCode | WodalProjectBrainHydrationCode;
 
 /** Caller-owned inputs for WODAL project brain hydration. */
-export interface HydrateWodalProjectBrainOptions {
+export interface WodalProjectBrainHydrationOptions {
   /** Project document returned by WODAL validation or parsing. */
   readonly document: MindcraftProjectDocument;
 
@@ -73,7 +73,7 @@ export type WodalProjectBrainHydrationResult =
  *
  * @param options - Project document, caller-owned environment, and optional selector.
  */
-export function hydrateWodalProjectBrain(options: HydrateWodalProjectBrainOptions): WodalProjectBrainHydrationResult {
+export function hydrateWodalProjectBrain(options: WodalProjectBrainHydrationOptions): WodalProjectBrainHydrationResult {
   const selected = selectMindcraftProjectBrain(options.document, options.selector);
   if (!selected.ok) {
     return selected;
