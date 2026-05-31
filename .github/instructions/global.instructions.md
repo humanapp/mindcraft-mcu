@@ -60,6 +60,14 @@ reader cannot figure out what the field or function is, or how to use it
 correctly, without the comment, keep it. If covering the comment only removes
 justification of the current design, delete it.
 
+## Plan-Only Names in Code
+
+Do not embed plan-only or work-item names in code, identifiers, string literals,
+test names, or fixtures. Markers like `phase 2b`, a milestone, or a ticket id
+are meaningful only while the work is in progress and become noise once the plan
+is complete. Name things for the behavior or domain concept they represent.
+Phase tracking belongs in the plan and its phase log; the code outlives them.
+
 ## ASCII-Only Text in Comments and Documentation
 
 Use only keyboard-typable ASCII characters in code comments, markdown

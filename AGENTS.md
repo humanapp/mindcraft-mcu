@@ -31,6 +31,12 @@ The agent must not emit staging directives.
 - Never produce non-production statements such as `console.log("test")`,
   `console.log("here")`, hardcoded magic strings used only for debugging, or
   temporary workarounds presented as real code.
+- Do not embed plan-only or work-item names in code, identifiers, string
+  literals, test names, or fixtures. Markers like `phase 2b`, a milestone, or a
+  ticket id are meaningful only while the work is in progress and become noise
+  once the plan is complete. Name things for the behavior or domain concept they
+  represent. Phase tracking belongs in the plan and its phase log; the code
+  outlives them.
 - Complete functions fully. If a complete implementation cannot be inferred
   from context, suggest the minimal correct skeleton rather than a placeholder
   body.

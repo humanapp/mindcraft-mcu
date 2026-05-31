@@ -10,7 +10,7 @@ import { NRF52Serial, type NRF52SerialSnapshot } from "../../nrf52/nrf52-serial"
 import { MICROBIT_ID_BUTTON_A, MICROBIT_ID_BUTTON_AB, MICROBIT_ID_BUTTON_B, MICROBIT_ID_LOGO } from "./constants";
 import { MicroBitDisplay } from "./microbit-display";
 
-/** Snapshot of the microbit-v2 profile state exposed to app adapters. */
+/** Snapshot of the device state exposed to app adapters. */
 export interface MicroBitSnapshot {
   /** Runtime time in milliseconds since simulated reset. */
   readonly time: number;

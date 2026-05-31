@@ -21,3 +21,8 @@ export {
   WodalMicroBitRuntime,
   type WodalMicroBitRuntimeOptions,
 } from "./mindcraft/runtime";
+export {
+  WodalMicroBitV2ActionId,
+  WodalMicroBitV2ModifierId,
+  WodalMicroBitV2ParameterId,
+} from "./mindcraft/tile-ids";

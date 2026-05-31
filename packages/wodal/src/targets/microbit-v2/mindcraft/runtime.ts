@@ -15,12 +15,12 @@ import { WodalErrorCode, wodalError } from "../../../wodal-error";
 import { MicroBit, type MicroBitSnapshot } from "../microbit";
 import type { WodalMicroBitRuntimeContext } from "./context";
 
-/** Construction options for the WODAL microbit-v2 runtime facade. */
+/** Construction options for the WODAL runtime facade. */
 export interface WodalMicroBitRuntimeOptions {
   /** Mindcraft environment with core and microbit-v2 modules installed. */
   readonly environment: MindcraftEnvironment;
 
-  /** Simulated microbit device. A new device is created when omitted. */
+  /** Simulated device. A new device is created when omitted. */
   readonly microbit?: MicroBit;
 
   /** Optional VM event observer for runtime diagnostics. */
@@ -28,7 +28,7 @@ export interface WodalMicroBitRuntimeOptions {
 }
 
 /**
- * WODAL runtime facade for executing one loaded Mindcraft brain against a scoped simulated microbit-v2 device.
+ * WODAL runtime facade for executing one loaded Mindcraft brain against a scoped simulated device.
  */
 export class WodalMicroBitRuntime {
   /** Simulated device visible to WODAL host calls. */
@@ -65,7 +65,7 @@ export class WodalMicroBitRuntime {
   }
 
   /**
-   * Validates and loads a WODAL program image for the microbit-v2 runtime.
+   * Validates and loads a WODAL program image for the runtime.
    *
    * @param image - Program image with an embedded WODAL profile id.
    * @returns Validation result from the runtime load path.

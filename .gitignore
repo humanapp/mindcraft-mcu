@@ -32,6 +32,9 @@ drizzle/meta/
 *.tsbuildinfo
 
 #
-generated-docs/
 *.afdesign~lock~
 *.afphoto~lock~
+
+# Generated docs
+generated-docs/*
+!generated-docs/.gitignore

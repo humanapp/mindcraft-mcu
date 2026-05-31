@@ -1,7 +1,7 @@
 import { LEDMatrix, type LEDMatrixSnapshot } from "../../core/led-matrix";
 import { MICROBIT_LED_MATRIX_SIZE } from "./constants";
 
-/** CODAL-style microbit display facade over a 5x5 LED matrix. */
+/** CODAL-style display facade over a 5x5 LED matrix. */
 export class MicroBitDisplay {
   /** Matrix backing this display. */
   public readonly matrix = new LEDMatrix(MICROBIT_LED_MATRIX_SIZE, MICROBIT_LED_MATRIX_SIZE);

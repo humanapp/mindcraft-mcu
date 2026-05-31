@@ -1,6 +1,8 @@
 import {
   ContextTypeIds,
   CoreTypeIds,
+  createHostActuator,
+  createHostSensor,
   type ExecutionContext,
   extractNumberValue,
   List,
@@ -22,30 +24,34 @@ import type { MultiButton } from "../../../core/multi-button";
 import { TouchButton } from "../../../core/touch-button";
 import { MicroBit } from "../microbit";
 import { MicroBitDisplay } from "../microbit-display";
+import buttonASensor from "./actions/button-a";
+import displaySetPixelActuator from "./actions/display-set-pixel";
 import { getMicroBitContextDevice } from "./context";
+import { MICROBIT_V2_MODIFIERS } from "./modifiers";
+import { MICROBIT_V2_PARAMETERS } from "./parameters";
 
-/** Mindcraft module ID for the WODAL microbit-v2 profile. */
+/** Mindcraft module ID for the WODAL profile. */
 export const WODAL_MICROBIT_V2_MODULE_ID = "mindcraft.microbit-v2";
 
-/** Mindcraft type IDs registered by the WODAL microbit-v2 profile. */
+/** Mindcraft type IDs registered by the WODAL profile. */
 export const WODAL_MICROBIT_V2_TYPE_IDS = {
-  /** Native-backed aggregate for the simulated microbit device. */
+  /** Native-backed aggregate for the simulated device. */
   MicroBit: mkTypeId(NativeType.Struct, "MicroBit"),
 
-  /** Native-backed display facade for the simulated microbit device. */
+  /** Native-backed display facade for the simulated device. */
   MicroBitDisplay: mkTypeId(NativeType.Struct, "MicroBitDisplay"),
 
-  /** Native-backed button facade for the simulated microbit device. */
+  /** Native-backed button facade for the simulated device. */
   Button: mkTypeId(NativeType.Struct, "Button"),
 
-  /** Native-backed multi-button facade for the simulated microbit device. */
+  /** Native-backed multi-button facade for the simulated device. */
   MultiButton: mkTypeId(NativeType.Struct, "MultiButton"),
 
-  /** Native-backed touch button facade for the simulated microbit device. */
+  /** Native-backed touch button facade for the simulated device. */
   TouchButton: mkTypeId(NativeType.Struct, "TouchButton"),
 } as const;
 
-/** Creates the Mindcraft module for the WODAL microbit-v2 profile. */
+/** Creates the Mindcraft module for the WODAL profile. */
 export function createMicroBitV2Module(): MindcraftModule {
   return {
     id: WODAL_MICROBIT_V2_MODULE_ID,
@@ -53,6 +59,7 @@ export function createMicroBitV2Module(): MindcraftModule {
       registerMicroBitTypes(api);
       registerMicroBitDisplayFunctions(api);
       registerButtonFunctions(api);
+      registerBrainTiles(api);
     },
   };
 }
@@ -286,6 +293,13 @@ function registerButtonFunctions(api: MindcraftModuleApi): void {
     },
     callDef: emptyCallDef,
   });
+}
+
+function registerBrainTiles(api: MindcraftModuleApi): void {
+  api.registerHostSensor(createHostSensor(buttonASensor));
+  api.registerHostActuator(createHostActuator(displaySetPixelActuator));
+  api.registerModifiers(MICROBIT_V2_MODIFIERS);
+  api.registerParameters(MICROBIT_V2_PARAMETERS);
 }
 
 function getDisplayReceiver(args: ReadonlyList<Value>): MicroBitDisplay | undefined {
