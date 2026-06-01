@@ -1,4 +1,10 @@
 export {
+  type WodalBuildDiagnostic,
+  WodalBuildDiagnosticCode,
+  type WodalBuildInput,
+  type WodalBuildResult,
+} from "./mindcraft/build-kernel";
+export {
   createWodalProgramImage,
   type WodalProgramImageCreateOptions,
 } from "./mindcraft/build-program-image";

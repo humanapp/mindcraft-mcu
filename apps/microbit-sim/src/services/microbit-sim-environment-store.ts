@@ -14,8 +14,8 @@ import {
   MathOps,
   type MindcraftEnvironment,
 } from "@mindcraft-lang/core/app";
-import { type AmbientFile, isCompilerControlledPath } from "@mindcraft-lang/ts-compiler";
-import { getWodalDeviceProfile, type WodalDeviceProfile, WodalDeviceProfileId } from "@mindcraft-lang/wodal";
+import { isCompilerControlledPath } from "@mindcraft-lang/ts-compiler";
+import { getWodalDeviceProfile, type WodalBuildInput, WodalDeviceProfileId } from "@mindcraft-lang/wodal";
 import { createMicroBitV2Module } from "@mindcraft-lang/wodal/targets/microbit-v2";
 import { name as appName, version as appVersion } from "../../package.json";
 import { microbitAmbientFiles } from "./microbit-ambient-files";
@@ -49,23 +49,6 @@ function parseBrainIndex(raw: string | undefined): BrainRecord[] {
   } catch {
     return [];
   }
-}
-
-/**
- * Live inputs the WODAL build kernel consumes to produce a program image.
- *
- * These are live objects: the selected brain definition and the caller-owned
- * Mindcraft environment, not a serialized `.mindcraft` document. `sourceFiles`
- * is empty for the host-tile slice, which authors brains without user
- * TypeScript tiles.
- */
-export interface MicrobitBuildInput {
-  readonly brainId: string;
-  readonly brainDef: BrainDef;
-  readonly environment: MindcraftEnvironment;
-  readonly deviceProfile: WodalDeviceProfile;
-  readonly ambientFiles: readonly AmbientFile[];
-  readonly sourceFiles: ReadonlyMap<string, string>;
 }
 
 /**
@@ -244,11 +227,13 @@ export class MicrobitSimEnvironmentStore {
   }
 
   /**
-   * Returns the live build inputs for the selected brain, or undefined when no
-   * brain is selected. Returns live objects, not a serialized `.mindcraft`
-   * document, so a later WODAL build kernel can consume them directly.
+   * Returns the live build input for the selected brain, or undefined when no
+   * brain is selected. Returns the canonical WODAL build-input shape with live
+   * objects, not a serialized `.mindcraft` document, so the WODAL build kernel
+   * can consume it directly. The selected brain id is available separately via
+   * {@link getSelectedBrainId}.
    */
-  async getBuildInput(): Promise<MicrobitBuildInput | undefined> {
+  async getBuildInput(): Promise<WodalBuildInput | undefined> {
     const brainId = this._selectedBrainId;
     if (!brainId) {
       return undefined;
@@ -258,12 +243,9 @@ export class MicrobitSimEnvironmentStore {
       return undefined;
     }
     return {
-      brainId,
       brainDef,
       environment: this.env,
       deviceProfile: getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2),
-      ambientFiles: microbitAmbientFiles,
-      sourceFiles: new Map(),
     };
   }
 

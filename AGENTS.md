@@ -89,6 +89,23 @@ introduce design rationale:
 - "... is exposed because ..."
 - "... was chosen ..."
 
+Scope each comment to its own symbol. Document what the symbol is, its inputs,
+outputs, and errors -- nothing about what it is not, or what a different symbol
+does. Do not redirect the reader to another API for a related-but-different
+task, and do not contrast this symbol with an alternative. Phrasings like "to do
+X instead, use `Y`", "use `Y` to ...", or "unlike `Y`, this ..." pull in scope
+the reader did not ask about and invite tangential questions ("can this not do
+X?", "what is `Y`?"). A cross-reference is justified only when a reader cannot
+use this symbol correctly without it -- a required companion call or a
+precondition established elsewhere -- and then state it as a plain instruction
+("call `init()` first"), never as a contrast or a redirect to alternative
+functionality.
+
+- Avoid: `Compiles and links a brain. To run one instead, use createBrain().`
+- Avoid: `Builds the image without constructing a runtime.`
+- Prefer: `Compiles and links a brain and returns the linked program. Throws if
+  it fails to compile or link.`
+
 ## ASCII-Only Text
 
 Use only keyboard-typable ASCII characters in code comments, markdown

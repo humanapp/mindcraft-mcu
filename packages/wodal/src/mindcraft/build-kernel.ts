@@ -1,0 +1,70 @@
+import type { IBrainDef, MindcraftEnvironment } from "@mindcraft-lang/core/app";
+import type { LinkedBrainProgram } from "@mindcraft-lang/core/runtime";
+import type { WodalDeviceProfile, WodalDeviceProfileId } from "./device-profile";
+import type { WodalProgramImage } from "./program-image";
+
+/**
+ * Live inputs the WODAL build kernel links into a device program image.
+ *
+ * These are live objects, not a serialized document: the selected brain
+ * definition and the caller-owned Mindcraft environment that already has the
+ * profile's modules (and therefore its host tiles) installed. This is the one
+ * canonical build-input shape; callers do not define a parallel type.
+ */
+export interface WodalBuildInput {
+  /** Selected live brain definition to build. */
+  readonly brainDef: IBrainDef;
+
+  /** Caller-owned environment whose installed modules match the device profile. */
+  readonly environment: MindcraftEnvironment;
+
+  /** Resolved device profile that creates the program image. */
+  readonly deviceProfile: WodalDeviceProfile;
+}
+
+/** Stable diagnostic code for a failed WODAL brain build. */
+export const WodalBuildDiagnosticCode = {
+  /** Brain creation or program linking threw before an image could be made. */
+  BRAIN_LINK_FAILED: "WODAL_BUILD_BRAIN_LINK_FAILED",
+
+  /** The device profile failed to create a program image from the linked brain. */
+  PROGRAM_IMAGE_CREATION_FAILED: "WODAL_BUILD_PROGRAM_IMAGE_CREATION_FAILED",
+} as const;
+
+/** Union of all {@link WodalBuildDiagnosticCode} values. */
+export type WodalBuildDiagnosticCode = (typeof WodalBuildDiagnosticCode)[keyof typeof WodalBuildDiagnosticCode];
+
+/** Diagnostic for a rejected WODAL brain build. */
+export interface WodalBuildDiagnostic {
+  /** Stable machine-readable build code. */
+  readonly code: WodalBuildDiagnosticCode;
+
+  /** Human-readable diagnostic message. */
+  readonly message: string;
+
+  /** Original thrown value that caused the failure. */
+  readonly cause?: unknown;
+}
+
+/** Result of building a live brain definition into a WODAL program image. */
+export type WodalBuildResult =
+  | {
+      /** True when the brain linked and a program image was created. */
+      readonly ok: true;
+
+      /** Device profile id embedded in the program image. */
+      readonly profileId: WodalDeviceProfileId;
+
+      /** Program image flashable onto a simulator or device for the profile. */
+      readonly image: WodalProgramImage<LinkedBrainProgram>;
+
+      /** Empty diagnostics list for a successful build. */
+      readonly errors: readonly [];
+    }
+  | {
+      /** False when brain linking or image creation failed. */
+      readonly ok: false;
+
+      /** Build diagnostics for the rejected brain. */
+      readonly errors: readonly [WodalBuildDiagnostic, ...WodalBuildDiagnostic[]];
+    };
