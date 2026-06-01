@@ -20,7 +20,11 @@
 
     /* Path mapping */
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@mindcraft-lang/ui": ["../../external/mindcraft-lang/packages/ui/src/index.ts"],
+      "@mindcraft-lang/ui/*": ["../../external/mindcraft-lang/packages/ui/src/*"],
+      "@mindcraft-lang/docs": ["../../external/mindcraft-lang/packages/docs/src/index.ts"],
+      "@mindcraft-lang/docs/*": ["../../external/mindcraft-lang/packages/docs/src/*"]
     }
   },
   "include": ["src"],

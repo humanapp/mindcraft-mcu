@@ -1,7 +1,73 @@
 @import "tailwindcss";
+@import "../../../external/mindcraft-lang/packages/ui/src/ui.css";
+@source "../../../external/mindcraft-lang/packages/ui/src";
+@source "../../../external/mindcraft-lang/packages/docs/src";
 
 @layer base {
   body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
     font-family: ui-sans-serif, system-ui, sans-serif;
   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #424242 transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #424242;
+  border-radius: 5px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: #4f4f4f;
+}
+
+/*
+ * Dark theme modeled after VS Code Dark+. Surfaces are layered (background ->
+ * card/popover) and borders are visible, with the signature blue primary.
+ * The app is dark-only for now; a light theme can be added later if needed.
+ */
+@theme {
+  --color-background: #1e1e1e;
+  --color-foreground: #d4d4d4;
+  --color-card: #252526;
+  --color-card-foreground: #d4d4d4;
+  --color-popover: #252526;
+  --color-popover-foreground: #d4d4d4;
+  --color-primary: #0e639c;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #3a3d41;
+  --color-secondary-foreground: #d4d4d4;
+  --color-muted: #2d2d30;
+  --color-muted-foreground: #9d9d9d;
+  --color-accent: #2a2d2e;
+  --color-accent-foreground: #ffffff;
+  --color-destructive: #f14c4c;
+  --color-destructive-foreground: #ffffff;
+  --color-border: #454545;
+  --color-input: #3c3c3c;
+  --color-ring: #007acc;
+  --radius: 0.5rem;
+  --font-mono:
+    "Roboto Mono", ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, "DejaVu Sans Mono", monospace;
 }
