@@ -24,7 +24,7 @@ export interface WodalBuildInput {
 
 /** Stable diagnostic code for a failed WODAL brain build. */
 export const WodalBuildDiagnosticCode = {
-  /** Brain creation or program linking threw before an image could be made. */
+  /** The brain failed to compile or link. */
   BRAIN_LINK_FAILED: "WODAL_BUILD_BRAIN_LINK_FAILED",
 
   /** The device profile failed to create a program image from the linked brain. */
@@ -68,3 +68,37 @@ export type WodalBuildResult =
       /** Build diagnostics for the rejected brain. */
       readonly errors: readonly [WodalBuildDiagnostic, ...WodalBuildDiagnostic[]];
     };
+
+/**
+ * Builds a WODAL program image from a live brain definition using the supplied
+ * device profile.
+ *
+ * @param input - Selected brain definition, caller-owned environment, and resolved device profile.
+ */
+export function buildWodalProgramImage(input: WodalBuildInput): WodalBuildResult {
+  const built = input.environment.linkBrain(input.brainDef);
+  if (!built.program) {
+    const message = built.diagnostics
+      .toArray()
+      .filter((diagnostic) => diagnostic.severity === "error")
+      .map((diagnostic) => diagnostic.message)
+      .join("; ");
+    return { ok: false, errors: [{ code: WodalBuildDiagnosticCode.BRAIN_LINK_FAILED, message }] };
+  }
+
+  try {
+    const image = input.deviceProfile.createProgramImage(built.program);
+    return { ok: true, profileId: input.deviceProfile.profileId, image, errors: [] };
+  } catch (cause) {
+    return {
+      ok: false,
+      errors: [
+        {
+          code: WodalBuildDiagnosticCode.PROGRAM_IMAGE_CREATION_FAILED,
+          message: `Failed to create a program image for profile '${input.deviceProfile.profileId}'.`,
+          cause,
+        },
+      ],
+    };
+  }
+}

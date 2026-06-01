@@ -1,4 +1,5 @@
 export {
+  buildWodalProgramImage,
   type WodalBuildDiagnostic,
   WodalBuildDiagnosticCode,
   type WodalBuildInput,
