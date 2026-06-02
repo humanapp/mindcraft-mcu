@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { Dict, List, UniqueSet } from "@mindcraft-lang/core";
+import { Dict, List } from "@mindcraft-lang/core";
 import { coreModule, createMindcraftEnvironment, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
 import type { IBrainTileDef } from "@mindcraft-lang/core/brain";
 import { BrainDef } from "@mindcraft-lang/core/brain/model";
@@ -390,8 +390,6 @@ function createLinkedBrainProgram(
     pageName: "page-1",
     rootRuleFuncIds: List.from(rootRuleFuncIds),
     actionCallSites: List.empty(),
-    sensors: new UniqueSet<string>(),
-    actuators: new UniqueSet<string>(),
   };
   return {
     program,

@@ -91,7 +91,7 @@ export class WodalMicroBitRuntime {
         continue;
       }
 
-      const resolved = resolver.resolveAction(action.descriptor);
+      const resolved = resolver.getByKey(action.descriptor.key);
       if (!resolved || resolved.binding !== "host") {
         return {
           ok: false,
