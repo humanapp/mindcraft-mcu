@@ -1,6 +1,8 @@
+import { List } from "@mindcraft-lang/core";
 import type { MindcraftEnvironment } from "@mindcraft-lang/core/app";
 import {
   BrainRuntime,
+  type ExecutableAction,
   type LinkedBrainProgram,
   type LinkedBrainProgramJson,
   linkedBrainProgramFromJson,
@@ -65,6 +67,51 @@ export class WodalMicroBitRuntime {
   }
 
   /**
+   * Rebinds the live host action functions onto a deserialized linked program.
+   *
+   * A serialized linked program carries host actions as descriptor-only bindings; their
+   * live functions are resolved here from the runtime environment's action registry by
+   * descriptor. Bytecode actions pass through unchanged. Returns a load failure when a
+   * host action's descriptor does not resolve in this environment.
+   *
+   * @param program - Deserialized linked program to rebind in place.
+   */
+  private rebindHostActions(program: LinkedBrainProgram): WodalProgramLoadValidation {
+    const actions = program.program.actions;
+    if (!actions) {
+      return { ok: true };
+    }
+
+    const resolver = this.environment.brainServices.runtime.actions;
+    const reboundActions = List.empty<ExecutableAction>();
+    for (let i = 0; i < actions.size(); i++) {
+      const action = actions.get(i)!;
+      if (action.binding !== "host") {
+        reboundActions.push(action);
+        continue;
+      }
+
+      const resolved = resolver.resolveAction(action.descriptor);
+      if (!resolved || resolved.binding !== "host") {
+        return {
+          ok: false,
+          errors: [
+            {
+              code: WodalProgramLoadValidationCode.UNRESOLVED_HOST_ACTION,
+              message: `Host action '${action.descriptor.key}' is not registered in the runtime environment.`,
+            },
+          ],
+        };
+      }
+
+      reboundActions.push(resolved);
+    }
+
+    program.program.actions = reboundActions;
+    return { ok: true };
+  }
+
+  /**
    * Validates and loads a WODAL program image for the runtime.
    *
    * @param image - Program image with an embedded WODAL profile id.
@@ -119,6 +166,11 @@ export class WodalMicroBitRuntime {
           },
         ],
       };
+    }
+
+    const rebound = this.rebindHostActions(program);
+    if (!rebound.ok) {
+      return rebound;
     }
 
     return this.loadLinkedBrainProgram(program);
