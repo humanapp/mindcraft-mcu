@@ -13,7 +13,6 @@ import { toNonNegativeInteger } from "../../../core/numeric";
 import { WodalDeviceProfileId } from "../../../mindcraft/device-profile";
 import type { WodalProgramImage } from "../../../mindcraft/program-image";
 import { type WodalProgramLoadValidation, WodalProgramLoadValidationCode } from "../../../mindcraft/program-load";
-import { WodalErrorCode, wodalError } from "../../../wodal-error";
 import { MicroBit, type MicroBitSnapshot } from "../microbit";
 import type { WodalMicroBitRuntimeContext } from "./context";
 
@@ -177,27 +176,23 @@ export class WodalMicroBitRuntime {
   }
 
   /**
-   * Advances simulated device time and runs the loaded brain.
+   * Advances simulated device time and runs the loaded brain. No-op when no program is loaded:
+   * an instance can exist and be ticked by the render loop before it has been flashed.
    *
    * @param milliseconds - Elapsed simulated time in milliseconds.
    */
   tick(milliseconds: number): void {
-    const loadedBrain = this.getLoadedBrain();
+    if (this.loadedBrain === undefined) {
+      return;
+    }
     this.microbit.sleep(toNonNegativeInteger(milliseconds));
     this.microbit.idleCallback();
-    loadedBrain.think(this.microbit.systemTime());
+    this.loadedBrain.think(this.microbit.systemTime());
   }
 
   /** Returns the current simulated device snapshot. */
   snapshot(): MicroBitSnapshot {
     return this.microbit.snapshot();
-  }
-
-  private getLoadedBrain(): BrainRuntime {
-    if (this.loadedBrain === undefined) {
-      throw wodalError(WodalErrorCode.MISSING_WODAL_PROGRAM, "No WODAL microbit program has been loaded.");
-    }
-    return this.loadedBrain;
   }
 
   private replaceLoadedBrain(brain: BrainRuntime): void {

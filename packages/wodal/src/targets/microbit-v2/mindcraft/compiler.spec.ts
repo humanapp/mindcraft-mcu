@@ -27,7 +27,6 @@ import {
 import { WodalDeviceProfileId } from "../../../mindcraft/device-profile";
 import type { WodalProgramImage } from "../../../mindcraft/program-image";
 import { WodalProgramLoadValidationCode } from "../../../mindcraft/program-load";
-import { WodalError, WodalErrorCode } from "../../../wodal-error";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Module } from "./module";
 import { createMicroBitV2ProgramImage } from "./program-image";
@@ -74,14 +73,11 @@ test("compiled Mindcraft code reads WODAL Button state", () => {
   assert.equal(display.pixels[3 * display.width + 2], 128);
 });
 
-test("WodalMicroBitRuntime reports missing loaded program with a stable code", () => {
+test("WodalMicroBitRuntime tick is a no-op when no program is loaded", () => {
   const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
   const runtime = new WodalMicroBitRuntime({ environment });
 
-  assert.throws(
-    () => runtime.tick(16),
-    (error) => error instanceof WodalError && error.code === WodalErrorCode.MISSING_WODAL_PROGRAM
-  );
+  assert.equal(runtime.tick(16), undefined);
   assert.equal(runtime.snapshot().time, 0);
 });
 

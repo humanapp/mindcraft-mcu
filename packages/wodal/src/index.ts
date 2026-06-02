@@ -52,4 +52,3 @@ export {
   WodalProjectValidationCode,
   type WodalProjectValidationError,
 } from "./mindcraft/project-document";
-export { WodalError, WodalErrorCode, wodalError } from "./wodal-error";
