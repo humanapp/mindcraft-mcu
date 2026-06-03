@@ -254,6 +254,13 @@ export class MicrobitSimEnvironmentStore {
     };
   }
 
+  /** Flashes the editor-selected brain onto the given simulator instance. */
+  async flashInstance(instanceId: string): Promise<void> {
+    const brainId = this.getSelectedBrainId();
+    const input = await this.getBuildInput();
+    this.simulator.flash(instanceId, input, brainId);
+  }
+
   /** Subscribes to brain-list or selection changes for `useSyncExternalStore`. */
   subscribeToBrains = (listener: () => void): (() => void) => {
     this._brainsListeners.add(listener);

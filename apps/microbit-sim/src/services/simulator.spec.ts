@@ -1,8 +1,20 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { BrainDef, coreModule, createMindcraftEnvironment, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
-import { buildWodalProgramImage, getWodalDeviceProfile, WodalDeviceProfileId } from "@mindcraft-lang/wodal";
-import { createMicroBitV2Module } from "@mindcraft-lang/wodal/targets/microbit-v2";
+import {
+  BrainDef,
+  coreModule,
+  createMindcraftEnvironment,
+  type MindcraftEnvironment,
+  mkActuatorTileId,
+  mkSensorTileId,
+} from "@mindcraft-lang/core/app";
+import {
+  buildWodalProgramImage,
+  getWodalDeviceProfile,
+  type WodalBuildInput,
+  WodalDeviceProfileId,
+} from "@mindcraft-lang/wodal";
+import { createMicroBitV2Module, WodalMicroBitV2ActionId } from "@mindcraft-lang/wodal/targets/microbit-v2";
 import { MicrobitSimulator } from "./simulator";
 
 function microbitEnvironment(): MindcraftEnvironment {
@@ -21,6 +33,18 @@ function buildMinimalImage(env: MindcraftEnvironment) {
     assert.fail("expected a successful build");
   }
   return built.image;
+}
+
+/** Builds the button-A -> set-pixel brain as a WODAL build input, through the tile API. */
+function buttonDisplayInput(env: MindcraftEnvironment): WodalBuildInput {
+  const services = env.brainServices;
+  const sensorTile = services.edit.tiles.get(mkSensorTileId(WodalMicroBitV2ActionId.ButtonA))!;
+  const actuatorTile = services.edit.tiles.get(mkActuatorTileId(WodalMicroBitV2ActionId.DisplaySetPixel))!;
+  const brainDef = BrainDef.emptyBrainDef(services, "button display");
+  const rule = brainDef.pages().get(0)!.children().get(0)!;
+  rule.when().appendTile(sensorTile);
+  rule.do().appendTile(actuatorTile);
+  return { brainDef, environment: env, deviceProfile: getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2) };
 }
 
 describe("MicrobitSimulator instance lifecycle", () => {
@@ -85,5 +109,90 @@ describe("MicrobitSimulator tick driver", () => {
     b.tick(32);
     assert.equal(b.snapshot().time, 32);
     assert.equal(a.snapshot().time, 16);
+  });
+});
+
+describe("MicrobitSimulator flash", () => {
+  it("flashes the selected brain onto an instance and runs it", () => {
+    const env = microbitEnvironment();
+    const sim = new MicrobitSimulator(env);
+    const instance = sim.getInstances()[0]!;
+
+    sim.flash(instance.id, buttonDisplayInput(env), "brain-1");
+
+    assert.deepEqual(instance.flashState, { status: "loaded", brainId: "brain-1" });
+    assert.equal(instance.flashedBrainId, "brain-1");
+
+    instance.tick(16);
+    assert.equal(instance.microbit.display.getPixelValue(0, 0), 0);
+
+    instance.microbit.setButtonPressed("A", true);
+    instance.tick(32);
+    assert.equal(instance.microbit.display.getPixelValue(0, 0), 255);
+  });
+
+  it("flashes one instance without affecting another", () => {
+    const env = microbitEnvironment();
+    const sim = new MicrobitSimulator(env);
+    const a = sim.getInstances()[0]!;
+    const b = sim.addInstance();
+
+    sim.flash(a.id, buttonDisplayInput(env), "brain-1");
+    assert.equal(a.flashState.status, "loaded");
+    assert.deepEqual(b.flashState, { status: "empty" });
+
+    a.tick(16); // baseline: button up, establishes the released state for the edge
+    a.microbit.setButtonPressed("A", true);
+    a.tick(32);
+    assert.equal(a.microbit.display.getPixelValue(0, 0), 255);
+    assert.equal(b.microbit.display.getPixelValue(0, 0), 0);
+  });
+
+  it("re-flashing replaces the loaded program on that instance", () => {
+    const env = microbitEnvironment();
+    const sim = new MicrobitSimulator(env);
+    const instance = sim.getInstances()[0]!;
+
+    sim.flash(instance.id, buttonDisplayInput(env), "brain-1");
+    sim.flash(instance.id, buttonDisplayInput(env), "brain-2");
+    assert.deepEqual(instance.flashState, { status: "loaded", brainId: "brain-2" });
+  });
+
+  it("records a no-brain-selected state without throwing", () => {
+    const sim = new MicrobitSimulator(microbitEnvironment());
+    const instance = sim.getInstances()[0]!;
+    sim.flash(instance.id, undefined, undefined);
+    assert.deepEqual(instance.flashState, { status: "noBrainSelected" });
+  });
+
+  it("classifies a build/link failure into the failed flash state without throwing", () => {
+    const env = microbitEnvironment();
+    const sim = new MicrobitSimulator(env);
+    const instance = sim.getInstances()[0]!;
+
+    // Build the brain against the microbit env, then link it in a core-only env (missing the
+    // microbit actions) to force a link failure.
+    const input = buttonDisplayInput(env);
+    const coreOnly = createMindcraftEnvironment({ modules: [coreModule()] });
+    sim.flash(instance.id, { ...input, environment: coreOnly }, "brain-1");
+
+    assert.equal(instance.flashState.status, "failed");
+    if (instance.flashState.status !== "failed") {
+      assert.fail("expected a failed flash state");
+    }
+    assert.ok(instance.flashState.errors.length > 0);
+  });
+
+  it("notifies instance-list subscribers when flash state changes", () => {
+    const env = microbitEnvironment();
+    const sim = new MicrobitSimulator(env);
+    const instance = sim.getInstances()[0]!;
+    let notifications = 0;
+    const unsubscribe = sim.subscribeToInstances(() => {
+      notifications++;
+    });
+    sim.flash(instance.id, buttonDisplayInput(env), "brain-1");
+    unsubscribe();
+    assert.equal(notifications, 1);
   });
 });
