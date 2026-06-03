@@ -81,6 +81,12 @@ export class TouchButton extends Button {
     this.setValue(touched ? Math.max(1, this.threshold) : this.threshold - 1, timestamp);
   }
 
+  /** Resets transient touch state without emitting events. The threshold is configuration and is preserved. */
+  override reset(): void {
+    super.reset();
+    this.value = 0;
+  }
+
   /** Returns a serializable view of the touch button state. */
   override snapshot(): TouchButtonSnapshot {
     return {

@@ -40,11 +40,6 @@ test("Context.microbit exposes the native WODAL microbit device", () => {
   assert.equal(buttonAValue.typeId, WODAL_MICROBIT_V2_TYPE_IDS.Button);
   assert.equal(buttonAValue.native, microbit.buttonA);
 
-  const buttonABValue = microbitDef.fieldGetter?.(microbitValue, "buttonAB", ctx);
-  assert.ok(isStructValue(buttonABValue));
-  assert.equal(buttonABValue.typeId, WODAL_MICROBIT_V2_TYPE_IDS.MultiButton);
-  assert.equal(buttonABValue.native, microbit.buttonAB);
-
   const logoValue = microbitDef.fieldGetter?.(microbitValue, "logo", ctx);
   assert.ok(isStructValue(logoValue));
   assert.equal(logoValue.typeId, WODAL_MICROBIT_V2_TYPE_IDS.TouchButton);
@@ -101,15 +96,15 @@ test("Button host methods route through native button receivers", () => {
   const microbit = new MicroBit();
   const ctx = createExecutionContext(env, microbit);
   const buttonA = mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.Button, microbit.buttonA);
-  const buttonAB = mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.MultiButton, microbit.buttonAB);
+  const buttonB = mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.Button, microbit.buttonB);
   const logo = mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.TouchButton, microbit.logo);
 
   microbit.setButtonPressed("A", true);
   assert.equal(extractNumberValue(getSyncFunction(env, "Button.isPressed").exec(ctx, List.from([buttonA]))), 1);
-  assert.equal(extractNumberValue(getSyncFunction(env, "MultiButton.isPressed").exec(ctx, List.from([buttonAB]))), 0);
+  assert.equal(extractNumberValue(getSyncFunction(env, "Button.isPressed").exec(ctx, List.from([buttonB]))), 0);
 
   microbit.setButtonPressed("B", true);
-  assert.equal(extractNumberValue(getSyncFunction(env, "MultiButton.isPressed").exec(ctx, List.from([buttonAB]))), 1);
+  assert.equal(extractNumberValue(getSyncFunction(env, "Button.isPressed").exec(ctx, List.from([buttonB]))), 1);
 
   getSyncFunction(env, "TouchButton.setThreshold").exec(ctx, List.from([logo, mkNumberValue(5)]));
   getSyncFunction(env, "TouchButton.setValue").exec(ctx, List.from([logo, mkNumberValue(5)]));

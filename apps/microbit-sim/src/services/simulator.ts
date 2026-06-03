@@ -129,6 +129,25 @@ export class MicrobitSimulator {
     );
   }
 
+  /** Re-flashes every instance currently loaded with `brainId` using a freshly built `input`. */
+  reflash(brainId: string, input: WodalBuildInput): void {
+    for (const instance of this.instances_) {
+      if (instance.flashState.status === "loaded" && instance.flashState.brainId === brainId) {
+        this.flash(instance.id, input, brainId);
+      }
+    }
+  }
+
+  /** Unflashes every instance currently loaded with `brainId`, returning them to the empty state. */
+  unflash(brainId: string): void {
+    for (const instance of this.instances_) {
+      if (instance.flashState.status === "loaded" && instance.flashState.brainId === brainId) {
+        instance.runtime.unload();
+        this.applyFlashState(instance, { status: "empty" });
+      }
+    }
+  }
+
   /** Advances every instance by elapsed simulated time. Unloaded instances no-op. */
   tick(elapsedMs: number): void {
     for (const instance of this.instances_) {

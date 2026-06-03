@@ -9,12 +9,9 @@ import {
   DEVICE_BUTTON_SIMPLE_EVENTS,
 } from "./event";
 import { MessageBus } from "./message-bus";
-import { MultiButton } from "./multi-button";
 import { TouchButton } from "./touch-button";
 
 const TEST_BUTTON_A_ID = 1;
-const TEST_BUTTON_B_ID = 2;
-const TEST_BUTTON_AB_ID = 3;
 const TEST_TOUCH_BUTTON_ID = 121;
 
 describe("Button", () => {
@@ -54,35 +51,6 @@ describe("Button", () => {
       [DEVICE_BUTTON_EVT_DOWN, DEVICE_BUTTON_EVT_UP]
     );
     assert.equal(button.snapshot().pressCount, 0);
-  });
-});
-
-describe("MultiButton", () => {
-  it("tracks the combined state of two source buttons", () => {
-    const bus = new MessageBus();
-    const events: WodalEvent[] = [];
-    const buttonA = new Button(TEST_BUTTON_A_ID, bus);
-    const buttonB = new Button(TEST_BUTTON_B_ID, bus);
-    const buttonAB = new MultiButton(buttonA, buttonB, TEST_BUTTON_AB_ID, bus);
-    bus.listen(TEST_BUTTON_AB_ID, 0, (event) => events.push(event));
-
-    buttonA.setPressed(true, 1);
-    buttonAB.update(1);
-    buttonB.setPressed(true, 2);
-    buttonAB.update(2);
-    buttonA.setPressed(false, 3);
-    buttonAB.update(3);
-    bus.drain();
-
-    assert.deepEqual(
-      events.map((event) => [event.value, event.timestamp]),
-      [
-        [DEVICE_BUTTON_EVT_DOWN, 2],
-        [DEVICE_BUTTON_EVT_UP, 3],
-        [DEVICE_BUTTON_EVT_CLICK, 3],
-      ]
-    );
-    assert.equal(buttonAB.isPressed(), 0);
   });
 });
 

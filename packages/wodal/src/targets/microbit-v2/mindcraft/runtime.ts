@@ -195,6 +195,16 @@ export class WodalMicroBitRuntime {
     return this.microbit.snapshot();
   }
 
+  /** Stops the current program and resets the device to a fresh power-on state. A no-op when none is loaded. */
+  unload(): void {
+    if (this.loadedBrain === undefined) {
+      return;
+    }
+    this.loadedBrain.shutdown();
+    this.loadedBrain = undefined;
+    this.microbit.clear();
+  }
+
   private replaceLoadedBrain(brain: BrainRuntime): void {
     this.loadedBrain?.shutdown();
     this.loadedBrain = brain;

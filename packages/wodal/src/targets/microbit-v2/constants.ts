@@ -22,9 +22,6 @@ export const MICROBIT_ID_BUTTON_A = 1;
 /** Event source ID used by button B. */
 export const MICROBIT_ID_BUTTON_B = 2;
 
-/** Event source ID used by the virtual A+B button. */
-export const MICROBIT_ID_BUTTON_AB = 3;
-
 /** Event source ID used by the touch logo. */
 export const MICROBIT_ID_LOGO = 121;
 

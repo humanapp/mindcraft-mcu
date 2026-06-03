@@ -22,6 +22,24 @@ The agent must not emit staging directives.
 - Do not include a `prefix_rule` for destructive commands, heredocs, or overly
   broad command prefixes.
 
+## Package Manager
+
+- This repo uses npm. Do not use pnpm or yarn, and do not add their lockfiles,
+  a `packageManager` field, or `pnpm`/`yarn` invocations. The only root lockfile
+  is `package-lock.json`.
+- This is intentionally NOT an npm workspaces monorepo, and must not become one.
+  There is no root `workspaces` field. Each package and app runs its own
+  `npm install` into its own `node_modules`; cross-package links use `file:`
+  dependencies and symlinks.
+- Because there is no hoisting, every package must declare the dev tooling its
+  own scripts invoke (for example `tsx`) in its own `devDependencies`, so the
+  script resolves the binary from that package's `node_modules/.bin`. Do not
+  rely on a root-level binary being on PATH, and do not work around a missing
+  binary by editing PATH -- add the dependency to the package instead.
+- Run scripts with npm from the relevant package directory, for example
+  `npm test`, `npm run build`, `npm run typecheck`, `npm run generate:ambient`,
+  `npm run check`.
+
 ## Code Quality
 
 - Never emit placeholder code. Do not use `TODO`, `FIXME`, `...`,

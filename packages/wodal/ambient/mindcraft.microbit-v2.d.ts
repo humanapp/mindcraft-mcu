@@ -2,7 +2,6 @@ declare module "mindcraft" {
   interface MindcraftTypeMap {
     MicroBitDisplay: MicroBitDisplay;
     Button: Button;
-    MultiButton: MultiButton;
     TouchButton: TouchButton;
     MicroBit: MicroBit;
   }
@@ -14,10 +13,6 @@ declare module "mindcraft" {
     clear(): void;
   }
   export interface Button {
-    readonly __brand: unique symbol;
-    isPressed(): number;
-  }
-  export interface MultiButton {
     readonly __brand: unique symbol;
     isPressed(): number;
   }
@@ -34,7 +29,6 @@ declare module "mindcraft" {
     readonly display: MicroBitDisplay;
     readonly buttonA: Button;
     readonly buttonB: Button;
-    readonly buttonAB: MultiButton;
     readonly logo: TouchButton;
   }
   export interface Context {

@@ -149,6 +149,12 @@ export class Accelerometer {
     this.gesture = toInt32(gesture);
   }
 
+  /** Resets the transient sensor reading and gesture to their resting defaults. Period and range are configuration and are preserved. */
+  reset(): void {
+    this.sample = { x: 0, y: 0, z: -1000 };
+    this.gesture = ACCELEROMETER_EVT_NONE;
+  }
+
   private normalizeAxis(value: number): number {
     return clampInt16(value);
   }

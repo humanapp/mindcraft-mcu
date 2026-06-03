@@ -81,6 +81,30 @@ test("WodalMicroBitRuntime tick is a no-op when no program is loaded", () => {
   assert.equal(runtime.snapshot().time, 0);
 });
 
+test("WodalMicroBitRuntime unload stops the program and resets the device", () => {
+  const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const program = compileDisplayActuator(environment, { brightness: 255, x: 1, y: 2 });
+  const microbit = new MicroBit();
+  const runtime = new WodalMicroBitRuntime({ environment, microbit });
+
+  runtime.loadWodalProgramImage(createMicroBitV2ProgramImage(createLinkedBrainProgram(program, [program.entryFuncId])));
+  runtime.tick(16);
+  const litDisplay = runtime.snapshot().display;
+  assert.equal(litDisplay.pixels[2 * litDisplay.width + 1], 255);
+  assert.equal(runtime.snapshot().time, 16);
+
+  runtime.unload();
+
+  // Unload resets the whole device, not just the display: the lit pixel clears and time returns to zero.
+  const reset = runtime.snapshot();
+  assert.equal(reset.display.pixels[2 * reset.display.width + 1], 0);
+  assert.equal(reset.time, 0);
+
+  // Tick is a no-op after unload: device time no longer advances from the program.
+  runtime.tick(16);
+  assert.equal(runtime.snapshot().time, 0);
+});
+
 test("WodalMicroBitRuntime loads linked brain program images through core BrainRuntime", () => {
   const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
   const runtime = new WodalMicroBitRuntime({ environment });

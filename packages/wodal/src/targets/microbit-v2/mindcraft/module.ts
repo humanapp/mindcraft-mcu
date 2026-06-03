@@ -20,7 +20,6 @@ import {
   VOID_VALUE,
 } from "@mindcraft-lang/core/app";
 import { Button } from "../../../core/button";
-import type { MultiButton } from "../../../core/multi-button";
 import { TouchButton } from "../../../core/touch-button";
 import { MicroBit } from "../microbit";
 import { MicroBitDisplay } from "../microbit-display";
@@ -43,9 +42,6 @@ export const WODAL_MICROBIT_V2_TYPE_IDS = {
 
   /** Native-backed button facade for the simulated device. */
   Button: mkTypeId(NativeType.Struct, "Button"),
-
-  /** Native-backed multi-button facade for the simulated device. */
-  MultiButton: mkTypeId(NativeType.Struct, "MultiButton"),
 
   /** Native-backed touch button facade for the simulated device. */
   TouchButton: mkTypeId(NativeType.Struct, "TouchButton"),
@@ -108,18 +104,6 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
     ]),
   });
 
-  types.addStructType("MultiButton", {
-    fields: List.empty(),
-    fieldGetter: () => undefined,
-    methods: List.from([
-      {
-        name: "isPressed",
-        params: List.empty(),
-        returnTypeId: CoreTypeIds.Number,
-      },
-    ]),
-  });
-
   types.addStructType("TouchButton", {
     fields: List.empty(),
     fieldGetter: () => undefined,
@@ -157,7 +141,6 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
       { name: "display", typeId: WODAL_MICROBIT_V2_TYPE_IDS.MicroBitDisplay },
       { name: "buttonA", typeId: WODAL_MICROBIT_V2_TYPE_IDS.Button },
       { name: "buttonB", typeId: WODAL_MICROBIT_V2_TYPE_IDS.Button },
-      { name: "buttonAB", typeId: WODAL_MICROBIT_V2_TYPE_IDS.MultiButton },
       { name: "logo", typeId: WODAL_MICROBIT_V2_TYPE_IDS.TouchButton },
     ]),
     fieldGetter: (source, fieldName) => {
@@ -172,8 +155,6 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
           return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.Button, microbit.buttonA);
         case "buttonB":
           return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.Button, microbit.buttonB);
-        case "buttonAB":
-          return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.MultiButton, microbit.buttonAB);
         case "logo":
           return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.TouchButton, microbit.logo);
         default:
@@ -238,7 +219,7 @@ function registerMicroBitDisplayFunctions(api: MindcraftModuleApi): void {
 function registerButtonFunctions(api: MindcraftModuleApi): void {
   const emptyCallDef = mkCallDef({ type: "bag", items: [] });
 
-  for (const typeName of ["Button", "MultiButton", "TouchButton"]) {
+  for (const typeName of ["Button", "TouchButton"]) {
     api.registerFunction({
       name: `${typeName}.isPressed`,
       isAsync: false,
@@ -310,11 +291,10 @@ function getDisplayReceiver(args: ReadonlyList<Value>): MicroBitDisplay | undefi
   return receiver.native instanceof MicroBitDisplay ? receiver.native : undefined;
 }
 
-function getButtonReceiver(args: ReadonlyList<Value>): Button | MultiButton | TouchButton | undefined {
+function getButtonReceiver(args: ReadonlyList<Value>): Button | TouchButton | undefined {
   const receiver = args.get(0);
   if (
     !isStructNative(receiver, WODAL_MICROBIT_V2_TYPE_IDS.Button) &&
-    !isStructNative(receiver, WODAL_MICROBIT_V2_TYPE_IDS.MultiButton) &&
     !isStructNative(receiver, WODAL_MICROBIT_V2_TYPE_IDS.TouchButton)
   ) {
     return undefined;

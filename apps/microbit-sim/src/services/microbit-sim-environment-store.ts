@@ -185,7 +185,7 @@ export class MicrobitSimEnvironmentStore {
     return id;
   }
 
-  /** Removes a brain and its stored definition. */
+  /** Removes a brain and its stored definition, unflashing any instance running it. */
   async removeBrain(id: string): Promise<void> {
     await this.host.removeBrain(id);
     this._brains = this._brains.filter((brain) => brain.id !== id);
@@ -194,6 +194,7 @@ export class MicrobitSimEnvironmentStore {
       this._selectedBrainId = this._brains[0]?.id;
     }
     this.notifyBrainsChanged();
+    this.simulator.unflash(id);
   }
 
   /** Renames a brain across the index and the brain definition, preserving the UUID. */
@@ -219,7 +220,7 @@ export class MicrobitSimEnvironmentStore {
     return (await this.host.loadBrainFromProject(id)) as BrainDef | undefined;
   }
 
-  /** Persists an edited brain definition and syncs the index name to match it. */
+  /** Persists an edited brain definition, syncs the index name, and re-flashes instances running it. */
   async saveBrain(id: string, brainDef: BrainDef): Promise<void> {
     await this.host.saveBrainForKey(id, brainDef);
     const name = brainDef.name();
@@ -229,6 +230,7 @@ export class MicrobitSimEnvironmentStore {
       await this.persistBrainIndex();
       this.notifyBrainsChanged();
     }
+    await this.reflashBrain(id);
   }
 
   /**
@@ -243,6 +245,11 @@ export class MicrobitSimEnvironmentStore {
     if (!brainId) {
       return undefined;
     }
+    return this.buildInputForBrain(brainId);
+  }
+
+  /** Assembles the WODAL build input for a specific brain, or undefined when it cannot be loaded. */
+  private async buildInputForBrain(brainId: string): Promise<WodalBuildInput | undefined> {
     const brainDef = await this.getBrain(brainId);
     if (!brainDef) {
       return undefined;
@@ -259,6 +266,21 @@ export class MicrobitSimEnvironmentStore {
     const brainId = this.getSelectedBrainId();
     const input = await this.getBuildInput();
     this.simulator.flash(instanceId, input, brainId);
+  }
+
+  /** Re-flashes every instance currently running `brainId` from the brain's latest definition. */
+  async reflashBrain(brainId: string): Promise<void> {
+    const hasTargets = this.simulator
+      .getInstances()
+      .some((instance) => instance.flashState.status === "loaded" && instance.flashState.brainId === brainId);
+    if (!hasTargets) {
+      return;
+    }
+    const input = await this.buildInputForBrain(brainId);
+    if (!input) {
+      return;
+    }
+    this.simulator.reflash(brainId, input);
   }
 
   /** Subscribes to brain-list or selection changes for `useSyncExternalStore`. */

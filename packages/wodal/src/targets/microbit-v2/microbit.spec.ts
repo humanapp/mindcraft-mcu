@@ -59,34 +59,28 @@ describe("MicroBit", () => {
     const events: WodalEvent[] = [];
     microbit.messageBus.listen(microbit.buttonA.id, 0, (event) => events.push(event));
     microbit.messageBus.listen(microbit.buttonB.id, 0, (event) => events.push(event));
-    microbit.messageBus.listen(microbit.buttonAB.id, 0, (event) => events.push(event));
     microbit.messageBus.listen(microbit.logo.id, 0, (event) => events.push(event));
 
     microbit.setButtonPressed("A", true);
     assert.equal(microbit.buttonA.isPressed(), 1);
     assert.equal(microbit.buttonB.isPressed(), 0);
-    assert.equal(microbit.buttonAB.isPressed(), 0);
 
     microbit.setButtonPressed("B", true);
-    assert.equal(microbit.buttonAB.isPressed(), 1);
+    assert.equal(microbit.buttonB.isPressed(), 1);
 
     microbit.setButtonPressed("A", false);
     assert.equal(microbit.buttonA.isPressed(), 0);
-    assert.equal(microbit.buttonAB.isPressed(), 0);
 
     microbit.setLogoTouched(true);
     assert.equal(microbit.logo.isPressed(), 1);
 
-    assert.equal(microbit.snapshot().messageBus.queuedEventCount, 8);
+    assert.equal(microbit.snapshot().messageBus.queuedEventCount, 5);
     microbit.tick(20);
     assert.deepEqual(
       events.map((event) => event.value),
       [
         MICROBIT_BUTTON_EVT_DOWN,
         MICROBIT_BUTTON_EVT_DOWN,
-        MICROBIT_BUTTON_EVT_DOWN,
-        MICROBIT_BUTTON_EVT_UP,
-        MICROBIT_BUTTON_EVT_CLICK,
         MICROBIT_BUTTON_EVT_UP,
         MICROBIT_BUTTON_EVT_CLICK,
         MICROBIT_BUTTON_EVT_DOWN,

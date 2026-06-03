@@ -1,13 +1,12 @@
 import { Accelerometer } from "../../core/accelerometer";
 import { Button, type ButtonSnapshot } from "../../core/button";
 import { MessageBus, type MessageBusSnapshot } from "../../core/message-bus";
-import { MultiButton, type MultiButtonSnapshot } from "../../core/multi-button";
 import { toUint32 } from "../../core/numeric";
 import { Timer } from "../../core/timer";
 import { TouchButton, type TouchButtonSnapshot } from "../../core/touch-button";
 import { NRF52FlashManager, type NRF52FlashSnapshot } from "../../nrf52/nrf52-flash-manager";
 import { NRF52Serial, type NRF52SerialSnapshot } from "../../nrf52/nrf52-serial";
-import { MICROBIT_ID_BUTTON_A, MICROBIT_ID_BUTTON_AB, MICROBIT_ID_BUTTON_B, MICROBIT_ID_LOGO } from "./constants";
+import { MICROBIT_ID_BUTTON_A, MICROBIT_ID_BUTTON_B, MICROBIT_ID_LOGO } from "./constants";
 import { MicroBitDisplay } from "./microbit-display";
 
 /** Snapshot of the device state exposed to app adapters. */
@@ -20,9 +19,6 @@ export interface MicroBitSnapshot {
 
   /** State of button B. */
   readonly buttonB: ButtonSnapshot;
-
-  /** State of virtual button A+B. */
-  readonly buttonAB: MultiButtonSnapshot;
 
   /** State of the capacitive touch logo. */
   readonly logo: TouchButtonSnapshot;
@@ -66,9 +62,6 @@ export class MicroBit {
   /** Front button B. */
   public readonly buttonB = new Button(MICROBIT_ID_BUTTON_B, this.messageBus);
 
-  /** Virtual button that is pressed when buttons A and B are pressed together. */
-  public readonly buttonAB = new MultiButton(this.buttonA, this.buttonB, MICROBIT_ID_BUTTON_AB, this.messageBus);
-
   /** Capacitive touch logo button. */
   public readonly logo = new TouchButton(MICROBIT_ID_LOGO, this.messageBus);
 
@@ -111,6 +104,24 @@ export class MicroBit {
   }
 
   /**
+   * Resets the device to a fresh power-on state: clears the display, releases the buttons and logo,
+   * resets the accelerometer, timer, message bus, and serial buffers, and marks the device
+   * uninitialized. Persistent flash storage survives a reset and is preserved. New device
+   * components added here (for example GPIO or the speaker) must reset their state too.
+   */
+  clear(): void {
+    this.timer.reset();
+    this.messageBus.clear();
+    this.display.clear();
+    this.serial.clear();
+    this.buttonA.reset();
+    this.buttonB.reset();
+    this.logo.reset();
+    this.accelerometer.reset();
+    this.initialized = false;
+  }
+
+  /**
    * Clears simulated user storage.
    *
    * @param forceErase - Accepted for API parity.
@@ -134,7 +145,6 @@ export class MicroBit {
     } else {
       this.buttonB.setPressed(pressed, timestamp);
     }
-    this.buttonAB.update(timestamp);
   }
 
   /**
@@ -162,7 +172,6 @@ export class MicroBit {
       time: this.systemTime(),
       buttonA: this.buttonA.snapshot(),
       buttonB: this.buttonB.snapshot(),
-      buttonAB: this.buttonAB.snapshot(),
       logo: this.logo.snapshot(),
       display: this.display.snapshot(),
       messageBus: this.messageBus.snapshot(),

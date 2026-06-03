@@ -195,4 +195,57 @@ describe("MicrobitSimulator flash", () => {
     unsubscribe();
     assert.equal(notifications, 1);
   });
+
+  it("reflash re-flashes only the instances loaded with the given brain", () => {
+    const env = microbitEnvironment();
+    const sim = new MicrobitSimulator(env);
+    const a = sim.getInstances()[0]!;
+    const b = sim.addInstance();
+    const c = sim.addInstance();
+
+    sim.flash(a.id, buttonDisplayInput(env), "brain-1");
+    sim.flash(b.id, buttonDisplayInput(env), "brain-2");
+    // c is left unloaded.
+
+    const aBefore = a.flashState;
+    const bBefore = b.flashState;
+    const cBefore = c.flashState;
+
+    sim.reflash("brain-1", buttonDisplayInput(env));
+
+    // a (brain-1) was re-flashed: a fresh flash-state object with the same content.
+    assert.notEqual(a.flashState, aBefore);
+    assert.deepEqual(a.flashState, { status: "loaded", brainId: "brain-1" });
+    // b (brain-2) and c (unloaded) are untouched: same state objects.
+    assert.equal(b.flashState, bBefore);
+    assert.equal(c.flashState, cBefore);
+  });
+
+  it("unflash unloads and clears only the instances loaded with the given brain", () => {
+    const env = microbitEnvironment();
+    const sim = new MicrobitSimulator(env);
+    const a = sim.getInstances()[0]!;
+    const b = sim.addInstance();
+
+    sim.flash(a.id, buttonDisplayInput(env), "brain-1");
+    sim.flash(b.id, buttonDisplayInput(env), "brain-2");
+
+    // Run a's button-display program so its display is lit.
+    a.tick(16);
+    a.microbit.setButtonPressed("A", true);
+    a.tick(32);
+    assert.equal(a.microbit.display.getPixelValue(0, 0), 255);
+
+    const bBefore = b.flashState;
+    sim.unflash("brain-1");
+
+    // a is unflashed: empty state, device reset (display cleared, time back to zero), tick now a no-op.
+    assert.deepEqual(a.flashState, { status: "empty" });
+    assert.equal(a.microbit.display.getPixelValue(0, 0), 0);
+    assert.equal(a.snapshot().time, 0);
+    a.tick(16);
+    assert.equal(a.snapshot().time, 0);
+    // b (brain-2) untouched.
+    assert.equal(b.flashState, bBefore);
+  });
 });
