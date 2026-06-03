@@ -19,6 +19,7 @@ import { getWodalDeviceProfile, type WodalBuildInput, WodalDeviceProfileId } fro
 import { createMicroBitV2Module } from "@mindcraft-lang/wodal/targets/microbit-v2";
 import { name as appName, version as appVersion } from "../../package.json";
 import { microbitAmbientFiles } from "./microbit-ambient-files";
+import { MicrobitSimulator } from "./simulator";
 
 /** Project app-data key holding the ordered brain index (id and name). */
 const BRAINS_INDEX_KEY = "brains-index";
@@ -63,6 +64,9 @@ function parseBrainIndex(raw: string | undefined): BrainRecord[] {
 export class MicrobitSimEnvironmentStore {
   readonly host: AppEnvironmentHost;
 
+  /** The simulated microbit fleet (instances, shared medium, tick driver). */
+  readonly simulator: MicrobitSimulator;
+
   private _brains: readonly BrainRecord[] = [];
   private _selectedBrainId: string | undefined;
   private readonly _brainsListeners = new Set<() => void>();
@@ -70,6 +74,7 @@ export class MicrobitSimEnvironmentStore {
 
   private constructor(host: AppEnvironmentHost) {
     this.host = host;
+    this.simulator = new MicrobitSimulator(host.env);
     this.host.onProjectLoaded(() => {
       void this.reloadBrains();
     });
