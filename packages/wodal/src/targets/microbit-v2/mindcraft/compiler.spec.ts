@@ -105,6 +105,30 @@ test("WodalMicroBitRuntime unload stops the program and resets the device", () =
   assert.equal(runtime.snapshot().time, 0);
 });
 
+test("WodalMicroBitRuntime reload resets the device so a prior program's display does not persist", () => {
+  const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const microbit = new MicroBit();
+  const runtime = new WodalMicroBitRuntime({ environment, microbit });
+
+  const programA = compileDisplayActuator(environment, { brightness: 255, x: 1, y: 2 });
+  runtime.loadWodalProgramImage(
+    createMicroBitV2ProgramImage(createLinkedBrainProgram(programA, [programA.entryFuncId]))
+  );
+  runtime.tick(16);
+  const litA = runtime.snapshot().display;
+  assert.equal(litA.pixels[2 * litA.width + 1], 255);
+
+  // Reflash a different program: the prior pixel must clear, not accumulate.
+  const programB = compileDisplayActuator(environment, { brightness: 255, x: 3, y: 4 });
+  runtime.loadWodalProgramImage(
+    createMicroBitV2ProgramImage(createLinkedBrainProgram(programB, [programB.entryFuncId]))
+  );
+  runtime.tick(32);
+  const after = runtime.snapshot().display;
+  assert.equal(after.pixels[4 * after.width + 3], 255);
+  assert.equal(after.pixels[2 * after.width + 1], 0);
+});
+
 test("WodalMicroBitRuntime loads linked brain program images through core BrainRuntime", () => {
   const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
   const runtime = new WodalMicroBitRuntime({ environment });
@@ -179,8 +203,12 @@ test("WodalMicroBitRuntime replaces active linked brain images", () => {
   assert.equal(runtime.tick(16), undefined);
   assert.equal(runtime.snapshot().display.pixels[0], 31);
 
-  microbit.display.clear();
+  // Reflashing resets the device (display cleared, button released), like a hardware reflash, so the
+  // prior program's pixel clears and the new program starts from a clean device.
   assert.deepEqual(runtime.loadWodalProgramImage(createMicroBitV2ProgramImage(secondBrain)), { ok: true });
+  assert.equal(runtime.snapshot().display.pixels[0], 0);
+
+  microbit.setButtonPressed("A", true);
   assert.equal(runtime.tick(16), undefined);
 
   const display = runtime.snapshot().display;

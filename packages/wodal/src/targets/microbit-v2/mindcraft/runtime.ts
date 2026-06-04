@@ -51,6 +51,8 @@ export class WodalMicroBitRuntime {
   }
 
   private loadLinkedBrainProgram(program: LinkedBrainProgram): WodalProgramLoadValidation {
+    this.resetDevice();
+
     const brainRuntime = new BrainRuntime(
       program.program,
       program.pages,
@@ -61,7 +63,7 @@ export class WodalMicroBitRuntime {
     );
     brainRuntime.startup();
 
-    this.replaceLoadedBrain(brainRuntime);
+    this.loadedBrain = brainRuntime;
     return { ok: true };
   }
 
@@ -200,14 +202,14 @@ export class WodalMicroBitRuntime {
     if (this.loadedBrain === undefined) {
       return;
     }
-    this.loadedBrain.shutdown();
-    this.loadedBrain = undefined;
-    this.microbit.clear();
+    this.resetDevice();
   }
 
-  private replaceLoadedBrain(brain: BrainRuntime): void {
+  /** Stops any running brain and resets the device to a fresh power-on state. */
+  private resetDevice(): void {
     this.loadedBrain?.shutdown();
-    this.loadedBrain = brain;
+    this.loadedBrain = undefined;
+    this.microbit.clear();
   }
 }
 

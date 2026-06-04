@@ -7,13 +7,7 @@ import {
   type ProjectManifest,
 } from "@mindcraft-lang/app-host";
 import { AppEnvironmentHost } from "@mindcraft-lang/bridge-app";
-import {
-  BrainDef,
-  coreModule,
-  createMindcraftEnvironment,
-  MathOps,
-  type MindcraftEnvironment,
-} from "@mindcraft-lang/core/app";
+import { BrainDef, coreModule, createMindcraftEnvironment, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
 import { isCompilerControlledPath } from "@mindcraft-lang/ts-compiler";
 import { getWodalDeviceProfile, type WodalBuildInput, WodalDeviceProfileId } from "@mindcraft-lang/wodal";
 import { createMicroBitV2Module } from "@mindcraft-lang/wodal/targets/microbit-v2";
@@ -21,16 +15,21 @@ import { name as appName, version as appVersion } from "../../package.json";
 import { microbitAmbientFiles } from "./microbit-ambient-files";
 import { MicrobitSimulator } from "./simulator";
 
-/** Project app-data key holding the ordered brain index (id and name). */
+/** Project app-data key holding the ordered list of brain ids. */
 const BRAINS_INDEX_KEY = "brains-index";
 
-/** A brain's portable identity: a stable UUID and an editable display name. */
+/**
+ * In-memory view of a brain for the UI: the brain's own id (`brainDef.id()`) and its current display
+ * name, read from the definition. The persisted index stores ids only - the name lives in the brain
+ * definition and is not duplicated.
+ */
 export interface BrainRecord {
   readonly id: string;
   readonly name: string;
 }
 
-function parseBrainIndex(raw: string | undefined): BrainRecord[] {
+/** Parses the persisted brain index: an ordered JSON array of brain ids. Non-string entries are ignored. */
+function parseBrainIndex(raw: string | undefined): string[] {
   if (!raw) {
     return [];
   }
@@ -39,14 +38,7 @@ function parseBrainIndex(raw: string | undefined): BrainRecord[] {
     if (!Array.isArray(parsed)) {
       return [];
     }
-    const records: BrainRecord[] = [];
-    for (const entry of parsed) {
-      const record = entry as { id?: unknown; name?: unknown };
-      if (record && typeof record.id === "string" && typeof record.name === "string") {
-        records.push({ id: record.id, name: record.name });
-      }
-    }
-    return records;
+    return parsed.filter((entry): entry is string => typeof entry === "string");
   } catch {
     return [];
   }
@@ -67,6 +59,7 @@ export class MicrobitSimEnvironmentStore {
   /** The simulated microbit fleet (instances, shared medium, tick driver). */
   readonly simulator: MicrobitSimulator;
 
+  private _brainIds: readonly string[] = [];
   private _brains: readonly BrainRecord[] = [];
   private _selectedBrainId: string | undefined;
   private readonly _brainsListeners = new Set<() => void>();
@@ -94,7 +87,10 @@ export class MicrobitSimEnvironmentStore {
       ambientFiles: microbitAmbientFiles,
       host: { name: appName, version: appVersion },
       userTileStorageKey: `${appName}:user-tile-metadata`,
-      rng: { next: () => MathOps.random() },
+      // Real entropy: minted ids (brain id, page id) must be unique across sessions, and the device
+      // `random` sensor should behave like real hardware. The core `MathOps.random` LCG is a fixed-seed
+      // deterministic sequence that repeats every load, so it is not used here.
+      rng: { next: () => Math.random() },
     });
     return new MicrobitSimEnvironmentStore(host);
   }
@@ -175,12 +171,14 @@ export class MicrobitSimEnvironmentStore {
 
   /** Creates a brain seeded from an empty definition and selects it. */
   async addBrain(name: string): Promise<string> {
-    const id = crypto.randomUUID();
     const brainDef = this.env.withServices((services) => BrainDef.emptyBrainDef(services, name));
+    // Invariant: microbit-sim keys host brain storage by `brainDef.id()`, so `getCachedBrain(id)` resolves.
+    const id = brainDef.id();
     await this.host.saveBrainForKey(id, brainDef);
-    this._brains = [...this._brains, { id, name }];
+    this._brainIds = [...this._brainIds, id];
     await this.persistBrainIndex();
     this._selectedBrainId = id;
+    this.rebuildBrains();
     this.notifyBrainsChanged();
     return id;
   }
@@ -188,24 +186,25 @@ export class MicrobitSimEnvironmentStore {
   /** Removes a brain and its stored definition, unflashing any instance running it. */
   async removeBrain(id: string): Promise<void> {
     await this.host.removeBrain(id);
-    this._brains = this._brains.filter((brain) => brain.id !== id);
+    this._brainIds = this._brainIds.filter((brainId) => brainId !== id);
     await this.persistBrainIndex();
     if (this._selectedBrainId === id) {
-      this._selectedBrainId = this._brains[0]?.id;
+      this._selectedBrainId = this._brainIds[0];
     }
+    this.rebuildBrains();
     this.notifyBrainsChanged();
     this.simulator.unflash(id);
   }
 
-  /** Renames a brain across the index and the brain definition, preserving the UUID. */
+  /** Renames a brain by updating its definition; the persisted id index is unchanged. */
   async renameBrain(id: string, name: string): Promise<void> {
-    const brainDef = await this.getBrain(id);
-    if (brainDef) {
-      brainDef.setName(name);
-      await this.host.saveBrainForKey(id, brainDef);
+    const brainDef = this.host.getCachedBrain(id) ?? (await this.getBrain(id));
+    if (!brainDef) {
+      return;
     }
-    this._brains = this._brains.map((brain) => (brain.id === id ? { id, name } : brain));
-    await this.persistBrainIndex();
+    brainDef.setName(name);
+    await this.host.saveBrainForKey(id, brainDef);
+    this.rebuildBrains();
     this.notifyBrainsChanged();
   }
 
@@ -220,16 +219,11 @@ export class MicrobitSimEnvironmentStore {
     return (await this.host.loadBrainFromProject(id)) as BrainDef | undefined;
   }
 
-  /** Persists an edited brain definition, syncs the index name, and re-flashes instances running it. */
+  /** Persists an edited brain definition (replacing the cached instance) and re-flashes instances running it. */
   async saveBrain(id: string, brainDef: BrainDef): Promise<void> {
     await this.host.saveBrainForKey(id, brainDef);
-    const name = brainDef.name();
-    const record = this._brains.find((brain) => brain.id === id);
-    if (record && record.name !== name) {
-      this._brains = this._brains.map((brain) => (brain.id === id ? { id, name } : brain));
-      await this.persistBrainIndex();
-      this.notifyBrainsChanged();
-    }
+    this.rebuildBrains();
+    this.notifyBrainsChanged();
     await this.reflashBrain(id);
   }
 
@@ -250,7 +244,7 @@ export class MicrobitSimEnvironmentStore {
 
   /** Assembles the WODAL build input for a specific brain, or undefined when it cannot be loaded. */
   private async buildInputForBrain(brainId: string): Promise<WodalBuildInput | undefined> {
-    const brainDef = await this.getBrain(brainId);
+    const brainDef = this.host.getCachedBrain(brainId);
     if (!brainDef) {
       return undefined;
     }
@@ -308,15 +302,20 @@ export class MicrobitSimEnvironmentStore {
 
   private async reloadBrains(): Promise<void> {
     const raw = await this.host.projectManager.loadAppData(BRAINS_INDEX_KEY);
-    this._brains = parseBrainIndex(raw);
-    this._selectedBrainId = this._brains.some((brain) => brain.id === this._selectedBrainId)
-      ? this._selectedBrainId
-      : this._brains[0]?.id;
+    this._brainIds = parseBrainIndex(raw);
+    const selected = this._selectedBrainId;
+    this._selectedBrainId = selected && this._brainIds.includes(selected) ? selected : this._brainIds[0];
+    this.rebuildBrains();
     this.notifyBrainsChanged();
   }
 
+  /** Rebuilds the derived brain-list snapshot from the host's brain cache. Names are read live from the defs. */
+  private rebuildBrains(): void {
+    this._brains = this._brainIds.map((id) => ({ id, name: this.host.getCachedBrain(id)?.name() ?? "" }));
+  }
+
   private async persistBrainIndex(): Promise<void> {
-    await this.host.projectManager.saveAppData(BRAINS_INDEX_KEY, JSON.stringify(this._brains));
+    await this.host.projectManager.saveAppData(BRAINS_INDEX_KEY, JSON.stringify(this._brainIds));
   }
 
   private notifyBrainsChanged(): void {
