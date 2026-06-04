@@ -18,11 +18,44 @@ import { MicrobitSimulator } from "./simulator";
 /** Project app-data key holding the ordered list of brain ids. */
 const BRAINS_INDEX_KEY = "brains-index";
 
+/** Project app-data key holding the durable simulator fleet (ordered instances and their flashed brain). */
+const SIMULATOR_STATE_KEY = "simulator-state";
+
 /**
- * In-memory view of a brain for the UI: the brain's own id (`brainDef.id()`) and its current display
- * name, read from the definition. The persisted index stores ids only - the name lives in the brain
- * definition and is not duplicated.
+ * Persisted simulator fleet: the ordered instance ids and the brain each is flashed with. An instance
+ * absent from `flash` is unflashed.
  */
+interface SimulatorState {
+  readonly order: readonly string[];
+  readonly flash: Readonly<Record<string, string>>;
+}
+
+/** Parses the persisted simulator state; returns undefined when absent or malformed. */
+function parseSimulatorState(raw: string | undefined): SimulatorState | undefined {
+  if (!raw) {
+    return undefined;
+  }
+  try {
+    const parsed = JSON.parse(raw) as { order?: unknown; flash?: unknown };
+    if (!Array.isArray(parsed.order)) {
+      return undefined;
+    }
+    const order = parsed.order.filter((id): id is string => typeof id === "string");
+    const flash: Record<string, string> = {};
+    if (parsed.flash && typeof parsed.flash === "object") {
+      for (const [id, brainId] of Object.entries(parsed.flash as Record<string, unknown>)) {
+        if (typeof brainId === "string") {
+          flash[id] = brainId;
+        }
+      }
+    }
+    return { order, flash };
+  } catch {
+    return undefined;
+  }
+}
+
+/** A brain's id and current display name, read from its definition, for the brain-list UI. */
 export interface BrainRecord {
   readonly id: string;
   readonly name: string;
@@ -62,14 +95,19 @@ export class MicrobitSimEnvironmentStore {
   private _brainIds: readonly string[] = [];
   private _brains: readonly BrainRecord[] = [];
   private _selectedBrainId: string | undefined;
+  private _restoringFleet = false;
   private readonly _brainsListeners = new Set<() => void>();
   private readonly _activeProjectListeners = new Set<() => void>();
 
   private constructor(host: AppEnvironmentHost) {
     this.host = host;
     this.simulator = new MicrobitSimulator(host.env);
+    // The instance-list listener fires on fleet changes (add/remove/flash), not on per-tick device updates.
+    this.simulator.subscribeToInstances(() => {
+      void this.persistSimulatorState();
+    });
     this.host.onProjectLoaded(() => {
-      void this.reloadBrains();
+      void this.reloadProjectState();
     });
   }
 
@@ -87,9 +125,8 @@ export class MicrobitSimEnvironmentStore {
       ambientFiles: microbitAmbientFiles,
       host: { name: appName, version: appVersion },
       userTileStorageKey: `${appName}:user-tile-metadata`,
-      // Real entropy: minted ids (brain id, page id) must be unique across sessions, and the device
-      // `random` sensor should behave like real hardware. The core `MathOps.random` LCG is a fixed-seed
-      // deterministic sequence that repeats every load, so it is not used here.
+      // Minted ids (brain id, page id) must be unique across sessions; the deterministic MathOps.random
+      // LCG repeats every load and would collide.
       rng: { next: () => Math.random() },
     });
     return new MicrobitSimEnvironmentStore(host);
@@ -98,7 +135,7 @@ export class MicrobitSimEnvironmentStore {
   /** Opens or creates the durable default project. */
   async initialize(): Promise<void> {
     await this.host.initialize(DEFAULT_PROJECT_NAME);
-    await this.reloadBrains();
+    await this.reloadProjectState();
   }
 
   /** Caller-owned Mindcraft environment shared across the app. */
@@ -172,7 +209,7 @@ export class MicrobitSimEnvironmentStore {
   /** Creates a brain seeded from an empty definition and selects it. */
   async addBrain(name: string): Promise<string> {
     const brainDef = this.env.withServices((services) => BrainDef.emptyBrainDef(services, name));
-    // Invariant: microbit-sim keys host brain storage by `brainDef.id()`, so `getCachedBrain(id)` resolves.
+    // Invariant: microbit-sim keys host brain storage by the brain's own id.
     const id = brainDef.id();
     await this.host.saveBrainForKey(id, brainDef);
     this._brainIds = [...this._brainIds, id];
@@ -196,7 +233,7 @@ export class MicrobitSimEnvironmentStore {
     this.simulator.unflash(id);
   }
 
-  /** Renames a brain by updating its definition; the persisted id index is unchanged. */
+  /** Renames a brain by updating its definition. */
   async renameBrain(id: string, name: string): Promise<void> {
     const brainDef = this.host.getCachedBrain(id) ?? (await this.getBrain(id));
     if (!brainDef) {
@@ -300,6 +337,12 @@ export class MicrobitSimEnvironmentStore {
     this.host.dispose();
   }
 
+  /** Restores brain list and simulator fleet from the active project. Runs after the host loads its brain cache. */
+  private async reloadProjectState(): Promise<void> {
+    await this.reloadBrains();
+    await this.reloadSimulatorState();
+  }
+
   private async reloadBrains(): Promise<void> {
     const raw = await this.host.projectManager.loadAppData(BRAINS_INDEX_KEY);
     this._brainIds = parseBrainIndex(raw);
@@ -316,6 +359,62 @@ export class MicrobitSimEnvironmentStore {
 
   private async persistBrainIndex(): Promise<void> {
     await this.host.projectManager.saveAppData(BRAINS_INDEX_KEY, JSON.stringify(this._brainIds));
+  }
+
+  /**
+   * Restores the simulator fleet from durable state: recreates the saved instances in order and
+   * re-flashes each from its brain. An instance whose brain no longer exists is left empty. Absent or
+   * malformed state restores a single empty instance.
+   */
+  private async reloadSimulatorState(): Promise<void> {
+    const raw = await this.host.projectManager.loadAppData(SIMULATOR_STATE_KEY);
+    const state = parseSimulatorState(raw);
+    this._restoringFleet = true;
+    try {
+      if (!state || state.order.length === 0) {
+        // No saved fleet: one fresh empty instance (the simulator mints its id).
+        this.simulator.setInstances([]);
+        this.simulator.addInstance();
+      } else {
+        const instances = this.simulator.setInstances(state.order);
+        for (const instance of instances) {
+          const brainId = state.flash[instance.id];
+          if (!brainId) {
+            continue;
+          }
+          const input = await this.buildInputForBrain(brainId);
+          if (input) {
+            this.simulator.flash(instance.id, input, brainId);
+          }
+        }
+      }
+    } finally {
+      this._restoringFleet = false;
+    }
+    if (!state || state.order.length === 0) {
+      // Persist the freshly minted default fleet so its id is reused on the next load.
+      await this.persistSimulatorState();
+    }
+  }
+
+  /**
+   * Persists the current fleet as durable project state: the ordered instance ids and the brain each
+   * is flashed with (unflashed instances are omitted from the map).
+   */
+  private async persistSimulatorState(): Promise<void> {
+    if (this._restoringFleet) {
+      return;
+    }
+    const instances = this.simulator.getInstances();
+    const order = instances.map((instance) => instance.id);
+    const flash: Record<string, string> = {};
+    for (const instance of instances) {
+      const brainId = instance.flashedBrainId;
+      if (brainId) {
+        flash[instance.id] = brainId;
+      }
+    }
+    await this.host.projectManager.saveAppData(SIMULATOR_STATE_KEY, JSON.stringify({ order, flash }));
   }
 
   private notifyBrainsChanged(): void {

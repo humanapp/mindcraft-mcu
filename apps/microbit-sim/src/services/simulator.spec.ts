@@ -81,6 +81,31 @@ describe("MicrobitSimulator instance lifecycle", () => {
     unsubscribe();
     assert.equal(notifications, 2);
   });
+
+  it("setInstances rebuilds the fleet with the given ids and re-registers the medium", () => {
+    const sim = new MicrobitSimulator(microbitEnvironment());
+    const original = sim.getInstances()[0]!;
+
+    const fleet = sim.setInstances(["a", "b", "c"]);
+
+    assert.equal(sim.getInstances().length, 3);
+    assert.deepEqual(
+      fleet.map((instance) => instance.id),
+      ["a", "b", "c"]
+    );
+    assert.equal(sim.sharedMedium().has(original.id), false);
+    assert.equal(sim.sharedMedium().size(), 3);
+    for (const id of ["a", "b", "c"]) {
+      assert.equal(sim.sharedMedium().has(id), true);
+    }
+  });
+
+  it("setInstances to an empty list leaves an empty fleet", () => {
+    const sim = new MicrobitSimulator(microbitEnvironment());
+    sim.setInstances([]);
+    assert.equal(sim.getInstances().length, 0);
+    assert.equal(sim.sharedMedium().size(), 0);
+  });
 });
 
 describe("MicrobitSimulator tick driver", () => {

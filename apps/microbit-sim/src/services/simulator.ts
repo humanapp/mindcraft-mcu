@@ -100,6 +100,24 @@ export class MicrobitSimulator {
   }
 
   /**
+   * Rebuilds the fleet to exactly the given instance ids, in order, as fresh unloaded instances, and
+   * returns them. Existing instances are unregistered from the medium and the new ones registered.
+   */
+  setInstances(ids: readonly string[]): readonly SimulatorInstance[] {
+    for (const instance of this.instances_) {
+      this.medium.unregister(instance.id);
+    }
+    const next = ids.map((id) => {
+      const instance = new SimulatorInstance(id, this.environment);
+      this.medium.register(id);
+      return instance;
+    });
+    this.instances_ = next;
+    this.notifyInstances();
+    return this.instances_;
+  }
+
+  /**
    * Builds and loads `input` onto the target instance, recording the resulting flash state.
    * Undefined `input` or `brainId` records a `noBrainSelected` state.
    */

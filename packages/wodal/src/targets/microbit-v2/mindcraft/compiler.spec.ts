@@ -95,12 +95,12 @@ test("WodalMicroBitRuntime unload stops the program and resets the device", () =
 
   runtime.unload();
 
-  // Unload resets the whole device, not just the display: the lit pixel clears and time returns to zero.
+  // After unload the device is reset: the lit pixel clears and time returns to zero.
   const reset = runtime.snapshot();
   assert.equal(reset.display.pixels[2 * reset.display.width + 1], 0);
   assert.equal(reset.time, 0);
 
-  // Tick is a no-op after unload: device time no longer advances from the program.
+  // Tick is a no-op once unloaded: device time does not advance.
   runtime.tick(16);
   assert.equal(runtime.snapshot().time, 0);
 });
@@ -203,8 +203,7 @@ test("WodalMicroBitRuntime replaces active linked brain images", () => {
   assert.equal(runtime.tick(16), undefined);
   assert.equal(runtime.snapshot().display.pixels[0], 31);
 
-  // Reflashing resets the device (display cleared, button released), like a hardware reflash, so the
-  // prior program's pixel clears and the new program starts from a clean device.
+  // Reflashing resets the device: the prior program's lit pixel clears before the new program runs.
   assert.deepEqual(runtime.loadWodalProgramImage(createMicroBitV2ProgramImage(secondBrain)), { ok: true });
   assert.equal(runtime.snapshot().display.pixels[0], 0);
 

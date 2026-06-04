@@ -106,8 +106,7 @@ export class MicroBit {
   /**
    * Resets the device to a fresh power-on state: clears the display, releases the buttons and logo,
    * resets the accelerometer, timer, message bus, and serial buffers, and marks the device
-   * uninitialized. Persistent flash storage survives a reset and is preserved. New device
-   * components added here (for example GPIO or the speaker) must reset their state too.
+   * uninitialized. Persistent flash storage is not reset.
    */
   clear(): void {
     this.timer.reset();
