@@ -2,6 +2,9 @@ import {
   createIdbProjectStore,
   createWebLocksProjectLock,
   DEFAULT_PROJECT_NAME,
+  type ImportProjectTargetsResult,
+  type ImportResult,
+  importProjectDocument,
   type ProjectFileSystem,
   ProjectManager,
   type ProjectManifest,
@@ -9,29 +12,26 @@ import {
 import { AppEnvironmentHost } from "@mindcraft-lang/bridge-app";
 import { BrainDef, coreModule, createMindcraftEnvironment, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
 import { isCompilerControlledPath } from "@mindcraft-lang/ts-compiler";
-import { getWodalDeviceProfile, type WodalBuildInput, WodalDeviceProfileId } from "@mindcraft-lang/wodal";
-import { createMicroBitV2Module } from "@mindcraft-lang/wodal/targets/microbit-v2";
+import {
+  getWodalDeviceProfile,
+  validateWodalTarget,
+  type WodalBuildInput,
+  type WodalDeviceProfile,
+  WodalDeviceProfileId,
+} from "@mindcraft-lang/wodal";
 import { name as appName, version as appVersion } from "../../package.json";
 import { microbitAmbientFiles } from "./microbit-ambient-files";
+import {
+  BRAINS_INDEX_KEY,
+  buildMicrobitSimExportDocument,
+  type MicrobitSimFleet,
+  parseMicrobitSimTarget,
+  SIMULATOR_STATE_KEY,
+} from "./project-io";
 import { MicrobitSimulator } from "./simulator";
 
-/** Project app-data key holding the ordered list of brain ids. */
-const BRAINS_INDEX_KEY = "brains-index";
-
-/** Project app-data key holding the durable simulator fleet (ordered instances and their flashed brain). */
-const SIMULATOR_STATE_KEY = "simulator-state";
-
-/**
- * Persisted simulator fleet: the ordered instance ids and the brain each is flashed with. An instance
- * absent from `flash` is unflashed.
- */
-interface SimulatorState {
-  readonly order: readonly string[];
-  readonly flash: Readonly<Record<string, string>>;
-}
-
-/** Parses the persisted simulator state; returns undefined when absent or malformed. */
-function parseSimulatorState(raw: string | undefined): SimulatorState | undefined {
+/** Parses the persisted simulator fleet; returns undefined when absent or malformed. */
+function parseSimulatorState(raw: string | undefined): MicrobitSimFleet | undefined {
   if (!raw) {
     return undefined;
   }
@@ -92,6 +92,9 @@ export class MicrobitSimEnvironmentStore {
   /** The simulated microbit fleet (instances, shared medium, tick driver). */
   readonly simulator: MicrobitSimulator;
 
+  /** The device profile this app instance runs: drives the environment module, builds, import, and export. */
+  readonly activeDeviceProfile: WodalDeviceProfile;
+
   private _brainIds: readonly string[] = [];
   private _brains: readonly BrainRecord[] = [];
   private _selectedBrainId: string | undefined;
@@ -99,8 +102,9 @@ export class MicrobitSimEnvironmentStore {
   private readonly _brainsListeners = new Set<() => void>();
   private readonly _activeProjectListeners = new Set<() => void>();
 
-  private constructor(host: AppEnvironmentHost) {
+  private constructor(host: AppEnvironmentHost, activeDeviceProfile: WodalDeviceProfile) {
     this.host = host;
+    this.activeDeviceProfile = activeDeviceProfile;
     this.simulator = new MicrobitSimulator(host.env);
     // The instance-list listener fires on fleet changes (add/remove/flash), not on per-tick device updates.
     this.simulator.subscribeToInstances(() => {
@@ -111,8 +115,10 @@ export class MicrobitSimEnvironmentStore {
     });
   }
 
-  /** Creates the store with the core and microbit-v2 modules installed. */
+  /** Creates the store with the core module and the active device profile's module installed. */
   static async create(): Promise<MicrobitSimEnvironmentStore> {
+    // The one place this app declares its device; the module and the build profile both derive from it.
+    const activeProfile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
     const projectStore = await createIdbProjectStore(appName);
     const host = new AppEnvironmentHost({
       projectManager: new ProjectManager(projectStore, {
@@ -121,7 +127,7 @@ export class MicrobitSimEnvironmentStore {
         },
         lock: createWebLocksProjectLock(appName),
       }),
-      modules: [coreModule(), createMicroBitV2Module()],
+      modules: [coreModule(), activeProfile.createMindcraftModule()],
       ambientFiles: microbitAmbientFiles,
       host: { name: appName, version: appVersion },
       userTileStorageKey: `${appName}:user-tile-metadata`,
@@ -129,7 +135,7 @@ export class MicrobitSimEnvironmentStore {
       // LCG repeats every load and would collide.
       rng: { next: () => Math.random() },
     });
-    return new MicrobitSimEnvironmentStore(host);
+    return new MicrobitSimEnvironmentStore(host, activeProfile);
   }
 
   /** Opens or creates the durable default project. */
@@ -189,6 +195,53 @@ export class MicrobitSimEnvironmentStore {
   /** Lists durable projects in the active collection. */
   async listProjects(): Promise<ProjectManifest[]> {
     return this.host.projectManager.listProjects();
+  }
+
+  /** Imports a `.mindcraft` file as a new durable project and switches to it on success. */
+  async importProject(file: File): Promise<ImportResult> {
+    const result = await importProjectDocument(file, appName, appVersion, this.host.projectManager, {
+      targetsCallback: (targets, appTarget) => this.translateTargets(targets, appTarget),
+    });
+    if (result.success && result.projectId) {
+      await this.switchProject(result.projectId);
+    }
+    return result;
+  }
+
+  /** Validates the WODAL target and translates microbit-sim's payload into seeded app-data. */
+  private translateTargets(targets: Readonly<Record<string, unknown>>, appTarget: unknown): ImportProjectTargetsResult {
+    const wodal = validateWodalTarget(targets);
+    if (!wodal.ok) {
+      return { diagnostics: wodal.errors.map((error) => ({ severity: "error" as const, message: error.message })) };
+    }
+    if (wodal.target.profile !== this.activeDeviceProfile.profileId) {
+      return {
+        diagnostics: [
+          {
+            severity: "error",
+            message: `This project targets "${wodal.target.profile}"; this simulator runs "${this.activeDeviceProfile.profileId}".`,
+          },
+        ],
+      };
+    }
+
+    const app = parseMicrobitSimTarget(appTarget);
+    const appData: Record<string, string> = {};
+    if (app.brainOrder.length > 0) {
+      appData[BRAINS_INDEX_KEY] = JSON.stringify(app.brainOrder);
+    }
+    if (app.simulator) {
+      appData[SIMULATOR_STATE_KEY] = JSON.stringify(app.simulator);
+    }
+    return { diagnostics: [], appData };
+  }
+
+  /** Exports the active project as a shared `.mindcraft` document string. */
+  async exportProject(): Promise<string> {
+    return buildMicrobitSimExportDocument(this.host.projectManager, this.activeDeviceProfile.profileId, {
+      brainOrder: [...this._brainIds],
+      simulator: this.simulatorStateSnapshot(),
+    });
   }
 
   /** Subscribes to active-project changes for `useSyncExternalStore`. */
@@ -288,7 +341,7 @@ export class MicrobitSimEnvironmentStore {
     return {
       brainDef,
       environment: this.env,
-      deviceProfile: getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2),
+      deviceProfile: this.activeDeviceProfile,
     };
   }
 
@@ -345,7 +398,19 @@ export class MicrobitSimEnvironmentStore {
 
   private async reloadBrains(): Promise<void> {
     const raw = await this.host.projectManager.loadAppData(BRAINS_INDEX_KEY);
-    this._brainIds = parseBrainIndex(raw);
+    const indexed = parseBrainIndex(raw);
+    // Reconcile against the host cache (the source of truth for which brains exist): keep the index
+    // order for brains that exist, drop dangling ids, and append cached brains the index omits (e.g. an
+    // imported or payload-less document), so no brain is unreachable.
+    const cached = this.host.getCachedBrainKeys();
+    const cachedSet = new Set(cached);
+    const ordered = indexed.filter((id) => cachedSet.has(id));
+    const orderedSet = new Set(ordered);
+    this._brainIds = [...ordered, ...cached.filter((id) => !orderedSet.has(id))];
+    const changed = this._brainIds.length !== indexed.length || this._brainIds.some((id, i) => id !== indexed[i]);
+    if (changed) {
+      await this.persistBrainIndex();
+    }
     const selected = this._selectedBrainId;
     this._selectedBrainId = selected && this._brainIds.includes(selected) ? selected : this._brainIds[0];
     this.rebuildBrains();
@@ -397,14 +462,8 @@ export class MicrobitSimEnvironmentStore {
     }
   }
 
-  /**
-   * Persists the current fleet as durable project state: the ordered instance ids and the brain each
-   * is flashed with (unflashed instances are omitted from the map).
-   */
-  private async persistSimulatorState(): Promise<void> {
-    if (this._restoringFleet) {
-      return;
-    }
+  /** The current fleet as a persistable snapshot: ordered instance ids and the brain each is flashed with. */
+  private simulatorStateSnapshot(): MicrobitSimFleet {
     const instances = this.simulator.getInstances();
     const order = instances.map((instance) => instance.id);
     const flash: Record<string, string> = {};
@@ -414,7 +473,15 @@ export class MicrobitSimEnvironmentStore {
         flash[instance.id] = brainId;
       }
     }
-    await this.host.projectManager.saveAppData(SIMULATOR_STATE_KEY, JSON.stringify({ order, flash }));
+    return { order, flash };
+  }
+
+  /** Persists the current fleet as durable project state. */
+  private async persistSimulatorState(): Promise<void> {
+    if (this._restoringFleet) {
+      return;
+    }
+    await this.host.projectManager.saveAppData(SIMULATOR_STATE_KEY, JSON.stringify(this.simulatorStateSnapshot()));
   }
 
   private notifyBrainsChanged(): void {

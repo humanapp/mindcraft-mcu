@@ -1,3 +1,4 @@
+import { Toaster } from "sonner";
 import { BrainList } from "./components/BrainList";
 import { ProjectHeader } from "./components/ProjectHeader";
 import { Simulator } from "./components/Simulator";
@@ -11,6 +12,7 @@ export function App() {
         <BrainList />
         <Simulator />
       </main>
+      <Toaster />
     </div>
   );
 }

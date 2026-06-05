@@ -2,10 +2,11 @@ import {
   MINDCRAFT_PROJECT_FORMAT,
   type MindcraftProjectDocument,
   MindcraftProjectDocumentValidationCode,
+  type MindcraftProjectTargets,
   parseMindcraftProjectDocument,
   validateMindcraftProjectDocument,
 } from "@mindcraft-lang/service-api";
-import { name as wodalPackageName } from "../../package.json";
+import { name as wodalPackageName, version as wodalPackageVersion } from "../../package.json";
 import { isWodalDeviceProfileId, WODAL_DEVICE_PROFILE_IDS, type WodalDeviceProfileId } from "./device-profile";
 
 export { MINDCRAFT_PROJECT_FORMAT };
@@ -67,6 +68,26 @@ export type WodalProjectParseResult =
       readonly errors: readonly WodalProjectValidationError[];
     };
 
+/** Result of validating the WODAL target within a shared document's `targets` map. */
+export type WodalTargetParseResult =
+  | {
+      /** True when a valid WODAL target was found. */
+      readonly ok: true;
+
+      /** Parsed WODAL target metadata. */
+      readonly target: WodalProjectTarget;
+
+      /** Empty diagnostics list for a valid target. */
+      readonly errors: readonly [];
+    }
+  | {
+      /** False when the WODAL target is missing or invalid. */
+      readonly ok: false;
+
+      /** Validation diagnostics. */
+      readonly errors: readonly WodalProjectValidationError[];
+    };
+
 /**
  * Parses and validates a shared Mindcraft project document for WODAL.
  *
@@ -78,7 +99,7 @@ export function parseWodalProjectDocument(content: string): WodalProjectParseRes
     return parsed;
   }
 
-  return validateWodalTarget(parsed.document);
+  return validateWodalTargetInDocument(parsed.document);
 }
 
 /**
@@ -92,7 +113,7 @@ export function validateWodalProjectDocument(value: unknown): WodalProjectParseR
     return parsed;
   }
 
-  return validateWodalTarget(parsed.document);
+  return validateWodalTargetInDocument(parsed.document);
 }
 
 /**
@@ -104,30 +125,52 @@ export function getWodalProjectTarget(document: MindcraftProjectDocument): Wodal
   return document.targets[WODAL_PROJECT_TARGET_KEY] as WodalProjectTarget;
 }
 
-function validateWodalTarget(document: MindcraftProjectDocument): WodalProjectParseResult {
-  const errors: WodalProjectValidationError[] = [];
-  const wodalTarget = readWodalTarget(document.targets[WODAL_PROJECT_TARGET_KEY], errors);
-
-  if (!(WODAL_PROJECT_TARGET_KEY in document.targets)) {
-    errors.push({
-      code: WodalProjectValidationCode.MISSING_WODAL_TARGET,
-      path: `$.targets["${WODAL_PROJECT_TARGET_KEY}"]`,
-      message: "Project document is missing the WODAL target.",
-    });
+/**
+ * Validates the WODAL target inside a shared document's `targets` map and returns the parsed target.
+ *
+ * @param targets - The shared document's `targets` map.
+ */
+export function validateWodalTarget(targets: MindcraftProjectTargets): WodalTargetParseResult {
+  if (!(WODAL_PROJECT_TARGET_KEY in targets)) {
+    return {
+      ok: false,
+      errors: [
+        {
+          code: WodalProjectValidationCode.MISSING_WODAL_TARGET,
+          path: `$.targets["${WODAL_PROJECT_TARGET_KEY}"]`,
+          message: "Project document is missing the WODAL target.",
+        },
+      ],
+    };
   }
 
-  if (errors.length > 0) {
+  const errors: WodalProjectValidationError[] = [];
+  const target = readWodalTarget(targets[WODAL_PROJECT_TARGET_KEY], errors);
+  if (target === undefined || errors.length > 0) {
     return { ok: false, errors };
   }
+  return { ok: true, target, errors: [] };
+}
 
+/**
+ * Builds WODAL target metadata for a device profile, stamping the current WODAL package version.
+ *
+ * @param profile - Device profile the project targets.
+ */
+export function buildWodalProjectTarget(profile: WodalDeviceProfileId): WodalProjectTarget {
+  return { packageVersion: wodalPackageVersion, profile };
+}
+
+function validateWodalTargetInDocument(document: MindcraftProjectDocument): WodalProjectParseResult {
+  const result = validateWodalTarget(document.targets);
+  if (!result.ok) {
+    return { ok: false, errors: result.errors };
+  }
   return {
     ok: true,
     document: {
       ...document,
-      targets: {
-        ...document.targets,
-        [WODAL_PROJECT_TARGET_KEY]: wodalTarget as WodalProjectTarget,
-      },
+      targets: { ...document.targets, [WODAL_PROJECT_TARGET_KEY]: result.target },
     },
     errors: [],
   };

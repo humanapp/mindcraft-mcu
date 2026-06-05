@@ -3,10 +3,12 @@ import { describe, it } from "node:test";
 import type { MindcraftProjectDocument } from "@mindcraft-lang/service-api";
 import { WodalDeviceProfileId } from "./device-profile";
 import {
+  buildWodalProjectTarget,
   getWodalProjectTarget,
   MINDCRAFT_PROJECT_FORMAT,
   parseWodalProjectDocument,
   validateWodalProjectDocument,
+  validateWodalTarget,
   WODAL_PROJECT_TARGET_KEY,
   WodalProjectValidationCode,
 } from "./project-document";
@@ -157,5 +159,44 @@ describe("validateWodalProjectDocument", () => {
       }),
       [WodalProjectValidationCode.INVALID_BRAINS, WodalProjectValidationCode.INVALID_TARGETS]
     );
+  });
+});
+
+describe("validateWodalTarget", () => {
+  it("validates and returns the WODAL target from a targets map", () => {
+    const result = validateWodalTarget(VALID_DOCUMENT.targets);
+    assert.equal(result.ok, true);
+    if (result.ok) {
+      assert.equal(result.target.profile, WodalDeviceProfileId.MICROBIT_V2);
+    }
+  });
+
+  it("requires the WODAL target entry", () => {
+    const result = validateWodalTarget({});
+    assert.deepEqual(
+      result.errors.map((error) => error.code),
+      [WodalProjectValidationCode.MISSING_WODAL_TARGET]
+    );
+  });
+
+  it("rejects an unsupported profile", () => {
+    const result = validateWodalTarget({
+      [WODAL_PROJECT_TARGET_KEY]: { packageVersion: "0.2.1", profile: "microbit-v1" },
+    });
+    assert.deepEqual(
+      result.errors.map((error) => error.code),
+      [WodalProjectValidationCode.UNSUPPORTED_WODAL_PROFILE]
+    );
+  });
+});
+
+describe("buildWodalProjectTarget", () => {
+  it("builds a target that passes validation", () => {
+    const target = buildWodalProjectTarget(WodalDeviceProfileId.MICROBIT_V2);
+    assert.equal(target.profile, WodalDeviceProfileId.MICROBIT_V2);
+    assert.ok(target.packageVersion.length > 0);
+
+    const result = validateWodalTarget({ [WODAL_PROJECT_TARGET_KEY]: target });
+    assert.equal(result.ok, true);
   });
 });

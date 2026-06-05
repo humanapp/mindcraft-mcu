@@ -42,13 +42,16 @@ export {
   type WodalProjectBrainHydrationResult,
 } from "./mindcraft/project-brain";
 export {
+  buildWodalProjectTarget,
   getWodalProjectTarget,
   MINDCRAFT_PROJECT_FORMAT,
   parseWodalProjectDocument,
   validateWodalProjectDocument,
+  validateWodalTarget,
   WODAL_PROJECT_TARGET_KEY,
   type WodalProjectParseResult,
   type WodalProjectTarget,
   WodalProjectValidationCode,
   type WodalProjectValidationError,
+  type WodalTargetParseResult,
 } from "./mindcraft/project-document";
