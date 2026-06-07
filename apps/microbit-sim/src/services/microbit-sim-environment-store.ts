@@ -9,7 +9,7 @@ import {
   ProjectManager,
   type ProjectManifest,
 } from "@mindcraft-lang/app-host";
-import { AppEnvironmentHost } from "@mindcraft-lang/bridge-app";
+import { type AppBridgeState, AppEnvironmentHost } from "@mindcraft-lang/bridge-app";
 import { BrainDef, coreModule, createMindcraftEnvironment, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
 import { isCompilerControlledPath } from "@mindcraft-lang/ts-compiler";
 import {
@@ -20,6 +20,7 @@ import {
   WodalDeviceProfileId,
 } from "@mindcraft-lang/wodal";
 import { name as appName, version as appVersion } from "../../package.json";
+import { loadBindingToken, saveBindingToken } from "./binding-token-persistence";
 import { microbitAmbientFiles } from "./microbit-ambient-files";
 import {
   BRAINS_INDEX_KEY,
@@ -29,6 +30,7 @@ import {
   SIMULATOR_STATE_KEY,
 } from "./project-io";
 import { MicrobitSimulator } from "./simulator";
+import { initVfsServiceWorker } from "./vfs-service-worker";
 
 /** Parses the persisted simulator fleet; returns undefined when absent or malformed. */
 function parseSimulatorState(raw: string | undefined): MicrobitSimFleet | undefined {
@@ -77,6 +79,83 @@ function parseBrainIndex(raw: string | undefined): string[] {
   }
 }
 
+// -- AppSettings (global, persisted across projects) --
+
+const APP_SETTINGS_STORAGE_KEY = `${appName}:app-settings`;
+
+/** Global, project-independent app settings persisted in `localStorage`. */
+export interface AppSettings {
+  /** Relay URL the VS Code bridge connects to. */
+  vscodeBridgeUrl: string;
+  /** Whether the VS Code Bridge UI panel is shown. */
+  showBridgePanel: boolean;
+}
+
+const DEFAULT_APP_SETTINGS: AppSettings = {
+  vscodeBridgeUrl: "vscode-bridge.mindcraft-lang.org",
+  showBridgePanel: true,
+};
+
+type AppSettingsListener = (settings: AppSettings, prev: AppSettings) => void;
+
+/** Loads persisted app settings, falling back to defaults on absence or corruption. */
+function loadAppSettings(): AppSettings {
+  try {
+    const raw = localStorage.getItem(APP_SETTINGS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<AppSettings>;
+      return { ...DEFAULT_APP_SETTINGS, ...parsed };
+    }
+  } catch {
+    // corrupted data -- fall through to defaults
+  }
+  return { ...DEFAULT_APP_SETTINGS };
+}
+
+/** Persists app settings to `localStorage`. */
+function persistAppSettings(settings: AppSettings): void {
+  localStorage.setItem(APP_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+}
+
+// -- UiPreferences (per-project, non-portable) --
+
+const UI_PREFS_KEY_PREFIX = `${appName}:project-ui:`;
+
+/** Per-project UI preferences persisted in `localStorage`, keyed by project id. */
+export interface UiPreferences {
+  /** Whether the VS Code bridge is enabled for this project. */
+  bridgeEnabled: boolean;
+}
+
+const DEFAULT_UI_PREFS: UiPreferences = {
+  bridgeEnabled: false,
+};
+
+/** Loads per-project UI preferences, falling back to defaults on absence or corruption. */
+function loadUiPreferences(projectId: string): UiPreferences {
+  try {
+    const raw = localStorage.getItem(`${UI_PREFS_KEY_PREFIX}${projectId}`);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<UiPreferences>;
+      return {
+        bridgeEnabled: parsed.bridgeEnabled === true,
+      };
+    }
+  } catch {
+    // corrupted data -- fall through to defaults
+  }
+  return { ...DEFAULT_UI_PREFS };
+}
+
+/** Persists per-project UI preferences. No-ops when storage is full or unavailable. */
+function persistUiPreferences(projectId: string, prefs: UiPreferences): void {
+  try {
+    localStorage.setItem(`${UI_PREFS_KEY_PREFIX}${projectId}`, JSON.stringify(prefs));
+  } catch {
+    // storage full or unavailable
+  }
+}
+
 /**
  * Owns the long-lived microbit-sim app state: the caller-owned Mindcraft
  * environment, the durable project lifecycle, and the user-managed brain list.
@@ -102,6 +181,14 @@ export class MicrobitSimEnvironmentStore {
   private readonly _brainsListeners = new Set<() => void>();
   private readonly _activeProjectListeners = new Set<() => void>();
 
+  private _appSettings: AppSettings = loadAppSettings();
+  private readonly _appSettingsListeners = new Set<AppSettingsListener>();
+
+  private _uiPreferences: UiPreferences = { ...DEFAULT_UI_PREFS };
+
+  private _vfsServiceWorkerInitialized = false;
+  private _isSwitchingProject = false;
+
   private constructor(host: AppEnvironmentHost, activeDeviceProfile: WodalDeviceProfile) {
     this.host = host;
     this.activeDeviceProfile = activeDeviceProfile;
@@ -111,6 +198,10 @@ export class MicrobitSimEnvironmentStore {
       void this.persistSimulatorState();
     });
     this.host.onProjectLoaded(() => {
+      const prefs = loadUiPreferences(this.host.projectManager.activeProject!.manifest.id);
+      // Switching to a different project must not silently auto-connect its bridge; a fresh load
+      // keeps the saved toggle so a reloaded session reconnects.
+      this._uiPreferences = this._isSwitchingProject ? { ...prefs, bridgeEnabled: false } : prefs;
       void this.reloadProjectState();
     });
   }
@@ -119,6 +210,7 @@ export class MicrobitSimEnvironmentStore {
   static async create(): Promise<MicrobitSimEnvironmentStore> {
     // The one place this app declares its device; the module and the build profile both derive from it.
     const activeProfile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
+    const appSettings = loadAppSettings();
     const projectStore = await createIdbProjectStore(appName);
     const host = new AppEnvironmentHost({
       projectManager: new ProjectManager(projectStore, {
@@ -130,18 +222,36 @@ export class MicrobitSimEnvironmentStore {
       modules: [coreModule(), activeProfile.createMindcraftModule()],
       ambientFiles: microbitAmbientFiles,
       host: { name: appName, version: appVersion },
-      userTileStorageKey: `${appName}:user-tile-metadata`,
+      bridgeUrl: appSettings.vscodeBridgeUrl,
+      loadBindingToken,
+      saveBindingToken,
       // Minted ids (brain id, page id) must be unique across sessions; the deterministic MathOps.random
       // LCG repeats every load and would collide.
       rng: { next: () => Math.random() },
     });
-    return new MicrobitSimEnvironmentStore(host, activeProfile);
+    const instance = new MicrobitSimEnvironmentStore(host, activeProfile);
+    instance._appSettings = appSettings;
+    return instance;
   }
 
   /** Opens or creates the durable default project. */
   async initialize(): Promise<void> {
     await this.host.initialize(DEFAULT_PROJECT_NAME);
+    const activeProject = this.host.projectManager.activeProject;
+    if (activeProject) {
+      this._uiPreferences = loadUiPreferences(activeProject.manifest.id);
+    }
     await this.reloadProjectState();
+    if (!this._vfsServiceWorkerInitialized) {
+      initVfsServiceWorker(this);
+      this._vfsServiceWorkerInitialized = true;
+    }
+    this.host.initBridge();
+    this.onAppSettingsChange((settings, prev) => {
+      if (settings.vscodeBridgeUrl !== prev.vscodeBridgeUrl) {
+        this.host.updateBridgeUrl(settings.vscodeBridgeUrl);
+      }
+    });
   }
 
   /** Caller-owned Mindcraft environment shared across the app. */
@@ -176,12 +286,22 @@ export class MicrobitSimEnvironmentStore {
 
   /** Creates a durable project and makes it active. */
   async createProject(name: string): Promise<void> {
-    await this.host.createProject(name);
+    this._isSwitchingProject = true;
+    try {
+      await this.host.createProject(name);
+    } finally {
+      this._isSwitchingProject = false;
+    }
   }
 
   /** Switches the active project within the current collection. */
   async switchProject(id: string): Promise<void> {
-    await this.host.switchProject(id);
+    this._isSwitchingProject = true;
+    try {
+      await this.host.switchProject(id);
+    } finally {
+      this._isSwitchingProject = false;
+    }
   }
 
   /** Renames the active project. */
@@ -383,6 +503,120 @@ export class MicrobitSimEnvironmentStore {
   /** Snapshot of the selected brain id for `useSyncExternalStore`. */
   getSelectedBrainId = (): string | undefined => {
     return this._selectedBrainId;
+  };
+
+  // -- App settings (global) --
+
+  /** Snapshot of the current global app settings for `useSyncExternalStore`. */
+  getAppSettings = (): AppSettings => {
+    return this._appSettings;
+  };
+
+  /** Subscribes to app-settings changes for `useSyncExternalStore`. Returns an unsubscribe function. */
+  subscribeToAppSettings = (listener: () => void): (() => void) => {
+    return this.onAppSettingsChange(listener);
+  };
+
+  /**
+   * Merges a patch into the global app settings, persists the result, and notifies listeners.
+   * A blank bridge URL is reset to the default.
+   */
+  updateAppSettings(patch: Partial<AppSettings>): void {
+    const prev = this._appSettings;
+    const merged = { ...this._appSettings, ...patch };
+    if (!merged.vscodeBridgeUrl.trim()) {
+      merged.vscodeBridgeUrl = DEFAULT_APP_SETTINGS.vscodeBridgeUrl;
+    }
+    this._appSettings = merged;
+    persistAppSettings(this._appSettings);
+    for (const fn of this._appSettingsListeners) {
+      fn(this._appSettings, prev);
+    }
+  }
+
+  /** Registers a listener fired after app settings change. Returns an unsubscribe function. */
+  onAppSettingsChange(fn: AppSettingsListener): () => void {
+    this._appSettingsListeners.add(fn);
+    return () => {
+      this._appSettingsListeners.delete(fn);
+    };
+  }
+
+  // -- UI preferences (per-project) --
+
+  /** Returns the active project's UI preferences. */
+  getUiPreferences(): UiPreferences {
+    return this._uiPreferences;
+  }
+
+  /** Merges a patch into the active project's UI preferences and persists the result. */
+  updateUiPreferences(patch: Partial<UiPreferences>): void {
+    this._uiPreferences = { ...this._uiPreferences, ...patch };
+    const projectId = this.host.projectManager.activeProject?.manifest.id;
+    if (projectId) {
+      persistUiPreferences(projectId, this._uiPreferences);
+    }
+  }
+
+  // -- Doc revision (delegate) --
+
+  /** Subscribes to doc-revision changes (bumped when user tiles install) for `useSyncExternalStore`. */
+  subscribeToDocRevision = (listener: () => void): (() => void) => {
+    return this.host.subscribeToDocRevision(listener);
+  };
+
+  /** Snapshot of the current doc revision for `useSyncExternalStore`. */
+  getDocRevisionSnapshot = (): number => {
+    return this.host.getDocRevisionSnapshot();
+  };
+
+  // -- VFS revision (delegate) --
+
+  /** Bumps the VFS revision, signaling subscribers that the project filesystem snapshot changed. */
+  bumpVfsRevision(): void {
+    this.host.bumpVfsRevision();
+  }
+
+  /** Subscribes to VFS revision changes for `useSyncExternalStore`. Returns an unsubscribe function. */
+  subscribeToVfsRevision = (listener: () => void): (() => void) => {
+    return this.host.subscribeToVfsRevision(listener);
+  };
+
+  /** Snapshot of the current VFS revision for `useSyncExternalStore`. */
+  getVfsRevisionSnapshot = (): number => {
+    return this.host.getVfsRevisionSnapshot();
+  };
+
+  // -- Bridge (delegate) --
+
+  /** Starts the VS Code bridge connection, lazily initializing the bridge handle if needed. */
+  connectBridge(): void {
+    this.host.connectBridge();
+  }
+
+  /** Stops the VS Code bridge connection. */
+  disconnectBridge(): void {
+    this.host.disconnectBridge();
+  }
+
+  /** Subscribes to bridge connection-status changes for `useSyncExternalStore`. */
+  subscribeToBridgeStatus = (listener: () => void): (() => void) => {
+    return this.host.subscribeToBridgeStatus(listener);
+  };
+
+  /** Snapshot of the current bridge connection status for `useSyncExternalStore`. */
+  getBridgeStatusSnapshot = (): AppBridgeState => {
+    return this.host.getBridgeStatusSnapshot();
+  };
+
+  /** Subscribes to bridge join-code changes for `useSyncExternalStore`. */
+  subscribeToBridgeJoinCode = (listener: () => void): (() => void) => {
+    return this.host.subscribeToBridgeJoinCode(listener);
+  };
+
+  /** Snapshot of the current bridge join code, or undefined when none is active. */
+  getBridgeJoinCodeSnapshot = (): string | undefined => {
+    return this.host.getBridgeJoinCodeSnapshot();
   };
 
   /** Releases host resources owned by this store. */

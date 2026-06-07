@@ -1,6 +1,6 @@
 import type { BrainDef } from "@mindcraft-lang/core/app";
 import { BrainEditorDialog, BrainEditorProvider } from "@mindcraft-lang/ui";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { buildMicrobitBrainEditorConfig } from "@/brain/editor-config";
 import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";
 
@@ -12,7 +12,12 @@ interface BrainEditorProps {
 /** Loads a brain and edits it in the Brain Editor, saving the result on submit. */
 export function BrainEditor({ brainId, onClose }: BrainEditorProps) {
   const store = useMicrobitSimEnvironment();
-  const config = useMemo(() => buildMicrobitBrainEditorConfig(store.env), [store]);
+  // Rebuild the editor config when user tiles install so the palette picks up newly compiled tiles.
+  const docRevision = useSyncExternalStore(store.subscribeToDocRevision, store.getDocRevisionSnapshot);
+  const config = useMemo(() => {
+    void docRevision;
+    return buildMicrobitBrainEditorConfig(store.env);
+  }, [store, docRevision]);
   const [srcBrainDef, setSrcBrainDef] = useState<BrainDef | undefined>(undefined);
   const [isOpen, setIsOpen] = useState(false);
 

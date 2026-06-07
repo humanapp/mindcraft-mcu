@@ -63,7 +63,6 @@ async function generateFixtureDocument(): Promise<string> {
     modules: [coreModule(), profile.createMindcraftModule()],
     ambientFiles: [],
     host: { name: appName, version: appVersion },
-    userTileStorageKey: "fixture-gen:user-tile-metadata",
     rng: { next: seededRandom() },
   });
   await host.initialize("Sample Project");

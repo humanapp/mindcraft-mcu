@@ -7,8 +7,9 @@ import { pickFile } from "@/utils/file-upload";
 import { InlineRename } from "./InlineRename";
 import { NewProjectDialog } from "./NewProjectDialog";
 import { ProjectPickerDialog } from "./ProjectPickerDialog";
+import { SettingsDialog } from "./SettingsDialog";
 
-type OpenDialog = "none" | "new" | "open";
+type OpenDialog = "none" | "new" | "open" | "settings";
 
 function projectFilename(name: string): string {
   const slug = name.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-+|-+$/g, "");
@@ -77,9 +78,19 @@ export function ProjectHeader() {
         <Button type="button" size="sm" data-testid="new-project-button" onClick={() => setDialog("new")}>
           New project
         </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          data-testid="settings-button"
+          onClick={() => setDialog("settings")}
+        >
+          Settings
+        </Button>
       </div>
       {dialog === "new" && <NewProjectDialog onClose={() => setDialog("none")} />}
       {dialog === "open" && <ProjectPickerDialog onClose={() => setDialog("none")} />}
+      {dialog === "settings" && <SettingsDialog onClose={() => setDialog("none")} />}
     </header>
   );
 }
