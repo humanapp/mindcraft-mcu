@@ -159,12 +159,13 @@ test("the committed user-tile golden carries bytecode actions and parses, loads,
   }
   const raw = readFileSync(GOLDEN_PATH, "utf8");
 
-  // The distinguishing property vs the host-action golden: the linked program embeds user-tile bytecode.
-  const golden = JSON.parse(raw) as { program: { program: { actions: { binding: string }[] } } };
+  // The distinguishing property vs the host-action golden (which has an empty actions table): the
+  // linked program embeds user-tile bytecode actions, each recording its entry function id.
+  const golden = JSON.parse(raw) as { program: { program: { actions: { entryFuncId: number }[] } } };
   const actions = golden.program.program.actions;
   assert.equal(actions.length, 2, "expected the golden to embed the sensor and actuator bytecode actions");
   for (const action of actions) {
-    assert.equal(action.binding, "bytecode");
+    assert.equal(typeof action.entryFuncId, "number");
   }
 
   const parsed = parseWodalProgramImage(raw);
