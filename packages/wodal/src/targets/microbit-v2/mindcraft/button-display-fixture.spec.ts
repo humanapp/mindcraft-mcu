@@ -60,7 +60,7 @@ function serializeBuiltImage(image: WodalProgramImage<LinkedBrainProgram>): stri
 /**
  * Loads a serialized program image into a fresh runtime and asserts that a button-A press
  * lights display pixel (0,0). The environment must install the microbit-v2 module so the
- * load can rebind the host actions.
+ * serialized host action ids resolve against the runtime action registry.
  */
 function assertButtonLightsPixel(
   environment: MindcraftEnvironment,
