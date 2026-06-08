@@ -65,6 +65,8 @@ test("buildWodalProgramImage returns PROGRAM_IMAGE_CREATION_FAILED when image cr
   const cause = new Error("image creation failed");
   const deviceProfile: WodalDeviceProfile = {
     profileId: WodalDeviceProfileId.MICROBIT_V2,
+    numericProfileId: 1,
+    numberPrecision: "f32",
     createMindcraftModule: createMicroBitV2Module,
     createProgramImage: () => {
       throw cause;
