@@ -47,6 +47,24 @@ export const WODAL_MICROBIT_V2_TYPE_IDS = {
   TouchButton: mkTypeId(NativeType.Struct, "TouchButton"),
 } as const;
 
+/**
+ * Numeric field ids for the `MicroBit` struct. Each value is the field's durable
+ * id and storage slot, and is the single source for both the registered
+ * `fieldIndex` and the `fieldGetter` dispatch.
+ */
+export enum MicroBitField {
+  Display = 0,
+  ButtonA = 1,
+  ButtonB = 2,
+  Logo = 3,
+}
+
+/**
+ * Field id of the `microbit` field this profile adds to the core `Context`
+ * struct. Core owns Context ids 0-5; device extensions start at 6.
+ */
+export const CONTEXT_MICROBIT_FIELD_ID = 6;
+
 /** Creates the Mindcraft module for the WODAL profile. */
 export function createMicroBitV2Module(): MindcraftModule {
   return {
@@ -138,24 +156,24 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
 
   types.addStructType("MicroBit", {
     fields: List.from([
-      { name: "display", typeId: WODAL_MICROBIT_V2_TYPE_IDS.MicroBitDisplay },
-      { name: "buttonA", typeId: WODAL_MICROBIT_V2_TYPE_IDS.Button },
-      { name: "buttonB", typeId: WODAL_MICROBIT_V2_TYPE_IDS.Button },
-      { name: "logo", typeId: WODAL_MICROBIT_V2_TYPE_IDS.TouchButton },
+      { name: "display", typeId: WODAL_MICROBIT_V2_TYPE_IDS.MicroBitDisplay, fieldIndex: MicroBitField.Display },
+      { name: "buttonA", typeId: WODAL_MICROBIT_V2_TYPE_IDS.Button, fieldIndex: MicroBitField.ButtonA },
+      { name: "buttonB", typeId: WODAL_MICROBIT_V2_TYPE_IDS.Button, fieldIndex: MicroBitField.ButtonB },
+      { name: "logo", typeId: WODAL_MICROBIT_V2_TYPE_IDS.TouchButton, fieldIndex: MicroBitField.Logo },
     ]),
-    fieldGetter: (source, fieldName) => {
+    fieldGetter: (source, fieldId) => {
       const microbit = getNativeMicroBit(source);
       if (!microbit) {
         return NIL_VALUE;
       }
-      switch (fieldName) {
-        case "display":
+      switch (fieldId) {
+        case MicroBitField.Display:
           return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.MicroBitDisplay, microbit.display);
-        case "buttonA":
+        case MicroBitField.ButtonA:
           return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.Button, microbit.buttonA);
-        case "buttonB":
+        case MicroBitField.ButtonB:
           return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.Button, microbit.buttonB);
-        case "logo":
+        case MicroBitField.Logo:
           return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.TouchButton, microbit.logo);
         default:
           return undefined;
@@ -165,9 +183,11 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
 
   types.addStructFields(
     ContextTypeIds.Context,
-    List.from([{ name: "microbit", typeId: WODAL_MICROBIT_V2_TYPE_IDS.MicroBit }]),
-    (_source, fieldName, ctx) => {
-      if (fieldName !== "microbit") {
+    List.from([
+      { name: "microbit", typeId: WODAL_MICROBIT_V2_TYPE_IDS.MicroBit, fieldIndex: CONTEXT_MICROBIT_FIELD_ID },
+    ]),
+    (_source, fieldId, ctx) => {
+      if (fieldId !== CONTEXT_MICROBIT_FIELD_ID) {
         return undefined;
       }
       const microbit = getMicroBitContextDevice(ctx);

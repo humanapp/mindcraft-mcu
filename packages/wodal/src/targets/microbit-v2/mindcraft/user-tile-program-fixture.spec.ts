@@ -172,3 +172,20 @@ test("the committed user-tile golden carries bytecode actions and parses, loads,
   assert.equal(parsed.ok, true);
   assertButtonLightsPixel(microbitEnvironment(), parsed.image as WodalProgramImage<LinkedBrainProgramJson>);
 });
+
+test("the committed user-tile golden is de-stringed: its string pool holds no static field names", () => {
+  if (!existsSync(GOLDEN_PATH)) {
+    writeFileSync(GOLDEN_PATH, serializeBuiltImage(buildUserTileButtonDisplayImage(microbitEnvironment())));
+  }
+  const golden = JSON.parse(readFileSync(GOLDEN_PATH, "utf8")) as {
+    program: { program: { constantPools: { strings: string[] } } };
+  };
+  // The tiles' static field reads (ctx.microbit.buttonA, ctx.microbit.display) compile to
+  // STRUCT_GET_FIELD by id; the program interns no field-name strings.
+  const strings = golden.program.program.constantPools.strings;
+  assert.deepEqual(
+    strings,
+    [],
+    `expected an empty string pool after field-access de-stringing; got: ${JSON.stringify(strings)}`
+  );
+});

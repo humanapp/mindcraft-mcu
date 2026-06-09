@@ -16,7 +16,7 @@ import {
   type StructTypeDef,
 } from "@mindcraft-lang/core/app";
 import { MicroBit } from "../microbit";
-import { createMicroBitV2Module, WODAL_MICROBIT_V2_TYPE_IDS } from "./module";
+import { CONTEXT_MICROBIT_FIELD_ID, createMicroBitV2Module, MicroBitField, WODAL_MICROBIT_V2_TYPE_IDS } from "./module";
 
 test("Context.microbit exposes the native WODAL microbit device", () => {
   const env = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
@@ -25,22 +25,26 @@ test("Context.microbit exposes the native WODAL microbit device", () => {
   const contextDef = getStructType(env, ContextTypeIds.Context);
   const microbitDef = getStructType(env, WODAL_MICROBIT_V2_TYPE_IDS.MicroBit);
 
-  const microbitValue = contextDef.fieldGetter?.(mkNativeStructValue(ContextTypeIds.Context, ctx), "microbit", ctx);
+  const microbitValue = contextDef.fieldGetter?.(
+    mkNativeStructValue(ContextTypeIds.Context, ctx),
+    CONTEXT_MICROBIT_FIELD_ID,
+    ctx
+  );
   assert.ok(isStructValue(microbitValue));
   assert.equal(microbitValue.typeId, WODAL_MICROBIT_V2_TYPE_IDS.MicroBit);
   assert.equal(microbitValue.native, microbit);
 
-  const displayValue = microbitDef.fieldGetter?.(microbitValue, "display", ctx);
+  const displayValue = microbitDef.fieldGetter?.(microbitValue, MicroBitField.Display, ctx);
   assert.ok(isStructValue(displayValue));
   assert.equal(displayValue.typeId, WODAL_MICROBIT_V2_TYPE_IDS.MicroBitDisplay);
   assert.equal(displayValue.native, microbit.display);
 
-  const buttonAValue = microbitDef.fieldGetter?.(microbitValue, "buttonA", ctx);
+  const buttonAValue = microbitDef.fieldGetter?.(microbitValue, MicroBitField.ButtonA, ctx);
   assert.ok(isStructValue(buttonAValue));
   assert.equal(buttonAValue.typeId, WODAL_MICROBIT_V2_TYPE_IDS.Button);
   assert.equal(buttonAValue.native, microbit.buttonA);
 
-  const logoValue = microbitDef.fieldGetter?.(microbitValue, "logo", ctx);
+  const logoValue = microbitDef.fieldGetter?.(microbitValue, MicroBitField.Logo, ctx);
   assert.ok(isStructValue(logoValue));
   assert.equal(logoValue.typeId, WODAL_MICROBIT_V2_TYPE_IDS.TouchButton);
   assert.equal(logoValue.native, microbit.logo);
