@@ -14,7 +14,7 @@ import {
   type WodalBuildInput,
   WodalDeviceProfileId,
 } from "@mindcraft-lang/wodal";
-import { createMicroBitV2Module, WodalMicroBitV2ActionId } from "@mindcraft-lang/wodal/targets/microbit-v2";
+import { createMicroBitV2Module, MicroBitV2HostActions } from "@mindcraft-lang/wodal/targets/microbit-v2";
 import { MicrobitSimulator } from "./simulator";
 
 function microbitEnvironment(): MindcraftEnvironment {
@@ -38,8 +38,8 @@ function buildMinimalImage(env: MindcraftEnvironment) {
 /** Builds the button-A -> set-pixel brain as a WODAL build input, through the tile API. */
 function buttonDisplayInput(env: MindcraftEnvironment): WodalBuildInput {
   const services = env.brainServices;
-  const sensorTile = services.edit.tiles.get(mkSensorTileId(WodalMicroBitV2ActionId.ButtonA))!;
-  const actuatorTile = services.edit.tiles.get(mkActuatorTileId(WodalMicroBitV2ActionId.DisplaySetPixel))!;
+  const sensorTile = services.edit.tiles.get(mkSensorTileId(MicroBitV2HostActions.ButtonA.key))!;
+  const actuatorTile = services.edit.tiles.get(mkActuatorTileId(MicroBitV2HostActions.DisplaySetPixel.key))!;
   const brainDef = BrainDef.emptyBrainDef(services, "button display");
   const rule = brainDef.pages().get(0)!.children().get(0)!;
   rule.when().appendTile(sensorTile);

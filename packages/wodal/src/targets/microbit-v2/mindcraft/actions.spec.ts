@@ -23,18 +23,18 @@ import { MicroBit } from "../microbit";
 import { createMicroBitV2Module } from "./module";
 import { createMicroBitV2ProgramImage } from "./program-image";
 import { WodalMicroBitRuntime } from "./runtime";
-import { WodalMicroBitV2ActionId, WodalMicroBitV2ModifierId, WodalMicroBitV2ParameterId } from "./tile-ids";
+import { MicroBitV2HostActions, WodalMicroBitV2ModifierId, WodalMicroBitV2ParameterId } from "./tile-ids";
 
 test("microbit-v2 module registers the button-A sensor, set-pixel actuator, modifiers, and parameters", () => {
   const env = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
   const tiles = env.brainServices.edit.tiles;
 
-  const sensorTile = tiles.get(mkSensorTileId(WodalMicroBitV2ActionId.ButtonA));
+  const sensorTile = tiles.get(mkSensorTileId(MicroBitV2HostActions.ButtonA.key));
   assert.ok(sensorTile, "button-A sensor tile should be registered");
   assert.equal(sensorTile.kind, "sensor");
   assert.equal(sensorTile.metadata?.label, "button A");
 
-  const actuatorTile = tiles.get(mkActuatorTileId(WodalMicroBitV2ActionId.DisplaySetPixel));
+  const actuatorTile = tiles.get(mkActuatorTileId(MicroBitV2HostActions.DisplaySetPixel.key));
   assert.ok(actuatorTile, "set-pixel actuator tile should be registered");
   assert.equal(actuatorTile.kind, "actuator");
   assert.equal(actuatorTile.metadata?.label, "set pixel");
@@ -60,12 +60,12 @@ test("microbit-v2 module registers the button-A sensor, set-pixel actuator, modi
     assert.equal(parameterTile.kind, "parameter");
   }
 
-  const sensorEntry = env.brainServices.runtime.functions.get(WodalMicroBitV2ActionId.ButtonA);
+  const sensorEntry = env.brainServices.runtime.functions.get(MicroBitV2HostActions.ButtonA.key);
   assert.ok(sensorEntry);
   assert.equal(sensorEntry.isAsync, false);
   assert.equal(sensorEntry.callDef.argSlots.size(), 2);
 
-  const actuatorEntry = env.brainServices.runtime.functions.get(WodalMicroBitV2ActionId.DisplaySetPixel);
+  const actuatorEntry = env.brainServices.runtime.functions.get(MicroBitV2HostActions.DisplaySetPixel.key);
   assert.ok(actuatorEntry);
   assert.equal(actuatorEntry.callDef.argSlots.size(), 3);
 });
@@ -99,7 +99,7 @@ test("set-pixel actuator applies parameter defaults when arguments are absent", 
   const env = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
   const microbit = new MicroBit();
   const ctx = createExecutionContext(env, microbit);
-  const entry = getSyncFunctionEntry(env, WodalMicroBitV2ActionId.DisplaySetPixel);
+  const entry = getSyncFunctionEntry(env, MicroBitV2HostActions.DisplaySetPixel.key);
 
   // No arguments: x and y default to 0, brightness defaults to 255.
   entry.fn.exec(ctx, filledArgs(entry.callDef.argSlots.size()));
@@ -187,7 +187,7 @@ interface PixelOptions {
 }
 
 function setPixel(env: MindcraftEnvironment, ctx: ExecutionContext, options: PixelOptions): void {
-  const entry = getSyncFunctionEntry(env, WodalMicroBitV2ActionId.DisplaySetPixel);
+  const entry = getSyncFunctionEntry(env, MicroBitV2HostActions.DisplaySetPixel.key);
   const args = filledArgs(entry.callDef.argSlots.size());
   args.set(getSlotId(entry.callDef, mkParameterTileId(WodalMicroBitV2ParameterId.X)), mkNumberValue(options.x));
   args.set(getSlotId(entry.callDef, mkParameterTileId(WodalMicroBitV2ParameterId.Y)), mkNumberValue(options.y));
@@ -204,8 +204,8 @@ function buildButtonRuleBrain(
   modifierId?: string
 ): LinkedBrainProgram {
   const tiles = env.brainServices.edit.tiles;
-  const sensorTile = tiles.get(mkSensorTileId(WodalMicroBitV2ActionId.ButtonA));
-  const actuatorTile = tiles.get(mkActuatorTileId(WodalMicroBitV2ActionId.DisplaySetPixel));
+  const sensorTile = tiles.get(mkSensorTileId(MicroBitV2HostActions.ButtonA.key));
+  const actuatorTile = tiles.get(mkActuatorTileId(MicroBitV2HostActions.DisplaySetPixel.key));
   assert.ok(sensorTile);
   assert.ok(actuatorTile);
 

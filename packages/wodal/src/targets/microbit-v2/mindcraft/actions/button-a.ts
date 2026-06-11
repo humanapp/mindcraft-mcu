@@ -18,7 +18,7 @@ import {
 } from "@mindcraft-lang/core/app";
 import { getMicroBitContextDevice } from "../context";
 import { Modifier } from "../modifiers";
-import { WodalMicroBitV2ActionId } from "../tile-ids";
+import { MicroBitV2HostActions } from "../tile-ids";
 
 const callDef = mkCallDef(bag(optional(choice(Modifier.pressed, Modifier.released))));
 
@@ -55,7 +55,7 @@ function execButtonA(ctx: ExecutionContext, args: ReadonlyList<Value>): Value {
  * inactive are not reported.
  */
 export default {
-  key: WodalMicroBitV2ActionId.ButtonA,
+  ...MicroBitV2HostActions.ButtonA,
   callDef,
   fn: { onPageEntered: clearCallSiteState, exec: execButtonA },
   isAsync: false,

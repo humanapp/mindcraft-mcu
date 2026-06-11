@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import {
@@ -14,6 +14,7 @@ import {
   type LinkedBrainProgram,
   type LinkedBrainProgramJson,
   linkedBrainProgramToJson,
+  Op,
 } from "@mindcraft-lang/core/runtime";
 import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
@@ -25,7 +26,7 @@ import {
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Module } from "./module";
 import { WodalMicroBitRuntime } from "./runtime";
-import { WodalMicroBitV2ActionId } from "./tile-ids";
+import { MicroBitV2HostActions } from "./tile-ids";
 
 const GOLDEN_PATH = fileURLToPath(new URL("./__fixtures__/button-display.mcprogram", import.meta.url));
 
@@ -40,8 +41,8 @@ function microbitEnvironment(): MindcraftEnvironment {
  */
 function buildButtonDisplayBrainDef(env: MindcraftEnvironment): BrainDef {
   const tiles = env.brainServices.edit.tiles;
-  const sensorTile = tiles.get(mkSensorTileId(WodalMicroBitV2ActionId.ButtonA));
-  const actuatorTile = tiles.get(mkActuatorTileId(WodalMicroBitV2ActionId.DisplaySetPixel));
+  const sensorTile = tiles.get(mkSensorTileId(MicroBitV2HostActions.ButtonA.key));
+  const actuatorTile = tiles.get(mkActuatorTileId(MicroBitV2HostActions.DisplaySetPixel.key));
   assert.ok(sensorTile);
   assert.ok(actuatorTile);
 
@@ -83,6 +84,14 @@ function assertButtonLightsPixel(
 
 test("a freshly built button-display image serializes, parses, loads, and runs", () => {
   const environment = microbitEnvironment();
+  const parsed = parseWodalProgramImage(serializeBuiltImage(buildGoldenImage(environment)));
+  assert.equal(parsed.ok, true);
+
+  assertButtonLightsPixel(environment, parsed.image as WodalProgramImage<LinkedBrainProgramJson>);
+});
+
+/** Builds the button-display image through the standard build path for the golden. */
+function buildGoldenImage(environment: MindcraftEnvironment): WodalProgramImage<LinkedBrainProgram> {
   const built = buildWodalProgramImage({
     brainDef: buildButtonDisplayBrainDef(environment),
     environment,
@@ -91,16 +100,37 @@ test("a freshly built button-display image serializes, parses, loads, and runs",
   if (!built.ok) {
     assert.fail("expected a successful build");
   }
-
-  const parsed = parseWodalProgramImage(serializeBuiltImage(built.image));
-  assert.equal(parsed.ok, true);
-
-  assertButtonLightsPixel(environment, parsed.image as WodalProgramImage<LinkedBrainProgramJson>);
-});
+  return built.image;
+}
 
 test("the committed button-display golden parses, loads, and runs", () => {
+  if (!existsSync(GOLDEN_PATH)) {
+    writeFileSync(GOLDEN_PATH, serializeBuiltImage(buildGoldenImage(microbitEnvironment())));
+  }
   const parsed = parseWodalProgramImage(readFileSync(GOLDEN_PATH, "utf8"));
   assert.equal(parsed.ok, true);
 
   assertButtonLightsPixel(microbitEnvironment(), parsed.image as WodalProgramImage<LinkedBrainProgramJson>);
+});
+
+test("the committed golden's host action calls carry the declared stable action ids", () => {
+  if (!existsSync(GOLDEN_PATH)) {
+    writeFileSync(GOLDEN_PATH, serializeBuiltImage(buildGoldenImage(microbitEnvironment())));
+  }
+  const golden = JSON.parse(readFileSync(GOLDEN_PATH, "utf8")) as {
+    program: { program: { functions: { code: { op: number; a?: number }[] }[] } };
+  };
+
+  const actionIds: number[] = [];
+  for (const fn of golden.program.program.functions) {
+    for (const ins of fn.code) {
+      if (ins.op === Op.HOST_ACTION_CALL || ins.op === Op.HOST_ACTION_CALL_ASYNC) {
+        actionIds.push(ins.a ?? -1);
+      }
+    }
+  }
+  assert.deepEqual(
+    actionIds.sort((a, b) => a - b),
+    [MicroBitV2HostActions.ButtonA.actionId, MicroBitV2HostActions.DisplaySetPixel.actionId]
+  );
 });

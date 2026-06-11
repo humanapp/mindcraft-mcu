@@ -6,9 +6,11 @@ import { coreModule, createMindcraftEnvironment, type MindcraftEnvironment } fro
 import type { IBrainTileDef } from "@mindcraft-lang/core/brain";
 import { BrainDef } from "@mindcraft-lang/core/brain/model";
 import {
+  CoreFuncId,
   type LinkedBrainProgram,
   type LinkedBrainProgramJson,
   linkedBrainProgramToJson,
+  Op,
 } from "@mindcraft-lang/core/runtime";
 import {
   type AmbientFile,
@@ -26,6 +28,7 @@ import {
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Module } from "./module";
 import { WodalMicroBitRuntime } from "./runtime";
+import { MicroBitV2HostFuncId } from "./tile-ids";
 
 // A user-authored microbit-v2 program: button-A sensor in when(), set-pixel actuator in do().
 // Unlike button-display.mcprogram (host actions, no bytecode), this golden exercises the VM's
@@ -187,5 +190,27 @@ test("the committed user-tile golden is de-stringed: its string pool holds no st
     strings,
     [],
     `expected an empty string pool after field-access de-stringing; got: ${JSON.stringify(strings)}`
+  );
+});
+
+test("the committed user-tile golden's HOST_CALLs carry the declared stable funcIds", () => {
+  if (!existsSync(GOLDEN_PATH)) {
+    writeFileSync(GOLDEN_PATH, serializeBuiltImage(buildUserTileButtonDisplayImage(microbitEnvironment())));
+  }
+  const golden = JSON.parse(readFileSync(GOLDEN_PATH, "utf8")) as {
+    program: { program: { functions: { code: { op: number; a?: number }[] }[] } };
+  };
+
+  const funcIds = new Set<number>();
+  for (const fn of golden.program.program.functions) {
+    for (const ins of fn.code) {
+      if (ins.op === Op.HOST_CALL || ins.op === Op.HOST_CALL_ASYNC) {
+        funcIds.add(ins.a ?? -1);
+      }
+    }
+  }
+  assert.deepEqual(
+    [...funcIds].sort((a, b) => a - b),
+    [CoreFuncId.OpNotEqualToNumber, MicroBitV2HostFuncId.DisplaySetPixelValue, MicroBitV2HostFuncId.ButtonIsPressed]
   );
 });

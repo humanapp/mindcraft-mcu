@@ -12,7 +12,7 @@ import {
 } from "@mindcraft-lang/core/app";
 import { getMicroBitContextDevice } from "../context";
 import { Param } from "../parameters";
-import { WodalMicroBitV2ActionId } from "../tile-ids";
+import { MicroBitV2HostActions } from "../tile-ids";
 
 const DEFAULT_X = 0;
 const DEFAULT_Y = 0;
@@ -38,7 +38,7 @@ function execDisplaySetPixel(ctx: ExecutionContext, args: ReadonlyList<Value>): 
 
 /** Host actuator: set one LED pixel brightness on the simulated display. */
 export default {
-  key: WodalMicroBitV2ActionId.DisplaySetPixel,
+  ...MicroBitV2HostActions.DisplaySetPixel,
   callDef,
   fn: { exec: execDisplaySetPixel },
   isAsync: false,

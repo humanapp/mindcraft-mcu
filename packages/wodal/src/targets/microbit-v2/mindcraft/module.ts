@@ -28,6 +28,7 @@ import displaySetPixelActuator from "./actions/display-set-pixel";
 import { getMicroBitContextDevice } from "./context";
 import { MICROBIT_V2_MODIFIERS } from "./modifiers";
 import { MICROBIT_V2_PARAMETERS } from "./parameters";
+import { MicroBitV2HostFuncId } from "./tile-ids";
 
 /** Mindcraft module ID for the WODAL profile. */
 export const WODAL_MICROBIT_V2_MODULE_ID = "mindcraft.microbit-v2";
@@ -200,6 +201,7 @@ function registerMicroBitDisplayFunctions(api: MindcraftModuleApi): void {
   const emptyCallDef = mkCallDef({ type: "bag", items: [] });
 
   api.registerFunction({
+    id: MicroBitV2HostFuncId.DisplaySetPixelValue,
     name: "MicroBitDisplay.setPixelValue",
     isAsync: false,
     fn: {
@@ -212,6 +214,7 @@ function registerMicroBitDisplayFunctions(api: MindcraftModuleApi): void {
   });
 
   api.registerFunction({
+    id: MicroBitV2HostFuncId.DisplayGetPixelValue,
     name: "MicroBitDisplay.getPixelValue",
     isAsync: false,
     fn: {
@@ -224,6 +227,7 @@ function registerMicroBitDisplayFunctions(api: MindcraftModuleApi): void {
   });
 
   api.registerFunction({
+    id: MicroBitV2HostFuncId.DisplayClear,
     name: "MicroBitDisplay.clear",
     isAsync: false,
     fn: {
@@ -239,8 +243,13 @@ function registerMicroBitDisplayFunctions(api: MindcraftModuleApi): void {
 function registerButtonFunctions(api: MindcraftModuleApi): void {
   const emptyCallDef = mkCallDef({ type: "bag", items: [] });
 
-  for (const typeName of ["Button", "TouchButton"]) {
+  const isPressedRegistrations: ReadonlyArray<{ typeName: string; id: MicroBitV2HostFuncId }> = [
+    { typeName: "Button", id: MicroBitV2HostFuncId.ButtonIsPressed },
+    { typeName: "TouchButton", id: MicroBitV2HostFuncId.TouchButtonIsPressed },
+  ];
+  for (const { typeName, id } of isPressedRegistrations) {
     api.registerFunction({
+      id,
       name: `${typeName}.isPressed`,
       isAsync: false,
       fn: {
@@ -252,6 +261,7 @@ function registerButtonFunctions(api: MindcraftModuleApi): void {
   }
 
   api.registerFunction({
+    id: MicroBitV2HostFuncId.TouchButtonGetThreshold,
     name: "TouchButton.getThreshold",
     isAsync: false,
     fn: {
@@ -262,6 +272,7 @@ function registerButtonFunctions(api: MindcraftModuleApi): void {
   });
 
   api.registerFunction({
+    id: MicroBitV2HostFuncId.TouchButtonSetThreshold,
     name: "TouchButton.setThreshold",
     isAsync: false,
     fn: {
@@ -274,6 +285,7 @@ function registerButtonFunctions(api: MindcraftModuleApi): void {
   });
 
   api.registerFunction({
+    id: MicroBitV2HostFuncId.TouchButtonGetValue,
     name: "TouchButton.getValue",
     isAsync: false,
     fn: {
@@ -284,6 +296,7 @@ function registerButtonFunctions(api: MindcraftModuleApi): void {
   });
 
   api.registerFunction({
+    id: MicroBitV2HostFuncId.TouchButtonSetValue,
     name: "TouchButton.setValue",
     isAsync: false,
     fn: {

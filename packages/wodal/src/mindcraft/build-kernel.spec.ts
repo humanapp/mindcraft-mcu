@@ -9,14 +9,14 @@ import {
 } from "@mindcraft-lang/core/app";
 import { BrainDef } from "@mindcraft-lang/core/brain/model";
 import { createMicroBitV2Module } from "../targets/microbit-v2/mindcraft/module";
-import { WodalMicroBitV2ActionId } from "../targets/microbit-v2/mindcraft/tile-ids";
+import { MicroBitV2HostActions } from "../targets/microbit-v2/mindcraft/tile-ids";
 import { buildWodalProgramImage, WodalBuildDiagnosticCode } from "./build-kernel";
 import { getWodalDeviceProfile, type WodalDeviceProfile, WodalDeviceProfileId } from "./device-profile";
 
 function buildButtonDisplayBrainDef(env: MindcraftEnvironment): BrainDef {
   const tiles = env.brainServices.edit.tiles;
-  const sensorTile = tiles.get(mkSensorTileId(WodalMicroBitV2ActionId.ButtonA));
-  const actuatorTile = tiles.get(mkActuatorTileId(WodalMicroBitV2ActionId.DisplaySetPixel));
+  const sensorTile = tiles.get(mkSensorTileId(MicroBitV2HostActions.ButtonA.key));
+  const actuatorTile = tiles.get(mkActuatorTileId(MicroBitV2HostActions.DisplaySetPixel.key));
   assert.ok(sensorTile);
   assert.ok(actuatorTile);
 
@@ -55,7 +55,7 @@ test("buildWodalProgramImage returns BRAIN_LINK_FAILED when an action cannot be 
   }
   assert.equal(result.errors.length, 1);
   assert.equal(result.errors[0]!.code, WodalBuildDiagnosticCode.BRAIN_LINK_FAILED);
-  assert.ok(result.errors[0]!.message.includes(WodalMicroBitV2ActionId.ButtonA));
+  assert.ok(result.errors[0]!.message.includes(MicroBitV2HostActions.ButtonA.key));
   assert.equal(result.errors[0]!.cause, undefined);
 });
 
