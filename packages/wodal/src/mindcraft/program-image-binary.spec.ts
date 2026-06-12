@@ -15,6 +15,7 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { stream } from "@mindcraft-lang/core";
+import { coreModule, createMindcraftEnvironment } from "@mindcraft-lang/core/app";
 import {
   type BrainProgramValueJson,
   binaryProgramByteReport,
@@ -23,8 +24,13 @@ import {
   linkedBrainProgramToJson,
   type NumberPrecision,
 } from "@mindcraft-lang/core/runtime";
+import { createMicroBitV2Module } from "../targets/microbit-v2/mindcraft/module";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "./device-profile";
 import { parseWodalProgramImageBytes, serializeWodalProgramImageBytes } from "./program-image-binary";
+
+const typeRegistry = createMindcraftEnvironment({
+  modules: [coreModule(), createMicroBitV2Module()],
+}).brainServices.runtime.types;
 
 interface ProgramImageEnvelopeJson {
   readonly format: string;
@@ -97,13 +103,14 @@ function leanNormalize(json: LinkedBrainProgramJson, precision: NumberPrecision)
         code: fn.code.map((instr) => ({ ...instr })),
         numParams: fn.numParams,
         numLocals: fn.numLocals ?? fn.numParams,
-        ...(fn.injectCtxTypeId !== undefined ? { injectCtxTypeId: fn.injectCtxTypeId } : {}),
+        ...(fn.injectCtxTypeIdx !== undefined ? { injectCtxTypeIdx: fn.injectCtxTypeIdx } : {}),
       })),
       constantPools: {
         numbers: p.constantPools.numbers.map((n) => round(n, precision)),
         strings: p.constantPools.strings,
         values: p.constantPools.values.map((v) => normalizeValue(v, precision)),
       },
+      types: p.types ?? [],
       variableNames: p.variableNames,
       ...(p.actions !== undefined ? { actions: p.actions } : {}),
       ...(p.ruleFuncIds !== undefined ? { ruleFuncIds: p.ruleFuncIds } : {}),
@@ -122,7 +129,7 @@ function fixturePath(relative: string): string {
 function buildBinary(envelope: ProgramImageEnvelopeJson): Uint8Array {
   const program = linkedBrainProgramFromJson(envelope.program);
   const image = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2).createProgramImage(program);
-  return serializeWodalProgramImageBytes(image);
+  return serializeWodalProgramImageBytes(image, typeRegistry);
 }
 
 for (const golden of GOLDENS) {
@@ -142,7 +149,11 @@ for (const golden of GOLDENS) {
     assert.ok(committed.equals(generated), `${golden.name}.mcprogram.bin is not byte-stable`);
 
     // (3) JSON-vs-binary equivalence over the f32-rounded, lean-normalized payload.
-    const decoded = parseWodalProgramImageBytes(new Uint8Array(committed), WodalDeviceProfileId.MICROBIT_V2);
+    const decoded = parseWodalProgramImageBytes(
+      new Uint8Array(committed),
+      WodalDeviceProfileId.MICROBIT_V2,
+      typeRegistry
+    );
     assert.equal(decoded.profileId, profile.profileId);
     assert.deepEqual(
       linkedBrainProgramToJson(decoded.program),
@@ -155,5 +166,15 @@ for (const golden of GOLDENS) {
     console.log(
       `[${golden.name}] total=${report.totalBytes}B magic=${report.magicBytes}B header=${report.headerBytes}B | ${breakdown}`
     );
+  });
+
+  test(`the ${golden.name} golden carries no typeId strings`, () => {
+    const jsonPath = fixturePath(`${golden.name}.mcprogram`);
+    const envelope = JSON.parse(readFileSync(jsonPath, "utf8")) as ProgramImageEnvelopeJson;
+    // TypeId strings have the shape `<nativeType>:<...>`; type identity must
+    // travel only through the type table, never the constant string pool.
+    for (const value of envelope.program.program.constantPools.strings) {
+      assert.ok(!/^[a-z]+:<.*>$/.test(value), `constant string pool carries a typeId string: ${value}`);
+    }
   });
 }

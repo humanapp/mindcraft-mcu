@@ -33,6 +33,19 @@ export enum MicroBitV2HostFuncId {
 }
 
 /**
+ * Stable type-atom ids of the microbit-v2 native struct types. Serialized
+ * programs reference nominal types by these values, so an id, once assigned,
+ * is never changed or reused. All values are at or above core's
+ * `TARGET_TYPE_ATOM_BASE`. Append new members at the next free id.
+ */
+export enum MicroBitV2TypeAtomId {
+  MicroBitDisplay = 1024,
+  Button = 1025,
+  TouchButton = 1026,
+  MicroBit = 1027,
+}
+
+/**
  * Identity records of the microbit-v2 sensors and actuators, one per host
  * action. The record is the single declaration of each action's key and
  * action id; `fnId` references the action's {@link MicroBitV2HostFuncId}

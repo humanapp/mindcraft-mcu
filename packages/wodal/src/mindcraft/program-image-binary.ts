@@ -1,5 +1,6 @@
 import { stream } from "@mindcraft-lang/core";
 import {
+  type ITypeRegistry,
   type LinkedBrainProgram,
   linkedBrainProgramFromBytes,
   linkedBrainProgramToBytes,
@@ -22,12 +23,17 @@ export interface WodalBinaryProgramImage {
  * profile's numeric id is written into the envelope header.
  *
  * @param image - Built WODAL program image to serialize.
+ * @param typeRegistry - Type registry resolving atom-enum symbol ordinals.
  */
-export function serializeWodalProgramImageBytes(image: WodalProgramImage<LinkedBrainProgram>): Uint8Array {
+export function serializeWodalProgramImageBytes(
+  image: WodalProgramImage<LinkedBrainProgram>,
+  typeRegistry?: ITypeRegistry
+): Uint8Array {
   const profile = getWodalDeviceProfile(image.profileId);
   const bytes = linkedBrainProgramToBytes(image.program, {
     profileId: profile.numericProfileId,
     precision: profile.numberPrecision,
+    typeRegistry,
   });
   return stream.byteArrayToUint8Array(bytes) as Uint8Array;
 }
@@ -39,14 +45,17 @@ export function serializeWodalProgramImageBytes(image: WodalProgramImage<LinkedB
  *
  * @param data - Binary `.mcprogram` bytes.
  * @param profileId - Device profile the binary is expected to target.
+ * @param typeRegistry - Type registry of the decoding runtime; resolves TYPS atom entries.
  */
 export function parseWodalProgramImageBytes(
   data: Uint8Array,
-  profileId: WodalDeviceProfileId
+  profileId: WodalDeviceProfileId,
+  typeRegistry: ITypeRegistry
 ): WodalBinaryProgramImage {
   const profile = getWodalDeviceProfile(profileId);
   const result = linkedBrainProgramFromBytes(stream.byteArrayFromUint8Array(data), {
     precision: profile.numberPrecision,
+    typeRegistry,
   });
   if (result.profileId !== profile.numericProfileId) {
     throw new Error(

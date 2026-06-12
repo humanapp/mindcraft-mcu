@@ -28,7 +28,7 @@ import displaySetPixelActuator from "./actions/display-set-pixel";
 import { getMicroBitContextDevice } from "./context";
 import { MICROBIT_V2_MODIFIERS } from "./modifiers";
 import { MICROBIT_V2_PARAMETERS } from "./parameters";
-import { MicroBitV2HostFuncId } from "./tile-ids";
+import { MicroBitV2HostFuncId, MicroBitV2TypeAtomId } from "./tile-ids";
 
 /** Mindcraft module ID for the WODAL profile. */
 export const WODAL_MICROBIT_V2_MODULE_ID = "mindcraft.microbit-v2";
@@ -83,6 +83,7 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
   const { types } = api.brainServices.runtime;
 
   types.addStructType("MicroBitDisplay", {
+    atomId: MicroBitV2TypeAtomId.MicroBitDisplay,
     fields: List.empty(),
     fieldGetter: () => undefined,
     methods: List.from([
@@ -112,6 +113,7 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
   });
 
   types.addStructType("Button", {
+    atomId: MicroBitV2TypeAtomId.Button,
     fields: List.empty(),
     fieldGetter: () => undefined,
     methods: List.from([
@@ -124,6 +126,7 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
   });
 
   types.addStructType("TouchButton", {
+    atomId: MicroBitV2TypeAtomId.TouchButton,
     fields: List.empty(),
     fieldGetter: () => undefined,
     methods: List.from([
@@ -156,6 +159,7 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
   });
 
   types.addStructType("MicroBit", {
+    atomId: MicroBitV2TypeAtomId.MicroBit,
     fields: List.from([
       { name: "display", typeId: WODAL_MICROBIT_V2_TYPE_IDS.MicroBitDisplay, fieldIndex: MicroBitField.Display },
       { name: "buttonA", typeId: WODAL_MICROBIT_V2_TYPE_IDS.Button, fieldIndex: MicroBitField.ButtonA },
