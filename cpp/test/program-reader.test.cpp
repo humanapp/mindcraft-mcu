@@ -1,121 +1,25 @@
 #include "doctest/doctest.h"
 
-#include "core/codec/program-reader.h"
 #include "core/runtime/bytecode.h"
 #include "core/runtime/core-type-atom-id.h"
 #include "core/runtime/load-error.h"
 #include "core/runtime/program.h"
-#include "targets/microbit-v2/abi/type-atom-id.h"
+#include "wire-builder.h"
 
 #include <cstdint>
-#include <cstring>
 #include <vector>
 
-using mindcraft::ByteSpan;
 using mindcraft::CallSiteBinding;
 using mindcraft::ConstValueKind;
 using mindcraft::CoreTypeAtomId;
-using mindcraft::kMicroBitV2TypeAtomIdCount;
 using mindcraft::kNoFuncId;
 using mindcraft::kNoTypeIdx;
 using mindcraft::LoadError;
 using mindcraft::MapKeyKind;
 using mindcraft::Op;
-using mindcraft::ProgramArena;
 using mindcraft::ProgramImage;
-using mindcraft::ProgramReaderOptions;
-using mindcraft::readProgramImage;
 using mindcraft::Result;
-using mindcraft::Span;
 using mindcraft::TypeTag;
-
-namespace {
-
-/** Builds binary `.mcprogram` payloads with the codec's wire primitives. */
-class WireBuilder {
-public:
-  WireBuilder& u8(uint8_t value) {
-    bytes_.push_back(value);
-    return *this;
-  }
-
-  WireBuilder& varUint(uint32_t value) {
-    while (value >= 0x80) {
-      bytes_.push_back(static_cast<uint8_t>((value & 0x7f) | 0x80));
-      value >>= 7;
-    }
-    bytes_.push_back(static_cast<uint8_t>(value));
-    return *this;
-  }
-
-  WireBuilder& varInt(int32_t value) {
-    const uint32_t zigzag =
-        (static_cast<uint32_t>(value) << 1) ^ static_cast<uint32_t>(value >> 31);
-    return varUint(zigzag);
-  }
-
-  WireBuilder& f32(float value) {
-    uint32_t bits = 0;
-    memcpy(&bits, &value, sizeof(bits));
-    for (int i = 0; i < 4; i++) {
-      bytes_.push_back(static_cast<uint8_t>(bits >> (8 * i)));
-    }
-    return *this;
-  }
-
-  WireBuilder& str(const char* value) {
-    const size_t length = strlen(value);
-    varUint(static_cast<uint32_t>(length));
-    for (size_t i = 0; i < length; i++) {
-      bytes_.push_back(static_cast<uint8_t>(value[i]));
-    }
-    return *this;
-  }
-
-  ByteSpan span() const { return ByteSpan(bytes_.data(), bytes_.size()); }
-
-private:
-  std::vector<uint8_t> bytes_;
-};
-
-/** Magic, format version 2, profileId, presence bitmask. */
-WireBuilder programHeader(uint8_t presence = 0, uint32_t profileId = 0) {
-  WireBuilder w;
-  w.u8(0x89).u8('M').u8('B').u8('P').u8(2).varUint(profileId).u8(presence);
-  return w;
-}
-
-/** Appends empty CSTR, TYPS, CNUM, CVAL, FUNC, and VARS sections. */
-void emptyRequiredSectionsThroughVars(WireBuilder& w) {
-  w.varUint(0).varUint(0); // CSTR: total, constStringCount
-  w.varUint(0);            // TYPS
-  w.varUint(0);            // CNUM
-  w.varUint(0);            // CVAL
-  w.varUint(0);            // FUNC
-  w.varUint(0);            // VARS
-}
-
-constexpr ProgramReaderOptions kOptions{kMicroBitV2TypeAtomIdCount};
-
-Result<ProgramImage, LoadError> decode(const WireBuilder& wire, std::vector<uint8_t>& storage) {
-  ProgramArena arena(Span<uint8_t>(storage.data(), storage.size()));
-  return readProgramImage(wire.span(), arena, kOptions);
-}
-
-LoadError decodeError(const WireBuilder& wire) {
-  std::vector<uint8_t> storage(16 * 1024);
-  const Result<ProgramImage, LoadError> result = decode(wire, storage);
-  REQUIRE(!result.isOk());
-  return result.error();
-}
-
-ProgramImage decodeOk(const WireBuilder& wire, std::vector<uint8_t>& storage) {
-  const Result<ProgramImage, LoadError> result = decode(wire, storage);
-  REQUIRE(result.isOk());
-  return result.value();
-}
-
-} // namespace
 
 TEST_CASE("an empty program decodes with every pool empty") {
   WireBuilder w = programHeader(0, 7);

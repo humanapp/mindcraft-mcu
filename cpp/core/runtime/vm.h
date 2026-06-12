@@ -1,0 +1,98 @@
+#pragma once
+
+#include <cstdint>
+
+#include "core/platform/span.h"
+#include "core/runtime/error-code.h"
+#include "core/runtime/execution-state.h"
+#include "core/runtime/program.h"
+#include "core/runtime/result.h"
+#include "core/runtime/value.h"
+
+namespace mindcraft {
+
+/**
+ * Outcome of one dispatch-loop slice. Mirrors `VmStatus` in
+ * external/mindcraft-lang/packages/core/src/runtime/vm-types.ts. `Waiting`
+ * is produced once async handles land; no current opcode emits it.
+ */
+enum class RunStatus : uint8_t {
+  /** The root frame returned; the state's function completed. */
+  Done,
+  /** The instruction budget ran out; the state is suspended and resumable. */
+  Yielded,
+  /** The state is blocked on a pending async handle. */
+  Waiting,
+  /** Execution faulted; the state must not be re-entered. */
+  Fault,
+};
+
+/** Location of a faulting instruction. */
+struct FaultSite {
+  /** FuncId of the faulting function, or {@link kNoFuncId} for faults raised
+   * outside any frame. */
+  uint32_t funcId;
+  /** Instruction index of the fault within the function body. */
+  uint32_t pc;
+};
+
+/**
+ * Result of {@link runExecution}: the slice status plus the payload of the
+ * terminal statuses. Construct through the static factories.
+ */
+struct RunResult {
+  RunStatus status;
+  /** The root frame's return value. Meaningful only for `Done`. */
+  Value result;
+  /** The fault classifier. Meaningful only for `Fault`. */
+  ErrorCode error;
+  /** The fault location. Meaningful only for `Fault`. */
+  FaultSite site;
+
+  /** A `Done` result carrying the completed function's return value. */
+  static constexpr RunResult done(Value result) {
+    return RunResult{RunStatus::Done, result, ErrorCode::HostError, {kNoFuncId, 0}};
+  }
+
+  /** A `Yielded` result: budget exhausted, state suspended and resumable. */
+  static constexpr RunResult yielded() {
+    return RunResult{RunStatus::Yielded, kNilValue, ErrorCode::HostError, {kNoFuncId, 0}};
+  }
+
+  /** A `Fault` result carrying the classifier and faulting site. */
+  static constexpr RunResult fault(ErrorCode error, uint32_t funcId, uint32_t pc) {
+    return RunResult{RunStatus::Fault, kNilValue, error, {funcId, pc}};
+  }
+};
+
+/**
+ * Truthiness of `value` per the VM contract: unknown, void, nil, `false`,
+ * numeric zero, the empty string, empty containers, and error values are
+ * falsy; everything else (including NaN numbers) is truthy. `program`
+ * resolves borrowed string references.
+ */
+bool isTruthy(const Value& value, const ProgramImage& program);
+
+/**
+ * Push the entry frame for `funcId` onto `state` and seed its locals from
+ * `args` (excess args are dropped; remaining local slots are nil). The state
+ * must have its stack regions bound. Fails with `ErrorCode::HostError` when
+ * `funcId` is out of bounds and `ErrorCode::StackOverflow` when the frame or
+ * locals region is exhausted.
+ */
+Status startExecution(ExecutionState& state, const ProgramImage& program, uint32_t funcId,
+                      Span<const Value> args);
+
+/**
+ * Run `state` until its function completes, the budget runs out, or a fault
+ * occurs. Requires a positive {@link ExecutionState::budget} at entry;
+ * entering with a non-positive budget is a host-contract violation reported
+ * as a `Fault` with `ErrorCode::HostError`, leaving the state untouched.
+ * Budget exhaustion suspends at an instruction boundary with every live
+ * range preserved; re-arm the budget and call again to resume. No platform
+ * exception escapes the loop; every fault is a deterministic {@link
+ * RunResult} carrying an {@link ErrorCode}.
+ */
+RunResult runExecution(ExecutionState& state, const ProgramImage& program);
+
+} // namespace mindcraft

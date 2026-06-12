@@ -19,6 +19,9 @@ add_executable(mindcraft-tests
   program.test.cpp
   result.test.cpp
   span.test.cpp
+  stack-pool.test.cpp
+  value.test.cpp
+  vm.test.cpp
 )
 
 target_link_libraries(mindcraft-tests PRIVATE mindcraft-core)

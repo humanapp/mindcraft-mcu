@@ -6,6 +6,7 @@ add_library(mindcraft-core STATIC
   runtime/bytecode.cpp
   runtime/error-code.cpp
   runtime/load-error.cpp
+  runtime/vm.cpp
 )
 
 target_include_directories(mindcraft-core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)
