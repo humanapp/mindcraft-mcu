@@ -24,8 +24,14 @@ export interface WodalDeviceProfile {
   /** Stable numeric profile id recorded in the binary `.mcprogram` envelope header. */
   readonly numericProfileId: number;
 
-  /** Numeric precision the device runs at; drives binary `.mcprogram` number encoding. */
+  /** Numeric precision the device runs at; drives binary `.mcprogram` number encoding and the runtime's `ProfileNumerics` selection. */
   readonly numberPrecision: NumberPrecision;
+
+  /** Instruction budget each fiber receives per scheduler tick. Mirrored as a device build constant. */
+  readonly defaultBudget: number;
+
+  /** Instruction budget a page-lifecycle hook fiber receives. Mirrored as a device build constant. */
+  readonly hookBudget: number;
 
   /** Creates the Mindcraft module for this profile. */
   readonly createMindcraftModule: () => MindcraftModule;
@@ -40,6 +46,8 @@ export const WODAL_DEVICE_PROFILES = Object.freeze({
     profileId: WodalDeviceProfileIds.MICROBIT_V2,
     numericProfileId: WodalDeviceProfileNumericId[WodalDeviceProfileIds.MICROBIT_V2],
     numberPrecision: "f32",
+    defaultBudget: 1000,
+    hookBudget: 10000,
     createMindcraftModule: createMicroBitV2Module,
     createProgramImage: createMicroBitV2ProgramImage,
   } satisfies WodalDeviceProfile),

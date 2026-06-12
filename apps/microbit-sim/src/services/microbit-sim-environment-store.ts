@@ -11,6 +11,7 @@ import {
 } from "@mindcraft-lang/app-host";
 import { type AppBridgeState, AppEnvironmentHost } from "@mindcraft-lang/bridge-app";
 import { BrainDef, coreModule, createMindcraftEnvironment, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
+import { createProfileNumerics } from "@mindcraft-lang/core/runtime";
 import { isCompilerControlledPath } from "@mindcraft-lang/ts-compiler";
 import {
   getWodalDeviceProfile,
@@ -220,6 +221,7 @@ export class MicrobitSimEnvironmentStore {
         lock: createWebLocksProjectLock(appName),
       }),
       modules: [coreModule(), activeProfile.createMindcraftModule()],
+      numerics: createProfileNumerics(activeProfile.numberPrecision),
       ambientFiles: microbitAmbientFiles,
       host: { name: appName, version: appVersion },
       bridgeUrl: appSettings.vscodeBridgeUrl,

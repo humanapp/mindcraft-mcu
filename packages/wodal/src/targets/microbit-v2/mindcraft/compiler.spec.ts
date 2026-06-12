@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { Dict, List } from "@mindcraft-lang/core";
-import { coreModule, createMindcraftEnvironment, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
+import type { MindcraftEnvironment } from "@mindcraft-lang/core/app";
 import type { IBrainTileDef } from "@mindcraft-lang/core/brain";
 import { BrainDef } from "@mindcraft-lang/core/brain/model";
 import {
@@ -28,12 +28,12 @@ import { WodalDeviceProfileId } from "../../../mindcraft/device-profile";
 import type { WodalProgramImage } from "../../../mindcraft/program-image";
 import { WodalProgramLoadValidationCode } from "../../../mindcraft/program-load";
 import { MicroBit } from "../microbit";
-import { createMicroBitV2Module } from "./module";
+import { createMicroBitV2Environment } from "./environment";
 import { createMicroBitV2ProgramImage } from "./program-image";
 import { WodalMicroBitRuntime } from "./runtime";
 
 test("compiled Mindcraft code routes display calls through WODAL MicroBitDisplay", () => {
-  const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const environment = createMicroBitV2Environment();
   const program = compileDisplayActuator(environment, { brightness: 255, x: 1, y: 2 });
   const microbit = new MicroBit();
   const runtime = new WodalMicroBitRuntime({ environment, microbit });
@@ -52,7 +52,7 @@ test("compiled Mindcraft code routes display calls through WODAL MicroBitDisplay
 });
 
 test("compiled Mindcraft code reads WODAL Button state", () => {
-  const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const environment = createMicroBitV2Environment();
   const program = compileButtonDisplayActuator(environment, { brightness: 128, x: 2, y: 3 });
   const microbit = new MicroBit();
   const runtime = new WodalMicroBitRuntime({ environment, microbit });
@@ -74,7 +74,7 @@ test("compiled Mindcraft code reads WODAL Button state", () => {
 });
 
 test("WodalMicroBitRuntime tick is a no-op when no program is loaded", () => {
-  const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const environment = createMicroBitV2Environment();
   const runtime = new WodalMicroBitRuntime({ environment });
 
   assert.equal(runtime.tick(16), undefined);
@@ -82,7 +82,7 @@ test("WodalMicroBitRuntime tick is a no-op when no program is loaded", () => {
 });
 
 test("WodalMicroBitRuntime unload stops the program and resets the device", () => {
-  const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const environment = createMicroBitV2Environment();
   const program = compileDisplayActuator(environment, { brightness: 255, x: 1, y: 2 });
   const microbit = new MicroBit();
   const runtime = new WodalMicroBitRuntime({ environment, microbit });
@@ -106,7 +106,7 @@ test("WodalMicroBitRuntime unload stops the program and resets the device", () =
 });
 
 test("WodalMicroBitRuntime reload resets the device so a prior program's display does not persist", () => {
-  const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const environment = createMicroBitV2Environment();
   const microbit = new MicroBit();
   const runtime = new WodalMicroBitRuntime({ environment, microbit });
 
@@ -130,7 +130,7 @@ test("WodalMicroBitRuntime reload resets the device so a prior program's display
 });
 
 test("WodalMicroBitRuntime loads linked brain program images through core BrainRuntime", () => {
-  const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const environment = createMicroBitV2Environment();
   const runtime = new WodalMicroBitRuntime({ environment });
   const linkedBrain = createLinkedBrainProgram();
 
@@ -142,7 +142,7 @@ test("WodalMicroBitRuntime loads linked brain program images through core BrainR
 });
 
 test("WodalMicroBitRuntime loads linked brain program images through the embedded profile id", () => {
-  const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const environment = createMicroBitV2Environment();
   const runtime = new WodalMicroBitRuntime({ environment });
   const linkedBrain = createLinkedBrainProgram();
 
@@ -160,7 +160,7 @@ test("WodalMicroBitRuntime loads linked brain program images through the embedde
 });
 
 test("linked brain root rules route display calls through WODAL MicroBitDisplay", () => {
-  const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const environment = createMicroBitV2Environment();
   const program = compileDisplayActuator(environment, { brightness: 77, x: 3, y: 1 });
   const microbit = new MicroBit();
   const runtime = new WodalMicroBitRuntime({ environment, microbit });
@@ -176,7 +176,7 @@ test("linked brain root rules route display calls through WODAL MicroBitDisplay"
 });
 
 test("test-only bundled brain runs WHEN button A pressed DO display actuator", () => {
-  const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const environment = createMicroBitV2Environment();
   const microbit = new MicroBit();
   const runtime = new WodalMicroBitRuntime({ environment, microbit });
   const linkedBrain = createTestOnlyButtonDisplayBrain(environment);
@@ -192,7 +192,7 @@ test("test-only bundled brain runs WHEN button A pressed DO display actuator", (
 });
 
 test("WodalMicroBitRuntime replaces active linked brain images", () => {
-  const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const environment = createMicroBitV2Environment();
   const microbit = new MicroBit();
   const runtime = new WodalMicroBitRuntime({ environment, microbit });
   const firstBrain = createTestOnlyButtonDisplayBrain(environment, { brightness: 31, x: 0, y: 0 });
@@ -216,7 +216,7 @@ test("WodalMicroBitRuntime replaces active linked brain images", () => {
 });
 
 test("WodalMicroBitRuntime rejects program images for another profile without replacing the active brain", () => {
-  const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const environment = createMicroBitV2Environment();
   const microbit = new MicroBit();
   const runtime = new WodalMicroBitRuntime({ environment, microbit });
   const linkedBrain = createTestOnlyButtonDisplayBrain(environment, { brightness: 61, x: 0, y: 0 });
@@ -244,7 +244,7 @@ test("WodalMicroBitRuntime rejects program images for another profile without re
 });
 
 test("WodalMicroBitRuntime rejects malformed serialized linked brain programs without replacing the active brain", () => {
-  const environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const environment = createMicroBitV2Environment();
   const microbit = new MicroBit();
   const runtime = new WodalMicroBitRuntime({ environment, microbit });
   const linkedBrain = createTestOnlyButtonDisplayBrain(environment, { brightness: 61, x: 0, y: 0 });

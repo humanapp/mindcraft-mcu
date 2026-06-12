@@ -5,7 +5,8 @@ import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import { createIdbProjectStore, importProjectDocument, ProjectManager } from "@mindcraft-lang/app-host";
 import { AppEnvironmentHost } from "@mindcraft-lang/bridge-app";
-import { BrainDef, coreModule, createMindcraftEnvironment } from "@mindcraft-lang/core/app";
+import { BrainDef, coreModule } from "@mindcraft-lang/core/app";
+import { createProfileNumerics } from "@mindcraft-lang/core/runtime";
 import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@mindcraft-lang/ts-compiler";
 import {
   buildWodalProgramImage,
@@ -13,6 +14,7 @@ import {
   validateWodalTarget,
   WodalDeviceProfileId,
 } from "@mindcraft-lang/wodal";
+import { createMicroBitV2Environment } from "@mindcraft-lang/wodal/targets/microbit-v2";
 import { name as appName, version as appVersion } from "../../package.json";
 import {
   BRAINS_INDEX_KEY,
@@ -86,7 +88,7 @@ export default Actuator({
 describe("user-tile bytecode in microbit-v2 program images", () => {
   it("links user-tile bytecode into the program when a brain uses the tiles", () => {
     const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
-    const environment = createMindcraftEnvironment({ modules: [coreModule(), profile.createMindcraftModule()] });
+    const environment = createMicroBitV2Environment();
 
     const project = new UserTileProject({ ambientFiles: microbitAmbientFiles(), services: environment.brainServices });
     project.setFiles(
@@ -130,7 +132,7 @@ describe("user-tile bytecode in microbit-v2 program images", () => {
 
   it("produces no bytecode actions for a brain that uses no user tiles", () => {
     const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
-    const environment = createMindcraftEnvironment({ modules: [coreModule(), profile.createMindcraftModule()] });
+    const environment = createMicroBitV2Environment();
     const brainDef = BrainDef.emptyBrainDef(environment.brainServices, "no user tiles");
 
     const built = buildWodalProgramImage({ brainDef, environment, deviceProfile: profile });
@@ -149,6 +151,7 @@ describe("user-tile source round-trips through .mindcraft", () => {
     const host = new AppEnvironmentHost({
       projectManager: new ProjectManager(await createIdbProjectStore(`user-tile-export-${storeCounter++}`)),
       modules: [coreModule(), profile.createMindcraftModule()],
+      numerics: createProfileNumerics(profile.numberPrecision),
       ambientFiles: [],
       host: { name: appName, version: appVersion },
     });

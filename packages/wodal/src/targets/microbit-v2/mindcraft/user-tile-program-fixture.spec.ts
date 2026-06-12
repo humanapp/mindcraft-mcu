@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { coreModule, createMindcraftEnvironment, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
+import type { MindcraftEnvironment } from "@mindcraft-lang/core/app";
 import type { IBrainTileDef } from "@mindcraft-lang/core/brain";
 import { BrainDef } from "@mindcraft-lang/core/brain/model";
 import {
@@ -26,7 +26,7 @@ import {
   type WodalProgramImage,
 } from "../../../mindcraft/program-image";
 import { MicroBit } from "../microbit";
-import { createMicroBitV2Module } from "./module";
+import { createMicroBitV2Environment } from "./environment";
 import { WodalMicroBitRuntime } from "./runtime";
 import { MicroBitV2HostFuncId } from "./tile-ids";
 
@@ -56,7 +56,7 @@ export default Actuator({
 `;
 
 function microbitEnvironment(): MindcraftEnvironment {
-  return createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  return createMicroBitV2Environment();
 }
 
 function readText(relativePath: string): string {

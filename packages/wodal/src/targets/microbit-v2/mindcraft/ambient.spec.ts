@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { coreModule, createMindcraftEnvironment } from "@mindcraft-lang/core/app";
 import { buildPlatformAmbientDeclarations } from "@mindcraft-lang/ts-compiler";
-import { createMicroBitV2Module } from "./module";
+import { createMicroBitV2Environment } from "./environment";
 
 function readText(relativePath: string): string {
   return readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), "utf8");
@@ -12,7 +12,7 @@ function readText(relativePath: string): string {
 
 test("checked-in microbit-v2 ambient declarations match generated declarations", () => {
   const coreEnvironment = createMindcraftEnvironment({ modules: [coreModule()] });
-  const microbitV2Environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const microbitV2Environment = createMicroBitV2Environment();
 
   const microbitV2Ambient = buildPlatformAmbientDeclarations(
     coreEnvironment.brainServices.runtime.types,

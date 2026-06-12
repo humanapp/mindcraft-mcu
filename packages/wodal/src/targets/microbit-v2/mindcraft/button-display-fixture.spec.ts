@@ -2,13 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import {
-  coreModule,
-  createMindcraftEnvironment,
-  type MindcraftEnvironment,
-  mkActuatorTileId,
-  mkSensorTileId,
-} from "@mindcraft-lang/core/app";
+import { type MindcraftEnvironment, mkActuatorTileId, mkSensorTileId } from "@mindcraft-lang/core/app";
 import { BrainDef } from "@mindcraft-lang/core/brain/model";
 import {
   type LinkedBrainProgram,
@@ -24,14 +18,14 @@ import {
   type WodalProgramImage,
 } from "../../../mindcraft/program-image";
 import { MicroBit } from "../microbit";
-import { createMicroBitV2Module } from "./module";
+import { createMicroBitV2Environment } from "./environment";
 import { WodalMicroBitRuntime } from "./runtime";
 import { MicroBitV2HostActions } from "./tile-ids";
 
 const GOLDEN_PATH = fileURLToPath(new URL("./__fixtures__/button-display.mcprogram", import.meta.url));
 
 function microbitEnvironment(): MindcraftEnvironment {
-  return createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  return createMicroBitV2Environment();
 }
 
 /**

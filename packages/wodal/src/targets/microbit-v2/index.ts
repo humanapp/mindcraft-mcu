@@ -15,6 +15,7 @@ export {
 } from "./constants";
 export { MicroBit, type MicroBitSnapshot } from "./microbit";
 export { MicroBitDisplay } from "./microbit-display";
+export { createMicroBitV2Environment } from "./mindcraft/environment";
 export { createMicroBitV2Module } from "./mindcraft/module";
 export {
   WodalMicroBitRuntime,

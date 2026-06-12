@@ -8,7 +8,7 @@ import {
   type VmEvents,
 } from "@mindcraft-lang/core/runtime";
 import { toNonNegativeInteger } from "../../../core/numeric";
-import { WodalDeviceProfileId } from "../../../mindcraft/device-profile";
+import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
 import type { WodalProgramImage } from "../../../mindcraft/program-image";
 import { type WodalProgramLoadValidation, WodalProgramLoadValidationCode } from "../../../mindcraft/program-load";
 import { MicroBit, type MicroBitSnapshot } from "../microbit";
@@ -51,13 +51,15 @@ export class WodalMicroBitRuntime {
   private loadLinkedBrainProgram(program: LinkedBrainProgram): WodalProgramLoadValidation {
     this.resetDevice();
 
+    const deviceProfile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
     const brainRuntime = new BrainRuntime(
       program.program,
       program.pages,
       createHostServices(this.environment),
       { microbit: this.microbit } satisfies WodalMicroBitRuntimeContext,
       undefined,
-      this.vmEvents
+      this.vmEvents,
+      { defaultBudget: deviceProfile.defaultBudget, hookBudget: deviceProfile.hookBudget }
     );
     brainRuntime.startup();
 

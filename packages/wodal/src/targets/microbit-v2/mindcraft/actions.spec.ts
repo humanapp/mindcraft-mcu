@@ -2,8 +2,6 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Dict } from "@mindcraft-lang/core";
 import {
-  coreModule,
-  createMindcraftEnvironment,
   type ExecutionContext,
   getSlotId,
   List,
@@ -20,13 +18,13 @@ import { BrainDef } from "@mindcraft-lang/core/brain/model";
 import { BrainTileLiteralDef } from "@mindcraft-lang/core/brain/tiles";
 import { CoreTypeIds, type LinkedBrainProgram } from "@mindcraft-lang/core/runtime";
 import { MicroBit } from "../microbit";
-import { createMicroBitV2Module } from "./module";
+import { createMicroBitV2Environment } from "./environment";
 import { createMicroBitV2ProgramImage } from "./program-image";
 import { WodalMicroBitRuntime } from "./runtime";
 import { MicroBitV2HostActions, WodalMicroBitV2ModifierId, WodalMicroBitV2ParameterId } from "./tile-ids";
 
 test("microbit-v2 module registers the button-A sensor, set-pixel actuator, modifiers, and parameters", () => {
-  const env = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const env = createMicroBitV2Environment();
   const tiles = env.brainServices.edit.tiles;
 
   const sensorTile = tiles.get(mkSensorTileId(MicroBitV2HostActions.ButtonA.key));
@@ -71,7 +69,7 @@ test("microbit-v2 module registers the button-A sensor, set-pixel actuator, modi
 });
 
 test("set-pixel actuator host function writes the addressed display pixel through the device", () => {
-  const env = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const env = createMicroBitV2Environment();
   const microbit = new MicroBit();
   const ctx = createExecutionContext(env, microbit);
 
@@ -83,8 +81,8 @@ test("set-pixel actuator host function writes the addressed display pixel throug
 });
 
 test("set-pixel actuator host state is scoped to the execution context device", () => {
-  const firstEnv = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
-  const secondEnv = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const firstEnv = createMicroBitV2Environment();
+  const secondEnv = createMicroBitV2Environment();
   const firstMicroBit = new MicroBit();
   const secondMicroBit = new MicroBit();
 
@@ -96,7 +94,7 @@ test("set-pixel actuator host state is scoped to the execution context device", 
 });
 
 test("set-pixel actuator applies parameter defaults when arguments are absent", () => {
-  const env = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const env = createMicroBitV2Environment();
   const microbit = new MicroBit();
   const ctx = createExecutionContext(env, microbit);
   const entry = getSyncFunctionEntry(env, MicroBitV2HostActions.DisplaySetPixel.key);
@@ -111,7 +109,7 @@ test("set-pixel actuator applies parameter defaults when arguments are absent", 
 });
 
 test("default button-A sensor fires on the released-to-pressed edge and does not re-fire while held", () => {
-  const env = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const env = createMicroBitV2Environment();
   const microbit = new MicroBit();
   const runtime = new WodalMicroBitRuntime({ environment: env, microbit });
   const linkedBrain = buildButtonRuleBrain(env, { x: 1, y: 2, brightness: 200 });
@@ -134,7 +132,7 @@ test("default button-A sensor fires on the released-to-pressed edge and does not
 });
 
 test("button-A sensor does not report an edge when the button is already held as the page is entered", () => {
-  const env = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const env = createMicroBitV2Environment();
   const microbit = new MicroBit();
   const runtime = new WodalMicroBitRuntime({ environment: env, microbit });
   const linkedBrain = buildButtonRuleBrain(env, { x: 3, y: 3, brightness: 99 });
@@ -159,7 +157,7 @@ test("button-A sensor does not report an edge when the button is already held as
 });
 
 test("button-A sensor with the released modifier fires on the pressed-to-released edge", () => {
-  const env = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const env = createMicroBitV2Environment();
   const microbit = new MicroBit();
   const runtime = new WodalMicroBitRuntime({ environment: env, microbit });
   const linkedBrain = buildButtonRuleBrain(env, { x: 0, y: 0, brightness: 150 }, WodalMicroBitV2ModifierId.Released);

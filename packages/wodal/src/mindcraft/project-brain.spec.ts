@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { coreModule, createMindcraftEnvironment } from "@mindcraft-lang/core/app";
 import { MindcraftProjectBrainSelectionCode, type MindcraftProjectDocument } from "@mindcraft-lang/service-api";
-import { getWodalDeviceProfile, WodalDeviceProfileId } from "./device-profile";
+import { createMicroBitV2Environment } from "../targets/microbit-v2/mindcraft/environment";
+import { WodalDeviceProfileId } from "./device-profile";
 import {
   hydrateWodalProjectBrain,
   WodalProjectBrainHydrationCode,
@@ -42,11 +42,6 @@ const VALID_DOCUMENT = {
 function hydrationCodes(result: WodalProjectBrainHydrationResult): readonly BrainHydrationCode[] {
   assert.equal(result.ok, false);
   return result.errors.map((error) => error.code);
-}
-
-function createMicroBitV2Environment() {
-  const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
-  return createMindcraftEnvironment({ modules: [coreModule(), profile.createMindcraftModule()] });
 }
 
 describe("hydrateWodalProjectBrain", () => {

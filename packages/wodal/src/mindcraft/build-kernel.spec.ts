@@ -8,6 +8,7 @@ import {
   mkSensorTileId,
 } from "@mindcraft-lang/core/app";
 import { BrainDef } from "@mindcraft-lang/core/brain/model";
+import { createMicroBitV2Environment } from "../targets/microbit-v2/mindcraft/environment";
 import { createMicroBitV2Module } from "../targets/microbit-v2/mindcraft/module";
 import { MicroBitV2HostActions } from "../targets/microbit-v2/mindcraft/tile-ids";
 import { buildWodalProgramImage, WodalBuildDiagnosticCode } from "./build-kernel";
@@ -28,7 +29,7 @@ function buildButtonDisplayBrainDef(env: MindcraftEnvironment): BrainDef {
 }
 
 test("buildWodalProgramImage builds a microbit-v2 image from a valid host-tile brain", () => {
-  const env = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const env = createMicroBitV2Environment();
   const brainDef = buildButtonDisplayBrainDef(env);
   const deviceProfile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
 
@@ -43,7 +44,7 @@ test("buildWodalProgramImage builds a microbit-v2 image from a valid host-tile b
 });
 
 test("buildWodalProgramImage returns BRAIN_LINK_FAILED when an action cannot be resolved", () => {
-  const authoringEnv = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const authoringEnv = createMicroBitV2Environment();
   const brainDef = buildButtonDisplayBrainDef(authoringEnv);
   const linkingEnv = createMindcraftEnvironment({ modules: [coreModule()] });
   const deviceProfile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
@@ -60,13 +61,15 @@ test("buildWodalProgramImage returns BRAIN_LINK_FAILED when an action cannot be 
 });
 
 test("buildWodalProgramImage returns PROGRAM_IMAGE_CREATION_FAILED when image creation throws", () => {
-  const env = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const env = createMicroBitV2Environment();
   const brainDef = buildButtonDisplayBrainDef(env);
   const cause = new Error("image creation failed");
   const deviceProfile: WodalDeviceProfile = {
     profileId: WodalDeviceProfileId.MICROBIT_V2,
     numericProfileId: 1,
     numberPrecision: "f32",
+    defaultBudget: 1000,
+    hookBudget: 10000,
     createMindcraftModule: createMicroBitV2Module,
     createProgramImage: () => {
       throw cause;

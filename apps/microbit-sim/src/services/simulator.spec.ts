@@ -14,11 +14,11 @@ import {
   type WodalBuildInput,
   WodalDeviceProfileId,
 } from "@mindcraft-lang/wodal";
-import { createMicroBitV2Module, MicroBitV2HostActions } from "@mindcraft-lang/wodal/targets/microbit-v2";
+import { createMicroBitV2Environment, MicroBitV2HostActions } from "@mindcraft-lang/wodal/targets/microbit-v2";
 import { MicrobitSimulator } from "./simulator";
 
 function microbitEnvironment(): MindcraftEnvironment {
-  return createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  return createMicroBitV2Environment();
 }
 
 /** Builds a minimal, API-generated program image so a loaded instance has something to tick. */

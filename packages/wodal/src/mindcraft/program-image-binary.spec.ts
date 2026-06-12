@@ -15,7 +15,6 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { stream } from "@mindcraft-lang/core";
-import { coreModule, createMindcraftEnvironment } from "@mindcraft-lang/core/app";
 import {
   type BrainProgramValueJson,
   binaryProgramByteReport,
@@ -24,13 +23,11 @@ import {
   linkedBrainProgramToJson,
   type NumberPrecision,
 } from "@mindcraft-lang/core/runtime";
-import { createMicroBitV2Module } from "../targets/microbit-v2/mindcraft/module";
+import { createMicroBitV2Environment } from "../targets/microbit-v2/mindcraft/environment";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "./device-profile";
 import { parseWodalProgramImageBytes, serializeWodalProgramImageBytes } from "./program-image-binary";
 
-const typeRegistry = createMindcraftEnvironment({
-  modules: [coreModule(), createMicroBitV2Module()],
-}).brainServices.runtime.types;
+const typeRegistry = createMicroBitV2Environment().brainServices.runtime.types;
 
 interface ProgramImageEnvelopeJson {
   readonly format: string;

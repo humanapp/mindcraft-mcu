@@ -3,13 +3,13 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { coreModule, createMindcraftEnvironment } from "@mindcraft-lang/core/app";
 import { buildPlatformAmbientDeclarations } from "@mindcraft-lang/ts-compiler";
-import { createMicroBitV2Module } from "../src/targets/microbit-v2/mindcraft/module";
+import { createMicroBitV2Environment } from "../src/targets/microbit-v2/mindcraft/environment";
 
 const packageDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const ambientPath = resolve(packageDir, "ambient/mindcraft.microbit-v2.d.ts");
 
 const coreEnvironment = createMindcraftEnvironment({ modules: [coreModule()] });
-const microbitV2Environment = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+const microbitV2Environment = createMicroBitV2Environment();
 
 const ambient = buildPlatformAmbientDeclarations(
   coreEnvironment.brainServices.runtime.types,

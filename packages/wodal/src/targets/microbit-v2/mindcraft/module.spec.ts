@@ -2,8 +2,6 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   ContextTypeIds,
-  coreModule,
-  createMindcraftEnvironment,
   type ExecutionContext,
   extractNumberValue,
   isStructValue,
@@ -16,10 +14,11 @@ import {
   type StructTypeDef,
 } from "@mindcraft-lang/core/app";
 import { MicroBit } from "../microbit";
-import { CONTEXT_MICROBIT_FIELD_ID, createMicroBitV2Module, MicroBitField, WODAL_MICROBIT_V2_TYPE_IDS } from "./module";
+import { createMicroBitV2Environment } from "./environment";
+import { CONTEXT_MICROBIT_FIELD_ID, MicroBitField, WODAL_MICROBIT_V2_TYPE_IDS } from "./module";
 
 test("Context.microbit exposes the native WODAL microbit device", () => {
-  const env = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const env = createMicroBitV2Environment();
   const microbit = new MicroBit();
   const ctx = createExecutionContext(env, microbit);
   const contextDef = getStructType(env, ContextTypeIds.Context);
@@ -51,7 +50,7 @@ test("Context.microbit exposes the native WODAL microbit device", () => {
 });
 
 test("MicroBitDisplay host methods route through the native display receiver", () => {
-  const env = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const env = createMicroBitV2Environment();
   const microbit = new MicroBit();
   const ctx = createExecutionContext(env, microbit);
   const receiver = mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.MicroBitDisplay, microbit.display);
@@ -75,8 +74,8 @@ test("MicroBitDisplay host methods route through the native display receiver", (
 });
 
 test("microbit display host state is scoped to each execution context", () => {
-  const firstEnv = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
-  const secondEnv = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const firstEnv = createMicroBitV2Environment();
+  const secondEnv = createMicroBitV2Environment();
   const firstMicroBit = new MicroBit();
   const secondMicroBit = new MicroBit();
   const firstReceiver = mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.MicroBitDisplay, firstMicroBit.display);
@@ -96,7 +95,7 @@ test("microbit display host state is scoped to each execution context", () => {
 });
 
 test("Button host methods route through native button receivers", () => {
-  const env = createMindcraftEnvironment({ modules: [coreModule(), createMicroBitV2Module()] });
+  const env = createMicroBitV2Environment();
   const microbit = new MicroBit();
   const ctx = createExecutionContext(env, microbit);
   const buttonA = mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.Button, microbit.buttonA);
