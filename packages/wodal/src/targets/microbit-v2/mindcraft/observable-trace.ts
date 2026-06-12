@@ -1,0 +1,213 @@
+/**
+ * Observable trace: a deterministic, line-oriented ASCII rendering of one VM
+ * run's externally observable effects under a scripted input schedule. Two VM
+ * implementations fed the same program and schedule produce byte-identical
+ * traces; the committed trace beside a program fixture is the behavioral
+ * contract a separately built VM is verified against.
+ *
+ * Every event is observable at the host-binding surface: host-action
+ * dispatch, device-port calls, fiber faults, and the schedule's tick
+ * boundaries. No line depends on VM internals.
+ *
+ * Trace format, version 1 (LOCKED; any change bumps
+ * {@link OBSERVABLE_TRACE_FORMAT_VERSION} and regenerates every committed
+ * trace):
+ *
+ * - The trace is ASCII with LF line endings and ends with a trailing LF.
+ *   Tokens on a line are separated by single spaces; lines are not indented.
+ * - Integer scalars (tick ordinals, action ids, call-site ids, argument
+ *   counts, fiber ids, fault codes) render as the minimal lowercase
+ *   hexadecimal of their unsigned 32-bit value with no prefix or padding
+ *   ("0" for zero).
+ * - Brain-observable numbers (tick time/dt stamps, device-port arguments,
+ *   number-typed action arguments and results) render as the IEEE-754 bit
+ *   pattern of the value at the trace's profile precision: 8 zero-padded
+ *   lowercase hex digits of the f32 bits on an f32 profile, 16 digits of the
+ *   f64 bits on an f64 profile.
+ * - Strings render as a double-quoted UTF-8 byte sequence: bytes 0x20..0x7e
+ *   are literal except `"` (renders `\"`) and `\` (renders `\\`); every
+ *   other byte renders as `\xNN` with two lowercase hex digits.
+ * - A value token is one of `void`, `nil`, `bool 0|1`, `number <bits>`, or
+ *   `string "<bytes>"`. Any other value kind crossing the host-binding
+ *   surface is an error in format version 1.
+ *
+ * Line layout: a three-line header, then events in emission order.
+ *
+ * ```
+ * mctrace 1
+ * profile <profileId>
+ * precision f32|f64
+ * tick <ordinal> time <bits> dt <bits>
+ * action <actionId> site <callSiteId> args <argc> <value>... result <value>
+ * port display set-pixel <xBits> <yBits> <brightnessBits>
+ * fault <fiberId> <errorCode>
+ * ```
+ *
+ * - `tick`: one scheduled think, emitted before any event of that think.
+ *   `<ordinal>` is 1-based. `time` and `dt` are the schedule-driven stamps
+ *   the VM observes on its execution context: `time` is the cumulative
+ *   scheduled time, and `dt` is 0 when the previous think time is 0 and the
+ *   difference from the previous think time otherwise. Schedule times must
+ *   be exactly representable at the profile precision.
+ * - `action`: one synchronous host-action dispatch, emitted when the call
+ *   returns. `<actionId>` is the stable registry id, `<callSiteId>` keys the
+ *   per-callsite host state, the `<argc>` argument values are the positional
+ *   arg buffer exactly as the binding receives it (a missing optional slot
+ *   is `nil`), and `result` is the value the call pushes back. Device-port
+ *   lines raised while the action body runs are emitted at the moment of
+ *   the port call, before the action's own line.
+ * - `port display set-pixel`: one pixel write crossing the display device
+ *   port, with the x/y/brightness arguments as passed to the port (before
+ *   the device clamps or discards them).
+ * - `fault`: one fiber fault. `<errorCode>` is the numeric wire-stable
+ *   `ErrorCode`. Fault messages are implementation-defined and never render.
+ */
+
+import { NativeType, type ReadonlyList, type Value } from "@mindcraft-lang/core/app";
+import type { NumberPrecision } from "@mindcraft-lang/core/runtime";
+
+/** Current observable trace format version. */
+export const OBSERVABLE_TRACE_FORMAT_VERSION = 1;
+
+/** Construction options for {@link ObservableTraceWriter}. */
+export interface ObservableTraceOptions {
+  /** Numeric device-profile id of the traced program's binary envelope. */
+  readonly profileId: number;
+
+  /** Profile numeric precision; selects the numeric bit-pattern width. */
+  readonly precision: NumberPrecision;
+}
+
+function hexU32(value: number): string {
+  return (value >>> 0).toString(16);
+}
+
+function hexPadded(value: number, width: number): string {
+  return (value >>> 0).toString(16).padStart(width, "0");
+}
+
+function numberBits(value: number, precision: NumberPrecision): string {
+  if (precision === "f32") {
+    const view = new DataView(new ArrayBuffer(4));
+    view.setFloat32(0, value);
+    return hexPadded(view.getUint32(0), 8);
+  }
+  const view = new DataView(new ArrayBuffer(8));
+  view.setFloat64(0, value);
+  return hexPadded(view.getUint32(0), 8) + hexPadded(view.getUint32(4), 8);
+}
+
+function quoted(value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  let out = '"';
+  for (const byte of bytes) {
+    if (byte === 0x22) {
+      out += '\\"';
+    } else if (byte === 0x5c) {
+      out += "\\\\";
+    } else if (byte >= 0x20 && byte <= 0x7e) {
+      out += String.fromCharCode(byte);
+    } else {
+      out += `\\x${hexPadded(byte, 2)}`;
+    }
+  }
+  return `${out}"`;
+}
+
+function valueToken(value: Value, precision: NumberPrecision): string {
+  switch (value.t) {
+    case NativeType.Void:
+      return "void";
+    case NativeType.Nil:
+      return "nil";
+    case NativeType.Boolean:
+      return `bool ${value.v ? "1" : "0"}`;
+    case NativeType.Number:
+      return `number ${numberBits(value.v, precision)}`;
+    case NativeType.String:
+      return `string ${quoted(value.v)}`;
+    default:
+      throw new Error(
+        `observable trace: value kind '${value.t}' has no rendering in trace format ${OBSERVABLE_TRACE_FORMAT_VERSION}`
+      );
+  }
+}
+
+/**
+ * Accumulates observable-trace events and renders the canonical trace text.
+ * The rendering is deterministic: equal event sequences produce byte-identical
+ * traces. Construction emits the three-line header; each event method appends
+ * one line. Throws when an event carries a value kind the trace format does
+ * not define.
+ */
+export class ObservableTraceWriter {
+  private readonly precision: NumberPrecision;
+  private out: string;
+
+  constructor(options: ObservableTraceOptions) {
+    this.precision = options.precision;
+    this.out =
+      `mctrace ${hexU32(OBSERVABLE_TRACE_FORMAT_VERSION)}\n` +
+      `profile ${hexU32(options.profileId)}\n` +
+      `precision ${options.precision}\n`;
+  }
+
+  /**
+   * Records one scheduled think boundary.
+   *
+   * @param ordinal - 1-based tick ordinal within the schedule.
+   * @param time - Cumulative scheduled time stamped on the execution context.
+   * @param dt - Time delta stamped on the execution context.
+   */
+  tick(ordinal: number, time: number, dt: number): void {
+    this.line(`tick ${hexU32(ordinal)} time ${numberBits(time, this.precision)} dt ${numberBits(dt, this.precision)}`);
+  }
+
+  /**
+   * Records one completed synchronous host-action dispatch.
+   *
+   * @param actionId - Stable registry id of the dispatched action.
+   * @param callSiteId - Call-site id the dispatch was bound to.
+   * @param args - Positional arg buffer as received by the binding.
+   * @param result - Value the call returned.
+   */
+  hostActionCall(actionId: number, callSiteId: number, args: ReadonlyList<Value>, result: Value): void {
+    let text = `action ${hexU32(actionId)} site ${hexU32(callSiteId)} args ${hexU32(args.size())}`;
+    for (let i = 0; i < args.size(); i++) {
+      text += ` ${valueToken(args.get(i), this.precision)}`;
+    }
+    this.line(`${text} result ${valueToken(result, this.precision)}`);
+  }
+
+  /**
+   * Records one pixel write crossing the display device port.
+   *
+   * @param x - Horizontal coordinate as passed to the port.
+   * @param y - Vertical coordinate as passed to the port.
+   * @param brightness - Brightness as passed to the port.
+   */
+  displaySetPixel(x: number, y: number, brightness: number): void {
+    this.line(
+      `port display set-pixel ${numberBits(x, this.precision)} ${numberBits(y, this.precision)} ${numberBits(brightness, this.precision)}`
+    );
+  }
+
+  /**
+   * Records one fiber fault.
+   *
+   * @param fiberId - Id of the faulted fiber.
+   * @param code - Numeric wire-stable `ErrorCode` of the fault.
+   */
+  fiberFault(fiberId: number, code: number): void {
+    this.line(`fault ${hexU32(fiberId)} ${hexU32(code)}`);
+  }
+
+  /** Returns the accumulated canonical trace text. */
+  render(): string {
+    return this.out;
+  }
+
+  private line(text: string): void {
+    this.out += `${text}\n`;
+  }
+}
