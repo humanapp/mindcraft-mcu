@@ -1,0 +1,54 @@
+mcprogram-dump 1
+profile 1
+precision f32
+strings 0
+types 1
+  type 0 atom b
+numbers 2
+  number 0 00000000
+  number 1 437f0000
+values 1
+  value 0 nil
+functions 3
+  function 0 params 0 locals 0 ctx - code 8
+    instr 46
+    instr 2a 0 0 0
+    instr 47 4
+    instr 48
+    instr 2a 1 0 1
+    instr 49
+    instr 0 0
+    instr 1f
+  function 1 params 1 locals 1 ctx 0 code 9
+    instr 82 0
+    instr 72 6
+    instr 72 1
+    instr 28 403 1 0
+    instr 4 0
+    instr 28 13 2 1
+    instr 1f
+    instr 0 0
+    instr 1f
+  function 2 params 1 locals 1 ctx 0 code a
+    instr 82 0
+    instr 72 6
+    instr 72 0
+    instr 4 0
+    instr 4 0
+    instr 4 1
+    instr 28 400 4 0
+    instr 1
+    instr 0 0
+    instr 1f
+vars 0
+actions 2
+  action 0 entry 1 init - activate - deactivate -
+  action 1 entry 2 init - activate - deactivate -
+rulefuncs 1
+  rulefunc 0 0
+ruleancestors 0
+pages 1
+  page 0 index 0 id "K2ub6oZbxcviYzjL" roots 1 callsites 2
+    root 0
+    callsite bytecode 0 slot 0
+    callsite bytecode 1 slot 1

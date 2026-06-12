@@ -1,12 +1,16 @@
 /**
- * Golden binary `.mcprogram` fixtures for the WODAL emit seam.
+ * Golden binary `.mcprogram` fixtures for the WODAL emit seam, plus the
+ * canonical dump golden beside each binary.
  *
  * Each binary golden is generated reproducibly from the committed JSON golden
  * beside it: `fromJson -> profile image -> serializeWodalProgramImageBytes`.
- * The test (1) regenerates the binary if it is missing, (2) asserts the
- * committed binary is byte-stable against a fresh generation, (3) decodes the
- * binary and asserts JSON-vs-binary equivalence over the f32-rounded,
- * lean-normalized payload, and (4) reports the per-section byte breakdown.
+ * The test (1) regenerates the binary and dump if missing, (2) asserts the
+ * committed binary and dump are byte-stable against a fresh generation,
+ * (3) decodes the binary and asserts JSON-vs-binary equivalence over the
+ * f32-rounded, lean-normalized payload, and (4) reports the per-section byte
+ * breakdown. The committed `.mcprogram.dump` is the decode contract for a
+ * separately-built VM: it decodes the `.mcprogram.bin` and byte-compares its
+ * own canonical dump against the committed one.
  */
 
 import assert from "node:assert/strict";
@@ -20,6 +24,7 @@ import {
   binaryProgramByteReport,
   type LinkedBrainProgramJson,
   linkedBrainProgramFromJson,
+  linkedBrainProgramToCanonicalDump,
   linkedBrainProgramToJson,
   type NumberPrecision,
 } from "@mindcraft-lang/core/runtime";
@@ -133,6 +138,7 @@ for (const golden of GOLDENS) {
   test(`the ${golden.name} binary golden (${golden.binding}) is reproducible and round-trips`, () => {
     const jsonPath = fixturePath(`${golden.name}.mcprogram`);
     const binPath = fixturePath(`${golden.name}.mcprogram.bin`);
+    const dumpPath = fixturePath(`${golden.name}.mcprogram.dump`);
     const envelope = JSON.parse(readFileSync(jsonPath, "utf8")) as ProgramImageEnvelopeJson;
     const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
 
@@ -156,6 +162,17 @@ for (const golden of GOLDENS) {
       linkedBrainProgramToJson(decoded.program),
       leanNormalize(envelope.program, profile.numberPrecision)
     );
+
+    const dumpText = linkedBrainProgramToCanonicalDump(decoded.program, {
+      profileId: profile.numericProfileId,
+      precision: profile.numberPrecision,
+      typeRegistry,
+    });
+    if (!existsSync(dumpPath)) {
+      writeFileSync(dumpPath, dumpText);
+    }
+    const committedDumpText = readFileSync(dumpPath, "utf8");
+    assert.equal(committedDumpText, dumpText, `${golden.name}.mcprogram.dump is not byte-stable`);
 
     // (4) Per-section byte breakdown.
     const report = binaryProgramByteReport(stream.byteArrayFromUint8Array(new Uint8Array(committed)));

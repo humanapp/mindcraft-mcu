@@ -16,6 +16,10 @@ every CODAL library commit.
 
 Deviations from the upstream commit, kept deliberately small:
 
+- `abi/`: added (not upstream). Hand-maintained C++ mirrors of the
+  microbit-v2 device-ABI id declarations in
+  `packages/wodal/src/targets/microbit-v2/mindcraft/` (see "Mirror headers"
+  in `cpp/README.md`).
 - `codal.json`: target `branch` pinned to the `v0.3.4` release tag (upstream
   tracks `master`).
 - `source/`: upstream sample application replaced by the mindcraft boot

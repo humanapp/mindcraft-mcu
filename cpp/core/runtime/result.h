@@ -33,15 +33,17 @@ private:
 };
 
 /**
- * Outcome carrying a value of type T on success or an ErrorCode on failure.
- * T must be trivially copyable and trivially default constructible. Construct
- * via {@link Result::ok} or {@link Result::fail}; {@link Result::value} is
- * valid only when {@link Result::isOk} is true.
+ * Outcome carrying a value of type T on success or an error enum value of
+ * type E (default {@link ErrorCode}) on failure. T must be trivially copyable
+ * and default constructible. Construct via {@link Result::ok} or
+ * {@link Result::fail}; {@link Result::value} is valid only when
+ * {@link Result::isOk} is true.
  */
-template <typename T> class [[nodiscard]] Result {
+template <typename T, typename E = ErrorCode> class [[nodiscard]] Result {
   static_assert(std::is_trivially_copyable_v<T>, "Result payloads must be trivially copyable");
-  static_assert(std::is_trivially_default_constructible_v<T>,
-                "Result payloads must be trivially default constructible");
+  static_assert(std::is_default_constructible_v<T>,
+                "Result payloads must be default constructible");
+  static_assert(std::is_enum_v<E>, "Result error types must be enums");
 
 public:
   /** A successful outcome carrying `value`. */
@@ -53,7 +55,7 @@ public:
   }
 
   /** A failed outcome carrying `code`. */
-  static constexpr Result fail(ErrorCode code) {
+  static constexpr Result fail(E code) {
     Result result;
     result.code_ = code;
     return result;
@@ -63,7 +65,7 @@ public:
   constexpr bool isOk() const { return ok_; }
 
   /** The fault code. Meaningful only when {@link isOk} is false. */
-  constexpr ErrorCode error() const { return code_; }
+  constexpr E error() const { return code_; }
 
   /** The carried value. Valid only when {@link isOk} is true. */
   constexpr const T& value() const { return value_; }
@@ -72,7 +74,7 @@ private:
   constexpr Result() = default;
 
   bool ok_ = false;
-  ErrorCode code_ = ErrorCode::HostError;
+  E code_{};
   T value_{};
 };
 

@@ -2,9 +2,19 @@
 # assertion machinery requires them) while linking the exception-free core.
 add_executable(mindcraft-tests
   main.cpp
+  byte-cursor.test.cpp
+  bytecode.test.cpp
+  context-field.test.cpp
+  core-func-id.test.cpp
+  core-host-actions.test.cpp
+  core-type-atom-id.test.cpp
   device-port.test.cpp
   error-code.test.cpp
   fixture-paths.test.cpp
+  load-error.test.cpp
+  microbit-v2-abi.test.cpp
+  program-arena.test.cpp
+  program.test.cpp
   result.test.cpp
   span.test.cpp
 )

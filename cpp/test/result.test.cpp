@@ -29,6 +29,20 @@ TEST_CASE("Result carries a fault code on failure") {
   CHECK(result.error() == ErrorCode::StackOverflow);
 }
 
+namespace {
+enum class TestDiag : uint16_t { BadThing = 7 };
+}
+
+TEST_CASE("Result carries a custom error enum") {
+  Result<int32_t, TestDiag> ok = Result<int32_t, TestDiag>::ok(5);
+  REQUIRE(ok.isOk());
+  CHECK(ok.value() == 5);
+
+  Result<int32_t, TestDiag> fail = Result<int32_t, TestDiag>::fail(TestDiag::BadThing);
+  CHECK_FALSE(fail.isOk());
+  CHECK(fail.error() == TestDiag::BadThing);
+}
+
 TEST_CASE("Result works in constexpr context") {
   constexpr Result<uint32_t> ok = Result<uint32_t>::ok(7);
   static_assert(ok.isOk());

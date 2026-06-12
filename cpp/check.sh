@@ -23,7 +23,7 @@ else
 fi
 
 echo "==> clang-format"
-find core codal test tools \
+find core codal test tools targets/microbit-v2/abi \
   -path '*/vendor' -prune -o \
   \( -name '*.h' -o -name '*.cpp' \) -print0 |
   xargs -0 "${clang_format}" --dry-run -Werror

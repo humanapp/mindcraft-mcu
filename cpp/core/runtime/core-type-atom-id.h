@@ -1,0 +1,44 @@
+#pragma once
+
+#include <cstdint>
+
+namespace mindcraft {
+
+/**
+ * First type-atom id owned by the active target; core type atoms are below
+ * this. Mirrors TARGET_TYPE_ATOM_BASE in
+ * external/mindcraft-lang/packages/core/src/runtime/abi-ids.ts.
+ */
+inline constexpr uint32_t TARGET_TYPE_ATOM_BASE = 1024;
+
+/**
+ * Stable type-atom ids of the core nominal types: the scalar types, the named
+ * core list type, and the built-in context structs. Mirrors the
+ * CoreTypeAtomId enum in
+ * external/mindcraft-lang/packages/core/src/runtime/abi-ids.ts. Serialized
+ * programs reference nominal types by atom id, so the values are wire-stable:
+ * never renumber or reuse a value; append new members at the next free id.
+ *
+ * For an enum type registered with an atom id, the declared symbol-list order
+ * is ABI: enum values serialize as ordinals into that list, so the symbol
+ * list is append-only.
+ */
+enum class CoreTypeAtomId : uint32_t {
+  Void = 0,
+  Nil = 1,
+  Boolean = 2,
+  Number = 3,
+  String = 4,
+  Any = 5,
+  Function = 6,
+  AnyList = 7,
+  BrainContext = 8,
+  EngineContext = 9,
+  RuleContext = 10,
+  Context = 11,
+};
+
+/** Number of declared {@link CoreTypeAtomId} members; ids are dense from 0. */
+inline constexpr uint32_t kCoreTypeAtomIdCount = 12;
+
+} // namespace mindcraft
