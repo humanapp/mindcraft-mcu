@@ -1,6 +1,8 @@
 # The host-agnostic runtime library. Builds with exceptions and RTTI off; all
 # error propagation is by Status/Result return values.
 add_library(mindcraft-core STATIC
+  codec/program-dump.cpp
+  codec/program-reader.cpp
   runtime/bytecode.cpp
   runtime/error-code.cpp
   runtime/load-error.cpp

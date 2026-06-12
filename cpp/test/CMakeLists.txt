@@ -14,6 +14,8 @@ add_executable(mindcraft-tests
   load-error.test.cpp
   microbit-v2-abi.test.cpp
   program-arena.test.cpp
+  program-dump.test.cpp
+  program-reader.test.cpp
   program.test.cpp
   result.test.cpp
   span.test.cpp
