@@ -1,0 +1,24 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "cpp tests (CodeLLDB)",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/cpp/build/debug/test/mindcraft-tests",
+      "args": [],
+      "cwd": "${workspaceFolder}/cpp",
+      "preLaunchTask": "cpp: build (debug)"
+    },
+    {
+      "name": "cpp tests (cpptools)",
+      "type": "cppdbg",
+      "request": "launch",
+      "MIMode": "lldb",
+      "program": "${workspaceFolder}/cpp/build/debug/test/mindcraft-tests",
+      "args": [],
+      "cwd": "${workspaceFolder}/cpp",
+      "preLaunchTask": "cpp: build (debug)"
+    }
+  ]
+}

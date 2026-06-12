@@ -1,0 +1,5 @@
+build/
+targets/microbit-v2/build/
+targets/microbit-v2/libraries/
+targets/microbit-v2/MICROBIT.hex
+targets/microbit-v2/MICROBIT.bin

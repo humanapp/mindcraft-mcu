@@ -1,0 +1,143 @@
+# cpp
+
+Native C++ tree for the Mindcraft on-hardware VM. The TypeScript reference VM
+(`external/mindcraft-lang/packages/core/src/runtime/`) is the executable spec;
+everything here mirrors its observable semantics.
+
+## Layout
+
+- `core/` - the host-agnostic runtime library. No CODAL, board, engine, or
+  desktop dependency; every other part of this tree depends on it and it
+  depends on none of them.
+  - `core/platform/` - byte-stream and common primitives.
+  - `core/runtime/` - value model, error/status types, ABI id mirrors.
+- `codal/` - the CODAL-common, board-agnostic layer: the device-port
+  interfaces the host loop drives (`codal/device-port.h`), with the
+  CODAL-facing host-loop bridge to follow. Depends on `core/` and CODAL only;
+  board specifics are forbidden (enforced by `check-deps.sh`).
+- `targets/microbit-v2/` - the micro:bit v2 device firmware: a pinned copy of
+  the official `microbit-v2-samples` CODAL build scaffold (see its
+  `VENDORING.md`) whose `source/` plus `cpp/core/` compile into
+  `MICROBIT.hex`. Built by its own `build.py`/Docker flow, not by the host
+  CMake tree (see "Device build" below).
+- `test/` - the desktop host test harness (doctest, vendored under
+  `test/vendor/`). Depends on `core/`.
+- `tools/` - host-side tooling (see `tools/README.md`).
+
+## Prerequisites (macOS)
+
+- CMake >= 3.21 and Ninja (`brew install cmake ninja`)
+- A host C++ compiler (Apple clang from the Xcode command line tools)
+- clang-format (bundled with Xcode; found via `xcrun --find clang-format`)
+
+## Build, test, and check
+
+The single check entry point (build + tests + sanitizers + format check +
+dependency guardrails):
+
+```
+./check.sh
+```
+
+Individual presets (`debug` is the default developer build, `-g -O0`;
+`sanitize` runs the tests under ASan + UBSan):
+
+```
+cmake --preset debug
+cmake --build --preset debug
+ctest --preset debug
+```
+
+Build output lands in `cpp/build/<preset>/` (gitignored). Each configure
+exports `compile_commands.json` into its build directory for clangd and
+IntelliSense.
+
+## Device build (micro:bit v2)
+
+The device firmware builds from the vendored CODAL scaffold in
+`targets/microbit-v2/` (pins recorded in its `VENDORING.md`). Both paths
+produce `MICROBIT.hex` with `cpp/core/` compiled in; flash by copying the hex
+onto the `MICROBIT` USB drive.
+
+Reproducible Docker path (pinned gcc-arm-none-eabi 10.3-2021.10; run from
+`cpp/`). Each target exports into its own directory under `out/`:
+
+```
+docker build -f targets/microbit-v2/Dockerfile --output out/microbit-v2 .
+```
+
+The hex lands in `cpp/out/microbit-v2/MICROBIT.hex`.
+
+Local path: put a GNU Arm Embedded toolchain on PATH (for example ARM's
+darwin-arm64 `.tar.xz` release extracted anywhere, or
+`brew install --cask gcc-arm-embedded`, which needs admin rights), then:
+
+```
+cd targets/microbit-v2
+python3 build.py
+```
+
+The first configure clones the pinned CODAL target and libraries into
+`targets/microbit-v2/libraries/` (gitignored). The hex lands in
+`targets/microbit-v2/MICROBIT.hex`.
+
+To watch the firmware's serial output on macOS (115200 baud; the micro:bit
+shows up as a `usbmodem` device):
+
+```
+screen /dev/cu.usbmodem* 115200
+```
+
+Exit screen with ctrl-a then k, then y.
+
+## Debugging in VS Code
+
+The committed `.vscode/` at the repo root provides tasks and launch
+configurations:
+
+1. Install the recommended extensions (CMake Tools, CodeLLDB).
+2. Run the task `cpp: build (debug)` (Terminal -> Run Task), or let the launch
+   configuration trigger it.
+3. Set a breakpoint in any test under `cpp/test/` and start the
+   `cpp tests (CodeLLDB)` launch configuration. A cpptools-based
+   `cpp tests (cpptools)` configuration is the fallback.
+
+## Foundations
+
+- C++ standard: C++17, no compiler extensions, one standard for the whole
+  tree.
+- `core/` builds with `-fno-exceptions -fno-rtti`. Errors propagate as
+  `Status` / `Result<T>` returns carrying numeric `ErrorCode`s
+  (`core/runtime/result.h`, `core/runtime/error-code.h`).
+- The test tree builds with exceptions enabled (doctest requires them) and
+  links the exception-free core.
+- Warnings: `-Wall -Wextra -Werror` everywhere in the host tree.
+- Std-library policy for `core/`: freestanding-leaning. `<cstdint>`,
+  `<cstddef>`, `<cstring>`, `<type_traits>`, `std::array`, and span-style
+  views are allowed; `std::string`, `std::vector`, `std::map`, iostreams, and
+  any heap-allocating std facility are not. `test/` may use the full standard
+  library.
+- No process-global mutable state: the VM, scheduler, and runtime are
+  constructed instances.
+- Formatting: `.clang-format` in this directory; enforced by `check.sh`.
+
+## Mirror headers
+
+Hand-maintained C++ mirrors of the TS-declared device ABI id spaces live in
+`core/runtime/`, one header per id space, with the enum and its companion
+table side by side in the same header. Each header names the TS declaration
+file it mirrors. The values are wire-stable contracts: never renumber, never
+reuse a retired value, append only. `core/runtime/error-code.h` (mirroring
+`ErrorCode` in core `runtime/value.ts`) is the specimen for the convention.
+
+## Test fixtures
+
+Parity tests consume the committed `.mcprogram` / `.mcprogram.bin` fixtures
+from the TS packages. The fixture roots are wired by `test/CMakeLists.txt` as
+compile definitions exposed through `test/fixture-paths.h`:
+
+- core: `external/mindcraft-lang/packages/core/src/runtime/__fixtures__/`
+- wodal: `packages/wodal/src/targets/microbit-v2/mindcraft/__fixtures__/`
+
+Goldens are regenerated by the TS build path (write-if-missing, byte-stable),
+never hand-edited; after regenerating fixtures, re-run `./check.sh`.

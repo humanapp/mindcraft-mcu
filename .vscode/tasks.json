@@ -1,0 +1,35 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "cpp: configure (debug)",
+      "type": "shell",
+      "command": "cmake --preset debug",
+      "options": { "cwd": "${workspaceFolder}/cpp" },
+      "problemMatcher": []
+    },
+    {
+      "label": "cpp: build (debug)",
+      "type": "shell",
+      "command": "cmake --preset debug && cmake --build --preset debug",
+      "options": { "cwd": "${workspaceFolder}/cpp" },
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "cpp: test (debug)",
+      "type": "shell",
+      "command": "ctest --preset debug",
+      "options": { "cwd": "${workspaceFolder}/cpp" },
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "cpp: check",
+      "type": "shell",
+      "command": "./check.sh",
+      "options": { "cwd": "${workspaceFolder}/cpp" },
+      "problemMatcher": []
+    }
+  ]
+}

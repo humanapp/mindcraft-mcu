@@ -3,6 +3,8 @@ node_modules/
 
 # Build output
 dist/
+cpp/build/
+cpp/out/
 
 # Environment
 .env

@@ -1,0 +1,26 @@
+# The desktop host test harness. Builds with exceptions enabled (doctest's
+# assertion machinery requires them) while linking the exception-free core.
+add_executable(mindcraft-tests
+  main.cpp
+  device-port.test.cpp
+  error-code.test.cpp
+  fixture-paths.test.cpp
+  result.test.cpp
+  span.test.cpp
+)
+
+target_link_libraries(mindcraft-tests PRIVATE mindcraft-core)
+
+target_include_directories(mindcraft-tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(mindcraft-tests SYSTEM PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/vendor)
+
+target_compile_options(mindcraft-tests PRIVATE -Wall -Wextra -Werror)
+
+# Fixture roots for parity tests, resolved relative to cpp/ inside the repo.
+get_filename_component(MC_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
+target_compile_definitions(mindcraft-tests PRIVATE
+  MC_CORE_FIXTURES_DIR="${MC_REPO_ROOT}/external/mindcraft-lang/packages/core/src/runtime/__fixtures__"
+  MC_WODAL_FIXTURES_DIR="${MC_REPO_ROOT}/packages/wodal/src/targets/microbit-v2/mindcraft/__fixtures__"
+)
+
+add_test(NAME mindcraft-tests COMMAND mindcraft-tests)
