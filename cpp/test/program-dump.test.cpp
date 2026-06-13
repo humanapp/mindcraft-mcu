@@ -3,8 +3,8 @@
 #include "core/codec/program-dump.h"
 #include "core/codec/program-reader.h"
 #include "core/runtime/load-error.h"
-#include "core/runtime/program-arena.h"
 #include "core/runtime/program.h"
+#include "core/runtime/region-arena.h"
 #include "fixture-paths.h"
 #include "string-sink.h"
 #include "targets/microbit-v2/abi/type-atom-id.h"
@@ -20,10 +20,10 @@ using mindcraft::Instr;
 using mindcraft::kMicroBitV2TypeAtomIdCount;
 using mindcraft::LoadError;
 using mindcraft::Op;
-using mindcraft::ProgramArena;
 using mindcraft::ProgramImage;
 using mindcraft::ProgramReaderOptions;
 using mindcraft::readProgramImage;
+using mindcraft::RegionArena;
 using mindcraft::Result;
 using mindcraft::Span;
 using mindcraft::writeCanonicalProgramDump;
@@ -69,7 +69,7 @@ TEST_CASE("every committed fixture decodes and byte-matches its golden dump") {
     const std::string golden = readTextFile(base + ".mcprogram.dump");
 
     std::vector<uint8_t> storage(256 * 1024);
-    ProgramArena arena(Span<uint8_t>(storage.data(), storage.size()));
+    RegionArena arena(Span<uint8_t>(storage.data(), storage.size()));
     const Result<ProgramImage, LoadError> decoded =
         readProgramImage(ByteSpan(wire.data(), wire.size()), arena, kOptions);
     REQUIRE(decoded.isOk());
@@ -86,7 +86,7 @@ TEST_CASE("the dump rendering is deterministic") {
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
 
   std::vector<uint8_t> storage(256 * 1024);
-  ProgramArena arena(Span<uint8_t>(storage.data(), storage.size()));
+  RegionArena arena(Span<uint8_t>(storage.data(), storage.size()));
   const Result<ProgramImage, LoadError> decoded =
       readProgramImage(ByteSpan(wire.data(), wire.size()), arena, kOptions);
   REQUIRE(decoded.isOk());
@@ -103,7 +103,7 @@ TEST_CASE("a fixture decode into a too-small arena fails ArenaExhausted") {
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
 
   std::vector<uint8_t> storage(16);
-  ProgramArena arena(Span<uint8_t>(storage.data(), storage.size()));
+  RegionArena arena(Span<uint8_t>(storage.data(), storage.size()));
   const Result<ProgramImage, LoadError> decoded =
       readProgramImage(ByteSpan(wire.data(), wire.size()), arena, kOptions);
   REQUIRE(!decoded.isOk());

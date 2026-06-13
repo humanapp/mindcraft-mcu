@@ -25,6 +25,7 @@ using mindcraft::kMaxStackSize;
 using mindcraft::kNoCallSiteId;
 using mindcraft::Op;
 using mindcraft::ProgramImage;
+using mindcraft::RegionArena;
 using mindcraft::RuntimeSurface;
 using mindcraft::Span;
 using mindcraft::Status;
@@ -33,15 +34,17 @@ using mindcraft::VmObserver;
 
 namespace {
 
-/** Shared region storage sized for every record slot at the per-fiber caps. */
+/**
+ * One carve-on-demand arena (the device's single-arena model) sized to hold
+ * every record slot's segments at the per-fiber caps, so a test may spawn up to
+ * {@link kMaxLiveFibers} fibers at once.
+ */
 struct SchedulerStorage {
-  std::array<Value, kMaxLiveFibers * kMaxStackSize> stack;
-  std::array<Value, kMaxLiveFibers * kMaxLocalsSize> locals;
-  std::array<Frame, kMaxLiveFibers * kMaxFrameDepth> frames;
-
-  Span<Value> stackSpan() { return {stack.data(), stack.size()}; }
-  Span<Value> localsSpan() { return {locals.data(), locals.size()}; }
-  Span<Frame> frameSpan() { return {frames.data(), frames.size()}; }
+  static constexpr uint32_t kArenaBytes =
+      kMaxLiveFibers * (kMaxStackSize * sizeof(Value) + kMaxLocalsSize * sizeof(Value) +
+                        kMaxFrameDepth * sizeof(Frame));
+  std::array<uint8_t, kArenaBytes> bytes;
+  RegionArena arena{Span<uint8_t>(bytes.data(), bytes.size())};
 };
 
 /** Observer counting dispatches and recording faulted fiber ids. */
@@ -84,8 +87,7 @@ TEST_CASE("think stamps time, the dt rule, and the tick counter") {
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {bindings, 1}, nullptr};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.stackSpan(), pools.localsSpan(),
-                           pools.frameSpan());
+  FiberScheduler scheduler(image, surface, pools.arena);
   BrainRuntime brain(image, scheduler, surface);
   REQUIRE(brain.startup().isOk());
 
@@ -111,8 +113,7 @@ TEST_CASE("a completed rule fiber respawns and re-evaluates every think") {
   CountingObserver observer;
   RuntimeSurface surface{&ctx, {bindings, 1}, &observer};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.stackSpan(), pools.localsSpan(),
-                           pools.frameSpan());
+  FiberScheduler scheduler(image, surface, pools.arena);
   BrainRuntime brain(image, scheduler, surface);
   REQUIRE(brain.startup().isOk());
 
@@ -135,8 +136,7 @@ TEST_CASE("a fault kills the fiber, not the rule: it respawns next think") {
   CountingObserver observer;
   RuntimeSurface surface{&ctx, {}, &observer};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.stackSpan(), pools.localsSpan(),
-                           pools.frameSpan());
+  FiberScheduler scheduler(image, surface, pools.arena);
   BrainRuntime brain(image, scheduler, surface);
   REQUIRE(brain.startup().isOk());
 
@@ -163,8 +163,7 @@ TEST_CASE("an unregistered action id faults the fiber and the rule respawns") {
   CountingObserver observer;
   RuntimeSurface surface{&ctx, {}, &observer};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.stackSpan(), pools.localsSpan(),
-                           pools.frameSpan());
+  FiberScheduler scheduler(image, surface, pools.arena);
   BrainRuntime brain(image, scheduler, surface);
   // Activation skips the unregistered call site; the existence check faults
   // at dispatch instead.
@@ -193,8 +192,7 @@ TEST_CASE("page activation runs each call site's page-entered hook bound to it")
 
   RuntimeSurface surface{&ctx, {bindings, 1}, nullptr};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.stackSpan(), pools.localsSpan(),
-                           pools.frameSpan());
+  FiberScheduler scheduler(image, surface, pools.arena);
   BrainRuntime brain(image, scheduler, surface);
   REQUIRE(brain.startup().isOk());
 
@@ -228,8 +226,7 @@ TEST_CASE("think is single-entry: re-entering from a host body fails loudly") {
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {bindings, 1}, nullptr};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.stackSpan(), pools.localsSpan(),
-                           pools.frameSpan());
+  FiberScheduler scheduler(image, surface, pools.arena);
   BrainRuntime brain(image, scheduler, surface);
   probe.brain = &brain;
   REQUIRE(brain.startup().isOk());
@@ -252,8 +249,7 @@ TEST_CASE("a program with no pages starts up and thinks as a no-op") {
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {}, nullptr};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.stackSpan(), pools.localsSpan(),
-                           pools.frameSpan());
+  FiberScheduler scheduler(image, surface, pools.arena);
   BrainRuntime brain(image, scheduler, surface);
   REQUIRE(brain.startup().isOk());
   REQUIRE(brain.think(16.0f).isOk());

@@ -25,6 +25,7 @@ using mindcraft::kMaxLocalsSize;
 using mindcraft::kMaxStackSize;
 using mindcraft::Op;
 using mindcraft::ProgramImage;
+using mindcraft::RegionArena;
 using mindcraft::Result;
 using mindcraft::RuntimeSurface;
 using mindcraft::Span;
@@ -34,15 +35,17 @@ using mindcraft::VmObserver;
 
 namespace {
 
-/** Shared region storage sized for every record slot at the per-fiber caps. */
+/**
+ * One carve-on-demand arena (the device's single-arena model) sized to hold
+ * every record slot's segments at the per-fiber caps, so a test may spawn up to
+ * {@link kMaxLiveFibers} fibers at once.
+ */
 struct SchedulerStorage {
-  std::array<Value, kMaxLiveFibers * kMaxStackSize> stack;
-  std::array<Value, kMaxLiveFibers * kMaxLocalsSize> locals;
-  std::array<Frame, kMaxLiveFibers * kMaxFrameDepth> frames;
-
-  Span<Value> stackSpan() { return {stack.data(), stack.size()}; }
-  Span<Value> localsSpan() { return {locals.data(), locals.size()}; }
-  Span<Frame> frameSpan() { return {frames.data(), frames.size()}; }
+  static constexpr uint32_t kArenaBytes =
+      kMaxLiveFibers * (kMaxStackSize * sizeof(Value) + kMaxLocalsSize * sizeof(Value) +
+                        kMaxFrameDepth * sizeof(Frame));
+  std::array<uint8_t, kArenaBytes> bytes;
+  RegionArena arena{Span<uint8_t>(bytes.data(), bytes.size())};
 };
 
 /** Observer recording dispatch and fault order for assertions. */
@@ -94,8 +97,7 @@ TEST_CASE("a round gives every fiber queued at entry exactly one slice, FIFO") {
   RuntimeSurface surface{&ctx, {bindings, 2}, &observer};
 
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.stackSpan(), pools.localsSpan(),
-                           pools.frameSpan());
+  FiberScheduler scheduler(image, surface, pools.arena);
   REQUIRE(scheduler.spawn(0).isOk());
   REQUIRE(scheduler.spawn(1).isOk());
 
@@ -124,8 +126,7 @@ TEST_CASE("budget exhaustion suspends mid-body and resumes in the next round") {
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {}, nullptr};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.stackSpan(), pools.localsSpan(),
-                           pools.frameSpan());
+  FiberScheduler scheduler(image, surface, pools.arena);
   const Result<uint32_t> spawned = scheduler.spawn(0);
   REQUIRE(spawned.isOk());
   const uint32_t fiberId = spawned.value();
@@ -165,8 +166,7 @@ TEST_CASE("a faulting fiber reports through the observer and dies") {
   OrderObserver observer;
   RuntimeSurface surface{&ctx, {}, &observer};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.stackSpan(), pools.localsSpan(),
-                           pools.frameSpan());
+  FiberScheduler scheduler(image, surface, pools.arena);
   const Result<uint32_t> spawned = scheduler.spawn(0);
   REQUIRE(spawned.isOk());
 
@@ -190,8 +190,7 @@ TEST_CASE("spawn past the live-fiber cap faults loudly and recovers after a swee
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {}, nullptr};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.stackSpan(), pools.localsSpan(),
-                           pools.frameSpan());
+  FiberScheduler scheduler(image, surface, pools.arena);
   for (uint32_t i = 0; i < kMaxLiveFibers; i++) {
     REQUIRE(scheduler.spawn(0).isOk());
   }
@@ -213,8 +212,7 @@ TEST_CASE("spawn of an invalid funcId propagates the start failure") {
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {}, nullptr};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.stackSpan(), pools.localsSpan(),
-                           pools.frameSpan());
+  FiberScheduler scheduler(image, surface, pools.arena);
   const Result<uint32_t> bad = scheduler.spawn(9);
   REQUIRE(!bad.isOk());
   CHECK(bad.error() == ErrorCode::HostError);
@@ -233,8 +231,7 @@ TEST_CASE("a cancelled fiber is skipped by the round and reclaimed") {
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {}, nullptr};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.stackSpan(), pools.localsSpan(),
-                           pools.frameSpan());
+  FiberScheduler scheduler(image, surface, pools.arena);
   const Result<uint32_t> spawned = scheduler.spawn(0);
   REQUIRE(spawned.isOk());
   scheduler.cancel(spawned.value());

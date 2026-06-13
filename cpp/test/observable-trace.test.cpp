@@ -26,6 +26,7 @@ using mindcraft::kMaxStackSize;
 using mindcraft::ObservableTraceWriter;
 using mindcraft::Op;
 using mindcraft::ProgramImage;
+using mindcraft::RegionArena;
 using mindcraft::RuntimeSurface;
 using mindcraft::Span;
 using mindcraft::Value;
@@ -130,12 +131,12 @@ TEST_CASE("a faulting rule traces the fault line shape and respawns next think")
   FaultTraceTap tap(writer);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {}, &tap};
-  std::array<Value, kMaxLiveFibers * kMaxStackSize> stackStorage;
-  std::array<Value, kMaxLiveFibers * kMaxLocalsSize> localsStorage;
-  std::array<Frame, kMaxLiveFibers * kMaxFrameDepth> frameStorage;
-  FiberScheduler scheduler(image, surface, {stackStorage.data(), stackStorage.size()},
-                           {localsStorage.data(), localsStorage.size()},
-                           {frameStorage.data(), frameStorage.size()});
+  std::array<uint8_t,
+             kMaxLiveFibers*(kMaxStackSize * sizeof(Value) + kMaxLocalsSize * sizeof(Value) +
+                             kMaxFrameDepth * sizeof(Frame))>
+      arenaBytes;
+  RegionArena arena(Span<uint8_t>(arenaBytes.data(), arenaBytes.size()));
+  FiberScheduler scheduler(image, surface, arena);
   BrainRuntime brain(image, scheduler, surface);
   REQUIRE(brain.startup().isOk());
 

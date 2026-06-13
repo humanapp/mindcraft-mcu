@@ -5,8 +5,8 @@
 #include "core/codec/program-reader.h"
 #include "core/platform/span.h"
 #include "core/runtime/load-error.h"
-#include "core/runtime/program-arena.h"
 #include "core/runtime/program.h"
+#include "core/runtime/region-arena.h"
 #include "core/runtime/result.h"
 #include "targets/microbit-v2/abi/type-atom-id.h"
 
@@ -89,7 +89,7 @@ inline void emptyRequiredSectionsThroughVars(WireBuilder& w) {
 inline mindcraft::Result<mindcraft::ProgramImage, mindcraft::LoadError>
 decode(const WireBuilder& wire, std::vector<uint8_t>& storage) {
   constexpr mindcraft::ProgramReaderOptions options{mindcraft::kMicroBitV2TypeAtomIdCount};
-  mindcraft::ProgramArena arena(mindcraft::Span<uint8_t>(storage.data(), storage.size()));
+  mindcraft::RegionArena arena(mindcraft::Span<uint8_t>(storage.data(), storage.size()));
   return mindcraft::readProgramImage(wire.span(), arena, options);
 }
 

@@ -1,13 +1,15 @@
 #include "doctest/doctest.h"
 
 #include "codal/device-port.h"
+#include "codal/device-sizing.h"
+#include "codal/host-loop.h"
 #include "core/codec/observable-trace.h"
 #include "core/codec/program-reader.h"
 #include "core/runtime/brain-runtime.h"
 #include "core/runtime/execution-context.h"
 #include "core/runtime/fiber-scheduler.h"
 #include "core/runtime/load-error.h"
-#include "core/runtime/program-arena.h"
+#include "core/runtime/region-arena.h"
 #include "core/runtime/value.h"
 #include "core/runtime/vm.h"
 #include "fixture-paths.h"
@@ -26,17 +28,14 @@ using mindcraft::ByteSpan;
 using mindcraft::ErrorCode;
 using mindcraft::ExecutionContext;
 using mindcraft::FiberScheduler;
-using mindcraft::Frame;
-using mindcraft::kMaxFrameDepth;
-using mindcraft::kMaxLiveFibers;
-using mindcraft::kMaxLocalsSize;
-using mindcraft::kMaxStackSize;
+using mindcraft::HostLoop;
 using mindcraft::kMicroBitV2TypeAtomIdCount;
+using mindcraft::kRecommendedVmArenaBytes;
 using mindcraft::LoadError;
 using mindcraft::ObservableTraceWriter;
-using mindcraft::ProgramArena;
 using mindcraft::ProgramImage;
 using mindcraft::ProgramReaderOptions;
+using mindcraft::RegionArena;
 using mindcraft::Result;
 using mindcraft::RuntimeSurface;
 using mindcraft::Span;
@@ -152,8 +151,11 @@ TEST_CASE("the button-display fixture byte-matches the golden observable trace")
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".press-cycles.trace");
 
-  std::vector<uint8_t> arenaStorage(256 * 1024);
-  ProgramArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  // One carve-on-demand arena at the device-recommended size holds the decoded
+  // program image and, above it, the fibers' segments carved on demand - the
+  // device's single-arena model, exercised end to end on host.
+  std::vector<uint8_t> arenaStorage(kRecommendedVmArenaBytes);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
   constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
   const Result<ProgramImage, LoadError> decoded =
       readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
@@ -170,14 +172,13 @@ TEST_CASE("the button-display fixture byte-matches the golden observable trace")
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap};
 
-  std::array<Value, kMaxLiveFibers * kMaxStackSize> stackStorage;
-  std::array<Value, kMaxLiveFibers * kMaxLocalsSize> localsStorage;
-  std::array<Frame, kMaxLiveFibers * kMaxFrameDepth> frameStorage;
-  FiberScheduler scheduler(image, surface, {stackStorage.data(), stackStorage.size()},
-                           {localsStorage.data(), localsStorage.size()},
-                           {frameStorage.data(), frameStorage.size()});
+  FiberScheduler scheduler(image, surface, arena);
   BrainRuntime brain(image, scheduler, surface);
-  REQUIRE(brain.startup().isOk());
+
+  // Drive the real cpp/codal host loop (not a test-only think driver): it
+  // sources time through the clock port and calls think() once per tick.
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
 
   float lastThinkTimeMs = 0;
   for (int i = 0; i < 10; i++) {
@@ -186,10 +187,12 @@ TEST_CASE("the button-display fixture byte-matches the golden observable trace")
       microbit.buttons.pressed[0] = step.buttonA == 1;
     }
     const float timeMs = lastThinkTimeMs + step.advanceMs;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
     // Mirrors the TS harness's dt stamping: dt stays 0 until a prior think exists.
     writer.tick(static_cast<uint32_t>(i + 1), timeMs,
                 lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
-    REQUIRE(brain.think(timeMs).isOk());
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
     lastThinkTimeMs = timeMs;
   }
 

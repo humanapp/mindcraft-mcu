@@ -3,10 +3,8 @@
 namespace mindcraft {
 
 FiberScheduler::FiberScheduler(const ProgramImage& program, const RuntimeSurface& surface,
-                               Span<Value> stackStorage, Span<Value> localsStorage,
-                               Span<Frame> frameStorage)
-    : program_(program), surface_(surface), stackPool_(stackStorage), localsPool_(localsStorage),
-      framePool_(frameStorage) {}
+                               RegionArena& arena)
+    : program_(program), surface_(surface), arena_(arena) {}
 
 Result<uint32_t> FiberScheduler::spawn(uint32_t funcId) {
   FiberRecord* record = nullptr;
@@ -20,22 +18,14 @@ Result<uint32_t> FiberScheduler::spawn(uint32_t funcId) {
     return Result<uint32_t>::fail(ErrorCode::StackOverflow);
   }
 
-  Value* stack = stackPool_.acquire(kMaxStackSize);
-  Value* locals = localsPool_.acquire(kMaxLocalsSize);
-  Frame* frames = framePool_.acquire(kMaxFrameDepth);
-  const auto releaseRegions = [&] {
-    if (frames != nullptr) {
-      framePool_.releaseTo(frames);
-    }
-    if (locals != nullptr) {
-      localsPool_.releaseTo(locals);
-    }
-    if (stack != nullptr) {
-      stackPool_.releaseTo(stack);
-    }
-  };
+  // Carve this fiber's three segments above the arena's high-water; on any
+  // shortfall roll the whole fiber's carve back so the arena is unchanged.
+  const RegionArena::Mark mark = arena_.mark();
+  Value* stack = arena_.carve<Value>(kMaxStackSize);
+  Value* locals = arena_.carve<Value>(kMaxLocalsSize);
+  Frame* frames = arena_.carve<Frame>(kMaxFrameDepth);
   if (stack == nullptr || locals == nullptr || frames == nullptr) {
-    releaseRegions();
+    arena_.releaseTo(mark);
     return Result<uint32_t>::fail(ErrorCode::StackOverflow);
   }
 
@@ -48,7 +38,7 @@ Result<uint32_t> FiberScheduler::spawn(uint32_t funcId) {
   exec.frameLimit = kMaxFrameDepth;
   const Status started = startExecution(exec, program_, funcId, {});
   if (!started.isOk()) {
-    releaseRegions();
+    arena_.releaseTo(mark);
     return Result<uint32_t>::fail(started.error());
   }
 
@@ -57,6 +47,7 @@ Result<uint32_t> FiberScheduler::spawn(uint32_t funcId) {
   record->id = fiberId;
   record->state = FiberState::Runnable;
   record->exec = exec;
+  record->regionMark = mark;
   enqueue(fiberId);
   return Result<uint32_t>::ok(fiberId);
 }
@@ -112,20 +103,18 @@ uint32_t FiberScheduler::tick() {
 
 void FiberScheduler::sweep() {
   for (;;) {
-    // The record with the highest region base is the most recently spawned
-    // live fiber; regions release in last-acquired-first order.
+    // The record with the highest region mark is the most recently spawned
+    // live fiber; segments release in last-carved-first order.
     FiberRecord* top = nullptr;
     for (FiberRecord& record : records_) {
-      if (record.inUse && (top == nullptr || record.exec.stack > top->exec.stack)) {
+      if (record.inUse && (top == nullptr || record.regionMark > top->regionMark)) {
         top = &record;
       }
     }
     if (top == nullptr || top->state == FiberState::Runnable || top->state == FiberState::Waiting) {
       return;
     }
-    framePool_.releaseTo(top->exec.frames);
-    localsPool_.releaseTo(top->exec.locals);
-    stackPool_.releaseTo(top->exec.stack);
+    arena_.releaseTo(top->regionMark);
     top->inUse = false;
   }
 }

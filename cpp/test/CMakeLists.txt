@@ -13,22 +13,24 @@ add_executable(mindcraft-tests
   error-code.test.cpp
   fiber-scheduler.test.cpp
   fixture-paths.test.cpp
+  host-loop.test.cpp
   load-error.test.cpp
   microbit-v2-abi.test.cpp
   observable-trace.test.cpp
-  program-arena.test.cpp
   program-dump.test.cpp
   program-reader.test.cpp
   program.test.cpp
+  region-arena.test.cpp
   result.test.cpp
   span.test.cpp
-  stack-pool.test.cpp
   trace-parity.test.cpp
   value.test.cpp
   vm.test.cpp
 )
 
-target_link_libraries(mindcraft-tests PRIVATE mindcraft-core)
+# mindcraft-codal links mindcraft-core PUBLIC, so the core library and its
+# include paths reach the tests transitively.
+target_link_libraries(mindcraft-tests PRIVATE mindcraft-codal)
 
 target_include_directories(mindcraft-tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(mindcraft-tests SYSTEM PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/vendor)

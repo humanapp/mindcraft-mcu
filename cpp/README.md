@@ -11,10 +11,14 @@ everything here mirrors its observable semantics.
   depends on none of them.
   - `core/platform/` - byte-stream and common primitives.
   - `core/runtime/` - value model, error/status types, ABI id mirrors.
-- `codal/` - the CODAL-common, board-agnostic layer: the device-port
-  interfaces the host loop drives (`codal/device-port.h`), with the
-  CODAL-facing host-loop bridge to follow. Depends on `core/` and CODAL only;
-  board specifics are forbidden (enforced by `check-deps.sh`).
+- `codal/` - the CODAL-common, board-agnostic layer (the `mindcraft-codal`
+  library): the device-port interfaces (`codal/device-port.h`), the host-loop
+  driver (`codal/host-loop.h` - sources time through the clock port and drives
+  one `BrainRuntime` think per tick, single-entry), the device fault-mode
+  policy (`codal/fault-mode.h` - stop ticking, then loop the fault face plus a
+  scrolled diagnostic code), and the device memory sizing analysis for the VM's
+  single carve-on-demand arena (`codal/device-sizing.h`). Depends on `core/` and CODAL only; board specifics
+  are forbidden (enforced by `check-deps.sh`).
 - `targets/microbit-v2/` - the micro:bit v2 device firmware: a pinned copy of
   the official `microbit-v2-samples` CODAL build scaffold (see its
   `VENDORING.md`) whose `source/` plus `cpp/core/` compile into
@@ -58,10 +62,12 @@ The C++ reader tests decode the committed binary `.mcprogram.bin` fixtures
 and byte-compare their canonical program dumps against the committed
 `.mcprogram.dump` goldens. The behavioral parity test
 (`test/trace-parity.test.cpp`) additionally runs the `button-display` binary
-under the mirrored input schedule and byte-compares its observable trace
-against the committed `button-display.press-cycles.trace` golden (format
-record: wodal `targets/microbit-v2/mindcraft/observable-trace.ts`; generator:
-the sibling spec). The two fixture roots are wired into the test tree by
+under the mirrored input schedule - driven through the real `codal/` host loop
+(`HostLoop`) over the device-port stub, sourcing time through the clock port -
+and byte-compares its observable trace against the committed
+`button-display.press-cycles.trace` golden (format record: wodal
+`targets/microbit-v2/mindcraft/observable-trace.ts`; generator: the sibling
+spec). The two fixture roots are wired into the test tree by
 CMake (see `test/fixture-paths.h`):
 
 - core reference vectors: `external/mindcraft-lang/packages/core/src/runtime/
@@ -155,6 +161,29 @@ configurations:
 - No process-global mutable state: the VM, scheduler, and runtime are
   constructed instances.
 - Formatting: `.clang-format` in this directory; enforced by `check.sh`.
+
+## Device memory sizing
+
+The VM working set is a single carve-on-demand arena (`core/runtime/
+region-arena.h`), not a set of pre-allocated worst-case pools. A target hands
+the runtime one block of RAM; the program image is allocated once at its base,
+and each live fiber's stack/locals/frame segments are carved above it at spawn
+(`FiberScheduler`) and released at reclaim. A dormant fiber slot costs zero
+arena bytes, a frame-heavy and a stack-heavy fiber draw from the same free
+space, and the arena's size is the one number a target picks - against the free
+SRAM left after CODAL, not a `fibers x caps` product.
+
+`codal/device-sizing.h` carries the analysis used to provision that arena: the
+per-fiber segment ceiling (`kPerFiberSegmentBytes`, an upper bound a fiber
+carves up front today; the segment-depth work in the async load shrinks it to a
+fiber's actual depth), a `vmArenaBytesFor(imageBytes, peakLiveFibers)` helper,
+and a recommended single-arena size (`kRecommendedVmArenaBytes`, 48 KiB) for the
+button-display slice and small brains on a 128 KiB-SRAM class device. A brain
+that needs more concurrently live fibers than the provisioned arena holds faults
+`ErrorCode::StackOverflow` loudly at spawn rather than overrunning. The host
+parity build allocates the same single arena (the image plus carved fiber
+segments), so CI exercises the device model; the board build links and runs
+against the real SRAM as the final validation.
 
 ## Mirror headers
 

@@ -4,8 +4,8 @@
 
 #include "core/platform/span.h"
 #include "core/runtime/load-error.h"
-#include "core/runtime/program-arena.h"
 #include "core/runtime/program.h"
+#include "core/runtime/region-arena.h"
 #include "core/runtime/result.h"
 
 namespace mindcraft {
@@ -47,7 +47,7 @@ struct ProgramReaderOptions {
  * @param arena - Arena the decoded pools are allocated from.
  * @param options - Target type-atom range used to validate TYPS atom entries.
  */
-Result<ProgramImage, LoadError> readProgramImage(ByteSpan wire, ProgramArena& arena,
+Result<ProgramImage, LoadError> readProgramImage(ByteSpan wire, RegionArena& arena,
                                                  const ProgramReaderOptions& options);
 
 } // namespace mindcraft

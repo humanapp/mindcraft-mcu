@@ -6,8 +6,8 @@
 #include "core/platform/span.h"
 #include "core/runtime/execution-state.h"
 #include "core/runtime/program.h"
+#include "core/runtime/region-arena.h"
 #include "core/runtime/result.h"
-#include "core/runtime/stack-pool.h"
 #include "core/runtime/value.h"
 #include "core/runtime/vm.h"
 
@@ -48,8 +48,8 @@ enum class FiberState : uint8_t {
 
 /**
  * One live fiber: its id, lifecycle state, and execution state. The
- * execution state's regions are carved from the scheduler's shared pools at
- * spawn and released when the record is reclaimed.
+ * execution state's stack/locals/frame segments are carved from the
+ * scheduler's shared arena at spawn and released when the record is reclaimed.
  */
 struct FiberRecord {
   /** True while the record holds a fiber (live or awaiting region reclaim). */
@@ -58,6 +58,8 @@ struct FiberRecord {
   uint32_t id;
   FiberState state;
   ExecutionState exec;
+  /** Arena high-water before this fiber's segments; reclaim releases to it. */
+  RegionArena::Mark regionMark;
 };
 
 /**
@@ -65,8 +67,11 @@ struct FiberRecord {
  * round: every fiber in the runnable queue at entry receives exactly one
  * {@link kDefaultBudget} slice in FIFO order, and anything enqueued while
  * the round runs joins the next round. Fiber records live in a fixed array
- * of {@link kMaxLiveFibers} slots; spawn faults loudly when no slot or
- * region storage is free. Mirrors `FiberScheduler` in
+ * of {@link kMaxLiveFibers} slots (the count cap, a few hundred bytes); their
+ * stack/locals/frame segments are carved on demand from one shared {@link
+ * RegionArena} and released at reclaim, so a dormant slot costs no arena
+ * bytes. Spawn faults loudly when no record slot or arena space is free.
+ * Mirrors `FiberScheduler` in
  * external/mindcraft-lang/packages/core/src/runtime/vm.ts under the
  * round-tick semantics.
  *
@@ -76,13 +81,14 @@ struct FiberRecord {
 class FiberScheduler {
 public:
   /**
-   * A scheduler executing `program` against `surface`. Fiber stack regions
-   * are carved from the three storage spans ({@link kMaxStackSize},
-   * {@link kMaxLocalsSize}, and {@link kMaxFrameDepth} slots per fiber);
-   * all referenced storage must outlive the scheduler.
+   * A scheduler executing `program` against `surface`, carving each fiber's
+   * stack/locals/frame segments ({@link kMaxStackSize}, {@link kMaxLocalsSize},
+   * and {@link kMaxFrameDepth} slots) from `arena` at spawn. `arena` is the
+   * shared VM working-memory block - typically the same one the program image
+   * was decoded into, so segments are carved above it - and must outlive the
+   * scheduler.
    */
-  FiberScheduler(const ProgramImage& program, const RuntimeSurface& surface,
-                 Span<Value> stackStorage, Span<Value> localsStorage, Span<Frame> frameStorage);
+  FiberScheduler(const ProgramImage& program, const RuntimeSurface& surface, RegionArena& arena);
 
   /**
    * Spawns a runnable fiber executing `funcId` with no arguments and
@@ -127,9 +133,7 @@ private:
 
   const ProgramImage& program_;
   RuntimeSurface surface_;
-  StackRegionPool<Value> stackPool_;
-  StackRegionPool<Value> localsPool_;
-  StackRegionPool<Frame> framePool_;
+  RegionArena& arena_;
   std::array<FiberRecord, kMaxLiveFibers> records_{};
   // FIFO run queue. Each live fiber is enqueued at most once (at spawn or on
   // a budget re-enqueue after being dequeued), so kMaxLiveFibers bounds it.

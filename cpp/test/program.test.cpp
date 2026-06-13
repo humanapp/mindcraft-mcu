@@ -1,8 +1,8 @@
 #include "doctest/doctest.h"
 
 #include "core/runtime/core-type-atom-id.h"
-#include "core/runtime/program-arena.h"
 #include "core/runtime/program.h"
+#include "core/runtime/region-arena.h"
 
 #include <array>
 #include <cstdint>
@@ -23,8 +23,8 @@ using mindcraft::kNoTypeIdx;
 using mindcraft::MapKeyKind;
 using mindcraft::Op;
 using mindcraft::PageMetadata;
-using mindcraft::ProgramArena;
 using mindcraft::ProgramImage;
+using mindcraft::RegionArena;
 using mindcraft::RuleAncestor;
 using mindcraft::Span;
 using mindcraft::StringRef;
@@ -37,7 +37,7 @@ TEST_CASE("a synthetic program image constructs in one arena and reads back") {
   static const uint8_t kStringData[] = {'p', 'a', 'g', 'e', '-', 'a', 'a', 'n', 's', 'w', 'e', 'r'};
 
   alignas(8) std::array<uint8_t, 2048> storage{};
-  ProgramArena arena(Span<uint8_t>(storage.data(), storage.size()));
+  RegionArena arena(Span<uint8_t>(storage.data(), storage.size()));
 
   StringRef* strings = arena.allocate<StringRef>(2);
   REQUIRE(strings != nullptr);

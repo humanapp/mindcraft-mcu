@@ -100,7 +100,7 @@ DecodeStatus checkStringIndex(uint32_t index, uint32_t stringTotal) {
   return DecodeStatus::ok();
 }
 
-DecodeStatus readCstrSection(ByteCursor& cursor, ProgramArena& arena, ByteSpan wire,
+DecodeStatus readCstrSection(ByteCursor& cursor, RegionArena& arena, ByteSpan wire,
                              ProgramImage& image, uint32_t& stringTotal) {
   MC_READ(total, cursor.readVarUint());
   MC_CHECK(checkCountFits(total, cursor));
@@ -242,7 +242,7 @@ DecodeStatus readTypsEntries(ByteCursor& cursor, uint32_t typeCount, uint32_t st
   return DecodeStatus::ok();
 }
 
-DecodeStatus readTypsSection(ByteCursor& cursor, ProgramArena& arena, uint32_t stringTotal,
+DecodeStatus readTypsSection(ByteCursor& cursor, RegionArena& arena, uint32_t stringTotal,
                              const ProgramReaderOptions& options, ProgramImage& image) {
   MC_READ(typeCount, cursor.readVarUint());
   MC_CHECK(checkCountFits(typeCount, cursor));
@@ -280,7 +280,7 @@ DecodeStatus readNumberEntry(ByteCursor& cursor, float& out) {
   return DecodeStatus::fail(LoadError::InvalidNumberDiscriminant);
 }
 
-DecodeStatus readCnumSection(ByteCursor& cursor, ProgramArena& arena, ProgramImage& image) {
+DecodeStatus readCnumSection(ByteCursor& cursor, RegionArena& arena, ProgramImage& image) {
   MC_READ(count, cursor.readVarUint());
   MC_CHECK(checkCountFits(count, cursor));
   float* numbers = arena.allocate<float>(count);
@@ -461,7 +461,7 @@ DecodeStatus readValueNode(ByteCursor& cursor, const ProgramImage& image, uint32
   return DecodeStatus::ok();
 }
 
-DecodeStatus readCvalSection(ByteCursor& cursor, ProgramArena& arena, uint32_t stringTotal,
+DecodeStatus readCvalSection(ByteCursor& cursor, RegionArena& arena, uint32_t stringTotal,
                              ProgramImage& image) {
   MC_READ(poolCount, cursor.readVarUint());
   MC_CHECK(checkCountFits(poolCount, cursor));
@@ -544,7 +544,7 @@ DecodeStatus readFuncBodies(ByteCursor& cursor, uint32_t funcCount, FunctionByte
   return DecodeStatus::ok();
 }
 
-DecodeStatus readFuncSection(ByteCursor& cursor, ProgramArena& arena, ProgramImage& image) {
+DecodeStatus readFuncSection(ByteCursor& cursor, RegionArena& arena, ProgramImage& image) {
   MC_READ(funcCount, cursor.readVarUint());
   MC_CHECK(checkCountFits(funcCount, cursor));
   ByteCursor measure = cursor;
@@ -562,7 +562,7 @@ DecodeStatus readFuncSection(ByteCursor& cursor, ProgramArena& arena, ProgramIma
   return DecodeStatus::ok();
 }
 
-DecodeStatus readVarsSection(ByteCursor& cursor, ProgramArena& arena, uint32_t stringTotal,
+DecodeStatus readVarsSection(ByteCursor& cursor, RegionArena& arena, uint32_t stringTotal,
                              ProgramImage& image) {
   MC_READ(count, cursor.readVarUint());
   MC_CHECK(checkCountFits(count, cursor));
@@ -579,7 +579,7 @@ DecodeStatus readVarsSection(ByteCursor& cursor, ProgramArena& arena, uint32_t s
   return DecodeStatus::ok();
 }
 
-DecodeStatus readActsSection(ByteCursor& cursor, ProgramArena& arena, ProgramImage& image) {
+DecodeStatus readActsSection(ByteCursor& cursor, RegionArena& arena, ProgramImage& image) {
   MC_READ(count, cursor.readVarUint());
   MC_CHECK(checkCountFits(count, cursor));
   BytecodeAction* actions = arena.allocate<BytecodeAction>(count);
@@ -608,7 +608,7 @@ DecodeStatus readActsSection(ByteCursor& cursor, ProgramArena& arena, ProgramIma
   return DecodeStatus::ok();
 }
 
-DecodeStatus readRulfSection(ByteCursor& cursor, ProgramArena& arena, ProgramImage& image) {
+DecodeStatus readRulfSection(ByteCursor& cursor, RegionArena& arena, ProgramImage& image) {
   MC_READ(count, cursor.readVarUint());
   MC_CHECK(checkCountFits(count, cursor));
   uint32_t* funcIds = arena.allocate<uint32_t>(count);
@@ -623,7 +623,7 @@ DecodeStatus readRulfSection(ByteCursor& cursor, ProgramArena& arena, ProgramIma
   return DecodeStatus::ok();
 }
 
-DecodeStatus readRancSection(ByteCursor& cursor, ProgramArena& arena, ProgramImage& image) {
+DecodeStatus readRancSection(ByteCursor& cursor, RegionArena& arena, ProgramImage& image) {
   MC_READ(count, cursor.readVarUint());
   MC_CHECK(checkCountFits(count, cursor));
   RuleAncestor* ancestors = arena.allocate<RuleAncestor>(count);
@@ -686,7 +686,7 @@ DecodeStatus readPageBodies(ByteCursor& cursor, uint32_t pageCount, uint32_t str
   return DecodeStatus::ok();
 }
 
-DecodeStatus readPageSection(ByteCursor& cursor, ProgramArena& arena, uint32_t stringTotal,
+DecodeStatus readPageSection(ByteCursor& cursor, RegionArena& arena, uint32_t stringTotal,
                              ProgramImage& image) {
   MC_READ(pageCount, cursor.readVarUint());
   MC_CHECK(checkCountFits(pageCount, cursor));
@@ -711,7 +711,7 @@ DecodeStatus readPageSection(ByteCursor& cursor, ProgramArena& arena, uint32_t s
   return DecodeStatus::ok();
 }
 
-DecodeStatus decodeProgram(ByteSpan wire, ProgramArena& arena, const ProgramReaderOptions& options,
+DecodeStatus decodeProgram(ByteSpan wire, RegionArena& arena, const ProgramReaderOptions& options,
                            ProgramImage& image) {
   ByteCursor cursor(wire);
   for (uint8_t expected : kMagic) {
@@ -755,7 +755,7 @@ DecodeStatus decodeProgram(ByteSpan wire, ProgramArena& arena, const ProgramRead
 
 } // namespace
 
-Result<ProgramImage, LoadError> readProgramImage(ByteSpan wire, ProgramArena& arena,
+Result<ProgramImage, LoadError> readProgramImage(ByteSpan wire, RegionArena& arena,
                                                  const ProgramReaderOptions& options) {
   ProgramImage image{};
   const DecodeStatus status = decodeProgram(wire, arena, options, image);

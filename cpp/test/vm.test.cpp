@@ -4,7 +4,7 @@
 #include "core/runtime/core-type-atom-id.h"
 #include "core/runtime/execution-state.h"
 #include "core/runtime/program.h"
-#include "core/runtime/stack-pool.h"
+#include "core/runtime/region-arena.h"
 #include "core/runtime/value.h"
 #include "core/runtime/vm.h"
 #include "vm-harness.h"
@@ -39,11 +39,11 @@ using mindcraft::operandSchemaFor;
 using mindcraft::OperandSpec;
 using mindcraft::OpOperandSchema;
 using mindcraft::ProgramImage;
+using mindcraft::RegionArena;
 using mindcraft::runExecution;
 using mindcraft::RunResult;
 using mindcraft::RunStatus;
 using mindcraft::Span;
-using mindcraft::StackRegionPool;
 using mindcraft::startExecution;
 using mindcraft::Status;
 using mindcraft::Value;
@@ -778,18 +778,16 @@ TEST_CASE("a suspended state's regions survive another state's run on the shared
   std::vector<uint8_t> storage(16 * 1024);
   const ProgramImage image = b.build(storage);
 
-  std::array<Value, 32> valueStorage;
-  std::array<Frame, 8> frameStorage;
-  StackRegionPool<Value> valuePool(Span<Value>(valueStorage.data(), valueStorage.size()));
-  StackRegionPool<Frame> framePool(Span<Frame>(frameStorage.data(), frameStorage.size()));
+  std::array<uint8_t, 32 * sizeof(Value) + 8 * sizeof(Frame)> arenaBytes;
+  RegionArena arena(Span<uint8_t>(arenaBytes.data(), arenaBytes.size()));
 
   const auto bindState = [&](uint32_t stackSlots, uint32_t localSlots, uint32_t frameSlots) {
     ExecutionState state{};
-    state.stack = valuePool.acquire(stackSlots);
+    state.stack = arena.carve<Value>(stackSlots);
     state.stackLimit = stackSlots;
-    state.locals = valuePool.acquire(localSlots);
+    state.locals = arena.carve<Value>(localSlots);
     state.localsLimit = localSlots;
-    state.frames = framePool.acquire(frameSlots);
+    state.frames = arena.carve<Frame>(frameSlots);
     state.frameLimit = frameSlots;
     REQUIRE(state.stack != nullptr);
     REQUIRE(state.locals != nullptr);
@@ -803,15 +801,15 @@ TEST_CASE("a suspended state's regions survive another state's run on the shared
   suspended.budget = 2;
   REQUIRE(runExecution(suspended, image).status == RunStatus::Yielded);
 
-  // New work binds above the suspended high-water and runs to completion.
+  // New work carves above the suspended high-water and runs to completion.
+  const RegionArena::Mark transientMark = arena.mark();
   ExecutionState transient = bindState(8, 4, 2);
   REQUIRE(startExecution(transient, image, 0, {}).isOk());
   transient.budget = 100;
   const RunResult transientResult = runExecution(transient, image);
   REQUIRE(transientResult.status == RunStatus::Done);
   CHECK(transientResult.result.asNumber() == 3.0f);
-  valuePool.releaseTo(transient.stack);
-  framePool.releaseTo(transient.frames);
+  arena.releaseTo(transientMark);
 
   // The suspended state's live range was preserved; it resumes and finishes.
   CHECK(suspended.stack[0].asNumber() == 1.0f);
