@@ -17,6 +17,7 @@ add_executable(mindcraft-tests
   load-error.test.cpp
   microbit-v2-abi.test.cpp
   observable-trace.test.cpp
+  pool.test.cpp
   program-dump.test.cpp
   program-reader.test.cpp
   program.test.cpp

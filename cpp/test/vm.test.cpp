@@ -765,7 +765,7 @@ TEST_CASE("an opcode value outside the declared set faults, never UB") {
   CHECK(result.site.pc == 0);
 }
 
-TEST_CASE("a suspended state's regions survive another state's run on the shared pool") {
+TEST_CASE("a suspended state survives while an independent state runs to completion") {
   ProgramBuilder b;
   b.number(1.0f).number(2.0f).number(3.0f);
   b.beginFunction()
@@ -781,13 +781,18 @@ TEST_CASE("a suspended state's regions survive another state's run on the shared
   std::array<uint8_t, 32 * sizeof(Value) + 8 * sizeof(Frame)> arenaBytes;
   RegionArena arena(Span<uint8_t>(arenaBytes.data(), arenaBytes.size()));
 
+  // Each state's regions come from independent arena allocations, mirroring the
+  // per-fiber workspaces the scheduler draws from its pool.
   const auto bindState = [&](uint32_t stackSlots, uint32_t localSlots, uint32_t frameSlots) {
     ExecutionState state{};
-    state.stack = arena.carve<Value>(stackSlots);
+    state.stack =
+        static_cast<Value*>(arena.allocateBytes(stackSlots * sizeof(Value), alignof(Value)));
     state.stackLimit = stackSlots;
-    state.locals = arena.carve<Value>(localSlots);
+    state.locals =
+        static_cast<Value*>(arena.allocateBytes(localSlots * sizeof(Value), alignof(Value)));
     state.localsLimit = localSlots;
-    state.frames = arena.carve<Frame>(frameSlots);
+    state.frames =
+        static_cast<Frame*>(arena.allocateBytes(frameSlots * sizeof(Frame), alignof(Frame)));
     state.frameLimit = frameSlots;
     REQUIRE(state.stack != nullptr);
     REQUIRE(state.locals != nullptr);
@@ -801,17 +806,15 @@ TEST_CASE("a suspended state's regions survive another state's run on the shared
   suspended.budget = 2;
   REQUIRE(runExecution(suspended, image).status == RunStatus::Yielded);
 
-  // New work carves above the suspended high-water and runs to completion.
-  const RegionArena::Mark transientMark = arena.mark();
+  // A second, independent state runs to completion.
   ExecutionState transient = bindState(8, 4, 2);
   REQUIRE(startExecution(transient, image, 0, {}).isOk());
   transient.budget = 100;
   const RunResult transientResult = runExecution(transient, image);
   REQUIRE(transientResult.status == RunStatus::Done);
   CHECK(transientResult.result.asNumber() == 3.0f);
-  arena.releaseTo(transientMark);
 
-  // The suspended state's live range was preserved; it resumes and finishes.
+  // The suspended state's live range was untouched; it resumes and finishes.
   CHECK(suspended.stack[0].asNumber() == 1.0f);
   CHECK(suspended.stack[1].asNumber() == 2.0f);
   suspended.budget = 100;
@@ -881,7 +884,10 @@ TEST_CASE("LOAD_VAR_SLOT and STORE_VAR_SLOT round-trip brain variables") {
   std::vector<uint8_t> storage(16 * 1024);
   const ProgramImage image = b.build(storage);
 
+  std::array<uint8_t, 256> ctxStorage;
+  mindcraft::RegionArena ctxArena(Span<uint8_t>(ctxStorage.data(), ctxStorage.size()));
   mindcraft::ExecutionContext ctx;
+  REQUIRE(ctx.bindSlots(ctxArena, 1, 0));
   mindcraft::RuntimeSurface surface;
   surface.context = &ctx;
 
@@ -891,7 +897,10 @@ TEST_CASE("LOAD_VAR_SLOT and STORE_VAR_SLOT round-trip brain variables") {
   CHECK(stored.result.asNumber() == 9.0f);
   CHECK(ctx.variables[0].asNumber() == 9.0f);
 
+  std::array<uint8_t, 256> freshStorage;
+  mindcraft::RegionArena freshArena(Span<uint8_t>(freshStorage.data(), freshStorage.size()));
   mindcraft::ExecutionContext fresh;
+  REQUIRE(fresh.bindSlots(freshArena, 1, 0));
   surface.context = &fresh;
   Machine unstored;
   REQUIRE(startExecution(unstored.state, image, 1, {}).isOk());
@@ -954,7 +963,10 @@ TEST_CASE("HOST_ACTION_CALL dispatches the registered body per the calling conve
   const ProgramImage image = b.build(storage);
 
   const mindcraft::HostActionBinding bindings[1] = {{7, &execSumAction, nullptr, nullptr}};
+  std::array<uint8_t, 256> ctxStorage;
+  mindcraft::RegionArena ctxArena(Span<uint8_t>(ctxStorage.data(), ctxStorage.size()));
   mindcraft::ExecutionContext ctx;
+  REQUIRE(ctx.bindSlots(ctxArena, 0, 6));
   RecordingObserver observer;
   mindcraft::RuntimeSurface surface;
   surface.context = &ctx;

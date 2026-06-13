@@ -1,9 +1,11 @@
 #pragma once
 
-#include <array>
+#include <cstddef>
 #include <cstdint>
 
+#include "core/platform/span.h"
 #include "core/runtime/mc-number.h"
+#include "core/runtime/region-arena.h"
 #include "core/runtime/value.h"
 
 namespace mindcraft {
@@ -12,24 +14,17 @@ namespace mindcraft {
 inline constexpr uint32_t kNoCallSiteId = 0xffffffffu;
 
 /**
- * Number of per-callsite host-state slots. Call-site ids at or above this
- * fault `ErrorCode::HostError` when a host dispatch binds them.
- */
-inline constexpr uint32_t kMaxCallSiteStates = 64;
-
-/**
- * Number of brain variable slots. A program whose variable table addresses a
- * slot at or above this faults `ErrorCode::HostError` at the access.
- */
-inline constexpr uint32_t kMaxBrainVariables = 64;
-
-/**
  * Brain-wide runtime state one execution observes: the think-loop time
  * stamps, the bound call site of an in-flight host dispatch, per-callsite
  * host state, and the brain variable slots. Mirrors the runtime-state surface
  * of `ExecutionContext` in
  * external/mindcraft-lang/packages/core/src/runtime/context.ts for the
  * implemented opcode subset.
+ *
+ * The slot tables are sized to the loaded program and drawn from the shared
+ * region by {@link bindSlots} (the brain runtime binds them at startup); they
+ * are empty until then. A slot access past a table's size is a host-contract
+ * violation the VM faults `ErrorCode::HostError`.
  */
 struct ExecutionContext {
   /** Current think time in milliseconds. Stamped before each tick. */
@@ -50,19 +45,41 @@ struct ExecutionContext {
    */
   uint32_t currentCallSiteId = kNoCallSiteId;
 
-  /** Brain variable slots, nil until stored. */
-  std::array<Value, kMaxBrainVariables> variables{};
+  /** Brain variable slots, nil until stored. Sized by {@link bindSlots}. */
+  Span<Value> variables{};
 
   /** Per-callsite host-state slots, keyed by call-site id. */
-  std::array<Value, kMaxCallSiteStates> callSiteStates{};
+  Span<Value> callSiteStates{};
 
   /** Present flags for {@link callSiteStates}; false reads as no state. */
-  std::array<bool, kMaxCallSiteStates> callSiteStatePresent{};
+  Span<bool> callSiteStatePresent{};
+
+  /**
+   * Allocates the slot tables from `arena`: `variableCount` brain-variable
+   * slots (initialized to nil) and `callSiteCount` per-callsite state slots
+   * (initially absent). Returns false when the arena cannot back them, leaving
+   * the tables empty.
+   */
+  bool bindSlots(RegionArena& arena, uint32_t variableCount, uint32_t callSiteCount) {
+    Value* vars = arena.allocate<Value>(variableCount);
+    Value* states = arena.allocate<Value>(callSiteCount);
+    bool* present = arena.allocate<bool>(callSiteCount);
+    if ((variableCount > 0 && vars == nullptr) ||
+        (callSiteCount > 0 && (states == nullptr || present == nullptr))) {
+      return false;
+    }
+    for (uint32_t i = 0; i < variableCount; i++) {
+      vars[i] = kNilValue;
+    }
+    variables = {vars, variableCount};
+    callSiteStates = {states, callSiteCount};
+    callSiteStatePresent = {present, callSiteCount};
+    return true;
+  }
 
   /**
    * True when the current call site holds host state. Requires
-   * {@link currentCallSiteId} to be bound and within
-   * {@link kMaxCallSiteStates}.
+   * {@link currentCallSiteId} to be bound and within {@link callSiteStates}.
    */
   bool hasCallSiteState() const { return callSiteStatePresent[currentCallSiteId]; }
 

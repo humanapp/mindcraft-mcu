@@ -151,9 +151,8 @@ TEST_CASE("the button-display fixture byte-matches the golden observable trace")
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".press-cycles.trace");
 
-  // One carve-on-demand arena at the device-recommended size holds the decoded
-  // program image and, above it, the fibers' segments carved on demand - the
-  // device's single-arena model, exercised end to end on host.
+  // One region at the device-recommended size holds the program image and the
+  // scheduler's fiber pools.
   std::vector<uint8_t> arenaStorage(kRecommendedVmArenaBytes);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
   constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
@@ -175,8 +174,8 @@ TEST_CASE("the button-display fixture byte-matches the golden observable trace")
   FiberScheduler scheduler(image, surface, arena);
   BrainRuntime brain(image, scheduler, surface);
 
-  // Drive the real cpp/codal host loop (not a test-only think driver): it
-  // sources time through the clock port and calls think() once per tick.
+  // Drive the cpp/codal host loop: it sources time through the clock port and
+  // calls think() once per tick.
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 

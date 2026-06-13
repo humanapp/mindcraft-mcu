@@ -59,7 +59,11 @@ export class WodalMicroBitRuntime {
       { microbit: this.microbit } satisfies WodalMicroBitRuntimeContext,
       undefined,
       this.vmEvents,
-      { defaultBudget: deviceProfile.defaultBudget, hookBudget: deviceProfile.hookBudget }
+      {
+        defaultBudget: deviceProfile.defaultBudget,
+        hookBudget: deviceProfile.hookBudget,
+        maxFibers: deviceProfile.maxFibers,
+      }
     );
     brainRuntime.startup();
 

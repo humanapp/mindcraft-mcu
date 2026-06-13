@@ -33,6 +33,9 @@ export interface WodalDeviceProfile {
   /** Instruction budget a page-lifecycle hook fiber receives. Mirrored as a device build constant. */
   readonly hookBudget: number;
 
+  /** Maximum number of concurrently live fibers the scheduler tracks. Mirrored as a device build constant. */
+  readonly maxFibers: number;
+
   /** Creates the Mindcraft module for this profile. */
   readonly createMindcraftModule: () => MindcraftModule;
 
@@ -48,6 +51,7 @@ export const WODAL_DEVICE_PROFILES = Object.freeze({
     numberPrecision: "f32",
     defaultBudget: 1000,
     hookBudget: 10000,
+    maxFibers: 100,
     createMindcraftModule: createMicroBitV2Module,
     createProgramImage: createMicroBitV2ProgramImage,
   } satisfies WodalDeviceProfile),

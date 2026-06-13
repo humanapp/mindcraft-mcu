@@ -162,28 +162,37 @@ configurations:
   constructed instances.
 - Formatting: `.clang-format` in this directory; enforced by `check.sh`.
 
-## Device memory sizing
+## Memory model
 
-The VM working set is a single carve-on-demand arena (`core/runtime/
-region-arena.h`), not a set of pre-allocated worst-case pools. A target hands
-the runtime one block of RAM; the program image is allocated once at its base,
-and each live fiber's stack/locals/frame segments are carved above it at spawn
-(`FiberScheduler`) and released at reclaim. A dormant fiber slot costs zero
-arena bytes, a frame-heavy and a stack-heavy fiber draw from the same free
-space, and the arena's size is the one number a target picks - against the free
-SRAM left after CODAL, not a `fibers x caps` product.
+All VM working memory comes from one allocator over one region
+(`core/runtime/region-arena.h`) - there is no second pool system and nothing is
+pre-sized. The region is a forward-only bump allocator with two clients:
 
-`codal/device-sizing.h` carries the analysis used to provision that arena: the
-per-fiber segment ceiling (`kPerFiberSegmentBytes`, an upper bound a fiber
-carves up front today; the segment-depth work in the async load shrinks it to a
-fiber's actual depth), a `vmArenaBytesFor(imageBytes, peakLiveFibers)` helper,
-and a recommended single-arena size (`kRecommendedVmArenaBytes`, 48 KiB) for the
+- **Program-lifetime data** is bump-allocated once and never individually freed:
+  the decoded program image (the Phase 2 reader) and the program-sized context
+  slot tables (brain variables and per-callsite state, bound at brain startup).
+- **Individually-managed objects** go through `core/runtime/pool.h` - one
+  `Pool<T>` template, shared by every typed pool. A `Pool<T>` carves a `T` slot
+  from the region on first use, recycles it through a free list on release, and
+  chains its slots so the live set is iterable (the basis for scheduler scans
+  now and mark-sweep collection later). The scheduler holds `Pool<FiberRecord>`
+  and `Pool<FiberWorkspace>`; the heap's value-container pools (Phase 6a) are
+  further instances of the same template.
+
+A dormant fiber slot or unused variable costs zero region bytes, fibers free in
+any order (no stack-discipline retention), and the region's size is the one
+number a target picks - against the free SRAM left after CODAL, not a
+`fibers x caps` product.
+
+`codal/device-sizing.h` carries the provisioning analysis: the per-fiber cost
+(`kPerFiberBytes` = workspace + record, an upper bound the segment-depth work
+shrinks later), a `vmRegionBytesFor(programBytes, peakLiveFibers)` helper, and a
+recommended region size (`kRecommendedVmArenaBytes`, 48 KiB) for the
 button-display slice and small brains on a 128 KiB-SRAM class device. A brain
-that needs more concurrently live fibers than the provisioned arena holds faults
-`ErrorCode::StackOverflow` loudly at spawn rather than overrunning. The host
-parity build allocates the same single arena (the image plus carved fiber
-segments), so CI exercises the device model; the board build links and runs
-against the real SRAM as the final validation.
+needing more concurrently live fibers than the region holds faults
+`ErrorCode::StackOverflow` loudly at spawn. The host parity build allocates the
+same single region (image plus pooled fibers), so CI exercises the device model;
+the board build links and runs against real SRAM as the final validation.
 
 ## Mirror headers
 

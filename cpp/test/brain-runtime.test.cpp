@@ -19,7 +19,6 @@ using mindcraft::FiberScheduler;
 using mindcraft::Frame;
 using mindcraft::HostActionBinding;
 using mindcraft::kMaxFrameDepth;
-using mindcraft::kMaxLiveFibers;
 using mindcraft::kMaxLocalsSize;
 using mindcraft::kMaxStackSize;
 using mindcraft::kNoCallSiteId;
@@ -34,15 +33,10 @@ using mindcraft::VmObserver;
 
 namespace {
 
-/**
- * One carve-on-demand arena (the device's single-arena model) sized to hold
- * every record slot's segments at the per-fiber caps, so a test may spawn up to
- * {@link kMaxLiveFibers} fibers at once.
- */
+/** One shared region with room for several fibers' pool slots; tests spawn a few. */
 struct SchedulerStorage {
-  static constexpr uint32_t kArenaBytes =
-      kMaxLiveFibers * (kMaxStackSize * sizeof(Value) + kMaxLocalsSize * sizeof(Value) +
-                        kMaxFrameDepth * sizeof(Frame));
+  static constexpr size_t kArenaBytes =
+      8 * (sizeof(mindcraft::FiberWorkspace) + sizeof(mindcraft::FiberRecord) + 64) + 256;
   std::array<uint8_t, kArenaBytes> bytes;
   RegionArena arena{Span<uint8_t>(bytes.data(), bytes.size())};
 };
@@ -65,7 +59,9 @@ struct CountingObserver : VmObserver {
 
 Value execNoop(void*, ExecutionContext&, Span<const Value>) { return mindcraft::kVoidValue; }
 
-void clearStateOnPageEntered(void*, ExecutionContext& ctx) { ctx.clearCallSiteState(); }
+void markStateOnPageEntered(void*, ExecutionContext& ctx) {
+  ctx.setCallSiteState(Value::boolean(true));
+}
 
 /** A one-page program whose single rule dispatches action 1 at call site 0. */
 ProgramImage rulePageProgram(ProgramBuilder& b, std::vector<uint8_t>& storage) {
@@ -183,20 +179,20 @@ TEST_CASE("page activation runs each call site's page-entered hook bound to it")
   std::vector<uint8_t> storage(16 * 1024);
   const ProgramImage image = rulePageProgram(b, storage);
 
-  const HostActionBinding bindings[1] = {{1, &execNoop, &clearStateOnPageEntered, nullptr}};
+  // The hook records state against whatever call site activation binds; finding
+  // it set on call site 0, with the binding restored afterward, proves the hook
+  // ran bound to that site.
+  const HostActionBinding bindings[1] = {{1, &execNoop, &markStateOnPageEntered, nullptr}};
   ExecutionContext ctx;
-  // Stale state on the page's call site from a prior life; activation drops it.
-  ctx.currentCallSiteId = 0;
-  ctx.setCallSiteState(Value::boolean(true));
-  ctx.currentCallSiteId = kNoCallSiteId;
-
   RuntimeSurface surface{&ctx, {bindings, 1}, nullptr};
   SchedulerStorage pools;
   FiberScheduler scheduler(image, surface, pools.arena);
   BrainRuntime brain(image, scheduler, surface);
   REQUIRE(brain.startup().isOk());
 
-  CHECK(!ctx.callSiteStatePresent[0]);
+  REQUIRE(ctx.callSiteStatePresent.size() >= 1);
+  CHECK(ctx.callSiteStatePresent[0]);
+  CHECK(ctx.callSiteStates[0].asBoolean());
   CHECK(ctx.currentCallSiteId == kNoCallSiteId);
 }
 

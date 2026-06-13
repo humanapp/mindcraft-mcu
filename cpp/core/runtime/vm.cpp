@@ -322,7 +322,7 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       if (ins.a >= program.variableNames.size()) {
         return fault(ErrorCode::ScriptError);
       }
-      if (surface.context == nullptr || ins.a >= kMaxBrainVariables) {
+      if (surface.context == nullptr || ins.a >= surface.context->variables.size()) {
         return fault(ErrorCode::HostError);
       }
       if (!pushValue(state, surface.context->variables[ins.a])) {
@@ -336,7 +336,7 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       if (ins.a >= program.variableNames.size()) {
         return fault(ErrorCode::ScriptError);
       }
-      if (surface.context == nullptr || ins.a >= kMaxBrainVariables) {
+      if (surface.context == nullptr || ins.a >= surface.context->variables.size()) {
         return fault(ErrorCode::HostError);
       }
       Value value;
@@ -359,7 +359,7 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
         // body), mirroring the TS resolveHostAction fault.
         return fault(ErrorCode::ScriptError);
       }
-      if (surface.context == nullptr || ins.c >= kMaxCallSiteStates) {
+      if (surface.context == nullptr || ins.c >= surface.context->callSiteStates.size()) {
         return fault(ErrorCode::HostError);
       }
       ExecutionContext& ctx = *surface.context;

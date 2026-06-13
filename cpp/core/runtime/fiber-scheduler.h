@@ -1,10 +1,10 @@
 #pragma once
 
-#include <array>
 #include <cstdint>
 
 #include "core/platform/span.h"
 #include "core/runtime/execution-state.h"
+#include "core/runtime/pool.h"
 #include "core/runtime/program.h"
 #include "core/runtime/region-arena.h"
 #include "core/runtime/result.h"
@@ -21,10 +21,11 @@ namespace mindcraft {
 inline constexpr int32_t kDefaultBudget = 1000;
 
 /**
- * Count cap on concurrently live fibers, checked at spawn. Sized for the
- * nRF52833's 128KB RAM together with the shared stack-region budgets.
+ * Maximum number of concurrently live fibers, checked at spawn. Mirrors the
+ * microbit-v2 profile's `maxFibers` (wodal `device-profile.ts`); the two values
+ * must stay equal.
  */
-inline constexpr uint32_t kMaxLiveFibers = 8;
+inline constexpr uint32_t kMaxFibers = 100;
 
 /** Sentinel fiber id; real ids start at 1. */
 inline constexpr uint32_t kNoFiberId = 0;
@@ -47,31 +48,42 @@ enum class FiberState : uint8_t {
 };
 
 /**
- * One live fiber: its id, lifecycle state, and execution state. The
- * execution state's stack/locals/frame segments are carved from the
- * scheduler's shared arena at spawn and released when the record is reclaimed.
+ * Backing storage for one fiber's execution: the operand stack, locals region,
+ * and frame stack at the per-fiber caps. Drawn from a {@link Pool} at spawn and
+ * released at reclaim; an {@link ExecutionState} points its three regions into
+ * these arrays.
+ */
+struct FiberWorkspace {
+  Value stack[kMaxStackSize];
+  Value locals[kMaxLocalsSize];
+  Frame frames[kMaxFrameDepth];
+};
+
+/**
+ * One live fiber: its id, lifecycle state, execution state, and the workspace
+ * its regions point into. Both the record and its workspace are drawn from the
+ * scheduler's pools at spawn and released when the record is reclaimed.
  */
 struct FiberRecord {
-  /** True while the record holds a fiber (live or awaiting region reclaim). */
-  bool inUse;
   /** Scheduler-assigned fiber id, unique for the scheduler's lifetime. */
   uint32_t id;
   FiberState state;
   ExecutionState exec;
-  /** Arena high-water before this fiber's segments; reclaim releases to it. */
-  RegionArena::Mark regionMark;
+  /** The workspace backing `exec`'s regions; released with the record. */
+  FiberWorkspace* workspace;
+  /** Next fiber in the run queue (intrusive FIFO), or nullptr at the tail. */
+  FiberRecord* nextRunnable;
 };
 
 /**
  * Cooperative fiber scheduler with round-based ticks. A `tick()` is one
  * round: every fiber in the runnable queue at entry receives exactly one
  * {@link kDefaultBudget} slice in FIFO order, and anything enqueued while
- * the round runs joins the next round. Fiber records live in a fixed array
- * of {@link kMaxLiveFibers} slots (the count cap, a few hundred bytes); their
- * stack/locals/frame segments are carved on demand from one shared {@link
- * RegionArena} and released at reclaim, so a dormant slot costs no arena
- * bytes. Spawn faults loudly when no record slot or arena space is free.
- * Mirrors `FiberScheduler` in
+ * the round runs joins the next round. A fiber's record and workspace are
+ * drawn from pools over one shared {@link RegionArena}, and the run queue is
+ * an intrusive FIFO threaded through the records; spawn faults
+ * `ErrorCode::StackOverflow` at {@link kMaxFibers} or when the region is
+ * exhausted. Mirrors `FiberScheduler` in
  * external/mindcraft-lang/packages/core/src/runtime/vm.ts under the
  * round-tick semantics.
  *
@@ -93,9 +105,10 @@ public:
   /**
    * Spawns a runnable fiber executing `funcId` with no arguments and
    * enqueues it. The new fiber joins the round a subsequent `tick()` opens.
-   * Fails with `ErrorCode::StackOverflow` when no record slot or region
-   * storage is free, and with the {@link startExecution} code when the entry
-   * frame cannot be pushed.
+   * Fails with `ErrorCode::StackOverflow` when the live-fiber count is already
+   * {@link kMaxFibers} or the region cannot back the fiber's record or
+   * workspace, and with the {@link startExecution} code when the entry frame
+   * cannot be pushed.
    */
   Result<uint32_t> spawn(uint32_t funcId);
 
@@ -113,10 +126,10 @@ public:
   uint32_t tick();
 
   /**
-   * Reclaims finished fibers (`Done`/`Fault`/`Cancelled`): releases their
-   * stack regions and frees their record slots, in last-spawned-first order
-   * down to the most recently spawned still-live fiber. A finished fiber
-   * below a live one stays allocated until that fiber finishes.
+   * Reclaims finished fibers (`Done`/`Fault`/`Cancelled`): releases each one's
+   * workspace and record back to the pools. Order is unconstrained - the pools
+   * recycle slots independently, so a finished fiber is reclaimed regardless of
+   * any still-live fiber.
    */
   void sweep();
 
@@ -126,19 +139,24 @@ public:
   /** Number of record slots currently in use. */
   uint32_t liveCount() const;
 
+  /** The shared region backing this scheduler's pools. */
+  RegionArena& arena() { return arena_; }
+
 private:
   FiberRecord* findFiber(uint32_t fiberId);
-  void enqueue(uint32_t fiberId);
-  uint32_t dequeue();
+  void enqueue(FiberRecord* record);
+  FiberRecord* dequeue();
+  void removeFromQueue(FiberRecord* record);
 
   const ProgramImage& program_;
   RuntimeSurface surface_;
   RegionArena& arena_;
-  std::array<FiberRecord, kMaxLiveFibers> records_{};
-  // FIFO run queue. Each live fiber is enqueued at most once (at spawn or on
-  // a budget re-enqueue after being dequeued), so kMaxLiveFibers bounds it.
-  std::array<uint32_t, kMaxLiveFibers> queue_{};
-  uint32_t queueHead_ = 0;
+  Pool<FiberRecord> records_;
+  Pool<FiberWorkspace> workspaces_;
+  // Intrusive FIFO run queue over the records. Each live fiber is enqueued at
+  // most once (at spawn or on a budget re-enqueue after being dequeued).
+  FiberRecord* runHead_ = nullptr;
+  FiberRecord* runTail_ = nullptr;
   uint32_t queueCount_ = 0;
   uint32_t nextFiberId_ = 1;
 };

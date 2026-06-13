@@ -6,11 +6,7 @@
 
 namespace mindcraft {
 
-/**
- * Diagnostic-code family a device fault was raised from. The single-letter
- * prefix it maps to keeps the two numeric code spaces from colliding when they
- * are scrolled across the fault display.
- */
+/** Diagnostic-code family a device fault was raised from. */
 enum class FaultDomain : uint8_t {
   /** A `LoadError` raised while decoding the program image. Prefix `L`. */
   Load,
@@ -34,12 +30,9 @@ inline constexpr uint32_t kFaultCodeSize = 7;
 void formatFaultCode(char* out, FaultDomain domain, uint16_t code);
 
 /**
- * Render one show-the-error pass of the device fault mode: the fault face,
- * then `code` scrolled across the display once. The board-agnostic fault-mode
- * policy (stop ticking the brain, then loop this pass) sequences these two
- * port calls; the target's {@link FaultDisplayPort} owns how they look. The
- * caller's outer loop repeats the pass; each call may block for the duration
- * of the animation.
+ * Render one show-the-error pass on `display`: the fault face, then `code`
+ * scrolled across the display once. The call may block for the duration of the
+ * animation; the caller repeats it to keep the fault mode on screen.
  */
 void showFaultPass(FaultDisplayPort& display, const char* code);
 

@@ -10,27 +10,15 @@
 namespace mindcraft {
 
 /**
- * One contiguous carve-on-demand arena over a caller-provided byte buffer -
- * the single block of VM working memory a device hands the runtime. It serves
- * two roles from the same storage:
- *
- * - {@link allocate} bump-allocates the permanent program image (functions,
- *   pools, type table, strings), zero-filled and never released; and
- * - {@link carve} / {@link mark} / {@link releaseTo} provide a LIFO region
- *   discipline for transient fiber stack/locals/frame segments, acquired at
- *   spawn above the image's high-water and released at reclaim.
- *
- * Nothing is pre-partitioned or pre-committed: a dormant fiber slot costs no
- * arena bytes, and a frame-heavy fiber and a stack-heavy fiber draw from the
- * same free space. The arena owns no memory; the backing storage must outlive
- * every allocation. Exhaustion is reported as a nullptr return (a deterministic
- * fault at the call site), never an overrun.
+ * Forward-only bump allocator over one contiguous byte region. Two entry
+ * points draw from the same frontier: {@link allocate} for permanent,
+ * zero-filled, program-lifetime storage (the decoded program image and
+ * program-sized slot tables), and {@link allocateBytes} for the raw slots
+ * {@link Pool} hands out and recycles. The region owns no memory; the backing
+ * storage must outlive every allocation. Exhaustion returns nullptr.
  */
 class RegionArena {
 public:
-  /** Opaque high-water position for {@link releaseTo}. */
-  using Mark = size_t;
-
   /** An arena allocating from `storage`. */
   explicit RegionArena(Span<uint8_t> storage) : storage_(storage), used_(0) {}
 
@@ -44,50 +32,39 @@ public:
    * Allocate a zero-filled array of `count` elements of T, aligned to
    * `alignof(T)`. Returns nullptr when the remaining storage cannot hold the
    * request. A `count` of 0 succeeds without consuming storage; the returned
-   * pointer must not be dereferenced. For permanent allocations (the program
-   * image); not released by {@link releaseTo} in normal use.
+   * pointer must not be dereferenced. For permanent, program-lifetime storage.
    */
   template <typename T> T* allocate(size_t count) {
-    T* ptr = bump<T>(count);
+    static_assert(std::is_trivially_copyable_v<T>, "arena elements must be trivially copyable");
+    if (count > static_cast<size_t>(-1) / sizeof(T)) {
+      return nullptr;
+    }
+    void* ptr = allocateBytes(count * sizeof(T), alignof(T));
     if (ptr != nullptr && count > 0) {
       memset(ptr, 0, count * sizeof(T));
     }
-    return ptr;
+    return static_cast<T*>(ptr);
   }
 
   /**
-   * Carve an uninitialized array of `count` elements of T, aligned to
-   * `alignof(T)`, above the current high-water. Returns nullptr when the
-   * remaining storage cannot hold the request. For transient fiber segments,
-   * which the execution state initializes as it runs; released in LIFO order
-   * via {@link releaseTo}.
+   * Bump-allocate `bytes` of uninitialized storage aligned to `align` (a power
+   * of two). Returns nullptr when the remaining storage cannot hold the
+   * request, or a non-dereferenceable pointer when `bytes` is 0. The caller
+   * initializes the storage before reading it.
    */
-  template <typename T> T* carve(size_t count) { return bump<T>(count); }
-
-  /** The current high-water, a rollback point for {@link releaseTo}. */
-  Mark mark() const { return used_; }
-
-  /**
-   * Roll the high-water back to `mark`, freeing every region carved since it
-   * was taken. Requires `mark` to be a position previously returned by
-   * {@link mark} with no still-live region carved above it (LIFO discipline).
-   */
-  void releaseTo(Mark mark) { used_ = mark; }
-
-private:
-  template <typename T> T* bump(size_t count) {
-    static_assert(std::is_trivially_copyable_v<T>, "arena elements must be trivially copyable");
+  void* allocateBytes(size_t bytes, size_t align) {
     const uintptr_t base = reinterpret_cast<uintptr_t>(storage_.data());
     const uintptr_t unaligned = base + used_;
-    const uintptr_t aligned = (unaligned + alignof(T) - 1) & ~(uintptr_t(alignof(T)) - 1);
+    const uintptr_t aligned = (unaligned + align - 1) & ~(uintptr_t(align) - 1);
     const size_t padded = used_ + static_cast<size_t>(aligned - unaligned);
-    if (padded > storage_.size() || count > (storage_.size() - padded) / sizeof(T)) {
+    if (padded > storage_.size() || bytes > storage_.size() - padded) {
       return nullptr;
     }
-    used_ = padded + count * sizeof(T);
-    return reinterpret_cast<T*>(storage_.data() + padded);
+    used_ = padded + bytes;
+    return storage_.data() + padded;
   }
 
+private:
   Span<uint8_t> storage_;
   size_t used_;
 };

@@ -19,8 +19,8 @@ using mindcraft::FiberState;
 using mindcraft::Frame;
 using mindcraft::HostActionBinding;
 using mindcraft::kDefaultBudget;
+using mindcraft::kMaxFibers;
 using mindcraft::kMaxFrameDepth;
-using mindcraft::kMaxLiveFibers;
 using mindcraft::kMaxLocalsSize;
 using mindcraft::kMaxStackSize;
 using mindcraft::Op;
@@ -35,15 +35,10 @@ using mindcraft::VmObserver;
 
 namespace {
 
-/**
- * One carve-on-demand arena (the device's single-arena model) sized to hold
- * every record slot's segments at the per-fiber caps, so a test may spawn up to
- * {@link kMaxLiveFibers} fibers at once.
- */
+/** One shared region with room for several fibers' pool slots; tests spawn a few. */
 struct SchedulerStorage {
-  static constexpr uint32_t kArenaBytes =
-      kMaxLiveFibers * (kMaxStackSize * sizeof(Value) + kMaxLocalsSize * sizeof(Value) +
-                        kMaxFrameDepth * sizeof(Frame));
+  static constexpr size_t kArenaBytes =
+      8 * (sizeof(mindcraft::FiberWorkspace) + sizeof(mindcraft::FiberRecord) + 64) + 256;
   std::array<uint8_t, kArenaBytes> bytes;
   RegionArena arena{Span<uint8_t>(bytes.data(), bytes.size())};
 };
@@ -77,7 +72,8 @@ ProgramImage shortProgram(ProgramBuilder& b, std::vector<uint8_t>& storage) {
 
 TEST_CASE("the scheduler constants hold their decided values") {
   CHECK(kDefaultBudget == 1000);
-  CHECK(kMaxLiveFibers == 8u);
+  // Mirrors the wodal microbit-v2 profile's maxFibers; the two must stay equal.
+  CHECK(kMaxFibers == 100u);
 }
 
 TEST_CASE("a round gives every fiber queued at entry exactly one slice, FIFO") {
@@ -97,6 +93,7 @@ TEST_CASE("a round gives every fiber queued at entry exactly one slice, FIFO") {
   RuntimeSurface surface{&ctx, {bindings, 2}, &observer};
 
   SchedulerStorage pools;
+  REQUIRE(ctx.bindSlots(pools.arena, 0, 2));
   FiberScheduler scheduler(image, surface, pools.arena);
   REQUIRE(scheduler.spawn(0).isOk());
   REQUIRE(scheduler.spawn(1).isOk());
@@ -182,26 +179,58 @@ TEST_CASE("a faulting fiber reports through the observer and dies") {
   CHECK(scheduler.fiber(spawned.value()) == nullptr);
 }
 
-TEST_CASE("spawn past the live-fiber cap faults loudly and recovers after a sweep") {
+TEST_CASE("spawn exhausting the region faults loudly and recovers after a sweep") {
   ProgramBuilder b;
   std::vector<uint8_t> storage(16 * 1024);
   const ProgramImage image = shortProgram(b, storage);
 
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {}, nullptr};
-  SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.arena);
-  for (uint32_t i = 0; i < kMaxLiveFibers; i++) {
-    REQUIRE(scheduler.spawn(0).isOk());
-  }
-  const Result<uint32_t> overflow = scheduler.spawn(0);
-  REQUIRE(!overflow.isOk());
-  CHECK(overflow.error() == ErrorCode::StackOverflow);
+  // A region sized for only a couple of fibers, so spawning soon exhausts it.
+  std::array<uint8_t,
+             2 * (sizeof(mindcraft::FiberWorkspace) + sizeof(mindcraft::FiberRecord)) + 256>
+      arenaBytes;
+  RegionArena arena(Span<uint8_t>(arenaBytes.data(), arenaBytes.size()));
+  FiberScheduler scheduler(image, surface, arena);
 
-  CHECK(scheduler.tick() == kMaxLiveFibers);
+  uint32_t spawned = 0;
+  while (scheduler.spawn(0).isOk()) {
+    spawned++;
+    REQUIRE(spawned < 100);
+  }
+  CHECK(spawned >= 1);
+  // The spawn that exhausted the region faulted loudly.
+  CHECK(scheduler.spawn(0).error() == ErrorCode::StackOverflow);
+
+  // Running the live fibers to completion and sweeping frees pool slots, so a
+  // later spawn reuses them.
+  CHECK(scheduler.tick() == spawned);
   scheduler.sweep();
   CHECK(scheduler.liveCount() == 0);
   CHECK(scheduler.spawn(0).isOk());
+}
+
+TEST_CASE("spawn past the fiber guard faults loudly with memory to spare") {
+  ProgramBuilder b;
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = shortProgram(b, storage);
+
+  ExecutionContext ctx;
+  RuntimeSurface surface{&ctx, {}, nullptr};
+  // Region with room well beyond kMaxFibers, so the count guard - not memory -
+  // is what fires.
+  std::vector<uint8_t> arenaStorage((kMaxFibers + 8) * (sizeof(mindcraft::FiberWorkspace) +
+                                                        sizeof(mindcraft::FiberRecord) + 128));
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  FiberScheduler scheduler(image, surface, arena);
+
+  for (uint32_t i = 0; i < kMaxFibers; i++) {
+    REQUIRE(scheduler.spawn(0).isOk());
+  }
+  CHECK(scheduler.liveCount() == kMaxFibers);
+  const Result<uint32_t> overflow = scheduler.spawn(0);
+  REQUIRE(!overflow.isOk());
+  CHECK(overflow.error() == ErrorCode::StackOverflow);
 }
 
 TEST_CASE("spawn of an invalid funcId propagates the start failure") {
@@ -217,8 +246,8 @@ TEST_CASE("spawn of an invalid funcId propagates the start failure") {
   REQUIRE(!bad.isOk());
   CHECK(bad.error() == ErrorCode::HostError);
   CHECK(scheduler.liveCount() == 0);
-  // The failed spawn released its regions: the cap is still fully available.
-  for (uint32_t i = 0; i < kMaxLiveFibers; i++) {
+  // The failed spawn released its slots: capacity is still fully available.
+  for (uint32_t i = 0; i < 8; i++) {
     REQUIRE(scheduler.spawn(0).isOk());
   }
 }

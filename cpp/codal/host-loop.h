@@ -11,30 +11,23 @@ namespace mindcraft {
 /**
  * The board-agnostic on-device host loop: the single VM entry point that
  * sources time through the device clock port and drives one
- * {@link BrainRuntime} think per tick. Drives the board only through the
- * abstract {@link DevicePorts}, never a board-specific symbol; a target wires
- * the concrete ports and supplies the outer cadence (the firmware loop that
- * calls {@link tick} repeatedly).
+ * {@link BrainRuntime} think per tick. It drives the board only through the
+ * abstract {@link DevicePorts}; a target wires the concrete ports and calls
+ * {@link tick} repeatedly.
  *
- * Cadence contract guaranteed to `think()`:
- * - One think per {@link tick}; the loop is the sole caller of `think()`,
- *   preserving the single-entry rule (host callbacks and action bodies never
- *   re-enter it).
+ * Cadence the loop guarantees `think()`:
+ * - One think per {@link tick}, and the loop is the sole caller of `think()`
+ *   (the single-entry rule; host callbacks and action bodies never re-enter it).
  * - Time is read once per tick from {@link MonotonicClockPort::uptimeMillis}
- *   and forwarded unmodified, so monotonic clock readings yield monotonic
- *   `time` stamps. The dt rule and the time/dt/tick stamping live in
+ *   and forwarded unmodified. The dt rule and the time/dt/tick stamping live in
  *   {@link BrainRuntime}; the loop supplies the clock reading.
  *
- * Buttons follow the level-poll model: action bodies read button level through
- * {@link ButtonInputPort} at evaluation and detect edges from per-callsite
- * state, so no device event is consumed and the loop needs no event queue.
- *
- * Fault-mode policy: on an unrecoverable condition - a failed page activation
- * at {@link startup} or a think that faults - the loop latches fault mode,
- * stops ticking the brain, and from then on renders the device fault display
- * each tick ({@link showFaultPass}: the fault face, then the diagnostic code).
- * A per-fiber script fault is not a device fault: it kills the fiber, the rule
- * respawns next think, and the loop keeps ticking - matching the simulator.
+ * Fault mode: on an unrecoverable condition - a failed page activation at
+ * {@link startup} or a think that faults - the loop latches fault mode, stops
+ * ticking the brain, and thereafter renders the device fault display each tick
+ * ({@link showFaultPass}: the fault face, then the diagnostic code). A per-fiber
+ * script fault does not latch fault mode: it returns an ok think status, so the
+ * loop keeps ticking.
  */
 class HostLoop {
 public:

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <array>
 #include <cstdint>
 
 #include "core/runtime/fiber-scheduler.h"
@@ -10,9 +9,6 @@
 #include "core/runtime/vm.h"
 
 namespace mindcraft {
-
-/** Root-rule capacity of one page's activation. */
-inline constexpr uint32_t kMaxPageRootRules = 16;
 
 /**
  * The brain think loop over one active page: page activation, per-think rule
@@ -39,8 +35,9 @@ public:
    * page-entered hook with the call site bound, then spawning the page's
    * root-rule fibers in order. A program with no pages activates nothing.
    * Call once before {@link think}. Fails with `ErrorCode::HostError` when
-   * the surface has no context, a call-site id or the root-rule count
-   * exceeds its capacity; spawn failures propagate.
+   * the surface has no context or a call-site id exceeds its slot table, and
+   * with `ErrorCode::StackOverflow` when the region cannot back the page's
+   * root-rule tracking; spawn failures propagate.
    */
   Status startup();
 
@@ -68,7 +65,9 @@ private:
   const ProgramImage& program_;
   FiberScheduler& scheduler_;
   RuntimeSurface surface_;
-  std::array<RuleFiber, kMaxPageRootRules> ruleFibers_{};
+  /** Per-root-rule tracking for the active page, allocated from the region at
+   * activation and sized to the page's root-rule count. */
+  RuleFiber* ruleFibers_ = nullptr;
   uint32_t ruleFiberCount_ = 0;
   bool pageActive_ = false;
   bool inThink_ = false;

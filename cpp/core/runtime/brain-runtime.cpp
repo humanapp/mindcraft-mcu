@@ -13,6 +13,19 @@ Status BrainRuntime::startup() {
   if (surface_.context == nullptr) {
     return Status::fail(ErrorCode::HostError);
   }
+  // Bind the brain-lifetime slot tables from the shared region, sized to the
+  // program: one slot per declared variable, and one call-site state slot per
+  // distinct call-site id.
+  uint32_t callSiteCount = 0;
+  for (const ActionCallSite& site : program_.callSites) {
+    if (site.callSiteId + 1 > callSiteCount) {
+      callSiteCount = site.callSiteId + 1;
+    }
+  }
+  const uint32_t variableCount = static_cast<uint32_t>(program_.variableNames.size());
+  if (!surface_.context->bindSlots(scheduler_.arena(), variableCount, callSiteCount)) {
+    return Status::fail(ErrorCode::HostError);
+  }
   lastThinkTime_ = 0;
   if (program_.pages.empty()) {
     return Status::ok();
@@ -22,10 +35,13 @@ Status BrainRuntime::startup() {
 
 Status BrainRuntime::activatePage(uint32_t pageIndex) {
   const PageMetadata& page = program_.pages[pageIndex];
-  if (page.rootRuleFuncIdsCount > kMaxPageRootRules) {
-    return Status::fail(ErrorCode::HostError);
-  }
   ExecutionContext& ctx = *surface_.context;
+
+  // One tracking entry per root rule, sized to the page from the shared region.
+  ruleFibers_ = scheduler_.arena().allocate<RuleFiber>(page.rootRuleFuncIdsCount);
+  if (page.rootRuleFuncIdsCount > 0 && ruleFibers_ == nullptr) {
+    return Status::fail(ErrorCode::StackOverflow);
+  }
 
   for (uint32_t i = 0; i < page.callSitesCount; i++) {
     const ActionCallSite& site = program_.callSites[page.callSitesOffset + i];
@@ -38,7 +54,7 @@ Status BrainRuntime::activatePage(uint32_t pageIndex) {
     if (action == nullptr || action->onPageEntered == nullptr) {
       continue;
     }
-    if (site.callSiteId >= kMaxCallSiteStates) {
+    if (site.callSiteId >= ctx.callSiteStates.size()) {
       return Status::fail(ErrorCode::HostError);
     }
     ctx.currentCallSiteId = site.callSiteId;

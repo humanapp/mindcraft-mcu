@@ -4,60 +4,54 @@ namespace mindcraft {
 
 FiberScheduler::FiberScheduler(const ProgramImage& program, const RuntimeSurface& surface,
                                RegionArena& arena)
-    : program_(program), surface_(surface), arena_(arena) {}
+    : program_(program), surface_(surface), arena_(arena), records_(arena), workspaces_(arena) {}
 
 Result<uint32_t> FiberScheduler::spawn(uint32_t funcId) {
-  FiberRecord* record = nullptr;
-  for (FiberRecord& candidate : records_) {
-    if (!candidate.inUse) {
-      record = &candidate;
-      break;
-    }
-  }
-  if (record == nullptr) {
+  if (records_.liveCount() >= kMaxFibers) {
     return Result<uint32_t>::fail(ErrorCode::StackOverflow);
   }
-
-  // Carve this fiber's three segments above the arena's high-water; on any
-  // shortfall roll the whole fiber's carve back so the arena is unchanged.
-  const RegionArena::Mark mark = arena_.mark();
-  Value* stack = arena_.carve<Value>(kMaxStackSize);
-  Value* locals = arena_.carve<Value>(kMaxLocalsSize);
-  Frame* frames = arena_.carve<Frame>(kMaxFrameDepth);
-  if (stack == nullptr || locals == nullptr || frames == nullptr) {
-    arena_.releaseTo(mark);
+  FiberWorkspace* workspace = workspaces_.alloc();
+  if (workspace == nullptr) {
+    return Result<uint32_t>::fail(ErrorCode::StackOverflow);
+  }
+  FiberRecord* record = records_.alloc();
+  if (record == nullptr) {
+    workspaces_.free(workspace);
     return Result<uint32_t>::fail(ErrorCode::StackOverflow);
   }
 
   ExecutionState exec{};
-  exec.stack = stack;
+  exec.stack = workspace->stack;
   exec.stackLimit = kMaxStackSize;
-  exec.locals = locals;
+  exec.locals = workspace->locals;
   exec.localsLimit = kMaxLocalsSize;
-  exec.frames = frames;
+  exec.frames = workspace->frames;
   exec.frameLimit = kMaxFrameDepth;
   const Status started = startExecution(exec, program_, funcId, {});
   if (!started.isOk()) {
-    arena_.releaseTo(mark);
+    records_.free(record);
+    workspaces_.free(workspace);
     return Result<uint32_t>::fail(started.error());
   }
 
   const uint32_t fiberId = nextFiberId_++;
-  record->inUse = true;
   record->id = fiberId;
   record->state = FiberState::Runnable;
   record->exec = exec;
-  record->regionMark = mark;
-  enqueue(fiberId);
+  record->workspace = workspace;
+  enqueue(record);
   return Result<uint32_t>::ok(fiberId);
 }
 
 void FiberScheduler::cancel(uint32_t fiberId) {
   FiberRecord* record = findFiber(fiberId);
-  if (record != nullptr &&
-      (record->state == FiberState::Runnable || record->state == FiberState::Waiting)) {
-    record->state = FiberState::Cancelled;
+  if (record == nullptr ||
+      (record->state != FiberState::Runnable && record->state != FiberState::Waiting)) {
+    return;
   }
+  record->state = FiberState::Cancelled;
+  // A cancelled record must leave the run queue before a sweep can free it.
+  removeFromQueue(record);
 }
 
 uint32_t FiberScheduler::tick() {
@@ -66,9 +60,8 @@ uint32_t FiberScheduler::tick() {
   // stay queued for the next round.
   const uint32_t roundSize = queueCount_;
   for (uint32_t i = 0; i < roundSize; i++) {
-    const uint32_t fiberId = dequeue();
-    FiberRecord* record = findFiber(fiberId);
-    if (record == nullptr || record->state != FiberState::Runnable) {
+    FiberRecord* record = dequeue();
+    if (record->state != FiberState::Runnable) {
       continue;
     }
 
@@ -76,7 +69,7 @@ uint32_t FiberScheduler::tick() {
     const RunResult result = runExecution(record->exec, program_, surface_);
     switch (result.status) {
     case RunStatus::Yielded:
-      enqueue(fiberId);
+      enqueue(record);
       break;
     case RunStatus::Done:
       record->state = FiberState::Done;
@@ -84,7 +77,7 @@ uint32_t FiberScheduler::tick() {
     case RunStatus::Fault:
       record->state = FiberState::Fault;
       if (surface_.observer != nullptr) {
-        surface_.observer->onFiberFault(fiberId, result.error);
+        surface_.observer->onFiberFault(record->id, result.error);
       }
       break;
     case RunStatus::Waiting:
@@ -92,7 +85,7 @@ uint32_t FiberScheduler::tick() {
       // violation: fault the fiber loudly rather than parking it.
       record->state = FiberState::Fault;
       if (surface_.observer != nullptr) {
-        surface_.observer->onFiberFault(fiberId, ErrorCode::HostError);
+        surface_.observer->onFiberFault(record->id, ErrorCode::HostError);
       }
       break;
     }
@@ -102,61 +95,71 @@ uint32_t FiberScheduler::tick() {
 }
 
 void FiberScheduler::sweep() {
-  for (;;) {
-    // The record with the highest region mark is the most recently spawned
-    // live fiber; segments release in last-carved-first order.
-    FiberRecord* top = nullptr;
-    for (FiberRecord& record : records_) {
-      if (record.inUse && (top == nullptr || record.regionMark > top->regionMark)) {
-        top = &record;
-      }
+  records_.forEachLive([&](FiberRecord& record) {
+    if (record.state == FiberState::Done || record.state == FiberState::Fault ||
+        record.state == FiberState::Cancelled) {
+      workspaces_.free(record.workspace);
+      records_.free(&record);
     }
-    if (top == nullptr || top->state == FiberState::Runnable || top->state == FiberState::Waiting) {
-      return;
-    }
-    arena_.releaseTo(top->regionMark);
-    top->inUse = false;
-  }
+  });
 }
 
 const FiberRecord* FiberScheduler::fiber(uint32_t fiberId) const {
-  for (const FiberRecord& record : records_) {
-    if (record.inUse && record.id == fiberId) {
-      return &record;
-    }
-  }
-  return nullptr;
+  return const_cast<FiberScheduler*>(this)->findFiber(fiberId);
 }
 
-uint32_t FiberScheduler::liveCount() const {
-  uint32_t count = 0;
-  for (const FiberRecord& record : records_) {
-    if (record.inUse) {
-      count++;
-    }
-  }
-  return count;
-}
+uint32_t FiberScheduler::liveCount() const { return records_.liveCount(); }
 
 FiberRecord* FiberScheduler::findFiber(uint32_t fiberId) {
-  for (FiberRecord& record : records_) {
-    if (record.inUse && record.id == fiberId) {
-      return &record;
+  FiberRecord* found = nullptr;
+  records_.forEachLive([&](FiberRecord& record) {
+    if (record.id == fiberId) {
+      found = &record;
     }
-  }
-  return nullptr;
+  });
+  return found;
 }
 
-void FiberScheduler::enqueue(uint32_t fiberId) {
-  queue_[(queueHead_ + queueCount_) % kMaxLiveFibers] = fiberId;
+void FiberScheduler::enqueue(FiberRecord* record) {
+  record->nextRunnable = nullptr;
+  if (runTail_ != nullptr) {
+    runTail_->nextRunnable = record;
+  } else {
+    runHead_ = record;
+  }
+  runTail_ = record;
   queueCount_++;
 }
 
-uint32_t FiberScheduler::dequeue() {
-  const uint32_t fiberId = queue_[queueHead_];
-  queueHead_ = (queueHead_ + 1) % kMaxLiveFibers;
+FiberRecord* FiberScheduler::dequeue() {
+  FiberRecord* record = runHead_;
+  runHead_ = record->nextRunnable;
+  if (runHead_ == nullptr) {
+    runTail_ = nullptr;
+  }
+  record->nextRunnable = nullptr;
   queueCount_--;
-  return fiberId;
+  return record;
+}
+
+void FiberScheduler::removeFromQueue(FiberRecord* record) {
+  FiberRecord* prev = nullptr;
+  for (FiberRecord* cur = runHead_; cur != nullptr; cur = cur->nextRunnable) {
+    if (cur == record) {
+      if (prev != nullptr) {
+        prev->nextRunnable = cur->nextRunnable;
+      } else {
+        runHead_ = cur->nextRunnable;
+      }
+      if (runTail_ == cur) {
+        runTail_ = prev;
+      }
+      cur->nextRunnable = nullptr;
+      queueCount_--;
+      return;
+    }
+    prev = cur;
+  }
 }
 
 } // namespace mindcraft
