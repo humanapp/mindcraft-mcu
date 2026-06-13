@@ -6,6 +6,7 @@
 #include "core/runtime/program-arena.h"
 #include "core/runtime/program.h"
 #include "fixture-paths.h"
+#include "string-sink.h"
 #include "targets/microbit-v2/abi/type-atom-id.h"
 
 #include <cstdint>
@@ -15,7 +16,6 @@
 
 using mindcraft::ByteSpan;
 using mindcraft::ConstValueKind;
-using mindcraft::DumpSink;
 using mindcraft::Instr;
 using mindcraft::kMicroBitV2TypeAtomIdCount;
 using mindcraft::LoadError;
@@ -29,17 +29,6 @@ using mindcraft::Span;
 using mindcraft::writeCanonicalProgramDump;
 
 namespace {
-
-/** Collects dump text into a std::string. */
-class StringDumpSink : public DumpSink {
-public:
-  void write(const char* bytes, size_t length) override { text_.append(bytes, length); }
-
-  const std::string& text() const { return text_; }
-
-private:
-  std::string text_;
-};
 
 std::vector<uint8_t> readBinaryFile(const std::string& path) {
   std::ifstream stream(path, std::ios::binary);
@@ -85,7 +74,7 @@ TEST_CASE("every committed fixture decodes and byte-matches its golden dump") {
         readProgramImage(ByteSpan(wire.data(), wire.size()), arena, kOptions);
     REQUIRE(decoded.isOk());
 
-    StringDumpSink sink;
+    StringTextSink sink;
     REQUIRE(writeCanonicalProgramDump(decoded.value(), sink));
     CHECK(sink.text() == golden);
   }
@@ -102,8 +91,8 @@ TEST_CASE("the dump rendering is deterministic") {
       readProgramImage(ByteSpan(wire.data(), wire.size()), arena, kOptions);
   REQUIRE(decoded.isOk());
 
-  StringDumpSink first;
-  StringDumpSink second;
+  StringTextSink first;
+  StringTextSink second;
   REQUIRE(writeCanonicalProgramDump(decoded.value(), first));
   REQUIRE(writeCanonicalProgramDump(decoded.value(), second));
   CHECK(first.text() == second.text());
@@ -128,6 +117,6 @@ TEST_CASE("an image with an undeclared opcode is unrenderable") {
   image.instructions = {&instr, 1};
   image.functions = {&fn, 1};
 
-  StringDumpSink sink;
+  StringTextSink sink;
   CHECK(!writeCanonicalProgramDump(image, sink));
 }

@@ -7,7 +7,7 @@
 #include "core/runtime/stack-pool.h"
 #include "core/runtime/value.h"
 #include "core/runtime/vm.h"
-#include "wire-builder.h"
+#include "vm-harness.h"
 
 #include <array>
 #include <cstdint>
@@ -51,201 +51,6 @@ using mindcraft::ValueTag;
 
 namespace {
 
-/**
- * Composes a synthetic program section by section and decodes it into a
- * {@link ProgramImage} for dispatch-loop tests.
- */
-class ProgramBuilder {
-public:
-  /** Appends a constant-pool string and returns the builder. */
-  ProgramBuilder& poolString(const char* value) {
-    strings_.push_back(value);
-    return *this;
-  }
-
-  /** Appends an atom type-table entry. */
-  ProgramBuilder& atomType(CoreTypeAtomId atomId) {
-    typeCount_++;
-    types_.u8(0).varUint(static_cast<uint32_t>(atomId));
-    return *this;
-  }
-
-  /** Appends a list type-table entry over element type `elemTypeIdx`. */
-  ProgramBuilder& listType(uint32_t elemTypeIdx) {
-    typeCount_++;
-    types_.u8(1).varUint(elemTypeIdx);
-    return *this;
-  }
-
-  /** Appends a number constant-pool entry. */
-  ProgramBuilder& number(float value) {
-    numberCount_++;
-    numbers_.u8(1).f32(value);
-    return *this;
-  }
-
-  /** Appends a nil value constant. */
-  ProgramBuilder& valueNil() {
-    valueCount_++;
-    values_.u8(1);
-    return *this;
-  }
-
-  /** Appends a void value constant. */
-  ProgramBuilder& valueVoid() {
-    valueCount_++;
-    values_.u8(0);
-    return *this;
-  }
-
-  /** Appends an unknown value constant. */
-  ProgramBuilder& valueUnknown() {
-    valueCount_++;
-    values_.u8(0xff);
-    return *this;
-  }
-
-  /** Appends a boolean value constant. */
-  ProgramBuilder& valueBool(bool value) {
-    valueCount_++;
-    values_.u8(2).u8(value ? 1 : 0);
-    return *this;
-  }
-
-  /** Appends a number value constant. */
-  ProgramBuilder& valueNumber(float value) {
-    valueCount_++;
-    values_.u8(3).u8(1).f32(value);
-    return *this;
-  }
-
-  /** Appends a string value constant referencing string-table entry `stringIdx`. */
-  ProgramBuilder& valueString(uint32_t stringIdx) {
-    valueCount_++;
-    values_.u8(4).varUint(stringIdx);
-    return *this;
-  }
-
-  /** Appends an enum value constant. */
-  ProgramBuilder& valueEnum(uint32_t typeIdx, uint32_t ordinal) {
-    valueCount_++;
-    values_.u8(5).varUint(typeIdx).varUint(ordinal);
-    return *this;
-  }
-
-  /** Appends a captureless function value constant. */
-  ProgramBuilder& valueFunction(uint32_t funcId) {
-    valueCount_++;
-    values_.u8(11).varUint(funcId).varUint(0);
-    return *this;
-  }
-
-  /** Appends an empty list value constant of list type `typeIdx`. */
-  ProgramBuilder& valueEmptyList(uint32_t typeIdx) {
-    valueCount_++;
-    values_.u8(6).varUint(typeIdx).varUint(0);
-    return *this;
-  }
-
-  /** Opens a new function; subsequent {@link instr} calls fill its body. */
-  ProgramBuilder& beginFunction(uint32_t numParams = 0, uint32_t extraLocals = 0) {
-    functions_.push_back(FunctionSpec{numParams, extraLocals, 0, WireBuilder()});
-    return *this;
-  }
-
-  /**
-   * Appends one instruction to the open function, encoding the operands the
-   * opcode's schema requires (optional trailing operands are encoded absent).
-   */
-  ProgramBuilder& instr(Op op, int32_t a = 0, int32_t b = 0, int32_t c = 0) {
-    const OpOperandSchema* schema = operandSchemaFor(op);
-    REQUIRE(schema != nullptr);
-    FunctionSpec& fn = functions_.back();
-    fn.body.u8(static_cast<uint8_t>(op));
-    const int32_t operands[3] = {a, b, c};
-    for (uint8_t i = 0; i < schema->operandCount; i++) {
-      const OperandSpec& spec = schema->operands[i];
-      if (spec.optional) {
-        fn.body.varUint(0);
-      } else if (spec.encoding == OperandEncoding::SVar) {
-        fn.body.varInt(operands[i]);
-      } else {
-        fn.body.varUint(static_cast<uint32_t>(operands[i]));
-      }
-    }
-    fn.instrCount++;
-    return *this;
-  }
-
-  /** Encodes every section and decodes the program into `storage`. */
-  ProgramImage build(std::vector<uint8_t>& storage) {
-    WireBuilder w = programHeader();
-    w.varUint(static_cast<uint32_t>(strings_.size()))
-        .varUint(static_cast<uint32_t>(strings_.size()));
-    for (const char* s : strings_) {
-      w.str(s);
-    }
-    w.varUint(typeCount_).raw(types_.span());
-    w.varUint(numberCount_).raw(numbers_.span());
-    w.varUint(valueCount_).raw(values_.span());
-    w.varUint(static_cast<uint32_t>(functions_.size()));
-    for (const FunctionSpec& fn : functions_) {
-      w.varUint(fn.numParams).varUint(fn.extraLocals).varUint(0).varUint(fn.instrCount);
-      w.raw(fn.body.span());
-    }
-    w.varUint(0); // VARS
-    w.varUint(0); // PAGE
-    return decodeOk(w, storage);
-  }
-
-private:
-  struct FunctionSpec {
-    uint32_t numParams;
-    uint32_t extraLocals;
-    uint32_t instrCount;
-    WireBuilder body;
-  };
-
-  std::vector<const char*> strings_;
-  uint32_t typeCount_ = 0;
-  WireBuilder types_;
-  uint32_t numberCount_ = 0;
-  WireBuilder numbers_;
-  uint32_t valueCount_ = 0;
-  WireBuilder values_;
-  std::vector<FunctionSpec> functions_;
-};
-
-/** An execution state bound to its own fixed stack regions. */
-struct Machine {
-  explicit Machine(uint32_t stackLimit = kMaxStackSize, uint32_t localsLimit = kMaxLocalsSize,
-                   uint32_t frameLimit = kMaxFrameDepth) {
-    state.stack = stackStorage.data();
-    state.stackLimit = stackLimit;
-    state.stackDepth = 0;
-    state.locals = localsStorage.data();
-    state.localsLimit = localsLimit;
-    state.localsDepth = 0;
-    state.frames = frameStorage.data();
-    state.frameLimit = frameLimit;
-    state.frameDepth = 0;
-    state.budget = 0;
-  }
-
-  std::array<Value, kMaxStackSize> stackStorage;
-  std::array<Value, kMaxLocalsSize> localsStorage;
-  std::array<Frame, kMaxFrameDepth> frameStorage;
-  ExecutionState state;
-};
-
-/** Starts function 0 with `args` and runs it under `budget`. */
-RunResult runProgram(Machine& machine, const ProgramImage& image, Span<const Value> args = {},
-                     int32_t budget = 1000) {
-  REQUIRE(startExecution(machine.state, image, 0, args).isOk());
-  machine.state.budget = budget;
-  return runExecution(machine.state, image);
-}
-
 /** True for the opcodes the dispatch loop implements. */
 bool isImplementedOp(Op op) {
   switch (op) {
@@ -266,6 +71,9 @@ bool isImplementedOp(Op op) {
   case Op::DO_END:
   case Op::LOAD_LOCAL:
   case Op::STORE_LOCAL:
+  case Op::LOAD_VAR_SLOT:
+  case Op::STORE_VAR_SLOT:
+  case Op::HOST_ACTION_CALL:
     return true;
   default:
     return false;
@@ -915,9 +723,10 @@ TEST_CASE("every unimplemented opcode faults ScriptError deterministically") {
   }
 }
 
-TEST_CASE("a host-action call site faults ScriptError pending its dispatch path") {
+TEST_CASE("HOST_ACTION_CALL of an unregistered action id faults ScriptError") {
   // The committed device fixture's call shape: two nil args, then
-  // HOST_ACTION_CALL with the stable action id, argc, and callSiteId.
+  // HOST_ACTION_CALL with the stable action id, argc, and callSiteId. No
+  // binding table is supplied, so the existence check fails.
   ProgramBuilder b;
   b.valueNil();
   b.beginFunction()
@@ -1011,4 +820,209 @@ TEST_CASE("a suspended state's regions survive another state's run on the shared
   const RunResult resumed = runExecution(suspended, image);
   REQUIRE(resumed.status == RunStatus::Done);
   CHECK(resumed.result.asNumber() == 3.0f);
+}
+
+namespace {
+
+/** Observer recording host-action dispatches and faults for assertions. */
+struct RecordingObserver : mindcraft::VmObserver {
+  struct ActionCall {
+    uint32_t actionId;
+    uint32_t callSiteId;
+    std::vector<Value> args;
+    Value result;
+  };
+  struct Fault {
+    uint32_t fiberId;
+    ErrorCode code;
+  };
+  std::vector<ActionCall> actionCalls;
+  std::vector<Fault> faults;
+
+  void onHostActionCall(uint32_t actionId, uint32_t callSiteId, Span<const Value> args,
+                        const Value& result) override {
+    ActionCall call{actionId, callSiteId, {}, result};
+    for (size_t i = 0; i < args.size(); i++) {
+      call.args.push_back(args[i]);
+    }
+    actionCalls.push_back(call);
+  }
+
+  void onFiberFault(uint32_t fiberId, ErrorCode code) override {
+    faults.push_back(Fault{fiberId, code});
+  }
+};
+
+/** Body summing its numeric args and stashing the call's arg count in callsite state. */
+Value execSumAction(void* hostData, mindcraft::ExecutionContext& ctx, Span<const Value> args) {
+  static_cast<void>(hostData);
+  float sum = 0.0f;
+  for (size_t i = 0; i < args.size(); i++) {
+    if (args[i].isNumber()) {
+      sum += args[i].asNumber();
+    }
+  }
+  ctx.setCallSiteState(Value::number(static_cast<float>(args.size())));
+  return Value::number(sum);
+}
+
+} // namespace
+
+TEST_CASE("LOAD_VAR_SLOT and STORE_VAR_SLOT round-trip brain variables") {
+  ProgramBuilder b;
+  b.poolString("counter");
+  b.number(9.0f);
+  b.brainVariable(0);
+  b.beginFunction()
+      .instr(Op::PUSH_CONST_NUM, 0)
+      .instr(Op::STORE_VAR_SLOT, 0)
+      .instr(Op::LOAD_VAR_SLOT, 0)
+      .instr(Op::RET);
+  // An unstored slot loads nil.
+  b.beginFunction().instr(Op::LOAD_VAR_SLOT, 0).instr(Op::RET);
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  mindcraft::ExecutionContext ctx;
+  mindcraft::RuntimeSurface surface;
+  surface.context = &ctx;
+
+  Machine machine;
+  const RunResult stored = runProgram(machine, image, {}, 1000, surface);
+  REQUIRE(stored.status == RunStatus::Done);
+  CHECK(stored.result.asNumber() == 9.0f);
+  CHECK(ctx.variables[0].asNumber() == 9.0f);
+
+  mindcraft::ExecutionContext fresh;
+  surface.context = &fresh;
+  Machine unstored;
+  REQUIRE(startExecution(unstored.state, image, 1, {}).isOk());
+  unstored.state.budget = 10;
+  const RunResult nilLoad = runExecution(unstored.state, image, surface);
+  REQUIRE(nilLoad.status == RunStatus::Done);
+  CHECK(nilLoad.result.tag() == ValueTag::Nil);
+}
+
+TEST_CASE("var-slot opcodes fault ScriptError past the variable table") {
+  ProgramBuilder b;
+  b.poolString("v");
+  b.number(1.0f);
+  b.brainVariable(0);
+  b.beginFunction().instr(Op::LOAD_VAR_SLOT, 1).instr(Op::RET);
+  b.beginFunction().instr(Op::PUSH_CONST_NUM, 0).instr(Op::STORE_VAR_SLOT, 1).instr(Op::RET);
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  mindcraft::ExecutionContext ctx;
+  mindcraft::RuntimeSurface surface;
+  surface.context = &ctx;
+
+  for (uint32_t funcId = 0; funcId < 2; funcId++) {
+    CAPTURE(funcId);
+    Machine machine;
+    REQUIRE(startExecution(machine.state, image, funcId, {}).isOk());
+    machine.state.budget = 10;
+    const RunResult result = runExecution(machine.state, image, surface);
+    REQUIRE(result.status == RunStatus::Fault);
+    CHECK(result.error == ErrorCode::ScriptError);
+  }
+}
+
+TEST_CASE("var-slot opcodes without a bound context fault HostError") {
+  ProgramBuilder b;
+  b.poolString("v");
+  b.brainVariable(0);
+  b.beginFunction().instr(Op::LOAD_VAR_SLOT, 0).instr(Op::RET);
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  Machine machine;
+  const RunResult result = runProgram(machine, image);
+  REQUIRE(result.status == RunStatus::Fault);
+  CHECK(result.error == ErrorCode::HostError);
+}
+
+TEST_CASE("HOST_ACTION_CALL dispatches the registered body per the calling convention") {
+  ProgramBuilder b;
+  b.number(2.5f).number(4.0f);
+  b.valueNil();
+  b.beginFunction()
+      .instr(Op::PUSH_CONST_NUM, 0)
+      .instr(Op::PUSH_CONST_VAL, 0)
+      .instr(Op::PUSH_CONST_NUM, 1)
+      .instr(Op::HOST_ACTION_CALL, 7, 3, 5)
+      .instr(Op::RET);
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  const mindcraft::HostActionBinding bindings[1] = {{7, &execSumAction, nullptr, nullptr}};
+  mindcraft::ExecutionContext ctx;
+  RecordingObserver observer;
+  mindcraft::RuntimeSurface surface;
+  surface.context = &ctx;
+  surface.actions = Span<const mindcraft::HostActionBinding>(bindings, 1);
+  surface.observer = &observer;
+
+  Machine machine;
+  const RunResult result = runProgram(machine, image, {}, 1000, surface);
+  REQUIRE(result.status == RunStatus::Done);
+  // The body summed the numeric args; the nil slot contributed nothing.
+  CHECK(result.result.asNumber() == 6.5f);
+  // The args were popped and the result pushed in their place.
+  CHECK(machine.state.stackDepth == 1);
+
+  // The binding observed the positional buffer and the bound call site.
+  REQUIRE(observer.actionCalls.size() == 1);
+  CHECK(observer.actionCalls[0].actionId == 7);
+  CHECK(observer.actionCalls[0].callSiteId == 5);
+  REQUIRE(observer.actionCalls[0].args.size() == 3);
+  CHECK(observer.actionCalls[0].args[0].asNumber() == 2.5f);
+  CHECK(observer.actionCalls[0].args[1].tag() == ValueTag::Nil);
+  CHECK(observer.actionCalls[0].args[2].asNumber() == 4.0f);
+  CHECK(observer.actionCalls[0].result.asNumber() == 6.5f);
+
+  // The callsite binding was keyed by the instruction's callSiteId and reset
+  // after the dispatch returned.
+  CHECK(ctx.callSiteStatePresent[5]);
+  CHECK(ctx.callSiteStates[5].asNumber() == 3.0f);
+  CHECK(ctx.currentCallSiteId == mindcraft::kNoCallSiteId);
+}
+
+TEST_CASE("HOST_ACTION_CALL faults StackUnderflow when argc exceeds the stack") {
+  ProgramBuilder b;
+  b.valueNil();
+  b.beginFunction()
+      .instr(Op::PUSH_CONST_VAL, 0)
+      .instr(Op::HOST_ACTION_CALL, 7, 2, 0)
+      .instr(Op::RET);
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  const mindcraft::HostActionBinding bindings[1] = {{7, &execSumAction, nullptr, nullptr}};
+  mindcraft::ExecutionContext ctx;
+  mindcraft::RuntimeSurface surface;
+  surface.context = &ctx;
+  surface.actions = Span<const mindcraft::HostActionBinding>(bindings, 1);
+
+  Machine machine;
+  const RunResult result = runProgram(machine, image, {}, 1000, surface);
+  REQUIRE(result.status == RunStatus::Fault);
+  CHECK(result.error == ErrorCode::StackUnderflow);
+  CHECK(result.site.pc == 1);
+}
+
+TEST_CASE("HOST_ACTION_CALL with a registered action but no context faults HostError") {
+  ProgramBuilder b;
+  b.beginFunction().instr(Op::HOST_ACTION_CALL, 7, 0, 0).instr(Op::RET);
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  const mindcraft::HostActionBinding bindings[1] = {{7, &execSumAction, nullptr, nullptr}};
+  mindcraft::RuntimeSurface surface;
+  surface.actions = Span<const mindcraft::HostActionBinding>(bindings, 1);
+
+  Machine machine;
+  const RunResult result = runProgram(machine, image, {}, 1000, surface);
+  REQUIRE(result.status == RunStatus::Fault);
+  CHECK(result.error == ErrorCode::HostError);
 }

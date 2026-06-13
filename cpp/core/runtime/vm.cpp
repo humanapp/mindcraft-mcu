@@ -135,7 +135,8 @@ Status startExecution(ExecutionState& state, const ProgramImage& program, uint32
   return Status::ok();
 }
 
-RunResult runExecution(ExecutionState& state, const ProgramImage& program) {
+RunResult runExecution(ExecutionState& state, const ProgramImage& program,
+                       const RuntimeSurface& surface) {
   if (state.budget <= 0) {
     // Host-contract violation: a slice must be entered with a positive
     // budget. The state is untouched and stays resumable.
@@ -317,6 +318,66 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program) {
       break;
     }
 
+    case Op::LOAD_VAR_SLOT: {
+      if (ins.a >= program.variableNames.size()) {
+        return fault(ErrorCode::ScriptError);
+      }
+      if (surface.context == nullptr || ins.a >= kMaxBrainVariables) {
+        return fault(ErrorCode::HostError);
+      }
+      if (!pushValue(state, surface.context->variables[ins.a])) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      frame.pc++;
+      break;
+    }
+
+    case Op::STORE_VAR_SLOT: {
+      if (ins.a >= program.variableNames.size()) {
+        return fault(ErrorCode::ScriptError);
+      }
+      if (surface.context == nullptr || ins.a >= kMaxBrainVariables) {
+        return fault(ErrorCode::HostError);
+      }
+      Value value;
+      if (!popValue(state, value)) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      surface.context->variables[ins.a] = value;
+      frame.pc++;
+      break;
+    }
+
+    case Op::HOST_ACTION_CALL: {
+      const uint32_t argc = ins.b;
+      if (argc > state.stackDepth) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      const HostActionBinding* action = findHostActionById(surface.actions, ins.a);
+      if (action == nullptr || action->execSync == nullptr) {
+        // Existence check: no registration holds the id (or it has no sync
+        // body), mirroring the TS resolveHostAction fault.
+        return fault(ErrorCode::ScriptError);
+      }
+      if (surface.context == nullptr || ins.c >= kMaxCallSiteStates) {
+        return fault(ErrorCode::HostError);
+      }
+      ExecutionContext& ctx = *surface.context;
+      ctx.currentCallSiteId = ins.c;
+      const Span<const Value> args(state.stack + (state.stackDepth - argc), argc);
+      const Value result = action->execSync(action->hostData, ctx, args);
+      if (surface.observer != nullptr) {
+        surface.observer->onHostActionCall(ins.a, ins.c, args, result);
+      }
+      state.stackDepth -= argc;
+      ctx.currentCallSiteId = kNoCallSiteId;
+      if (!pushValue(state, result)) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      frame.pc++;
+      break;
+    }
+
     case Op::WHEN_START:
     case Op::DO_START:
     case Op::DO_END: {
@@ -338,9 +399,6 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program) {
 
     default:
       // Every opcode outside the implemented subset faults deterministically.
-      // That includes HOST_ACTION_CALL (44): host-action dispatch needs the
-      // scheduler's binding table and per-callsite state, which are not
-      // implemented yet.
       return fault(ErrorCode::ScriptError);
     }
   }

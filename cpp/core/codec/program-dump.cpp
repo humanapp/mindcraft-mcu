@@ -1,92 +1,11 @@
 #include "core/codec/program-dump.h"
 
-#include <cstring>
-
 #include "core/runtime/bytecode.h"
 
 namespace mindcraft {
 namespace {
 
-constexpr char kHexDigits[] = "0123456789abcdef";
-
-/** Token-level writer for the line-oriented dump text. */
-class DumpWriter {
-public:
-  explicit DumpWriter(DumpSink& sink) : sink_(sink) {}
-
-  /** Two spaces per depth level. */
-  void indent(uint32_t depth) {
-    for (uint32_t i = 0; i < depth; i++) {
-      text("  ");
-    }
-  }
-
-  void text(const char* s) { sink_.write(s, strlen(s)); }
-
-  void ch(char c) { sink_.write(&c, 1); }
-
-  void nl() { ch('\n'); }
-
-  /** Minimal lowercase hex of a u32 ("0" for zero). */
-  void hex(uint32_t value) {
-    char buf[8];
-    size_t len = 0;
-    do {
-      buf[len++] = kHexDigits[value & 0xf];
-      value >>= 4;
-    } while (value != 0);
-    for (size_t i = 0; i < len; i++) {
-      ch(buf[len - 1 - i]);
-    }
-  }
-
-  /** IEEE-754 bit pattern of an f32 value, 8 zero-padded lowercase hex digits. */
-  void numberBits(float value) {
-    uint32_t bits = 0;
-    static_assert(sizeof(bits) == sizeof(value), "f32 bit patterns are 32-bit");
-    memcpy(&bits, &value, sizeof(bits));
-    for (int shift = 28; shift >= 0; shift -= 4) {
-      ch(kHexDigits[(bits >> shift) & 0xf]);
-    }
-  }
-
-private:
-  DumpSink& sink_;
-};
-
-/**
- * Emits a string-table entry double-quoted: bytes 0x20..0x7e literal except
- * `"` and `\` (backslash-escaped); every other byte as `\xNN`. Returns false
- * when the index or its byte range is outside the image's pools.
- */
-bool quoteString(DumpWriter& w, const ProgramImage& image, uint32_t stringIdx) {
-  if (stringIdx >= image.strings.size()) {
-    return false;
-  }
-  const StringRef ref = image.strings[stringIdx];
-  if (ref.offset > image.stringData.size() || ref.length > image.stringData.size() - ref.offset) {
-    return false;
-  }
-  w.ch('"');
-  for (uint32_t i = 0; i < ref.length; i++) {
-    const uint8_t b = image.stringData[ref.offset + i];
-    if (b == 0x22) {
-      w.text("\\\"");
-    } else if (b == 0x5c) {
-      w.text("\\\\");
-    } else if (b >= 0x20 && b <= 0x7e) {
-      w.ch(static_cast<char>(b));
-    } else {
-      w.text("\\x");
-      w.ch(kHexDigits[b >> 4]);
-      w.ch(kHexDigits[b & 0xf]);
-    }
-  }
-  w.ch('"');
-  return true;
-}
-
-bool emitTypeEntry(DumpWriter& w, const ProgramImage& image, uint32_t idx) {
+bool emitTypeEntry(TextWriter& w, const ProgramImage& image, uint32_t idx) {
   const TypeEntry& entry = image.types[idx];
   w.indent(1);
   w.text("type ");
@@ -141,7 +60,7 @@ bool emitTypeEntry(DumpWriter& w, const ProgramImage& image, uint32_t idx) {
     break;
   case TypeTag::Struct:
     w.text("struct ");
-    if (!quoteString(w, image, entry.structOf.nameStringIdx)) {
+    if (!quoteStringTableEntry(w, image, entry.structOf.nameStringIdx)) {
       return false;
     }
     w.text(" slots ");
@@ -153,14 +72,14 @@ bool emitTypeEntry(DumpWriter& w, const ProgramImage& image, uint32_t idx) {
       return false;
     }
     w.text("enum ");
-    if (!quoteString(w, image, entry.enumOf.nameStringIdx)) {
+    if (!quoteStringTableEntry(w, image, entry.enumOf.nameStringIdx)) {
       return false;
     }
     w.text(" symbols ");
     w.hex(entry.enumOf.symbolsCount);
     for (uint32_t j = 0; j < entry.enumOf.symbolsCount; j++) {
       w.ch(' ');
-      if (!quoteString(w, image, image.typeRefs[entry.enumOf.symbolsOffset + j])) {
+      if (!quoteStringTableEntry(w, image, image.typeRefs[entry.enumOf.symbolsOffset + j])) {
         return false;
       }
     }
@@ -178,7 +97,7 @@ bool emitTypeEntry(DumpWriter& w, const ProgramImage& image, uint32_t idx) {
  * indent level deeper. A `labeled` node is a pool entry and leads with
  * `value <poolIdx> `.
  */
-bool emitValueNode(DumpWriter& w, const ProgramImage& image, uint32_t depth, bool labeled,
+bool emitValueNode(TextWriter& w, const ProgramImage& image, uint32_t depth, bool labeled,
                    uint32_t poolIdx, uint32_t slot) {
   if (slot >= image.constValues.size()) {
     return false;
@@ -214,7 +133,7 @@ bool emitValueNode(DumpWriter& w, const ProgramImage& image, uint32_t depth, boo
     return true;
   case ConstValueKind::String:
     w.text("string ");
-    if (!quoteString(w, image, value.string.stringIdx)) {
+    if (!quoteStringTableEntry(w, image, value.string.stringIdx)) {
       return false;
     }
     w.nl();
@@ -257,7 +176,7 @@ bool emitValueNode(DumpWriter& w, const ProgramImage& image, uint32_t depth, boo
         w.numberBits(entry.key.number);
       } else if (entry.keyKind == MapKeyKind::String) {
         w.text("entry string ");
-        if (!quoteString(w, image, entry.key.stringIdx)) {
+        if (!quoteStringTableEntry(w, image, entry.key.stringIdx)) {
           return false;
         }
       } else {
@@ -305,7 +224,7 @@ bool emitValueNode(DumpWriter& w, const ProgramImage& image, uint32_t depth, boo
   return false;
 }
 
-bool emitInstruction(DumpWriter& w, const Instr& instr) {
+bool emitInstruction(TextWriter& w, const Instr& instr) {
   const OpOperandSchema* schema = operandSchemaFor(instr.op);
   if (schema == nullptr) {
     return false;
@@ -327,7 +246,7 @@ bool emitInstruction(DumpWriter& w, const Instr& instr) {
 }
 
 /** Emits a funcId token, rendering the {@link kNoFuncId} sentinel as `-`. */
-void emitOptionalFuncId(DumpWriter& w, uint32_t funcId) {
+void emitOptionalFuncId(TextWriter& w, uint32_t funcId) {
   if (funcId == kNoFuncId) {
     w.ch('-');
   } else {
@@ -337,8 +256,8 @@ void emitOptionalFuncId(DumpWriter& w, uint32_t funcId) {
 
 } // namespace
 
-bool writeCanonicalProgramDump(const ProgramImage& image, DumpSink& sink) {
-  DumpWriter w(sink);
+bool writeCanonicalProgramDump(const ProgramImage& image, TextSink& sink) {
+  TextWriter w(sink);
 
   w.text("mcprogram-dump ");
   w.hex(kCanonicalProgramDumpFormatVersion);
@@ -363,7 +282,7 @@ bool writeCanonicalProgramDump(const ProgramImage& image, DumpSink& sink) {
     w.text("string ");
     w.hex(i);
     w.ch(' ');
-    if (!quoteString(w, image, i)) {
+    if (!quoteStringTableEntry(w, image, i)) {
       return false;
     }
     w.nl();
@@ -443,7 +362,7 @@ bool writeCanonicalProgramDump(const ProgramImage& image, DumpSink& sink) {
     w.text("var ");
     w.hex(i);
     w.ch(' ');
-    if (!quoteString(w, image, image.variableNames[i])) {
+    if (!quoteStringTableEntry(w, image, image.variableNames[i])) {
       return false;
     }
     w.nl();
@@ -518,7 +437,7 @@ bool writeCanonicalProgramDump(const ProgramImage& image, DumpSink& sink) {
     w.text(" index ");
     w.hex(page.pageIndex);
     w.text(" id ");
-    if (!quoteString(w, image, page.pageIdStringIdx)) {
+    if (!quoteStringTableEntry(w, image, page.pageIdStringIdx)) {
       return false;
     }
     w.text(" roots ");

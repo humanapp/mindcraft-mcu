@@ -56,8 +56,13 @@ IntelliSense.
 
 The C++ reader tests decode the committed binary `.mcprogram.bin` fixtures
 and byte-compare their canonical program dumps against the committed
-`.mcprogram.dump` goldens. The two fixture roots are wired into the test
-tree by CMake (see `test/fixture-paths.h`):
+`.mcprogram.dump` goldens. The behavioral parity test
+(`test/trace-parity.test.cpp`) additionally runs the `button-display` binary
+under the mirrored input schedule and byte-compares its observable trace
+against the committed `button-display.press-cycles.trace` golden (format
+record: wodal `targets/microbit-v2/mindcraft/observable-trace.ts`; generator:
+the sibling spec). The two fixture roots are wired into the test tree by
+CMake (see `test/fixture-paths.h`):
 
 - core reference vectors: `external/mindcraft-lang/packages/core/src/runtime/
   __fixtures__/` (`struct-field-access`, `control-flow`,

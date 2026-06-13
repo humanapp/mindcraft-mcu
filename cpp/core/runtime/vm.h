@@ -4,10 +4,13 @@
 
 #include "core/platform/span.h"
 #include "core/runtime/error-code.h"
+#include "core/runtime/execution-context.h"
 #include "core/runtime/execution-state.h"
+#include "core/runtime/host-action.h"
 #include "core/runtime/program.h"
 #include "core/runtime/result.h"
 #include "core/runtime/value.h"
+#include "core/runtime/vm-observer.h"
 
 namespace mindcraft {
 
@@ -66,6 +69,24 @@ struct RunResult {
 };
 
 /**
+ * Brain-wide host surface the dispatch loop runs against: the execution
+ * context, the host-action binding table, and the optional passive observer.
+ * Every pointer is non-owning. With a null `context`, the opcodes that need
+ * runtime state (`LOAD_VAR_SLOT`, `STORE_VAR_SLOT`, `HOST_ACTION_CALL`)
+ * fault `ErrorCode::HostError`.
+ */
+struct RuntimeSurface {
+  /** Runtime state the surface-dependent opcodes read and write. */
+  ExecutionContext* context = nullptr;
+
+  /** Registered host actions, resolved by stable action id. */
+  Span<const HostActionBinding> actions{};
+
+  /** Passive tap on the host-binding surface, or null. */
+  VmObserver* observer = nullptr;
+};
+
+/**
  * Truthiness of `value` per the VM contract: unknown, void, nil, `false`,
  * numeric zero, the empty string, empty containers, and error values are
  * falsy; everything else (including NaN numbers) is truthy. `program`
@@ -91,8 +112,11 @@ Status startExecution(ExecutionState& state, const ProgramImage& program, uint32
  * Budget exhaustion suspends at an instruction boundary with every live
  * range preserved; re-arm the budget and call again to resume. No platform
  * exception escapes the loop; every fault is a deterministic {@link
- * RunResult} carrying an {@link ErrorCode}.
+ * RunResult} carrying an {@link ErrorCode}. `surface` provides the host
+ * bindings and runtime state the surface-dependent opcodes dispatch
+ * against.
  */
-RunResult runExecution(ExecutionState& state, const ProgramImage& program);
+RunResult runExecution(ExecutionState& state, const ProgramImage& program,
+                       const RuntimeSurface& surface = {});
 
 } // namespace mindcraft

@@ -37,9 +37,9 @@ interface ScheduleStep {
  * released-to-pressed edge, a hold with no re-trigger, the release, and a
  * second press after the release.
  *
- * The C++ VM parity test embeds this same schedule in code; the two copies
- * are kept in sync by hand, and a divergence fails the golden trace
- * byte-comparison.
+ * The C++ VM parity test (cpp/test/trace-parity.test.cpp) embeds this same
+ * schedule in code; the two copies are kept in sync by hand, and a
+ * divergence fails the golden trace byte-comparison.
  */
 const PRESS_CYCLES_SCHEDULE: readonly ScheduleStep[] = [
   { advanceMs: 16 }, // first eval seeds callsite state, no edge

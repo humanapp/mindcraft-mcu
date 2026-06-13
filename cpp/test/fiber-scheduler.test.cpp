@@ -1,0 +1,248 @@
+#include "doctest/doctest.h"
+
+#include "core/runtime/execution-context.h"
+#include "core/runtime/fiber-scheduler.h"
+#include "core/runtime/host-action.h"
+#include "core/runtime/value.h"
+#include "core/runtime/vm.h"
+#include "vm-harness.h"
+
+#include <array>
+#include <cstdint>
+#include <vector>
+
+using mindcraft::ErrorCode;
+using mindcraft::ExecutionContext;
+using mindcraft::FiberRecord;
+using mindcraft::FiberScheduler;
+using mindcraft::FiberState;
+using mindcraft::Frame;
+using mindcraft::HostActionBinding;
+using mindcraft::kDefaultBudget;
+using mindcraft::kMaxFrameDepth;
+using mindcraft::kMaxLiveFibers;
+using mindcraft::kMaxLocalsSize;
+using mindcraft::kMaxStackSize;
+using mindcraft::Op;
+using mindcraft::ProgramImage;
+using mindcraft::Result;
+using mindcraft::RuntimeSurface;
+using mindcraft::Span;
+using mindcraft::Value;
+using mindcraft::ValueTag;
+using mindcraft::VmObserver;
+
+namespace {
+
+/** Shared region storage sized for every record slot at the per-fiber caps. */
+struct SchedulerStorage {
+  std::array<Value, kMaxLiveFibers * kMaxStackSize> stack;
+  std::array<Value, kMaxLiveFibers * kMaxLocalsSize> locals;
+  std::array<Frame, kMaxLiveFibers * kMaxFrameDepth> frames;
+
+  Span<Value> stackSpan() { return {stack.data(), stack.size()}; }
+  Span<Value> localsSpan() { return {locals.data(), locals.size()}; }
+  Span<Frame> frameSpan() { return {frames.data(), frames.size()}; }
+};
+
+/** Observer recording dispatch and fault order for assertions. */
+struct OrderObserver : VmObserver {
+  std::vector<uint32_t> actionIds;
+  std::vector<uint32_t> faultedFibers;
+  std::vector<ErrorCode> faultCodes;
+
+  void onHostActionCall(uint32_t actionId, uint32_t, Span<const Value>, const Value&) override {
+    actionIds.push_back(actionId);
+  }
+
+  void onFiberFault(uint32_t fiberId, ErrorCode code) override {
+    faultedFibers.push_back(fiberId);
+    faultCodes.push_back(code);
+  }
+};
+
+Value execNoop(void*, ExecutionContext&, Span<const Value>) { return mindcraft::kVoidValue; }
+
+/** A one-rule program whose body completes in a handful of instructions. */
+ProgramImage shortProgram(ProgramBuilder& b, std::vector<uint8_t>& storage) {
+  b.valueNil();
+  b.beginFunction().instr(Op::PUSH_CONST_VAL, 0).instr(Op::RET);
+  return b.build(storage);
+}
+
+} // namespace
+
+TEST_CASE("the scheduler constants hold their decided values") {
+  CHECK(kDefaultBudget == 1000);
+  CHECK(kMaxLiveFibers == 8u);
+}
+
+TEST_CASE("a round gives every fiber queued at entry exactly one slice, FIFO") {
+  // Two fibers each dispatch a distinct action; the round runs both in spawn
+  // order within one tick.
+  ProgramBuilder b;
+  b.valueNil();
+  b.beginFunction().instr(Op::HOST_ACTION_CALL, 1, 0, 0).instr(Op::RET);
+  b.beginFunction().instr(Op::HOST_ACTION_CALL, 2, 0, 1).instr(Op::RET);
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  const HostActionBinding bindings[2] = {{1, &execNoop, nullptr, nullptr},
+                                         {2, &execNoop, nullptr, nullptr}};
+  ExecutionContext ctx;
+  OrderObserver observer;
+  RuntimeSurface surface{&ctx, {bindings, 2}, &observer};
+
+  SchedulerStorage pools;
+  FiberScheduler scheduler(image, surface, pools.stackSpan(), pools.localsSpan(),
+                           pools.frameSpan());
+  REQUIRE(scheduler.spawn(0).isOk());
+  REQUIRE(scheduler.spawn(1).isOk());
+
+  CHECK(scheduler.tick() == 2);
+  REQUIRE(observer.actionIds.size() == 2);
+  CHECK(observer.actionIds[0] == 1);
+  CHECK(observer.actionIds[1] == 2);
+  CHECK(scheduler.tick() == 0);
+}
+
+TEST_CASE("budget exhaustion suspends mid-body and resumes in the next round") {
+  // The body parks a value in a local, burns through more than one budget
+  // slice of straight-line work, then returns the parked value: completion
+  // proves the suspended region survived the round boundary intact.
+  ProgramBuilder b;
+  b.valueNil().valueBool(true);
+  b.beginFunction(0, 1);
+  b.instr(Op::PUSH_CONST_VAL, 1).instr(Op::STORE_LOCAL, 0);
+  for (int i = 0; i < 600; i++) {
+    b.instr(Op::PUSH_CONST_VAL, 0).instr(Op::POP);
+  }
+  b.instr(Op::LOAD_LOCAL, 0).instr(Op::RET);
+  std::vector<uint8_t> storage(64 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  ExecutionContext ctx;
+  RuntimeSurface surface{&ctx, {}, nullptr};
+  SchedulerStorage pools;
+  FiberScheduler scheduler(image, surface, pools.stackSpan(), pools.localsSpan(),
+                           pools.frameSpan());
+  const Result<uint32_t> spawned = scheduler.spawn(0);
+  REQUIRE(spawned.isOk());
+  const uint32_t fiberId = spawned.value();
+
+  // First round: the slice exhausts mid-body and the fiber stays runnable.
+  CHECK(scheduler.tick() == 1);
+  const FiberRecord* suspended = scheduler.fiber(fiberId);
+  REQUIRE(suspended != nullptr);
+  CHECK(suspended->state == FiberState::Runnable);
+  CHECK(suspended->exec.budget == 0);
+  CHECK(suspended->exec.frames[0].pc < 1204);
+  scheduler.sweep();
+  CHECK(scheduler.fiber(fiberId) != nullptr);
+
+  // It received no second slice within the round; the next round resumes and
+  // completes it.
+  CHECK(scheduler.tick() == 1);
+  const FiberRecord* finished = scheduler.fiber(fiberId);
+  REQUIRE(finished != nullptr);
+  CHECK(finished->state == FiberState::Done);
+  REQUIRE(finished->exec.stackDepth == 1);
+  CHECK(finished->exec.stack[0].tag() == ValueTag::Boolean);
+  CHECK(finished->exec.stack[0].asBoolean());
+
+  scheduler.sweep();
+  CHECK(scheduler.fiber(fiberId) == nullptr);
+  CHECK(scheduler.liveCount() == 0);
+}
+
+TEST_CASE("a faulting fiber reports through the observer and dies") {
+  ProgramBuilder b;
+  b.beginFunction().instr(Op::POP).instr(Op::RET);
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  ExecutionContext ctx;
+  OrderObserver observer;
+  RuntimeSurface surface{&ctx, {}, &observer};
+  SchedulerStorage pools;
+  FiberScheduler scheduler(image, surface, pools.stackSpan(), pools.localsSpan(),
+                           pools.frameSpan());
+  const Result<uint32_t> spawned = scheduler.spawn(0);
+  REQUIRE(spawned.isOk());
+
+  CHECK(scheduler.tick() == 1);
+  REQUIRE(observer.faultedFibers.size() == 1);
+  CHECK(observer.faultedFibers[0] == spawned.value());
+  CHECK(observer.faultCodes[0] == ErrorCode::StackUnderflow);
+  const FiberRecord* record = scheduler.fiber(spawned.value());
+  REQUIRE(record != nullptr);
+  CHECK(record->state == FiberState::Fault);
+
+  scheduler.sweep();
+  CHECK(scheduler.fiber(spawned.value()) == nullptr);
+}
+
+TEST_CASE("spawn past the live-fiber cap faults loudly and recovers after a sweep") {
+  ProgramBuilder b;
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = shortProgram(b, storage);
+
+  ExecutionContext ctx;
+  RuntimeSurface surface{&ctx, {}, nullptr};
+  SchedulerStorage pools;
+  FiberScheduler scheduler(image, surface, pools.stackSpan(), pools.localsSpan(),
+                           pools.frameSpan());
+  for (uint32_t i = 0; i < kMaxLiveFibers; i++) {
+    REQUIRE(scheduler.spawn(0).isOk());
+  }
+  const Result<uint32_t> overflow = scheduler.spawn(0);
+  REQUIRE(!overflow.isOk());
+  CHECK(overflow.error() == ErrorCode::StackOverflow);
+
+  CHECK(scheduler.tick() == kMaxLiveFibers);
+  scheduler.sweep();
+  CHECK(scheduler.liveCount() == 0);
+  CHECK(scheduler.spawn(0).isOk());
+}
+
+TEST_CASE("spawn of an invalid funcId propagates the start failure") {
+  ProgramBuilder b;
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = shortProgram(b, storage);
+
+  ExecutionContext ctx;
+  RuntimeSurface surface{&ctx, {}, nullptr};
+  SchedulerStorage pools;
+  FiberScheduler scheduler(image, surface, pools.stackSpan(), pools.localsSpan(),
+                           pools.frameSpan());
+  const Result<uint32_t> bad = scheduler.spawn(9);
+  REQUIRE(!bad.isOk());
+  CHECK(bad.error() == ErrorCode::HostError);
+  CHECK(scheduler.liveCount() == 0);
+  // The failed spawn released its regions: the cap is still fully available.
+  for (uint32_t i = 0; i < kMaxLiveFibers; i++) {
+    REQUIRE(scheduler.spawn(0).isOk());
+  }
+}
+
+TEST_CASE("a cancelled fiber is skipped by the round and reclaimed") {
+  ProgramBuilder b;
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = shortProgram(b, storage);
+
+  ExecutionContext ctx;
+  RuntimeSurface surface{&ctx, {}, nullptr};
+  SchedulerStorage pools;
+  FiberScheduler scheduler(image, surface, pools.stackSpan(), pools.localsSpan(),
+                           pools.frameSpan());
+  const Result<uint32_t> spawned = scheduler.spawn(0);
+  REQUIRE(spawned.isOk());
+  scheduler.cancel(spawned.value());
+
+  const FiberRecord* record = scheduler.fiber(spawned.value());
+  REQUIRE(record != nullptr);
+  CHECK(record->state == FiberState::Cancelled);
+  CHECK(scheduler.tick() == 0);
+  scheduler.sweep();
+  CHECK(scheduler.fiber(spawned.value()) == nullptr);
+}

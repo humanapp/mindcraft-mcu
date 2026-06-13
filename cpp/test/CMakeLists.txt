@@ -2,6 +2,7 @@
 # assertion machinery requires them) while linking the exception-free core.
 add_executable(mindcraft-tests
   main.cpp
+  brain-runtime.test.cpp
   byte-cursor.test.cpp
   bytecode.test.cpp
   context-field.test.cpp
@@ -10,9 +11,11 @@ add_executable(mindcraft-tests
   core-type-atom-id.test.cpp
   device-port.test.cpp
   error-code.test.cpp
+  fiber-scheduler.test.cpp
   fixture-paths.test.cpp
   load-error.test.cpp
   microbit-v2-abi.test.cpp
+  observable-trace.test.cpp
   program-arena.test.cpp
   program-dump.test.cpp
   program-reader.test.cpp
@@ -20,6 +23,7 @@ add_executable(mindcraft-tests
   result.test.cpp
   span.test.cpp
   stack-pool.test.cpp
+  trace-parity.test.cpp
   value.test.cpp
   vm.test.cpp
 )

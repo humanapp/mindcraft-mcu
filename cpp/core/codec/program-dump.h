@@ -1,24 +1,14 @@
 #pragma once
 
-#include <cstddef>
 #include <cstdint>
 
+#include "core/codec/text-render.h"
 #include "core/runtime/program.h"
 
 namespace mindcraft {
 
 /** Canonical program dump format version this emitter renders. */
 inline constexpr uint32_t kCanonicalProgramDumpFormatVersion = 1;
-
-/** Receives canonical dump text as a sequence of byte chunks. */
-class DumpSink {
-public:
-  /** Consumes `length` bytes of dump text at `bytes`. */
-  virtual void write(const char* bytes, size_t length) = 0;
-
-protected:
-  ~DumpSink() = default;
-};
 
 /**
  * Renders a decoded program image as the canonical program dump: format
@@ -39,6 +29,6 @@ protected:
  * @param image - Decoded program image to render.
  * @param sink - Destination the dump text is written to.
  */
-bool writeCanonicalProgramDump(const ProgramImage& image, DumpSink& sink);
+bool writeCanonicalProgramDump(const ProgramImage& image, TextSink& sink);
 
 } // namespace mindcraft
