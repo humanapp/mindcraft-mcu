@@ -9,6 +9,7 @@ add_library(mindcraft-core STATIC
   runtime/error-code.cpp
   runtime/fiber-scheduler.cpp
   runtime/load-error.cpp
+  runtime/managed-heap.cpp
   runtime/vm.cpp
 )
 

@@ -8,6 +8,7 @@
 #include "core/runtime/execution-context.h"
 #include "core/runtime/fiber-scheduler.h"
 #include "core/runtime/load-error.h"
+#include "core/runtime/managed-heap.h"
 #include "core/runtime/region-arena.h"
 #include "core/runtime/value.h"
 #include "core/runtime/vm.h"
@@ -196,5 +197,55 @@ TEST_CASE("the button-display fixture byte-matches the golden observable trace")
   CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // The end state mirrors the TS spec's device assertion: pixel (0,0) lit.
+  CHECK(microbit.display.pixels[0][0] == 255);
+}
+
+TEST_CASE("the container-ops fixture byte-matches the golden observable trace") {
+  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/container-ops";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  TraceTap tap(writer);
+
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  ExecutionContext ctx;
+  // The container opcodes draw from a managed heap; the scheduler is its root
+  // source and wires itself into the surface it runs the dispatch loop against.
+  mindcraft::ManagedHeap heap(arena);
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+
+  FiberScheduler scheduler(image, surface, arena);
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // The brain ignores input and runs identically each tick; advance 16ms thrice
+  // to mirror the TS oracle schedule.
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 3; i++) {
+    const float timeMs = lastThinkTimeMs + 16;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
   CHECK(microbit.display.pixels[0][0] == 255);
 }

@@ -14,6 +14,9 @@
 
 namespace mindcraft {
 
+class ManagedHeap;
+class GcRoots;
+
 /**
  * Outcome of one dispatch-loop slice. Mirrors `VmStatus` in
  * external/mindcraft-lang/packages/core/src/runtime/vm-types.ts. `Waiting`
@@ -84,15 +87,28 @@ struct RuntimeSurface {
 
   /** Passive tap on the host-binding surface, or null. */
   VmObserver* observer = nullptr;
+
+  /**
+   * Managed heap backing the container value types. Null when the host
+   * registers no heap; a container opcode then faults `ErrorCode::HostError`.
+   */
+  ManagedHeap* heap = nullptr;
+
+  /**
+   * Garbage-collection root source the heap collects over (the fiber
+   * scheduler). Null when no heap is configured.
+   */
+  GcRoots* roots = nullptr;
 };
 
 /**
  * Truthiness of `value` per the VM contract: unknown, void, nil, `false`,
  * numeric zero, the empty string, empty containers, and error values are
  * falsy; everything else (including NaN numbers) is truthy. `program`
- * resolves borrowed string references.
+ * resolves borrowed string references; `heap` resolves container lengths and
+ * must be non-null whenever a `List` or `Map` value can reach this call.
  */
-bool isTruthy(const Value& value, const ProgramImage& program);
+bool isTruthy(const Value& value, const ProgramImage& program, const ManagedHeap* heap = nullptr);
 
 /**
  * Push the entry frame for `funcId` onto `state` and seed its locals from

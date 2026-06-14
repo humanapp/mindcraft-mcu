@@ -74,6 +74,22 @@ bool isImplementedOp(Op op) {
   case Op::LOAD_VAR_SLOT:
   case Op::STORE_VAR_SLOT:
   case Op::HOST_ACTION_CALL:
+  case Op::LIST_NEW:
+  case Op::LIST_PUSH:
+  case Op::LIST_GET:
+  case Op::LIST_SET:
+  case Op::LIST_LEN:
+  case Op::LIST_POP:
+  case Op::LIST_SHIFT:
+  case Op::LIST_REMOVE:
+  case Op::LIST_INSERT:
+  case Op::LIST_SWAP:
+  case Op::MAP_NEW:
+  case Op::MAP_SET:
+  case Op::MAP_GET:
+  case Op::MAP_HAS:
+  case Op::MAP_DELETE:
+  case Op::TYPE_CHECK:
     return true;
   default:
     return false;

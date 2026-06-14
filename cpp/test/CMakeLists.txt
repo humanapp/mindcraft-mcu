@@ -15,6 +15,7 @@ add_executable(mindcraft-tests
   fixture-paths.test.cpp
   host-loop.test.cpp
   load-error.test.cpp
+  managed-heap.test.cpp
   microbit-v2-abi.test.cpp
   observable-trace.test.cpp
   on-flash-region.test.cpp

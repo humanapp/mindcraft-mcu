@@ -4,6 +4,7 @@
 
 #include "core/platform/span.h"
 #include "core/runtime/execution-state.h"
+#include "core/runtime/managed-heap.h"
 #include "core/runtime/pool.h"
 #include "core/runtime/program.h"
 #include "core/runtime/region-arena.h"
@@ -89,8 +90,13 @@ struct FiberRecord {
  *
  * Single-entry: only the host think loop may call {@link tick}; host
  * callbacks and action bodies must never re-enter it.
+ *
+ * The scheduler is also the managed heap's {@link GcRoots} source: it holds
+ * every live fiber, so a collection enumerates all reachable values from the
+ * fibers' operand stacks and locals plus the bound execution context's brain
+ * variables and per-callsite state.
  */
-class FiberScheduler {
+class FiberScheduler : public GcRoots {
 public:
   /**
    * A scheduler executing `program` against `surface`, carving each fiber's
@@ -141,6 +147,13 @@ public:
 
   /** The shared region backing this scheduler's pools. */
   RegionArena& arena() { return arena_; }
+
+  /**
+   * Marks every live garbage-collection root into `marker`: each live fiber's
+   * operand stack and locals, plus the bound execution context's brain
+   * variables and present per-callsite state. Implements {@link GcRoots}.
+   */
+  void enumerateRoots(GcMarker& marker) override;
 
 private:
   FiberRecord* findFiber(uint32_t fiberId);

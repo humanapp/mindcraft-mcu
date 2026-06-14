@@ -22,6 +22,12 @@ public:
   /** An arena allocating from `storage`. */
   explicit RegionArena(Span<uint8_t> storage) : storage_(storage), used_(0) {}
 
+  /**
+   * Base address of the backing storage. Stable for the arena's lifetime;
+   * every allocation lies at a fixed non-negative byte offset from it.
+   */
+  uint8_t* base() const { return storage_.data(); }
+
   /** Number of bytes consumed so far, including alignment padding. */
   size_t bytesUsed() const { return used_; }
 

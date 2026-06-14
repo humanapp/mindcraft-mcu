@@ -1,10 +1,39 @@
 #include "core/runtime/fiber-scheduler.h"
 
+#include "core/runtime/execution-context.h"
+
 namespace mindcraft {
 
 FiberScheduler::FiberScheduler(const ProgramImage& program, const RuntimeSurface& surface,
                                RegionArena& arena)
-    : program_(program), surface_(surface), arena_(arena), records_(arena), workspaces_(arena) {}
+    : program_(program), surface_(surface), arena_(arena), records_(arena), workspaces_(arena) {
+  // The scheduler is the heap's root source; point the surface the dispatch
+  // loop runs against back at it so an allocation can collect over all fibers.
+  surface_.roots = this;
+}
+
+void FiberScheduler::enumerateRoots(GcMarker& marker) {
+  records_.forEachLive([&marker](FiberRecord& record) {
+    const ExecutionState& exec = record.exec;
+    for (uint32_t i = 0; i < exec.stackDepth; i++) {
+      marker.mark(exec.stack[i]);
+    }
+    for (uint32_t i = 0; i < exec.localsDepth; i++) {
+      marker.mark(exec.locals[i]);
+    }
+  });
+  if (surface_.context != nullptr) {
+    const ExecutionContext& ctx = *surface_.context;
+    for (size_t i = 0; i < ctx.variables.size(); i++) {
+      marker.mark(ctx.variables[i]);
+    }
+    for (size_t i = 0; i < ctx.callSiteStates.size(); i++) {
+      if (ctx.callSiteStatePresent[i]) {
+        marker.mark(ctx.callSiteStates[i]);
+      }
+    }
+  }
+}
 
 Result<uint32_t> FiberScheduler::spawn(uint32_t funcId) {
   if (records_.liveCount() >= kMaxFibers) {

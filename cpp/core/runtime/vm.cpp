@@ -1,8 +1,49 @@
 #include "core/runtime/vm.h"
 
+#include "core/runtime/managed-heap.h"
+
 namespace mindcraft {
 
 namespace {
+
+/**
+ * Floors a brain number to an integer container index. Returns false for
+ * non-finite values or magnitudes outside the int32 range; callers treat a
+ * false result as an out-of-range index. Container sizes are bounded by the
+ * region, far inside int32, so a value outside that range is always out of
+ * bounds.
+ */
+bool numberToIndex(mc_number_t value, int32_t& out) {
+  if (value != value) {
+    return false; // NaN
+  }
+  // The bounds are exact powers of two in f32; `< 2^31` keeps the cast in range.
+  if (!(value >= -2147483648.0f && value < 2147483648.0f)) {
+    return false; // +/-inf or beyond int32
+  }
+  int32_t truncated = static_cast<int32_t>(value); // truncates toward zero
+  if (static_cast<mc_number_t>(truncated) > value) {
+    truncated -= 1; // floor toward negative infinity
+  }
+  out = truncated;
+  return true;
+}
+
+/**
+ * Converts a popped map-key value to a {@link MapKey}. Returns false when the
+ * value is neither a number nor a string, mirroring the TS key-kind fault.
+ */
+bool valueToMapKey(const Value& value, MapKey& out) {
+  if (value.isNumber()) {
+    out = MapKey{true, value.asNumber(), 0};
+    return true;
+  }
+  if (value.isString()) {
+    out = MapKey{false, 0.0f, value.borrowedStringIndex()};
+    return true;
+  }
+  return false;
+}
 
 /** Push `value`; false when the operand stack is at capacity. */
 bool pushValue(ExecutionState& state, const Value& value) {
@@ -28,9 +69,9 @@ uint32_t addRel(uint32_t pc, uint32_t relBits) {
 }
 
 /**
- * Convert a decoded constant-pool entry to a runtime value. False for the
- * kinds whose runtime representation needs the managed heap (containers and
- * capture lists), which is not implemented yet.
+ * Convert a decoded constant-pool entry to a runtime value. Returns false for
+ * the `List`, `Map`, and `Struct` constant kinds and for a `Function` constant
+ * carrying captures; the caller faults on a false result.
  */
 bool constValueToRuntime(const ConstValue& constant, Value& out) {
   switch (constant.kind) {
@@ -71,7 +112,7 @@ bool constValueToRuntime(const ConstValue& constant, Value& out) {
 
 } // namespace
 
-bool isTruthy(const Value& value, const ProgramImage& program) {
+bool isTruthy(const Value& value, const ProgramImage& program, const ManagedHeap* heap) {
   switch (value.tag()) {
   case ValueTag::Unknown:
   case ValueTag::Void:
@@ -93,10 +134,11 @@ bool isTruthy(const Value& value, const ProgramImage& program) {
   case ValueTag::Handle:
     return true;
   case ValueTag::List:
+    // A list is truthy when non-empty. Reachable only with a configured heap.
+    return heap != nullptr && heap->list(value)->size > 0;
   case ValueTag::Map:
-    // Containers are truthy when non-empty. No opcode can construct one until
-    // the heap backings land, so this arm is unreachable from live values.
-    return true;
+    // A map is truthy when non-empty. Reachable only with a configured heap.
+    return heap != nullptr && heap->map(value)->size > 0;
   case ValueTag::Err:
     return false;
   }
@@ -259,7 +301,7 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       if (!popValue(state, value)) {
         return fault(ErrorCode::StackUnderflow);
       }
-      frame.pc = isTruthy(value, program) ? frame.pc + 1 : addRel(frame.pc, ins.a);
+      frame.pc = isTruthy(value, program, surface.heap) ? frame.pc + 1 : addRel(frame.pc, ins.a);
       break;
     }
 
@@ -268,7 +310,7 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       if (!popValue(state, value)) {
         return fault(ErrorCode::StackUnderflow);
       }
-      frame.pc = isTruthy(value, program) ? addRel(frame.pc, ins.a) : frame.pc + 1;
+      frame.pc = isTruthy(value, program, surface.heap) ? addRel(frame.pc, ins.a) : frame.pc + 1;
       break;
     }
 
@@ -393,7 +435,361 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       if (!popValue(state, value)) {
         return fault(ErrorCode::StackUnderflow);
       }
-      frame.pc = isTruthy(value, program) ? frame.pc + 1 : addRel(frame.pc, ins.a);
+      frame.pc = isTruthy(value, program, surface.heap) ? frame.pc + 1 : addRel(frame.pc, ins.a);
+      break;
+    }
+
+    case Op::LIST_NEW: {
+      if (surface.heap == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      Value listValue;
+      if (!surface.heap->newList(ins.b, surface.roots, listValue)) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      if (!pushValue(state, listValue)) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      frame.pc++;
+      break;
+    }
+
+    case Op::LIST_PUSH: {
+      if (surface.heap == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      // [list, item] -> [list]. Both operands stay on the stack (rooted)
+      // across the possible backing growth and collection.
+      if (state.stackDepth < 2) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      const Value& listSlot = state.stack[state.stackDepth - 2];
+      const Value& itemSlot = state.stack[state.stackDepth - 1];
+      if (!listSlot.isList()) {
+        return fault(ErrorCode::ScriptError);
+      }
+      if (!surface.heap->listPush(surface.heap->list(listSlot), itemSlot, surface.roots)) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      state.stackDepth--; // drop the item, leaving the list on top
+      frame.pc++;
+      break;
+    }
+
+    case Op::LIST_GET: {
+      if (surface.heap == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      Value index;
+      Value listValue;
+      if (!popValue(state, index) || !popValue(state, listValue)) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      if (!listValue.isList()) {
+        return fault(ErrorCode::ScriptError);
+      }
+      if (!index.isNumber()) {
+        return fault(ErrorCode::ScriptError);
+      }
+      int32_t idx = 0;
+      Value result = kNilValue;
+      if (numberToIndex(index.asNumber(), idx)) {
+        result = surface.heap->listGet(surface.heap->list(listValue), idx);
+      }
+      if (!pushValue(state, result)) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      frame.pc++;
+      break;
+    }
+
+    case Op::LIST_SET: {
+      if (surface.heap == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      // [list, index, value] -> [list]. An in-place overwrite never allocates.
+      if (state.stackDepth < 3) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      const Value& listSlot = state.stack[state.stackDepth - 3];
+      const Value& indexSlot = state.stack[state.stackDepth - 2];
+      const Value& valueSlot = state.stack[state.stackDepth - 1];
+      if (!listSlot.isList()) {
+        return fault(ErrorCode::ScriptError);
+      }
+      if (!indexSlot.isNumber()) {
+        return fault(ErrorCode::ScriptError);
+      }
+      int32_t idx = 0;
+      if (numberToIndex(indexSlot.asNumber(), idx)) {
+        surface.heap->listSet(surface.heap->list(listSlot), idx, valueSlot);
+      }
+      state.stackDepth -= 2; // drop index and value, leaving the list on top
+      frame.pc++;
+      break;
+    }
+
+    case Op::LIST_LEN: {
+      if (surface.heap == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      Value listValue;
+      if (!popValue(state, listValue)) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      if (!listValue.isList()) {
+        return fault(ErrorCode::ScriptError);
+      }
+      const Value len =
+          Value::number(static_cast<mc_number_t>(surface.heap->list(listValue)->size));
+      if (!pushValue(state, len)) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      frame.pc++;
+      break;
+    }
+
+    case Op::LIST_POP: {
+      if (surface.heap == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      Value listValue;
+      if (!popValue(state, listValue)) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      if (!listValue.isList()) {
+        return fault(ErrorCode::ScriptError);
+      }
+      if (!pushValue(state, surface.heap->listPop(surface.heap->list(listValue)))) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      frame.pc++;
+      break;
+    }
+
+    case Op::LIST_SHIFT: {
+      if (surface.heap == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      Value listValue;
+      if (!popValue(state, listValue)) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      if (!listValue.isList()) {
+        return fault(ErrorCode::ScriptError);
+      }
+      if (!pushValue(state, surface.heap->listShift(surface.heap->list(listValue)))) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      frame.pc++;
+      break;
+    }
+
+    case Op::LIST_REMOVE: {
+      if (surface.heap == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      Value index;
+      Value listValue;
+      if (!popValue(state, index) || !popValue(state, listValue)) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      if (!listValue.isList()) {
+        return fault(ErrorCode::ScriptError);
+      }
+      if (!index.isNumber()) {
+        return fault(ErrorCode::ScriptError);
+      }
+      int32_t idx = 0;
+      Value result = kNilValue;
+      if (numberToIndex(index.asNumber(), idx)) {
+        result = surface.heap->listRemove(surface.heap->list(listValue), idx);
+      }
+      if (!pushValue(state, result)) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      frame.pc++;
+      break;
+    }
+
+    case Op::LIST_INSERT: {
+      if (surface.heap == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      // [list, index, value] -> []; operands stay rooted across a grow.
+      if (state.stackDepth < 3) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      const Value& listSlot = state.stack[state.stackDepth - 3];
+      const Value& indexSlot = state.stack[state.stackDepth - 2];
+      const Value& valueSlot = state.stack[state.stackDepth - 1];
+      if (!listSlot.isList()) {
+        return fault(ErrorCode::ScriptError);
+      }
+      if (!indexSlot.isNumber()) {
+        return fault(ErrorCode::ScriptError);
+      }
+      int32_t idx = 0;
+      if (numberToIndex(indexSlot.asNumber(), idx)) {
+        if (!surface.heap->listInsert(surface.heap->list(listSlot), idx, valueSlot,
+                                      surface.roots)) {
+          return fault(ErrorCode::StackOverflow);
+        }
+      }
+      state.stackDepth -= 3;
+      frame.pc++;
+      break;
+    }
+
+    case Op::LIST_SWAP: {
+      if (surface.heap == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      // [list, i, j] -> []. An in-place swap never allocates.
+      if (state.stackDepth < 3) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      const Value& listSlot = state.stack[state.stackDepth - 3];
+      const Value& iSlot = state.stack[state.stackDepth - 2];
+      const Value& jSlot = state.stack[state.stackDepth - 1];
+      if (!listSlot.isList()) {
+        return fault(ErrorCode::ScriptError);
+      }
+      if (!iSlot.isNumber() || !jSlot.isNumber()) {
+        return fault(ErrorCode::ScriptError);
+      }
+      int32_t i = 0;
+      int32_t j = 0;
+      if (numberToIndex(iSlot.asNumber(), i) && numberToIndex(jSlot.asNumber(), j)) {
+        surface.heap->listSwap(surface.heap->list(listSlot), i, j);
+      }
+      state.stackDepth -= 3;
+      frame.pc++;
+      break;
+    }
+
+    case Op::MAP_NEW: {
+      if (surface.heap == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      Value mapValue;
+      if (!surface.heap->newMap(ins.b, surface.roots, mapValue)) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      if (!pushValue(state, mapValue)) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      frame.pc++;
+      break;
+    }
+
+    case Op::MAP_SET: {
+      if (surface.heap == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      // [map, key, value] -> [map]; operands stay rooted across a grow.
+      if (state.stackDepth < 3) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      const Value& mapSlot = state.stack[state.stackDepth - 3];
+      const Value& keySlot = state.stack[state.stackDepth - 2];
+      const Value& valueSlot = state.stack[state.stackDepth - 1];
+      if (!mapSlot.isMap()) {
+        return fault(ErrorCode::ScriptError);
+      }
+      MapKey key;
+      if (!valueToMapKey(keySlot, key)) {
+        return fault(ErrorCode::ScriptError);
+      }
+      if (!surface.heap->mapSet(surface.heap->map(mapSlot), key, valueSlot, surface.roots)) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      state.stackDepth -= 2; // drop key and value, leaving the map on top
+      frame.pc++;
+      break;
+    }
+
+    case Op::MAP_GET: {
+      if (surface.heap == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      Value key;
+      Value mapValue;
+      if (!popValue(state, key) || !popValue(state, mapValue)) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      if (!mapValue.isMap()) {
+        return fault(ErrorCode::ScriptError);
+      }
+      MapKey mapKey;
+      if (!valueToMapKey(key, mapKey)) {
+        return fault(ErrorCode::ScriptError);
+      }
+      if (!pushValue(state, surface.heap->mapGet(surface.heap->map(mapValue), mapKey))) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      frame.pc++;
+      break;
+    }
+
+    case Op::MAP_HAS: {
+      if (surface.heap == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      Value key;
+      Value mapValue;
+      if (!popValue(state, key) || !popValue(state, mapValue)) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      if (!mapValue.isMap()) {
+        return fault(ErrorCode::ScriptError);
+      }
+      MapKey mapKey;
+      if (!valueToMapKey(key, mapKey)) {
+        return fault(ErrorCode::ScriptError);
+      }
+      const Value has = Value::boolean(surface.heap->mapHas(surface.heap->map(mapValue), mapKey));
+      if (!pushValue(state, has)) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      frame.pc++;
+      break;
+    }
+
+    case Op::MAP_DELETE: {
+      if (surface.heap == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      Value key;
+      Value mapValue;
+      if (!popValue(state, key) || !popValue(state, mapValue)) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      if (!mapValue.isMap()) {
+        return fault(ErrorCode::ScriptError);
+      }
+      MapKey mapKey;
+      if (!valueToMapKey(key, mapKey)) {
+        return fault(ErrorCode::ScriptError);
+      }
+      surface.heap->mapDelete(surface.heap->map(mapValue), mapKey);
+      if (!pushValue(state, mapValue)) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      frame.pc++;
+      break;
+    }
+
+    case Op::TYPE_CHECK: {
+      Value value;
+      if (!popValue(state, value)) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      const bool match = static_cast<int32_t>(value.tag()) == static_cast<int32_t>(ins.a);
+      if (!pushValue(state, Value::boolean(match))) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      frame.pc++;
       break;
     }
 

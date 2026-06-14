@@ -108,6 +108,16 @@ public:
     return Value(ValueTag::Enum, Payload(Compound{typeId, ordinal}));
   }
 
+  /** A `List` value: its type-table index plus the managed-heap handle. */
+  static constexpr Value list(uint32_t typeId, uint32_t handle) {
+    return Value(ValueTag::List, Payload(Compound{typeId, handle}));
+  }
+
+  /** A `Map` value: its type-table index plus the managed-heap handle. */
+  static constexpr Value map(uint32_t typeId, uint32_t handle) {
+    return Value(ValueTag::Map, Payload(Compound{typeId, handle}));
+  }
+
   /** A `Function` value, optionally carrying a captures handle. */
   static constexpr Value function(uint32_t funcId, uint32_t captures = kNoCaptures) {
     return Value(ValueTag::Function, Payload(Function{funcId, captures}));
@@ -138,6 +148,12 @@ public:
   /** True when the tag is `Nil`. */
   constexpr bool isNil() const { return tag_ == ValueTag::Nil; }
 
+  /** True when the tag is `List`. */
+  constexpr bool isList() const { return tag_ == ValueTag::List; }
+
+  /** True when the tag is `Map`. */
+  constexpr bool isMap() const { return tag_ == ValueTag::Map; }
+
   /** The boolean payload. Requires tag `Boolean`. */
   constexpr bool asBoolean() const { return payload_.boolean; }
 
@@ -158,6 +174,12 @@ public:
 
   /** The type-table index. Requires tag `Enum`, `List`, `Map`, or `Struct`. */
   constexpr uint32_t typeId() const { return payload_.compound.typeId; }
+
+  /**
+   * The managed-heap handle of a container value. Requires tag `List` or
+   * `Map`.
+   */
+  constexpr uint32_t containerHandle() const { return payload_.compound.ref; }
 
   /** The declared-symbol ordinal. Requires tag `Enum`. */
   constexpr uint32_t enumOrdinal() const { return payload_.compound.ref; }
