@@ -110,6 +110,68 @@ bool constValueToRuntime(const ConstValue& constant, Value& out) {
   return false;
 }
 
+/**
+ * Commits a call frame for `calleeId`. The callee's args are the topmost `argc`
+ * operands (arg0 deepest); they are moved into the callee's locals 0..argc-1 and
+ * the operand stack is truncated, dropping the args plus `extraDrop` slots below
+ * them (1 for the indirect-call function reference, 0 for a direct call).
+ * `captures` becomes the callee frame's capture handle. With `exactArity`, `argc`
+ * must equal `callee.numParams`; otherwise surplus args are dropped and missing
+ * args are nil-padded to `numParams`. On success the caller frame's pc is
+ * advanced past the call instruction. Returns false with `err` set on an
+ * out-of-bounds funcId, arity mismatch, or frame/locals overflow; on failure
+ * the caller pc is left at the call instruction. The caller must have checked
+ * that `argc + extraDrop <= stackDepth`.
+ */
+bool pushCallFrame(ExecutionState& state, const ProgramImage& program, uint32_t calleeId,
+                   uint32_t argc, uint32_t captures, bool exactArity, uint32_t extraDrop,
+                   ErrorCode& err) {
+  if (calleeId >= program.functions.size()) {
+    err = ErrorCode::ScriptError;
+    return false;
+  }
+  if (state.frameDepth >= state.frameLimit) {
+    err = ErrorCode::StackOverflow;
+    return false;
+  }
+  const FunctionBytecode& fn = program.functions[calleeId];
+  if (exactArity && argc != fn.numParams) {
+    err = ErrorCode::ScriptError;
+    return false;
+  }
+  if (fn.numLocals > state.localsLimit - state.localsDepth) {
+    err = ErrorCode::StackOverflow;
+    return false;
+  }
+
+  const uint32_t argsBase = state.stackDepth - argc;
+  const uint32_t take = argc < fn.numParams ? argc : fn.numParams;
+  const uint32_t localsOffset = state.localsDepth;
+  // The operand stack and locals region are distinct arrays, so the args are
+  // read out before the stack is truncated below.
+  for (uint32_t i = 0; i < fn.numLocals; i++) {
+    state.locals[localsOffset + i] = i < take ? state.stack[argsBase + i] : kNilValue;
+  }
+  state.localsDepth += fn.numLocals;
+  state.stackDepth = argsBase - extraDrop;
+
+  // Advance the caller before pushing the callee so its pc resumes after the
+  // call on return.
+  state.frames[state.frameDepth - 1].pc++;
+
+  Frame& callee = state.frames[state.frameDepth++];
+  callee.funcId = calleeId;
+  callee.pc = 0;
+  callee.base = state.stackDepth;
+  callee.localsOffset = localsOffset;
+  callee.localsCount = fn.numLocals;
+  callee.captures = captures;
+  callee.ruleFuncId = kNoFuncId;
+  callee.hasActionBinding = false;
+  callee.actionBinding = ActionFrameBinding{0, 0, false};
+  return true;
+}
+
 } // namespace
 
 bool isTruthy(const Value& value, const ProgramImage& program, const ManagedHeap* heap) {
@@ -381,11 +443,24 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       if (surface.context == nullptr || ins.a >= surface.context->variables.size()) {
         return fault(ErrorCode::HostError);
       }
-      Value value;
-      if (!popValue(state, value)) {
+      if (state.stackDepth == 0) {
         return fault(ErrorCode::StackUnderflow);
       }
-      surface.context->variables[ins.a] = value;
+      // Struct values are deep-copied on store (value semantics); primitives and
+      // containers are written by reference. The source stays on the operand
+      // stack (rooted) across the allocating copy.
+      const Value& top = state.stack[state.stackDepth - 1];
+      Value stored = top;
+      if (top.isStruct()) {
+        if (surface.heap == nullptr) {
+          return fault(ErrorCode::HostError);
+        }
+        if (!surface.heap->deepCopy(top, surface.roots, stored)) {
+          return fault(ErrorCode::StackOverflow);
+        }
+      }
+      surface.context->variables[ins.a] = stored;
+      state.stackDepth--;
       frame.pc++;
       break;
     }
@@ -792,6 +867,285 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       frame.pc++;
       break;
     }
+
+    case Op::INSTANCE_OF: {
+      Value value;
+      if (!popValue(state, value)) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      if (ins.a >= program.types.size()) {
+        return fault(ErrorCode::ScriptError);
+      }
+      const bool result = value.isStruct() && value.typeId() == ins.a;
+      if (!pushValue(state, Value::boolean(result))) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      frame.pc++;
+      break;
+    }
+
+    case Op::CALL: {
+      const uint32_t argc = ins.b;
+      if (state.stackDepth < argc) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      ErrorCode err = ErrorCode::ScriptError;
+      if (!pushCallFrame(state, program, ins.a, argc, kNoCaptures, true, 0, err)) {
+        return fault(err);
+      }
+      // The caller pc was advanced inside pushCallFrame; the callee runs next.
+      break;
+    }
+
+    case Op::CALL_INDIRECT:
+    case Op::CALL_INDIRECT_ARGS: {
+      const uint32_t argc = ins.a;
+      // Stack layout: [func, arg0, ..., arg(argc-1)]; the function reference
+      // sits below the args.
+      if (state.stackDepth <= argc) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      const Value& funcRef = state.stack[state.stackDepth - argc - 1];
+      if (!funcRef.isFunction()) {
+        return fault(ErrorCode::ScriptError);
+      }
+      const uint32_t calleeId = funcRef.functionId();
+      const uint32_t captures = funcRef.functionCaptures();
+      const bool exactArity = ins.op == Op::CALL_INDIRECT;
+      ErrorCode err = ErrorCode::ScriptError;
+      if (!pushCallFrame(state, program, calleeId, argc, captures, exactArity, 1, err)) {
+        return fault(err);
+      }
+      break;
+    }
+
+    case Op::MAKE_CLOSURE: {
+      if (surface.heap == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      const uint32_t captureCount = ins.b;
+      if (state.stackDepth < captureCount) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      uint32_t capturesHandle = kNoCaptures;
+      if (captureCount > 0) {
+        // The captures stay on the operand stack (rooted) across the allocation.
+        if (!surface.heap->newCaptures(captureCount, surface.roots, capturesHandle)) {
+          return fault(ErrorCode::StackOverflow);
+        }
+        CapturesObject* obj = surface.heap->captures(capturesHandle);
+        const uint32_t base = state.stackDepth - captureCount;
+        // Captures were pushed left-to-right; keep that order in the array.
+        for (uint32_t i = 0; i < captureCount; i++) {
+          obj->slots[i] = state.stack[base + i];
+        }
+        state.stackDepth = base;
+      }
+      if (!pushValue(state, Value::function(ins.a, capturesHandle))) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      frame.pc++;
+      break;
+    }
+
+    case Op::LOAD_CAPTURE: {
+      if (surface.heap == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      if (frame.captures == kNoCaptures) {
+        return fault(ErrorCode::ScriptError);
+      }
+      CapturesObject* obj = surface.heap->captures(frame.captures);
+      if (ins.a >= obj->count) {
+        return fault(ErrorCode::ScriptError);
+      }
+      if (!pushValue(state, obj->slots[ins.a])) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      frame.pc++;
+      break;
+    }
+
+    case Op::STRUCT_NEW: {
+      if (surface.heap == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      // Operand `a` is reserved and must be 0.
+      if (ins.a != 0) {
+        return fault(ErrorCode::ScriptError);
+      }
+      uint32_t slotCount = 0;
+      if (ins.b != kNoTypeIdx) {
+        if (ins.b >= program.types.size()) {
+          return fault(ErrorCode::ScriptError);
+        }
+        const TypeEntry& entry = program.types[ins.b];
+        if (entry.tag != TypeTag::Struct) {
+          return fault(ErrorCode::ScriptError);
+        }
+        slotCount = entry.structOf.slotCount;
+      }
+      Value structValue;
+      if (!surface.heap->newStruct(ins.b, slotCount, surface.roots, structValue)) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      if (!pushValue(state, structValue)) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      frame.pc++;
+      break;
+    }
+
+    case Op::STRUCT_COPY_EXCEPT: {
+      if (surface.heap == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      // Name-keyed dynamic copy. Pop the exclude keys (strings) then the source
+      // struct. With no field names on the binary path no field copies resolve,
+      // so the result is a fresh struct of the operand type with all-nil fields.
+      const uint32_t numExclude = ins.a;
+      if (state.stackDepth < numExclude + 1u) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      for (uint32_t i = 0; i < numExclude; i++) {
+        Value key;
+        popValue(state, key);
+        if (!key.isString()) {
+          return fault(ErrorCode::ScriptError);
+        }
+      }
+      Value source;
+      popValue(state, source);
+      if (!source.isStruct()) {
+        return fault(ErrorCode::ScriptError);
+      }
+      uint32_t slotCount = 0;
+      if (ins.b != kNoTypeIdx) {
+        if (ins.b >= program.types.size()) {
+          return fault(ErrorCode::ScriptError);
+        }
+        const TypeEntry& entry = program.types[ins.b];
+        if (entry.tag != TypeTag::Struct) {
+          return fault(ErrorCode::ScriptError);
+        }
+        slotCount = entry.structOf.slotCount;
+      }
+      // The source is no longer referenced, so it need not stay rooted across
+      // the allocation below.
+      Value result;
+      if (!surface.heap->newStruct(ins.b, slotCount, surface.roots, result)) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      if (!pushValue(state, result)) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      frame.pc++;
+      break;
+    }
+
+    case Op::STRUCT_GET_FIELD: {
+      if (surface.heap == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      Value structValue;
+      if (!popValue(state, structValue)) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      if (!structValue.isStruct()) {
+        return fault(ErrorCode::ScriptError);
+      }
+      const Value field = surface.heap->structGet(surface.heap->structOf(structValue), ins.a);
+      if (!pushValue(state, field)) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      frame.pc++;
+      break;
+    }
+
+    case Op::STRUCT_SET_FIELD: {
+      if (surface.heap == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      // A pure store: the field slot is overwritten in place, never deep-copied.
+      Value value;
+      Value structValue;
+      if (!popValue(state, value) || !popValue(state, structValue)) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      if (!structValue.isStruct()) {
+        return fault(ErrorCode::ScriptError);
+      }
+      surface.heap->structSet(surface.heap->structOf(structValue), ins.a, value);
+      if (!pushValue(state, structValue)) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      frame.pc++;
+      break;
+    }
+
+    case Op::STRUCT_DEEP_COPY: {
+      if (surface.heap == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      if (state.stackDepth == 0) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      // The source stays on the operand stack (rooted) across the allocating
+      // copy; the result replaces it in place.
+      Value copy;
+      if (!surface.heap->deepCopy(state.stack[state.stackDepth - 1], surface.roots, copy)) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      state.stack[state.stackDepth - 1] = copy;
+      frame.pc++;
+      break;
+    }
+
+    case Op::GET_FIELD: {
+      // Name-keyed read. With no struct field names on the binary path the name
+      // never resolves, so the read degrades to nil. Non-struct sources also
+      // yield nil.
+      Value fieldName;
+      Value source;
+      if (!popValue(state, fieldName) || !popValue(state, source)) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      if (!fieldName.isString()) {
+        return fault(ErrorCode::ScriptError);
+      }
+      if (!pushValue(state, kNilValue)) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      frame.pc++;
+      break;
+    }
+
+    case Op::SET_FIELD: {
+      // Name-keyed write. With no field names on the binary path the name never
+      // resolves, so the write is dropped and the struct returned unchanged.
+      Value value;
+      Value fieldName;
+      Value source;
+      if (!popValue(state, value) || !popValue(state, fieldName) || !popValue(state, source)) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      if (!fieldName.isString()) {
+        return fault(ErrorCode::ScriptError);
+      }
+      if (!source.isStruct()) {
+        return fault(ErrorCode::ScriptError);
+      }
+      if (!pushValue(state, source)) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      frame.pc++;
+      break;
+    }
+
+    case Op::RESERVED_111:
+    case Op::RESERVED_112:
+      // Producer-free reserved opcodes: decoded for numbering, never executed.
+      return fault(ErrorCode::ScriptError);
 
     default:
       // Every opcode outside the implemented subset faults deterministically.

@@ -39,6 +39,16 @@ public:
     return *this;
   }
 
+  /**
+   * Appends a program-local struct type-table entry: its name (string-table
+   * entry `nameStringIdx`) and `slotCount` (`maxFieldId + 1`) field slots.
+   */
+  ProgramBuilder& structType(uint32_t nameStringIdx, uint32_t slotCount) {
+    typeCount_++;
+    types_.u8(6).varUint(nameStringIdx).varUint(slotCount);
+    return *this;
+  }
+
   /** Appends a number constant-pool entry. */
   ProgramBuilder& number(float value) {
     numberCount_++;
@@ -117,7 +127,9 @@ public:
 
   /**
    * Appends one instruction to the open function, encoding the operands the
-   * opcode's schema requires (optional trailing operands are encoded absent).
+   * opcode's schema requires. An optional trailing operand is encoded present
+   * (sentinel-biased) for any value other than {@link mindcraft::kNoTypeIdx},
+   * which encodes it absent.
    */
   ProgramBuilder& instr(mindcraft::Op op, int32_t a = 0, int32_t b = 0, int32_t c = 0) {
     const mindcraft::OpOperandSchema* schema = mindcraft::operandSchemaFor(op);
@@ -128,7 +140,8 @@ public:
     for (uint8_t i = 0; i < schema->operandCount; i++) {
       const mindcraft::OperandSpec& spec = schema->operands[i];
       if (spec.optional) {
-        fn.body.varUint(0);
+        const uint32_t value = static_cast<uint32_t>(operands[i]);
+        fn.body.varUint(value == mindcraft::kNoTypeIdx ? 0 : value + 1);
       } else if (spec.encoding == mindcraft::OperandEncoding::SVar) {
         fn.body.varInt(operands[i]);
       } else {

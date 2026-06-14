@@ -10,9 +10,11 @@
 #include <limits>
 #include <vector>
 
+using mindcraft::CapturesObject;
 using mindcraft::GcMarker;
 using mindcraft::GcRoots;
 using mindcraft::isTruthy;
+using mindcraft::kNoCaptures;
 using mindcraft::ListObject;
 using mindcraft::ManagedHeap;
 using mindcraft::MapKey;
@@ -20,6 +22,7 @@ using mindcraft::MapObject;
 using mindcraft::ProgramImage;
 using mindcraft::RegionArena;
 using mindcraft::Span;
+using mindcraft::StructObject;
 using mindcraft::Value;
 
 namespace {
@@ -286,6 +289,209 @@ TEST_CASE("the collector reclaims unreachable cycles") {
   roots.roots.clear();
   heap.collect(roots);
   CHECK(heap.liveListCount() == 0u);
+}
+
+TEST_CASE("struct field slots are nil-initialized and addressed by id") {
+  std::vector<uint8_t> storage(8 * 1024);
+  RegionArena arena(Span<uint8_t>(storage.data(), storage.size()));
+  ManagedHeap heap(arena);
+  RootSet roots;
+
+  Value structValue;
+  REQUIRE(heap.newStruct(3, 3, &roots, structValue));
+  REQUIRE(structValue.isStruct());
+  CHECK(structValue.typeId() == 3u);
+  StructObject* obj = heap.structOf(structValue);
+  CHECK(obj->slotCount == 3u);
+  for (uint32_t i = 0; i < 3; i++) {
+    CHECK(heap.structGet(obj, i).isNil());
+  }
+
+  heap.structSet(obj, 0, Value::number(10.0f));
+  heap.structSet(obj, 2, Value::number(20.0f));
+  CHECK(heap.structGet(obj, 0).asNumber() == 10.0f);
+  CHECK(heap.structGet(obj, 1).isNil()); // a retired-id hole stays nil
+  CHECK(heap.structGet(obj, 2).asNumber() == 20.0f);
+
+  // Reads and writes outside the slot range are nil / dropped, never UB.
+  CHECK(heap.structGet(obj, 3).isNil());
+  heap.structSet(obj, 3, Value::number(99.0f));
+  CHECK(heap.structGet(obj, 3).isNil());
+}
+
+TEST_CASE("a deep copy breaks struct aliasing while sharing list backings") {
+  std::vector<uint8_t> storage(8 * 1024);
+  RegionArena arena(Span<uint8_t>(storage.data(), storage.size()));
+  ManagedHeap heap(arena);
+  RootSet roots;
+
+  Value original;
+  REQUIRE(heap.newStruct(1, 2, &roots, original));
+  roots.roots.push_back(original);
+  Value sharedList;
+  REQUIRE(heap.newList(0, &roots, sharedList));
+  roots.roots.push_back(sharedList);
+  heap.structSet(heap.structOf(original), 0, Value::number(7.0f));
+  heap.structSet(heap.structOf(original), 1, sharedList); // a non-struct field
+
+  Value copy;
+  REQUIRE(heap.deepCopy(original, &roots, copy));
+  roots.roots.push_back(copy);
+  REQUIRE(copy.isStruct());
+  CHECK(copy.structHandle() != original.structHandle()); // a fresh struct object
+
+  // Mutating the original's struct field leaves the copy untouched.
+  heap.structSet(heap.structOf(original), 0, Value::number(99.0f));
+  CHECK(heap.structGet(heap.structOf(copy), 0).asNumber() == 7.0f);
+
+  // The list field is copied by reference, so its backing stays shared.
+  CHECK(heap.structGet(heap.structOf(copy), 1).containerHandle() == sharedList.containerHandle());
+}
+
+TEST_CASE("a deep copy recurses into nested struct fields") {
+  std::vector<uint8_t> storage(8 * 1024);
+  RegionArena arena(Span<uint8_t>(storage.data(), storage.size()));
+  ManagedHeap heap(arena);
+  RootSet roots;
+
+  Value child;
+  REQUIRE(heap.newStruct(2, 1, &roots, child));
+  roots.roots.push_back(child);
+  heap.structSet(heap.structOf(child), 0, Value::number(5.0f));
+  Value parent;
+  REQUIRE(heap.newStruct(1, 1, &roots, parent));
+  roots.roots.push_back(parent);
+  heap.structSet(heap.structOf(parent), 0, child);
+
+  Value copy;
+  REQUIRE(heap.deepCopy(parent, &roots, copy));
+  roots.roots.push_back(copy);
+
+  const Value copiedChild = heap.structGet(heap.structOf(copy), 0);
+  REQUIRE(copiedChild.isStruct());
+  CHECK(copiedChild.structHandle() != child.structHandle()); // the nested struct was copied too
+
+  // Mutating the original nested struct leaves the deep copy untouched.
+  heap.structSet(heap.structOf(child), 0, Value::number(42.0f));
+  CHECK(heap.structGet(heap.structOf(copiedChild), 0).asNumber() == 5.0f);
+}
+
+TEST_CASE("a deep copy passes non-struct values through by reference") {
+  std::vector<uint8_t> storage(8 * 1024);
+  RegionArena arena(Span<uint8_t>(storage.data(), storage.size()));
+  ManagedHeap heap(arena);
+  RootSet roots;
+
+  Value listValue;
+  REQUIRE(heap.newList(0, &roots, listValue));
+  Value copy;
+  REQUIRE(heap.deepCopy(listValue, &roots, copy));
+  CHECK(copy.containerHandle() == listValue.containerHandle()); // same backing
+
+  Value number = Value::number(3.0f);
+  REQUIRE(heap.deepCopy(number, &roots, copy));
+  CHECK(copy.asNumber() == 3.0f);
+}
+
+TEST_CASE("a deep copy of a self-referential struct terminates") {
+  std::vector<uint8_t> storage(8 * 1024);
+  RegionArena arena(Span<uint8_t>(storage.data(), storage.size()));
+  ManagedHeap heap(arena);
+  RootSet roots;
+
+  Value cyclic;
+  REQUIRE(heap.newStruct(1, 1, &roots, cyclic));
+  roots.roots.push_back(cyclic);
+  heap.structSet(heap.structOf(cyclic), 0, cyclic); // s.field0 = s
+
+  Value copy;
+  REQUIRE(heap.deepCopy(cyclic, &roots, copy));
+  roots.roots.push_back(copy);
+  CHECK(copy.structHandle() != cyclic.structHandle());
+  // The cycle node yields the original, so the copy's self-field points back at
+  // the source struct.
+  CHECK(heap.structGet(heap.structOf(copy), 0).structHandle() == cyclic.structHandle());
+}
+
+TEST_CASE("the collector traces and reclaims structs and closure captures") {
+  std::vector<uint8_t> storage(8 * 1024);
+  RegionArena arena(Span<uint8_t>(storage.data(), storage.size()));
+  ManagedHeap heap(arena);
+  RootSet roots;
+
+  // A closure capturing a struct that itself holds a list: a three-level chain
+  // reachable only through the function value's captures handle.
+  Value inner;
+  REQUIRE(heap.newList(0, &roots, inner));
+  roots.roots.push_back(inner);
+  REQUIRE(heap.listPush(heap.list(inner), Value::number(8.0f), &roots));
+  Value held;
+  REQUIRE(heap.newStruct(1, 1, &roots, held));
+  roots.roots.push_back(held);
+  heap.structSet(heap.structOf(held), 0, inner);
+  uint32_t capturesHandle = 0;
+  REQUIRE(heap.newCaptures(1, &roots, capturesHandle));
+  heap.captures(capturesHandle)->slots[0] = held;
+  const Value closure = Value::function(0, capturesHandle);
+
+  // Root only the closure; the struct, its list, and the captures survive.
+  roots.roots.clear();
+  roots.roots.push_back(closure);
+  heap.collect(roots);
+  CHECK(heap.liveCaptureCount() == 1u);
+  CHECK(heap.liveStructCount() == 1u);
+  CHECK(heap.liveListCount() == 1u);
+  CHECK(heap.captures(capturesHandle)->slots[0].isStruct());
+
+  // A captureless function value reaches no heap, so dropping the closure
+  // reclaims the whole chain.
+  roots.roots.clear();
+  roots.roots.push_back(Value::function(0, kNoCaptures));
+  heap.collect(roots);
+  CHECK(heap.liveCaptureCount() == 0u);
+  CHECK(heap.liveStructCount() == 0u);
+  CHECK(heap.liveListCount() == 0u);
+}
+
+TEST_CASE("the collector reclaims unreachable self-referential structs") {
+  std::vector<uint8_t> storage(8 * 1024);
+  RegionArena arena(Span<uint8_t>(storage.data(), storage.size()));
+  ManagedHeap heap(arena);
+  RootSet roots;
+
+  Value cyclic;
+  REQUIRE(heap.newStruct(1, 1, &roots, cyclic));
+  roots.roots.push_back(cyclic);
+  heap.structSet(heap.structOf(cyclic), 0, cyclic);
+
+  roots.roots.push_back(cyclic);
+  heap.collect(roots);
+  CHECK(heap.liveStructCount() == 1u); // rooted: stays
+
+  roots.roots.clear();
+  heap.collect(roots);
+  CHECK(heap.liveStructCount() == 0u); // tracing reclaims the self-cycle
+}
+
+TEST_CASE("struct allocation pressure collects unreachable structs and retries") {
+  // A region sized for only a few struct objects forces the collect-on-fail
+  // path past the first handful.
+  std::vector<uint8_t> storage(2 * 1024);
+  RegionArena arena(Span<uint8_t>(storage.data(), storage.size()));
+  ManagedHeap heap(arena);
+  RootSet roots;
+  roots.roots.push_back(Value::nil()); // slot 0 holds the one active struct
+
+  for (int i = 0; i < 500; i++) {
+    Value current;
+    REQUIRE(heap.newStruct(1, 2, &roots, current));
+    roots.roots[0] = current; // the previous struct is now unreachable
+    heap.structSet(heap.structOf(current), 0, Value::number(static_cast<float>(i)));
+  }
+  CHECK(heap.liveStructCount() >= 1u);
+  roots.roots.clear();
+  heap.collect(roots);
+  CHECK(heap.liveStructCount() == 0u);
 }
 
 TEST_CASE("nested containers stay reachable through a rooted parent") {

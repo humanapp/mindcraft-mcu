@@ -3,6 +3,7 @@
 #include "core/runtime/bytecode.h"
 #include "core/runtime/core-type-atom-id.h"
 #include "core/runtime/execution-state.h"
+#include "core/runtime/managed-heap.h"
 #include "core/runtime/program.h"
 #include "core/runtime/region-arena.h"
 #include "core/runtime/value.h"
@@ -73,7 +74,20 @@ bool isImplementedOp(Op op) {
   case Op::STORE_LOCAL:
   case Op::LOAD_VAR_SLOT:
   case Op::STORE_VAR_SLOT:
+  case Op::CALL:
   case Op::HOST_ACTION_CALL:
+  case Op::STRUCT_NEW:
+  case Op::STRUCT_COPY_EXCEPT:
+  case Op::STRUCT_GET_FIELD:
+  case Op::STRUCT_SET_FIELD:
+  case Op::STRUCT_DEEP_COPY:
+  case Op::GET_FIELD:
+  case Op::SET_FIELD:
+  case Op::INSTANCE_OF:
+  case Op::CALL_INDIRECT:
+  case Op::CALL_INDIRECT_ARGS:
+  case Op::MAKE_CLOSURE:
+  case Op::LOAD_CAPTURE:
   case Op::LIST_NEW:
   case Op::LIST_PUSH:
   case Op::LIST_GET:
@@ -1051,4 +1065,291 @@ TEST_CASE("HOST_ACTION_CALL with a registered action but no context faults HostE
   const RunResult result = runProgram(machine, image, {}, 1000, surface);
   REQUIRE(result.status == RunStatus::Fault);
   CHECK(result.error == ErrorCode::HostError);
+}
+
+// ---- Structs, closures, and function calls ----
+
+namespace {
+
+/** A heap-backed surface for the struct/closure opcodes; no collection fires at
+ * these test sizes, so the heap needs no root source. */
+struct HeapHarness {
+  std::vector<uint8_t> storage = std::vector<uint8_t>(16 * 1024);
+  RegionArena arena{Span<uint8_t>(storage.data(), storage.size())};
+  mindcraft::ManagedHeap heap{arena};
+  mindcraft::RuntimeSurface surface{nullptr, {}, nullptr, &heap};
+};
+
+} // namespace
+
+TEST_CASE("STRUCT_SET_FIELD is a pure store visible through every struct reference") {
+  ProgramBuilder b;
+  b.poolString("Pair");
+  b.structType(0, 2);
+  b.number(7.0f);
+  // local0 = new Pair; local1 = the same handle (an alias); write field 0 of one
+  // and read it back through the other.
+  b.beginFunction(0, 2)
+      .instr(Op::STRUCT_NEW, 0, 0)
+      .instr(Op::STORE_LOCAL, 0)
+      .instr(Op::LOAD_LOCAL, 0)
+      .instr(Op::STORE_LOCAL, 1)
+      .instr(Op::LOAD_LOCAL, 0)
+      .instr(Op::PUSH_CONST_NUM, 0)
+      .instr(Op::STRUCT_SET_FIELD, 0)
+      .instr(Op::POP)
+      .instr(Op::LOAD_LOCAL, 1)
+      .instr(Op::STRUCT_GET_FIELD, 0)
+      .instr(Op::RET);
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  HeapHarness h;
+  Machine machine;
+  const RunResult result = runProgram(machine, image, {}, 1000, h.surface);
+  REQUIRE(result.status == RunStatus::Done);
+  CHECK(result.result.asNumber() == 7.0f);
+}
+
+TEST_CASE("STRUCT_DEEP_COPY breaks aliasing so the original mutation is invisible") {
+  ProgramBuilder b;
+  b.poolString("Pair");
+  b.structType(0, 2);
+  b.number(7.0f).number(9.0f);
+  // local0 = new Pair{0: 7}; local1 = deep copy; mutate the original's field 0
+  // to 9; the copy still reads 7.
+  b.beginFunction(0, 2)
+      .instr(Op::STRUCT_NEW, 0, 0)
+      .instr(Op::STORE_LOCAL, 0)
+      .instr(Op::LOAD_LOCAL, 0)
+      .instr(Op::PUSH_CONST_NUM, 0)
+      .instr(Op::STRUCT_SET_FIELD, 0)
+      .instr(Op::POP)
+      .instr(Op::LOAD_LOCAL, 0)
+      .instr(Op::STRUCT_DEEP_COPY)
+      .instr(Op::STORE_LOCAL, 1)
+      .instr(Op::LOAD_LOCAL, 0)
+      .instr(Op::PUSH_CONST_NUM, 1)
+      .instr(Op::STRUCT_SET_FIELD, 0)
+      .instr(Op::POP)
+      .instr(Op::LOAD_LOCAL, 1)
+      .instr(Op::STRUCT_GET_FIELD, 0)
+      .instr(Op::RET);
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  HeapHarness h;
+  Machine machine;
+  const RunResult result = runProgram(machine, image, {}, 1000, h.surface);
+  REQUIRE(result.status == RunStatus::Done);
+  CHECK(result.result.asNumber() == 7.0f);
+}
+
+TEST_CASE("STRUCT_NEW with a non-zero reserved operand faults ScriptError") {
+  ProgramBuilder b;
+  b.poolString("Pair");
+  b.structType(0, 2);
+  b.beginFunction().instr(Op::STRUCT_NEW, 1, 0).instr(Op::RET);
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  HeapHarness h;
+  Machine machine;
+  const RunResult result = runProgram(machine, image, {}, 1000, h.surface);
+  REQUIRE(result.status == RunStatus::Fault);
+  CHECK(result.error == ErrorCode::ScriptError);
+  CHECK(result.site.pc == 0);
+}
+
+TEST_CASE("GET_FIELD and SET_FIELD degrade to nil and a no-op on the binary path") {
+  ProgramBuilder b;
+  b.poolString("Pair");
+  b.poolString("x");
+  b.structType(0, 1);
+  b.number(5.0f).number(8.0f);
+  // s.0 = 5; SET_FIELD "x" = 8 (dropped); read field 0 by id -> still 5;
+  // GET_FIELD "x" -> nil (proven by TYPE_CHECK Nil -> true). Return field 0.
+  b.beginFunction(0, 1)
+      .instr(Op::STRUCT_NEW, 0, 0)
+      .instr(Op::STORE_LOCAL, 0)
+      .instr(Op::LOAD_LOCAL, 0)
+      .instr(Op::PUSH_CONST_NUM, 0)
+      .instr(Op::STRUCT_SET_FIELD, 0)
+      .instr(Op::POP)
+      .instr(Op::LOAD_LOCAL, 0)
+      .instr(Op::PUSH_CONST_STR, 1)
+      .instr(Op::PUSH_CONST_NUM, 1)
+      .instr(Op::SET_FIELD)
+      .instr(Op::POP)
+      .instr(Op::LOAD_LOCAL, 0)
+      .instr(Op::STRUCT_GET_FIELD, 0)
+      .instr(Op::RET);
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  HeapHarness h;
+  Machine machine;
+  const RunResult result = runProgram(machine, image, {}, 1000, h.surface);
+  REQUIRE(result.status == RunStatus::Done);
+  CHECK(result.result.asNumber() == 5.0f); // SET_FIELD never wrote
+}
+
+TEST_CASE("GET_FIELD reads nil for an absent name-keyed field") {
+  ProgramBuilder b;
+  b.poolString("Pair");
+  b.poolString("x");
+  b.structType(0, 1);
+  b.beginFunction(0, 1)
+      .instr(Op::STRUCT_NEW, 0, 0)
+      .instr(Op::PUSH_CONST_STR, 1)
+      .instr(Op::GET_FIELD)
+      .instr(Op::RET);
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  HeapHarness h;
+  Machine machine;
+  const RunResult result = runProgram(machine, image, {}, 1000, h.surface);
+  REQUIRE(result.status == RunStatus::Done);
+  CHECK(result.result.isNil());
+}
+
+TEST_CASE("INSTANCE_OF matches a struct of the operand type and rejects others") {
+  ProgramBuilder b;
+  b.poolString("Pair");
+  b.structType(0, 1);
+  b.number(3.0f);
+  // A Pair value is an instance of type 0; a number is not.
+  b.beginFunction().instr(Op::STRUCT_NEW, 0, 0).instr(Op::INSTANCE_OF, 0).instr(Op::RET);
+  b.beginFunction().instr(Op::PUSH_CONST_NUM, 0).instr(Op::INSTANCE_OF, 0).instr(Op::RET);
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  HeapHarness h;
+  Machine matchMachine;
+  REQUIRE(startExecution(matchMachine.state, image, 0, {}).isOk());
+  matchMachine.state.budget = 100;
+  const RunResult matched = runExecution(matchMachine.state, image, h.surface);
+  REQUIRE(matched.status == RunStatus::Done);
+  CHECK(matched.result.asBoolean());
+
+  HeapHarness h2;
+  Machine missMachine;
+  REQUIRE(startExecution(missMachine.state, image, 1, {}).isOk());
+  missMachine.state.budget = 100;
+  const RunResult missed = runExecution(missMachine.state, image, h2.surface);
+  REQUIRE(missed.status == RunStatus::Done);
+  CHECK_FALSE(missed.result.asBoolean());
+}
+
+TEST_CASE("INSTANCE_OF with an out-of-range type index faults ScriptError") {
+  ProgramBuilder b;
+  b.valueNil();
+  b.beginFunction().instr(Op::PUSH_CONST_VAL, 0).instr(Op::INSTANCE_OF, 5).instr(Op::RET);
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  Machine machine;
+  const RunResult result = runProgram(machine, image);
+  REQUIRE(result.status == RunStatus::Fault);
+  CHECK(result.error == ErrorCode::ScriptError);
+}
+
+TEST_CASE("CALL invokes a function and RET resumes the caller") {
+  ProgramBuilder b;
+  b.number(21.0f);
+  // func 0: CALL func 1 with one arg (21); func 1 returns its param.
+  b.beginFunction(0, 0).instr(Op::PUSH_CONST_NUM, 0).instr(Op::CALL, 1, 1).instr(Op::RET);
+  b.beginFunction(1, 1).instr(Op::LOAD_LOCAL, 0).instr(Op::RET);
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  Machine machine;
+  const RunResult result = runProgram(machine, image);
+  REQUIRE(result.status == RunStatus::Done);
+  CHECK(result.result.asNumber() == 21.0f);
+}
+
+TEST_CASE("CALL with an argc that mismatches numParams faults ScriptError") {
+  ProgramBuilder b;
+  b.number(1.0f);
+  b.beginFunction(0, 0).instr(Op::PUSH_CONST_NUM, 0).instr(Op::CALL, 1, 1).instr(Op::RET);
+  b.beginFunction(2, 2).instr(Op::LOAD_LOCAL, 0).instr(Op::RET); // wants two params
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  Machine machine;
+  const RunResult result = runProgram(machine, image);
+  REQUIRE(result.status == RunStatus::Fault);
+  CHECK(result.error == ErrorCode::ScriptError);
+  CHECK(result.site.funcId == 0);
+  CHECK(result.site.pc == 1); // the CALL site, recorded before any pc advance
+}
+
+TEST_CASE("a closure captures a value and CALL_INDIRECT loads it") {
+  ProgramBuilder b;
+  b.number(7.0f);
+  // func 0: capture 7 into a closure over func 1, then call it with no args.
+  b.beginFunction(0, 0)
+      .instr(Op::PUSH_CONST_NUM, 0)
+      .instr(Op::MAKE_CLOSURE, 1, 1)
+      .instr(Op::CALL_INDIRECT, 0)
+      .instr(Op::RET);
+  b.beginFunction(0, 0).instr(Op::LOAD_CAPTURE, 0).instr(Op::RET);
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  HeapHarness h;
+  Machine machine;
+  const RunResult result = runProgram(machine, image, {}, 1000, h.surface);
+  REQUIRE(result.status == RunStatus::Done);
+  CHECK(result.result.asNumber() == 7.0f);
+}
+
+TEST_CASE("CALL_INDIRECT_ARGS truncates surplus args and nil-pads missing ones") {
+  ProgramBuilder b;
+  b.number(3.0f).number(4.0f);
+  // func 0: closure over func 1 (two params, returns the second); call it with
+  // one arg, so the second param is nil-padded and returned.
+  b.beginFunction(0, 0)
+      .instr(Op::MAKE_CLOSURE, 1, 0)
+      .instr(Op::PUSH_CONST_NUM, 0)
+      .instr(Op::CALL_INDIRECT_ARGS, 1)
+      .instr(Op::RET);
+  b.beginFunction(2, 2).instr(Op::LOAD_LOCAL, 1).instr(Op::RET);
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  HeapHarness h;
+  Machine machine;
+  const RunResult result = runProgram(machine, image, {}, 1000, h.surface);
+  REQUIRE(result.status == RunStatus::Done);
+  CHECK(result.result.isNil());
+}
+
+TEST_CASE("CALL_INDIRECT on a non-function value faults ScriptError") {
+  ProgramBuilder b;
+  b.number(5.0f);
+  b.beginFunction(0, 0).instr(Op::PUSH_CONST_NUM, 0).instr(Op::CALL_INDIRECT, 0).instr(Op::RET);
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  HeapHarness h;
+  Machine machine;
+  const RunResult result = runProgram(machine, image, {}, 1000, h.surface);
+  REQUIRE(result.status == RunStatus::Fault);
+  CHECK(result.error == ErrorCode::ScriptError);
+}
+
+TEST_CASE("LOAD_CAPTURE in a frame with no captures faults ScriptError") {
+  ProgramBuilder b;
+  b.beginFunction(0, 0).instr(Op::LOAD_CAPTURE, 0).instr(Op::RET);
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  HeapHarness h;
+  Machine machine;
+  const RunResult result = runProgram(machine, image, {}, 1000, h.surface);
+  REQUIRE(result.status == RunStatus::Fault);
+  CHECK(result.error == ErrorCode::ScriptError);
 }

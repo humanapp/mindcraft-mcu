@@ -68,7 +68,8 @@ void SlabAllocator::release(void* block, size_t bytes) {
 }
 
 ManagedHeap::ManagedHeap(RegionArena& arena)
-    : base_(arena.base()), slabs_(arena), lists_(arena), maps_(arena) {}
+    : base_(arena.base()), slabs_(arena), lists_(arena), maps_(arena), structs_(arena),
+      captures_(arena) {}
 
 ListObject* ManagedHeap::allocListObject(GcRoots* roots) {
   ListObject* obj = lists_.alloc();
@@ -114,12 +115,147 @@ bool ManagedHeap::newMap(uint32_t typeId, GcRoots* roots, Value& out) {
   return true;
 }
 
+bool ManagedHeap::newStruct(uint32_t typeId, uint32_t slotCount, GcRoots* roots, Value& out) {
+  // Back the slots before drawing the pool object: an orphan StructObject with
+  // no valid backing would be swept by a collection the slab allocation could
+  // trigger. A raw slab block is never traced or swept, so it survives the
+  // pool-allocation collection in a C++ local untouched.
+  const size_t bytes = static_cast<size_t>(slotCount) * sizeof(Value);
+  Value* slots = nullptr;
+  if (slotCount > 0) {
+    slots = static_cast<Value*>(slabs_.allocate(bytes));
+    if (slots == nullptr && roots != nullptr) {
+      collect(*roots);
+      slots = static_cast<Value*>(slabs_.allocate(bytes));
+    }
+    if (slots == nullptr) {
+      return false;
+    }
+  }
+  StructObject* obj = structs_.alloc();
+  if (obj == nullptr && roots != nullptr) {
+    collect(*roots);
+    obj = structs_.alloc();
+  }
+  if (obj == nullptr) {
+    if (slots != nullptr) {
+      slabs_.release(slots, bytes);
+    }
+    return false;
+  }
+  for (uint32_t i = 0; i < slotCount; i++) {
+    slots[i] = kNilValue;
+  }
+  obj->slots = slots;
+  obj->slotCount = slotCount;
+  obj->mark = false;
+  obj->copying = false;
+  out = Value::structValue(typeId, handleOf(obj));
+  return true;
+}
+
+bool ManagedHeap::newCaptures(uint32_t count, GcRoots* roots, uint32_t& out) {
+  const size_t bytes = static_cast<size_t>(count) * sizeof(Value);
+  Value* slots = nullptr;
+  if (count > 0) {
+    slots = static_cast<Value*>(slabs_.allocate(bytes));
+    if (slots == nullptr && roots != nullptr) {
+      collect(*roots);
+      slots = static_cast<Value*>(slabs_.allocate(bytes));
+    }
+    if (slots == nullptr) {
+      return false;
+    }
+  }
+  CapturesObject* obj = captures_.alloc();
+  if (obj == nullptr && roots != nullptr) {
+    collect(*roots);
+    obj = captures_.alloc();
+  }
+  if (obj == nullptr) {
+    if (slots != nullptr) {
+      slabs_.release(slots, bytes);
+    }
+    return false;
+  }
+  for (uint32_t i = 0; i < count; i++) {
+    slots[i] = kNilValue;
+  }
+  obj->slots = slots;
+  obj->count = count;
+  obj->mark = false;
+  out = handleOf(obj);
+  return true;
+}
+
 ListObject* ManagedHeap::list(const Value& value) const {
   return static_cast<ListObject*>(fromHandle(value.containerHandle()));
 }
 
 MapObject* ManagedHeap::map(const Value& value) const {
   return static_cast<MapObject*>(fromHandle(value.containerHandle()));
+}
+
+StructObject* ManagedHeap::structOf(const Value& value) const {
+  return static_cast<StructObject*>(fromHandle(value.structHandle()));
+}
+
+CapturesObject* ManagedHeap::captures(uint32_t handle) const {
+  return static_cast<CapturesObject*>(fromHandle(handle));
+}
+
+Value ManagedHeap::structGet(const StructObject* obj, uint32_t fieldId) const {
+  return fieldId < obj->slotCount ? obj->slots[fieldId] : kNilValue;
+}
+
+void ManagedHeap::structSet(StructObject* obj, uint32_t fieldId, const Value& value) {
+  if (fieldId < obj->slotCount) {
+    obj->slots[fieldId] = value;
+  }
+}
+
+bool ManagedHeap::deepCopyInto(const Value& value, DeepCopyRoots& roots, Value& out) {
+  if (!value.isStruct()) {
+    // Lists, maps, primitives, enums, functions: copied by reference.
+    out = value;
+    return true;
+  }
+  StructObject* src = structOf(value);
+  if (src->copying) {
+    // A node already in the current copy chain yields the original (cycle guard).
+    out = value;
+    return true;
+  }
+  const uint32_t slotCount = src->slotCount;
+  Value copyValue;
+  if (!newStruct(value.typeId(), slotCount, &roots, copyValue)) {
+    return false;
+  }
+  // The pool and slabs never relocate live objects, so these stay valid for the
+  // recursion: `value` is rooted by the caller and `copyValue` is pinned below.
+  StructObject* source = structOf(value);
+  StructObject* dest = structOf(copyValue);
+  source->copying = true;
+  PinNode pin{copyValue, pinHead_};
+  pinHead_ = &pin;
+  bool ok = true;
+  for (uint32_t i = 0; i < slotCount; i++) {
+    Value childOut;
+    if (!deepCopyInto(source->slots[i], roots, childOut)) {
+      ok = false;
+      break;
+    }
+    dest->slots[i] = childOut;
+  }
+  pinHead_ = pin.next;
+  source->copying = false;
+  out = copyValue;
+  return ok;
+}
+
+bool ManagedHeap::deepCopy(const Value& value, GcRoots* roots, Value& out) {
+  DeepCopyRoots dcRoots(*this, roots);
+  return deepCopyInto(value, dcRoots, out);
 }
 
 bool ManagedHeap::listEnsureCapacity(ListObject* obj, uint32_t needed, GcRoots* roots) {
@@ -321,12 +457,33 @@ void ManagedHeap::mark(const Value& value) {
         mark(obj->entries[i].value);
       }
     }
+  } else if (value.isStruct()) {
+    StructObject* obj = structOf(value);
+    if (!obj->mark) {
+      obj->mark = true;
+      for (uint32_t i = 0; i < obj->slotCount; i++) {
+        mark(obj->slots[i]);
+      }
+    }
+  } else if (value.isFunction()) {
+    const uint32_t handle = value.functionCaptures();
+    if (handle != kNoCaptures) {
+      CapturesObject* obj = captures(handle);
+      if (!obj->mark) {
+        obj->mark = true;
+        for (uint32_t i = 0; i < obj->count; i++) {
+          mark(obj->slots[i]);
+        }
+      }
+    }
   }
 }
 
 void ManagedHeap::collect(GcRoots& roots) {
   lists_.forEachLive([](ListObject& obj) { obj.mark = false; });
   maps_.forEachLive([](MapObject& obj) { obj.mark = false; });
+  structs_.forEachLive([](StructObject& obj) { obj.mark = false; });
+  captures_.forEachLive([](CapturesObject& obj) { obj.mark = false; });
 
   roots.enumerateRoots(*this);
 
@@ -344,6 +501,22 @@ void ManagedHeap::collect(GcRoots& roots) {
         slabs_.release(obj.entries, static_cast<size_t>(obj.capacity) * sizeof(MapEntry));
       }
       maps_.free(&obj);
+    }
+  });
+  structs_.forEachLive([this](StructObject& obj) {
+    if (!obj.mark) {
+      if (obj.slots != nullptr) {
+        slabs_.release(obj.slots, static_cast<size_t>(obj.slotCount) * sizeof(Value));
+      }
+      structs_.free(&obj);
+    }
+  });
+  captures_.forEachLive([this](CapturesObject& obj) {
+    if (!obj.mark) {
+      if (obj.slots != nullptr) {
+        slabs_.release(obj.slots, static_cast<size_t>(obj.count) * sizeof(Value));
+      }
+      captures_.free(&obj);
     }
   });
 }

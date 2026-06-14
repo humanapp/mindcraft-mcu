@@ -82,6 +82,33 @@ struct MapObject {
 };
 
 /**
+ * A managed closed struct: a fixed `slotCount`-sized {@link Value} slot array
+ * drawn from a size-classed slab and indexed directly by numeric field id
+ * (`maxFieldId + 1` slots; retired ids leave reserved nil holes). The backing
+ * is fixed at allocation and never grows. `mark` is the collector's
+ * reachability bit; `copying` guards the recursive deep copy against
+ * self-referential cycles. A fieldless struct has `slotCount == 0` and a null
+ * `slots`.
+ */
+struct StructObject {
+  Value* slots;
+  uint32_t slotCount;
+  bool mark;
+  bool copying;
+};
+
+/**
+ * A managed closure capture environment: a fixed `count`-sized {@link Value}
+ * array drawn from a size-classed slab, referenced by a `Function` value's
+ * captures handle. The collector traces its values; the backing never grows.
+ */
+struct CapturesObject {
+  Value* slots;
+  uint32_t count;
+  bool mark;
+};
+
+/**
  * Segregated free-list allocator for the variable-length container backings
  * over a {@link RegionArena}. Requests round up to a power-of-two size class;
  * each class keeps a free list of recycled blocks, and a fresh block is carved
@@ -154,11 +181,45 @@ public:
   /** Allocates an empty map typed `typeId`. See {@link newList}. */
   bool newMap(uint32_t typeId, GcRoots* roots, Value& out);
 
+  /**
+   * Allocates a closed struct typed `typeId` with `slotCount` nil field slots,
+   * collecting over `roots` and retrying once on exhaustion. Returns false
+   * (leaving `out` untouched) when the heap cannot back the object.
+   */
+  bool newStruct(uint32_t typeId, uint32_t slotCount, GcRoots* roots, Value& out);
+
+  /**
+   * Allocates a captures environment of `count` nil slots, returning its handle
+   * in `out`. See {@link newStruct} for the exhaustion contract.
+   */
+  bool newCaptures(uint32_t count, GcRoots* roots, uint32_t& out);
+
   /** Resolves a `List` value to its object. Requires a live list handle. */
   ListObject* list(const Value& value) const;
 
   /** Resolves a `Map` value to its object. Requires a live map handle. */
   MapObject* map(const Value& value) const;
+
+  /** Resolves a `Struct` value to its object. Requires a live struct handle. */
+  StructObject* structOf(const Value& value) const;
+
+  /** Resolves a captures handle to its object. Requires a live handle. */
+  CapturesObject* captures(uint32_t handle) const;
+
+  // Closed-struct field access by numeric field id (the storage slot). A read
+  // or write outside `[0, slotCount)` yields nil / is dropped.
+
+  Value structGet(const StructObject* obj, uint32_t fieldId) const;
+  void structSet(StructObject* obj, uint32_t fieldId, const Value& value);
+
+  /**
+   * Deep-copies a struct value (recursively, struct slots only) into `out`;
+   * lists, maps, and primitives pass through by reference. Self-referential
+   * structs terminate: a node already being copied yields the original.
+   * Allocates new structs, keeping the in-flight copies rooted across a
+   * collection; returns false on heap exhaustion.
+   */
+  bool deepCopy(const Value& value, GcRoots* roots, Value& out);
 
   // List operations. Indices are pre-floored integers; reads and removes past
   // the ends yield nil and empty pop/shift yield nil. The appending mutations
@@ -197,12 +258,45 @@ public:
   /** Number of live map objects (for tests and stats). */
   uint32_t liveMapCount() const { return maps_.liveCount(); }
 
+  /** Number of live struct objects (for tests and stats). */
+  uint32_t liveStructCount() const { return structs_.liveCount(); }
+
+  /** Number of live captures objects (for tests and stats). */
+  uint32_t liveCaptureCount() const { return captures_.liveCount(); }
+
 private:
+  // One in-flight deep-copy result on an intrusive chain the collector marks as
+  // a root, keeping parent copies reachable while their children allocate.
+  struct PinNode {
+    Value value;
+    PinNode* next;
+  };
+
+  // Augments the caller's roots with the pinned in-flight deep-copy results for
+  // the duration of a deep copy.
+  class DeepCopyRoots : public GcRoots {
+  public:
+    DeepCopyRoots(ManagedHeap& heap, GcRoots* external) : heap_(heap), external_(external) {}
+    void enumerateRoots(GcMarker& marker) override {
+      if (external_ != nullptr) {
+        external_->enumerateRoots(marker);
+      }
+      for (PinNode* node = heap_.pinHead_; node != nullptr; node = node->next) {
+        marker.mark(node->value);
+      }
+    }
+
+  private:
+    ManagedHeap& heap_;
+    GcRoots* external_;
+  };
+
   ListObject* allocListObject(GcRoots* roots);
   MapObject* allocMapObject(GcRoots* roots);
   bool listEnsureCapacity(ListObject* obj, uint32_t needed, GcRoots* roots);
   bool mapEnsureCapacity(MapObject* obj, uint32_t needed, GcRoots* roots);
   uint32_t mapFind(const MapObject* obj, const MapKey& key) const;
+  bool deepCopyInto(const Value& value, DeepCopyRoots& roots, Value& out);
 
   uint32_t handleOf(const void* object) const {
     return static_cast<uint32_t>(static_cast<const uint8_t*>(object) - base_);
@@ -213,6 +307,9 @@ private:
   SlabAllocator slabs_;
   Pool<ListObject> lists_;
   Pool<MapObject> maps_;
+  Pool<StructObject> structs_;
+  Pool<CapturesObject> captures_;
+  PinNode* pinHead_ = nullptr;
 };
 
 } // namespace mindcraft

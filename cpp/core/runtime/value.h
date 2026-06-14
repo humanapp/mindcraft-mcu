@@ -118,6 +118,11 @@ public:
     return Value(ValueTag::Map, Payload(Compound{typeId, handle}));
   }
 
+  /** A `Struct` value: its type-table index plus the managed-heap handle. */
+  static constexpr Value structValue(uint32_t typeId, uint32_t handle) {
+    return Value(ValueTag::Struct, Payload(Compound{typeId, handle}));
+  }
+
   /** A `Function` value, optionally carrying a captures handle. */
   static constexpr Value function(uint32_t funcId, uint32_t captures = kNoCaptures) {
     return Value(ValueTag::Function, Payload(Function{funcId, captures}));
@@ -154,6 +159,12 @@ public:
   /** True when the tag is `Map`. */
   constexpr bool isMap() const { return tag_ == ValueTag::Map; }
 
+  /** True when the tag is `Struct`. */
+  constexpr bool isStruct() const { return tag_ == ValueTag::Struct; }
+
+  /** True when the tag is `Function`. */
+  constexpr bool isFunction() const { return tag_ == ValueTag::Function; }
+
   /** The boolean payload. Requires tag `Boolean`. */
   constexpr bool asBoolean() const { return payload_.boolean; }
 
@@ -180,6 +191,9 @@ public:
    * `Map`.
    */
   constexpr uint32_t containerHandle() const { return payload_.compound.ref; }
+
+  /** The managed-heap handle of a struct value. Requires tag `Struct`. */
+  constexpr uint32_t structHandle() const { return payload_.compound.ref; }
 
   /** The declared-symbol ordinal. Requires tag `Enum`. */
   constexpr uint32_t enumOrdinal() const { return payload_.compound.ref; }
