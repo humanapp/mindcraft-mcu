@@ -454,6 +454,15 @@ export class MicrobitSimEnvironmentStore {
     return this.buildInputForBrain(brainId);
   }
 
+  /**
+   * Returns the live build input for a specific brain by id, or undefined when it
+   * cannot be loaded. The per-brain deploy links use this to build any brain's
+   * program image without changing the editor selection.
+   */
+  async getBuildInputForBrain(brainId: string): Promise<WodalBuildInput | undefined> {
+    return this.buildInputForBrain(brainId);
+  }
+
   /** Assembles the WODAL build input for a specific brain, or undefined when it cannot be loaded. */
   private async buildInputForBrain(brainId: string): Promise<WodalBuildInput | undefined> {
     const brainDef = this.host.getCachedBrain(brainId);
