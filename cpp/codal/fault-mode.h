@@ -12,6 +12,8 @@ enum class FaultDomain : uint8_t {
   Load,
   /** An `ErrorCode` raised by the runtime while ticking. Prefix `E`. */
   Runtime,
+  /** A `RegionError` raised while validating the on-flash program region. Prefix `R`. */
+  Region,
 };
 
 /**
@@ -23,9 +25,9 @@ inline constexpr uint32_t kFaultCodeSize = 7;
 
 /**
  * Format the stable fault code into `out` as a NUL-terminated ASCII string:
- * the domain letter (`L` for load, `E` for runtime) followed by the decimal
- * `code`, e.g. `"L3"` or `"E5"`. `out` must have room for {@link
- * kFaultCodeSize} bytes.
+ * the domain letter (`L` load, `E` runtime, `R` region) followed by the
+ * decimal `code`, e.g. `"L3"`, `"E5"`, or `"R1"`. `out` must have room for
+ * {@link kFaultCodeSize} bytes.
  */
 void formatFaultCode(char* out, FaultDomain domain, uint16_t code);
 

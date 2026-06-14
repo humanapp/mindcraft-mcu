@@ -25,8 +25,25 @@ Deviations from the upstream commit, kept deliberately small:
 - `source/`: upstream sample application replaced by the mindcraft boot
   firmware (`source/main.cpp`).
 - `CMakeLists.txt`: removed the build-time copy of the target's `samples/`
-  folder into this tree; added the block that compiles `cpp/core/` into the
-  firmware at C++17 (see the `mindcraft:` comment there).
+  folder into this tree; added the block that compiles `cpp/core/` and
+  `cpp/codal/` into the firmware at C++17 (see the `mindcraft:` comment there);
+  added the supplemental linker script (`-T mcprogram-region.ld`) that reserves
+  the on-flash program region.
+- `source/`: the device firmware. `main.cpp` reads the brain from the reserved
+  on-flash region (`program-region.h` exposes the linker symbol), validates the
+  on-flash header (`cpp/codal/on-flash-region.h`), and runs `cpp/codal/`'s host
+  loop on the board; `microbit-ports.h` implements the `cpp/codal/` device ports
+  against CODAL peripherals (`MicroBitDisplay`, `Button`, the system timer, the
+  LED matrix for fault rendering).
+- `mcprogram-region.ld`: supplemental linker script (added, not upstream)
+  pinning the reserved on-flash program region and its boot-readable symbols.
+- `tools/emit-metadata.py`: emits `MICROBIT.metadata.json` (the build->patcher
+  contract) by extracting the region offset/size from the linked ELF's region
+  symbols; gitignored output, run after `build.py`.
+
+Device-build sources compiled in from outside this directory (added to the
+C++17 per-source flag list in `CMakeLists.txt`): all of `cpp/core/` and all of
+`cpp/codal/`.
 - `Dockerfile`: base image and toolchain replaced with pinned versions
   (upstream used an unpinned PPA on ubuntu:18.04, which has reached
   end-of-life); build context widened to `cpp/` so the image can compile

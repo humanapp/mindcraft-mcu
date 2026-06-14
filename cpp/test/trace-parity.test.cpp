@@ -1,7 +1,6 @@
 #include "doctest/doctest.h"
 
 #include "codal/device-port.h"
-#include "codal/device-sizing.h"
 #include "codal/host-loop.h"
 #include "core/codec/observable-trace.h"
 #include "core/codec/program-reader.h"
@@ -30,7 +29,6 @@ using mindcraft::ExecutionContext;
 using mindcraft::FiberScheduler;
 using mindcraft::HostLoop;
 using mindcraft::kMicroBitV2TypeAtomIdCount;
-using mindcraft::kRecommendedVmArenaBytes;
 using mindcraft::LoadError;
 using mindcraft::ObservableTraceWriter;
 using mindcraft::ProgramImage;
@@ -151,9 +149,9 @@ TEST_CASE("the button-display fixture byte-matches the golden observable trace")
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".press-cycles.trace");
 
-  // One region at the device-recommended size holds the program image and the
-  // scheduler's fiber pools.
-  std::vector<uint8_t> arenaStorage(kRecommendedVmArenaBytes);
+  // A host scratch region comfortably larger than the test brain's demand,
+  // holding the program image and the scheduler's fiber pools.
+  std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
   constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
   const Result<ProgramImage, LoadError> decoded =

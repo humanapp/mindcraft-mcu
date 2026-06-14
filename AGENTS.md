@@ -63,6 +63,40 @@ The agent must not emit staging directives.
 - Never use inline `import()` type expressions in `.ts` or `.tsx` files. Use a
   top-level `import type` statement instead.
 
+## Minimalism (No Over-Build)
+
+Build the minimum that satisfies the task's acceptance criteria; speculative
+robustness is out of scope by default. Over-building -- adding machinery for
+problems that cannot occur in the system as it exists today -- is a recurring
+failure to actively guard against. The unifying tell: it defends against a state
+that cannot occur today, or duplicates a guarantee an existing layer already
+provides.
+
+- Burden of proof is on inclusion, not omission. For every field, check, version,
+  error code, abstraction, parameter, or guard, name the one concrete failure
+  mode -- possible today -- that it prevents and that no existing layer already
+  catches. If the only justification is a future scenario, a general good
+  ("robustness", "safety", "completeness", "flexibility"), symmetry, or something
+  already guaranteed elsewhere, leave it out.
+- Scope = the test. Build only what an acceptance check exercises. If no test
+  touches a field, branch, check, or abstraction, do not build it.
+- Banned by default (each needs an explicit, today-failure-mode justification):
+  redundant integrity (checksums or length fields duplicating an existing
+  guarantee); compatibility/identity machinery (version numbers, content digests,
+  build/firmware ids, handshakes) in a single-build, single-version world;
+  future-proofing (reserved fields, "vN room", envelopes, abstraction for a
+  consumer that does not exist yet); defensive validation of inputs that cannot be
+  malformed; fixed- or cap-sized buffers and pools; error-code, state, or config
+  inflation beyond what a path can reach.
+- Subtraction before done. Before declaring a change complete, try to delete each
+  piece you added; if no test breaks, remove it.
+- When unsure, leave it out and let a real, failing test pull it in -- adding it
+  later is cheap; carrying speculative machinery is not.
+
+For the C++ VM work specifically, the binding prohibitions are Locked Decisions 7
+(no pre-sized pools), 8 (no ABI compatibility machinery), and 9 (this principle,
+generalized) in the plan under `generated-docs/`.
+
 ## Code Examples and Documentation
 
 Never create example source files in a project's `src` folder.

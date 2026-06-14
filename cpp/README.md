@@ -14,16 +14,24 @@ everything here mirrors its observable semantics.
 - `codal/` - the CODAL-common, board-agnostic layer (the `mindcraft-codal`
   library): the device-port interfaces (`codal/device-port.h`), the host-loop
   driver (`codal/host-loop.h` - sources time through the clock port and drives
-  one `BrainRuntime` think per tick, single-entry), the device fault-mode
+  one `BrainRuntime` think per tick, single-entry), and the device fault-mode
   policy (`codal/fault-mode.h` - stop ticking, then loop the fault face plus a
-  scrolled diagnostic code), and the device memory sizing analysis for the VM's
-  single carve-on-demand arena (`codal/device-sizing.h`). Depends on `core/` and CODAL only; board specifics
+  scrolled diagnostic code). Depends on `core/` and CODAL only; board specifics
   are forbidden (enforced by `check-deps.sh`).
 - `targets/microbit-v2/` - the micro:bit v2 device firmware: a pinned copy of
   the official `microbit-v2-samples` CODAL build scaffold (see its
-  `VENDORING.md`) whose `source/` plus `cpp/core/` compile into
+  `VENDORING.md`) whose `source/` plus `cpp/core/` and `cpp/codal/` compile into
   `MICROBIT.hex`. Built by its own `build.py`/Docker flow, not by the host
-  CMake tree (see "Device build" below).
+  CMake tree (see "Device build" below). `source/main.cpp` reads the brain
+  image from a reserved on-flash region (`mcprogram-region.ld` pins the region;
+  `source/program-region.h` exposes its boot-readable symbol), validates the
+  on-flash header (`cpp/codal/on-flash-region.h`), decodes it in place, and
+  runs `cpp/codal/`'s host loop on the board; `source/microbit-ports.h` binds
+  the `cpp/codal/` device ports to CODAL peripherals (display, buttons, system
+  timer, the fault-mode LED rendering). The `abi/` holds the mirrored ABI id
+  enums plus the host-action bodies bound to those ports. The build emits the
+  region's offset/size (plus the on-flash magic and format version) as
+  `MICROBIT.metadata.json` (`tools/emit-metadata.py`) for the patcher.
 - `test/` - the desktop host test harness (doctest, vendored under
   `test/vendor/`). Depends on `core/`.
 - `tools/` - host-side tooling (see `tools/README.md`).
@@ -97,8 +105,19 @@ cpp/check.sh
 
 The device firmware builds from the vendored CODAL scaffold in
 `targets/microbit-v2/` (pins recorded in its `VENDORING.md`). Both paths
-produce `MICROBIT.hex` with `cpp/core/` compiled in; flash by copying the hex
-onto the `MICROBIT` USB drive.
+produce `MICROBIT.hex` with `cpp/core/` and `cpp/codal/` compiled in, plus
+`MICROBIT.metadata.json` (the build->patcher contract: the on-flash region
+offset/size, magic, and format version). Flash by copying the hex
+onto the `MICROBIT` USB drive. The firmware reads the brain from the reserved
+on-flash region; once the patcher has written a program there, press button A
+and the addressed display pixel toggles. An erased/invalid region, a
+decode/load failure, or a startup fault drops into the device fault mode (sad
+face, then the diagnostic code scrolled - `R` region, `L` load, `E` runtime),
+with the full code printed once over serial.
+
+The reserved region is empty in the prebuilt firmware (the firmware does not
+embed a program); a brain is patched into it later by the browser/CLI patcher
+using the emitted metadata.
 
 Reproducible Docker path (pinned gcc-arm-none-eabi 10.3-2021.10; run from
 `cpp/`). Each target exports into its own directory under `out/`:
@@ -107,7 +126,7 @@ Reproducible Docker path (pinned gcc-arm-none-eabi 10.3-2021.10; run from
 docker build -f targets/microbit-v2/Dockerfile --output out/microbit-v2 .
 ```
 
-The hex lands in `cpp/out/microbit-v2/MICROBIT.hex`.
+`MICROBIT.hex` and `MICROBIT.metadata.json` land in `cpp/out/microbit-v2/`.
 
 Local path: put a GNU Arm Embedded toolchain on PATH (for example ARM's
 darwin-arm64 `.tar.xz` release extracted anywhere, or
@@ -116,11 +135,13 @@ darwin-arm64 `.tar.xz` release extracted anywhere, or
 ```
 cd targets/microbit-v2
 python3 build.py
+python3 tools/emit-metadata.py
 ```
 
 The first configure clones the pinned CODAL target and libraries into
 `targets/microbit-v2/libraries/` (gitignored). The hex lands in
-`targets/microbit-v2/MICROBIT.hex`.
+`targets/microbit-v2/MICROBIT.hex` and the metadata (extracted from the linked
+ELF's region symbols) in `targets/microbit-v2/MICROBIT.metadata.json`.
 
 To watch the firmware's serial output on macOS (115200 baud; the micro:bit
 shows up as a `usbmodem` device):
@@ -184,15 +205,13 @@ any order (no stack-discipline retention), and the region's size is the one
 number a target picks - against the free SRAM left after CODAL, not a
 `fibers x caps` product.
 
-`codal/device-sizing.h` carries the provisioning analysis: the per-fiber cost
-(`kPerFiberBytes` = workspace + record, an upper bound the segment-depth work
-shrinks later), a `vmRegionBytesFor(programBytes, peakLiveFibers)` helper, and a
-recommended region size (`kRecommendedVmArenaBytes`, 48 KiB) for the
-button-display slice and small brains on a 128 KiB-SRAM class device. A brain
-needing more concurrently live fibers than the region holds faults
-`ErrorCode::StackOverflow` loudly at spawn. The host parity build allocates the
-same single region (image plus pooled fibers), so CI exercises the device model;
-the board build links and runs against real SRAM as the final validation.
+The micro:bit v2 firmware claims its region from CODAL's heap at boot (the
+largest free block less a CODAL headroom), so the region scales to the board's
+actual free SRAM rather than a compile-time constant. A brain needing more
+concurrently live fibers than the region holds faults `ErrorCode::StackOverflow`
+loudly at spawn. The host parity build allocates a single fixed scratch region
+(image plus pooled fibers), so CI exercises the device model; the board build
+links and runs against real SRAM as the final validation.
 
 ## Mirror headers
 

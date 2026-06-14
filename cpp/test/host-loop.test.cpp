@@ -1,7 +1,6 @@
 #include "doctest/doctest.h"
 
 #include "codal/device-port.h"
-#include "codal/device-sizing.h"
 #include "codal/fault-mode.h"
 #include "codal/host-loop.h"
 #include "core/codec/program-reader.h"

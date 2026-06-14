@@ -5,6 +5,7 @@
 add_library(mindcraft-codal STATIC
   fault-mode.cpp
   host-loop.cpp
+  on-flash-region.cpp
 )
 
 target_link_libraries(mindcraft-codal PUBLIC mindcraft-core)

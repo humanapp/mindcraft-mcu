@@ -4,7 +4,17 @@ namespace mindcraft {
 
 void formatFaultCode(char* out, FaultDomain domain, uint16_t code) {
   char* cursor = out;
-  *cursor++ = domain == FaultDomain::Load ? 'L' : 'E';
+  switch (domain) {
+  case FaultDomain::Load:
+    *cursor++ = 'L';
+    break;
+  case FaultDomain::Runtime:
+    *cursor++ = 'E';
+    break;
+  case FaultDomain::Region:
+    *cursor++ = 'R';
+    break;
+  }
 
   // Decimal digits of `code`, emitted low-to-high then reversed in place.
   char digits[5];

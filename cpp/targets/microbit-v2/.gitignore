@@ -14,3 +14,6 @@ Makefile
 pxtapp
 buildcache.json
 *.pyc
+
+# Build->patcher metadata emitted alongside MICROBIT.hex by tools/emit-metadata.py.
+MICROBIT.metadata.json

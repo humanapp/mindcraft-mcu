@@ -37,7 +37,13 @@ WORKDIR /opt/mindcraft-cpp/targets/microbit-v2
 
 RUN python3 build.py
 
-# Export only the hex: the .bin generator spans the flash + UICR regions and
-# emits a uselessly padded multi-hundred-MB file; DAPLink flashing takes the hex.
+# Emit the build->patcher metadata (region offset/size from the linked ELF
+# symbols, firmware id, on-flash format) alongside the hex (Phase 5a).
+RUN python3 tools/emit-metadata.py
+
+# Export the dual artifact: the hex plus its metadata. (The .bin generator spans
+# the flash + UICR regions and emits a uselessly padded multi-hundred-MB file;
+# DAPLink flashing takes the hex.)
 FROM scratch AS export-stage
 COPY --from=builder /opt/mindcraft-cpp/targets/microbit-v2/MICROBIT.hex .
+COPY --from=builder /opt/mindcraft-cpp/targets/microbit-v2/MICROBIT.metadata.json .
