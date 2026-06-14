@@ -2,11 +2,15 @@ import { stream } from "@mindcraft-lang/core";
 import {
   type ITypeRegistry,
   type LinkedBrainProgram,
+  type LinkedBrainProgramJson,
   linkedBrainProgramFromBytes,
+  linkedBrainProgramFromJson,
   linkedBrainProgramToBytes,
 } from "@mindcraft-lang/core/runtime";
+import { detectMindcraftProgramImageEncoding, MindcraftProgramImageEncoding } from "@mindcraft-lang/service-api";
 import { getWodalDeviceProfile, type WodalDeviceProfileId } from "./device-profile";
-import type { WodalProgramImage } from "./program-image";
+import { createWodalEnvironment } from "./environment";
+import { parseWodalProgramImage, type WodalProgramImage } from "./program-image";
 
 /** Decoded binary WODAL program image: the device profile id plus the hydrated linked brain program. */
 export interface WodalBinaryProgramImage {
@@ -36,6 +40,29 @@ export function serializeWodalProgramImageBytes(
     typeRegistry,
   });
   return stream.byteArrayToUint8Array(bytes) as Uint8Array;
+}
+
+/**
+ * Returns the binary `.mcprogram` payload to write into a firmware region from
+ * either form of a compiled program: binary `.mcprogram` bytes are returned
+ * unchanged, and a JSON `.mcprogram` image is serialized to the binary form of
+ * the profile named in its envelope. Throws if the JSON image is invalid or
+ * targets a profile WODAL does not support.
+ *
+ * @param content - Raw `.mcprogram` file contents, binary or JSON.
+ */
+export function wodalProgramBytes(content: Uint8Array): Uint8Array {
+  if (detectMindcraftProgramImageEncoding(content) === MindcraftProgramImageEncoding.BINARY) {
+    return content;
+  }
+  const parsed = parseWodalProgramImage(content);
+  if (!parsed.ok) {
+    throw new Error(`invalid JSON .mcprogram: ${parsed.errors.map((error) => error.message).join("; ")}`);
+  }
+  const program = linkedBrainProgramFromJson(parsed.image.program as LinkedBrainProgramJson);
+  const image = getWodalDeviceProfile(parsed.image.profileId).createProgramImage(program);
+  const typeRegistry = createWodalEnvironment(parsed.image.profileId).brainServices.runtime.types;
+  return serializeWodalProgramImageBytes(image, typeRegistry);
 }
 
 /**

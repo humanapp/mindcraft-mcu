@@ -17,6 +17,15 @@ export {
   type WodalDeviceProfile,
   WodalDeviceProfileId,
 } from "./mindcraft/device-profile";
+export { createWodalEnvironment } from "./mindcraft/environment";
+export type { FirmwareMetadata } from "./mindcraft/firmware-metadata";
+export {
+  FIRMWARE_PATCH_PROGRAM_TOO_LARGE,
+  type FirmwarePatchInput,
+  type FirmwarePatchProgramTooLargeError,
+  type FirmwarePatchResult,
+  patchFirmwareHex,
+} from "./mindcraft/firmware-patcher";
 export {
   parseWodalProgramImage,
   serializeWodalProgramImageJson,
@@ -26,6 +35,7 @@ export {
   WodalProgramImageValidationCode,
   type WodalProgramImageValidationError,
 } from "./mindcraft/program-image";
+export { wodalProgramBytes } from "./mindcraft/program-image-binary";
 export {
   type WodalProgramLoadFailure,
   type WodalProgramLoadSuccess,

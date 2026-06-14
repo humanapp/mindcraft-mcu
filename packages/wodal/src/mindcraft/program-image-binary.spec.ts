@@ -30,7 +30,11 @@ import {
 } from "@mindcraft-lang/core/runtime";
 import { createMicroBitV2Environment } from "../targets/microbit-v2/mindcraft/environment";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "./device-profile";
-import { parseWodalProgramImageBytes, serializeWodalProgramImageBytes } from "./program-image-binary";
+import {
+  parseWodalProgramImageBytes,
+  serializeWodalProgramImageBytes,
+  wodalProgramBytes,
+} from "./program-image-binary";
 
 const typeRegistry = createMicroBitV2Environment().brainServices.runtime.types;
 
@@ -190,5 +194,13 @@ for (const golden of GOLDENS) {
     for (const value of envelope.program.program.constantPools.strings) {
       assert.ok(!/^[a-z]+:<.*>$/.test(value), `constant string pool carries a typeId string: ${value}`);
     }
+  });
+
+  test(`wodalProgramBytes passes through ${golden.name} binary and serializes its JSON to the committed .bin`, () => {
+    const bin = new Uint8Array(readFileSync(fixturePath(`${golden.name}.mcprogram.bin`)));
+    assert.deepEqual(wodalProgramBytes(bin), bin);
+
+    const jsonBytes = new Uint8Array(readFileSync(fixturePath(`${golden.name}.mcprogram`)));
+    assert.deepEqual(wodalProgramBytes(jsonBytes), bin);
   });
 }

@@ -1,6 +1,6 @@
-import { coreModule, createMindcraftEnvironment, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
-import { createProfileNumerics } from "@mindcraft-lang/core/runtime";
-import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
+import type { MindcraftEnvironment } from "@mindcraft-lang/core/app";
+import { WodalDeviceProfileId } from "../../../mindcraft/device-profile";
+import { createWodalEnvironment } from "../../../mindcraft/environment";
 
 /**
  * Creates a Mindcraft environment with the core and microbit-v2 modules
@@ -8,9 +8,5 @@ import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/
  * profile's precision (f32).
  */
 export function createMicroBitV2Environment(): MindcraftEnvironment {
-  const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
-  return createMindcraftEnvironment({
-    modules: [coreModule(), profile.createMindcraftModule()],
-    numerics: createProfileNumerics(profile.numberPrecision),
-  });
+  return createWodalEnvironment(WodalDeviceProfileId.MICROBIT_V2);
 }
