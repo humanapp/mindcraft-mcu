@@ -1,5 +1,7 @@
 #include "core/runtime/vm.h"
 
+#include "core/runtime/core-func-id.h"
+#include "core/runtime/core-host-functions.h"
 #include "core/runtime/managed-heap.h"
 
 namespace mindcraft {
@@ -35,11 +37,11 @@ bool numberToIndex(mc_number_t value, int32_t& out) {
  */
 bool valueToMapKey(const Value& value, MapKey& out) {
   if (value.isNumber()) {
-    out = MapKey{true, value.asNumber(), 0};
+    out = MapKey{true, false, value.asNumber(), 0};
     return true;
   }
   if (value.isString()) {
-    out = MapKey{false, 0.0f, value.borrowedStringIndex()};
+    out = MapKey{false, value.isManagedString(), 0.0f, value.stringRef() & kStringRefIndexMask};
     return true;
   }
   return false;
@@ -461,6 +463,34 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       }
       surface.context->variables[ins.a] = stored;
       state.stackDepth--;
+      frame.pc++;
+      break;
+    }
+
+    case Op::HOST_CALL: {
+      // Operand layout: a = funcId, b = argc, c = callSiteId. The core bodies
+      // take no execution context, so the call-site operand is unused. Core ids
+      // dispatch by id; target ids (>= TARGET_FUNC_ID_BASE) have no registered
+      // body and fault as unregistered.
+      const uint32_t fnId = ins.a;
+      const uint32_t argc = ins.b;
+      if (argc > state.stackDepth) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      const Span<const Value> args(state.stack + (state.stackDepth - argc), argc);
+      Value result;
+      Status status = Status::fail(ErrorCode::ScriptError);
+      if (fnId < TARGET_FUNC_ID_BASE) {
+        const HostCallEnv env{surface.heap, surface.roots, surface.rng};
+        status = callCoreHostFunction(static_cast<CoreFuncId>(fnId), args, env, result);
+      }
+      if (!status.isOk()) {
+        return fault(status.error());
+      }
+      state.stackDepth -= argc;
+      if (!pushValue(state, result)) {
+        return fault(ErrorCode::StackOverflow);
+      }
       frame.pc++;
       break;
     }

@@ -16,6 +16,7 @@ namespace mindcraft {
 
 class ManagedHeap;
 class GcRoots;
+struct VmRng;
 
 /**
  * Outcome of one dispatch-loop slice. Mirrors `VmStatus` in
@@ -99,6 +100,13 @@ struct RuntimeSurface {
    * scheduler). Null when no heap is configured.
    */
   GcRoots* roots = nullptr;
+
+  /**
+   * VM-global pseudo-random stream backing `MathRandom`. Null when the program
+   * makes no random host call; a `MathRandom` `HOST_CALL` then faults
+   * `ErrorCode::HostError`.
+   */
+  VmRng* rng = nullptr;
 };
 
 /**

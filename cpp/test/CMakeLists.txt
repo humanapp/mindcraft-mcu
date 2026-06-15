@@ -8,6 +8,7 @@ add_executable(mindcraft-tests
   context-field.test.cpp
   core-func-id.test.cpp
   core-host-actions.test.cpp
+  core-host-fn-parity.test.cpp
   core-type-atom-id.test.cpp
   device-port.test.cpp
   error-code.test.cpp

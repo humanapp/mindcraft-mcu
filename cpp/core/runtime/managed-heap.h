@@ -5,6 +5,7 @@
 
 #include "core/runtime/mc-number.h"
 #include "core/runtime/pool.h"
+#include "core/runtime/program.h"
 #include "core/runtime/region-arena.h"
 #include "core/runtime/value.h"
 
@@ -52,14 +53,40 @@ struct ListObject {
   bool mark;
 };
 
-/** One ordered-map key: a number or a borrowed constant-pool string. */
+/**
+ * A managed string: a contiguous UTF-8 byte backing drawn from a size-classed
+ * slab, plus its byte length. The backing is fixed at allocation and never
+ * grows. The collector frees the byte backing when the object is collected. A
+ * zero-length string has a null `bytes`. `mark` is the collector's reachability
+ * bit, clear between collections.
+ */
+struct StringObject {
+  char* bytes;
+  uint32_t length;
+  bool mark;
+};
+
+/**
+ * One ordered-map key: a number, a borrowed constant-pool string, or a managed
+ * (heap) string. String keys compare by byte content across both
+ * representations; a borrowed and a managed key with equal content are one key.
+ */
 struct MapKey {
-  /** True when the key is a number; false when it is a borrowed string. */
+  /** True when the key is a number; false when it is a string. */
   bool isNumber;
+  /**
+   * For a string key: true when {@link stringRef} is a managed-heap handle,
+   * false when it is a borrowed constant-pool string-table index.
+   */
+  bool isManagedString;
   /** Number key payload (meaningful when {@link isNumber}). */
   mc_number_t number;
-  /** Borrowed string-table index (meaningful when not {@link isNumber}). */
-  uint32_t stringIndex;
+  /**
+   * String key reference (meaningful when not {@link isNumber}): a borrowed
+   * string-table index or a managed-heap string handle, per
+   * {@link isManagedString}.
+   */
+  uint32_t stringRef;
 };
 
 /** One ordered-map entry: a key and its value, in insertion order. */
@@ -167,8 +194,15 @@ private:
  */
 class ManagedHeap : public GcMarker {
 public:
-  /** A heap drawing its pools and slabs from `arena`, which must outlive it. */
-  explicit ManagedHeap(RegionArena& arena);
+  /**
+   * A heap drawing its pools and slabs from `arena`, which must outlive it.
+   * `program`, when non-null, resolves borrowed (constant-pool) string content
+   * for content-equality of string map keys; it must outlive the heap. With a
+   * null program, only number keys and managed-string keys compare by content
+   * and borrowed-string keys fall back to index identity (the linker's
+   * content-dedup guarantee).
+   */
+  explicit ManagedHeap(RegionArena& arena, const ProgramImage* program = nullptr);
 
   /**
    * Allocates an empty list typed `typeId`, collecting over `roots` and
@@ -193,6 +227,30 @@ public:
    * in `out`. See {@link newStruct} for the exhaustion contract.
    */
   bool newCaptures(uint32_t count, GcRoots* roots, uint32_t& out);
+
+  /**
+   * Allocates an immutable managed string of `length` bytes, returning a
+   * `String` value (managed reference) in `out` and a writable pointer to the
+   * uninitialized backing in `bytesOut` (null when `length` is 0). The caller
+   * fills the backing directly; the result must be fully written before the
+   * next allocation that could collect. See {@link newStruct} for the
+   * exhaustion contract.
+   */
+  bool allocString(uint32_t length, GcRoots* roots, Value& out, char*& bytesOut);
+
+  /** Allocates a managed string copied from `data[0, length)`. See {@link allocString}. */
+  bool newString(const char* data, uint32_t length, GcRoots* roots, Value& out);
+
+  /** Resolves a managed `String` value to its object. Requires a live managed handle. */
+  StringObject* stringObject(const Value& value) const;
+
+  /**
+   * Yields the UTF-8 content of any `String` value into `bytes`/`length`:
+   * managed strings resolve through the heap, borrowed strings through the
+   * configured program string table. Returns false for a non-string value or a
+   * borrowed string with no program configured.
+   */
+  bool stringContent(const Value& value, const char*& bytes, uint32_t& length) const;
 
   /** Resolves a `List` value to its object. Requires a live list handle. */
   ListObject* list(const Value& value) const;
@@ -264,30 +322,55 @@ public:
   /** Number of live captures objects (for tests and stats). */
   uint32_t liveCaptureCount() const { return captures_.liveCount(); }
 
-private:
-  // One in-flight deep-copy result on an intrusive chain the collector marks as
-  // a root, keeping parent copies reachable while their children allocate.
+  /** Number of live managed-string objects (for tests and stats). */
+  uint32_t liveStringCount() const { return strings_.liveCount(); }
+
+  /**
+   * Grows a list's backing to at least `capacity` slots without changing its
+   * size, collecting over `roots` and retrying once on slab exhaustion. With a
+   * reserved backing, an append up to `capacity` neither allocates nor
+   * collects. Returns false only when the backing cannot grow.
+   */
+  bool listReserve(ListObject* obj, uint32_t capacity, GcRoots* roots);
+
+  // One pinned value on an intrusive chain the collector marks as an extra root.
   struct PinNode {
     Value value;
     PinNode* next;
   };
 
-  // Augments the caller's roots with the pinned in-flight deep-copy results for
-  // the duration of a deep copy.
+  /**
+   * RAII root pin: keeps `value` reachable across every collection that runs
+   * for the guard's lifetime.
+   */
+  class Pin {
+  public:
+    Pin(ManagedHeap& heap, const Value& value) : heap_(heap), node_{value, heap.pinHead_} {
+      heap.pinHead_ = &node_;
+    }
+    ~Pin() { heap_.pinHead_ = node_.next; }
+    Pin(const Pin&) = delete;
+    Pin& operator=(const Pin&) = delete;
+
+  private:
+    ManagedHeap& heap_;
+    PinNode node_;
+  };
+
+private:
+  // A non-null roots wrapper for the allocations inside a deep copy, so each
+  // collects over the caller's roots on failure. The in-flight copies are kept
+  // reachable by {@link collect} marking the pin chain.
   class DeepCopyRoots : public GcRoots {
   public:
-    DeepCopyRoots(ManagedHeap& heap, GcRoots* external) : heap_(heap), external_(external) {}
+    explicit DeepCopyRoots(GcRoots* external) : external_(external) {}
     void enumerateRoots(GcMarker& marker) override {
       if (external_ != nullptr) {
         external_->enumerateRoots(marker);
       }
-      for (PinNode* node = heap_.pinHead_; node != nullptr; node = node->next) {
-        marker.mark(node->value);
-      }
     }
 
   private:
-    ManagedHeap& heap_;
     GcRoots* external_;
   };
 
@@ -297,6 +380,10 @@ private:
   bool mapEnsureCapacity(MapObject* obj, uint32_t needed, GcRoots* roots);
   uint32_t mapFind(const MapObject* obj, const MapKey& key) const;
   bool deepCopyInto(const Value& value, DeepCopyRoots& roots, Value& out);
+  // Resolves a map key's string content for content comparison. Returns false
+  // for a borrowed key with no program configured.
+  bool keyStringContent(const MapKey& key, const char*& bytes, uint32_t& length) const;
+  bool keyEqual(const MapKey& a, const MapKey& b) const;
 
   uint32_t handleOf(const void* object) const {
     return static_cast<uint32_t>(static_cast<const uint8_t*>(object) - base_);
@@ -304,11 +391,13 @@ private:
   void* fromHandle(uint32_t handle) const { return base_ + handle; }
 
   uint8_t* base_;
+  const ProgramImage* program_;
   SlabAllocator slabs_;
   Pool<ListObject> lists_;
   Pool<MapObject> maps_;
   Pool<StructObject> structs_;
   Pool<CapturesObject> captures_;
+  Pool<StringObject> strings_;
   PinNode* pinHead_ = nullptr;
 };
 

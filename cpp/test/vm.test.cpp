@@ -1,6 +1,8 @@
 #include "doctest/doctest.h"
 
 #include "core/runtime/bytecode.h"
+#include "core/runtime/core-func-id.h"
+#include "core/runtime/core-host-functions.h"
 #include "core/runtime/core-type-atom-id.h"
 #include "core/runtime/execution-state.h"
 #include "core/runtime/managed-heap.h"
@@ -13,6 +15,7 @@
 #include <array>
 #include <cstdint>
 #include <limits>
+#include <string>
 #include <vector>
 
 using mindcraft::CoreTypeAtomId;
@@ -1352,4 +1355,119 @@ TEST_CASE("LOAD_CAPTURE in a frame with no captures faults ScriptError") {
   const RunResult result = runProgram(machine, image, {}, 1000, h.surface);
   REQUIRE(result.status == RunStatus::Fault);
   CHECK(result.error == ErrorCode::ScriptError);
+}
+
+// ---- HOST_CALL opcode dispatch (the core host-function library) ----
+
+TEST_CASE("HOST_CALL dispatches a core numeric operator body") {
+  ProgramBuilder b;
+  b.number(2.0f).number(3.0f);
+  b.beginFunction()
+      .instr(Op::PUSH_CONST_NUM, 0)
+      .instr(Op::PUSH_CONST_NUM, 1)
+      .instr(Op::HOST_CALL, static_cast<int32_t>(mindcraft::CoreFuncId::OpAddNumber), 2, 0)
+      .instr(Op::RET);
+  std::vector<uint8_t> storage(8 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  Machine machine;
+  const RunResult result = runProgram(machine, image);
+  REQUIRE(result.status == RunStatus::Done);
+  CHECK(result.result.asNumber() == 5.0f);
+}
+
+TEST_CASE("HOST_CALL produces a managed string from a core string body") {
+  ProgramBuilder b;
+  b.poolString("a").poolString("b");
+  b.beginFunction()
+      .instr(Op::PUSH_CONST_STR, 0)
+      .instr(Op::PUSH_CONST_STR, 1)
+      .instr(Op::HOST_CALL, static_cast<int32_t>(mindcraft::CoreFuncId::OpAddString), 2, 0)
+      .instr(Op::RET);
+  std::vector<uint8_t> storage(8 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  std::vector<uint8_t> heapStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(heapStorage.data(), heapStorage.size()));
+  // The heap resolves the borrowed operands' content through the program.
+  mindcraft::ManagedHeap heap(arena, &image);
+  mindcraft::RuntimeSurface surface{nullptr, {}, nullptr, &heap};
+
+  Machine machine;
+  const RunResult result = runProgram(machine, image, {}, 1000, surface);
+  REQUIRE(result.status == RunStatus::Done);
+  REQUIRE(result.result.isManagedString());
+  const char* bytes = nullptr;
+  uint32_t length = 0;
+  REQUIRE(heap.stringContent(result.result, bytes, length));
+  CHECK(std::string(bytes, length) == "ab");
+}
+
+TEST_CASE("HOST_CALL draws MathRandom from the VM-global RNG") {
+  ProgramBuilder b;
+  b.beginFunction()
+      .instr(Op::HOST_CALL, static_cast<int32_t>(mindcraft::CoreFuncId::MathRandom), 0, 0)
+      .instr(Op::RET);
+  std::vector<uint8_t> storage(8 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  mindcraft::VmRng rng;
+  mindcraft::RuntimeSurface surface;
+  surface.rng = &rng;
+
+  mindcraft::VmRng expected;
+  const float expectedDraw = expected.next();
+
+  Machine machine;
+  const RunResult result = runProgram(machine, image, {}, 1000, surface);
+  REQUIRE(result.status == RunStatus::Done);
+  CHECK(result.result.asNumber() == expectedDraw);
+}
+
+TEST_CASE("HOST_CALL host-call failures are ScriptError; absent capabilities are HostError") {
+  SUBCASE("a pinned-deferred body faults ScriptError (the contract's host-failure code)") {
+    ProgramBuilder b;
+    b.number(2.0f).number(3.0f);
+    b.beginFunction()
+        .instr(Op::PUSH_CONST_NUM, 0)
+        .instr(Op::PUSH_CONST_NUM, 1)
+        .instr(Op::HOST_CALL, static_cast<int32_t>(mindcraft::CoreFuncId::OpPowerNumber), 2, 0)
+        .instr(Op::RET);
+    std::vector<uint8_t> storage(8 * 1024);
+    const ProgramImage image = b.build(storage);
+
+    Machine machine;
+    const RunResult result = runProgram(machine, image);
+    REQUIRE(result.status == RunStatus::Fault);
+    CHECK(result.error == ErrorCode::ScriptError);
+  }
+
+  SUBCASE("a target funcId has no registered body and faults ScriptError") {
+    ProgramBuilder b;
+    b.beginFunction()
+        .instr(Op::HOST_CALL, static_cast<int32_t>(mindcraft::TARGET_FUNC_ID_BASE), 0, 0)
+        .instr(Op::RET);
+    std::vector<uint8_t> storage(8 * 1024);
+    const ProgramImage image = b.build(storage);
+
+    Machine machine;
+    const RunResult result = runProgram(machine, image);
+    REQUIRE(result.status == RunStatus::Fault);
+    CHECK(result.error == ErrorCode::ScriptError);
+  }
+
+  SUBCASE("a body whose capability is absent faults HostError") {
+    // MathRandom needs the rng; a surface without one cannot service it.
+    ProgramBuilder b;
+    b.beginFunction()
+        .instr(Op::HOST_CALL, static_cast<int32_t>(mindcraft::CoreFuncId::MathRandom), 0, 0)
+        .instr(Op::RET);
+    std::vector<uint8_t> storage(8 * 1024);
+    const ProgramImage image = b.build(storage);
+
+    Machine machine;
+    const RunResult result = runProgram(machine, image); // default surface: no rng
+    REQUIRE(result.status == RunStatus::Fault);
+    CHECK(result.error == ErrorCode::HostError);
+  }
 }

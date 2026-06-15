@@ -1,5 +1,7 @@
 #include "doctest/doctest.h"
 
+#include "core/runtime/core-func-id.h"
+#include "core/runtime/core-host-functions.h"
 #include "core/runtime/managed-heap.h"
 #include "core/runtime/program.h"
 #include "core/runtime/region-arena.h"
@@ -7,14 +9,18 @@
 #include "core/runtime/vm.h"
 
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <vector>
 
 using mindcraft::CapturesObject;
+using mindcraft::CoreFuncId;
 using mindcraft::GcMarker;
 using mindcraft::GcRoots;
+using mindcraft::HostCallEnv;
 using mindcraft::isTruthy;
 using mindcraft::kNoCaptures;
+using mindcraft::kStringRefIndexMask;
 using mindcraft::ListObject;
 using mindcraft::ManagedHeap;
 using mindcraft::MapKey;
@@ -22,6 +28,9 @@ using mindcraft::MapObject;
 using mindcraft::ProgramImage;
 using mindcraft::RegionArena;
 using mindcraft::Span;
+using mindcraft::Status;
+using mindcraft::StringObject;
+using mindcraft::StringRef;
 using mindcraft::StructObject;
 using mindcraft::Value;
 
@@ -39,10 +48,10 @@ struct RootSet : GcRoots {
 };
 
 /** A number-keyed map key. */
-MapKey numKey(float n) { return MapKey{true, n, 0}; }
+MapKey numKey(float n) { return MapKey{true, false, n, 0}; }
 
 /** A borrowed-string map key referencing constant-pool string index `idx`. */
-MapKey strKey(uint32_t idx) { return MapKey{false, 0.0f, idx}; }
+MapKey strKey(uint32_t idx) { return MapKey{false, false, 0.0f, idx}; }
 
 } // namespace
 
@@ -523,4 +532,179 @@ TEST_CASE("nested containers stay reachable through a rooted parent") {
   // The nested values survive and stay intact.
   CHECK(heap.listGet(heap.list(inner), 0).asNumber() == 7.0f);
   CHECK(heap.mapGet(heap.map(innerMap), numKey(1.0f)).asNumber() == 5.0f);
+}
+
+namespace {
+
+/** Content of a managed string value as a std::string, for test assertions. */
+std::string contentOf(const ManagedHeap& heap, const Value& value) {
+  const char* bytes = nullptr;
+  uint32_t length = 0;
+  REQUIRE(heap.stringContent(value, bytes, length));
+  return std::string(bytes, length);
+}
+
+} // namespace
+
+TEST_CASE("managed strings hold their content and report a managed reference") {
+  std::vector<uint8_t> storage(8 * 1024);
+  RegionArena arena(Span<uint8_t>(storage.data(), storage.size()));
+  ManagedHeap heap(arena);
+  RootSet roots;
+
+  Value hello;
+  REQUIRE(heap.newString("hello", 5, &roots, hello));
+  CHECK(hello.isString());
+  CHECK(hello.isManagedString());
+  CHECK(heap.liveStringCount() == 1u);
+  CHECK(contentOf(heap, hello) == "hello");
+
+  Value empty;
+  REQUIRE(heap.newString("", 0, &roots, empty));
+  CHECK(empty.isManagedString());
+  CHECK(contentOf(heap, empty).empty());
+  CHECK(heap.stringObject(empty)->bytes == nullptr);
+}
+
+TEST_CASE("collection reclaims unreachable managed strings and keeps reachable ones") {
+  std::vector<uint8_t> storage(16 * 1024);
+  RegionArena arena(Span<uint8_t>(storage.data(), storage.size()));
+  ManagedHeap heap(arena);
+  RootSet roots;
+
+  Value kept;
+  REQUIRE(heap.newString("kept", 4, &roots, kept));
+  Value dropped;
+  REQUIRE(heap.newString("dropped", 7, &roots, dropped));
+  CHECK(heap.liveStringCount() == 2u);
+
+  // Root only `kept`; `dropped` is unreachable.
+  roots.roots.push_back(kept);
+  heap.collect(roots);
+
+  CHECK(heap.liveStringCount() == 1u);
+  CHECK(contentOf(heap, kept) == "kept");
+}
+
+TEST_CASE("a managed string survives collection through a list element") {
+  std::vector<uint8_t> storage(16 * 1024);
+  RegionArena arena(Span<uint8_t>(storage.data(), storage.size()));
+  ManagedHeap heap(arena);
+  RootSet roots;
+
+  Value list;
+  REQUIRE(heap.newList(6, &roots, list));
+  roots.roots.push_back(list);
+  Value element;
+  REQUIRE(heap.newString("inside", 6, &roots, element));
+  REQUIRE(heap.listPush(heap.list(list), element, &roots));
+
+  // `element` is held only by the rooted list; an unreferenced sibling is not.
+  Value orphan;
+  REQUIRE(heap.newString("orphan", 6, &roots, orphan));
+  CHECK(heap.liveStringCount() == 2u);
+
+  heap.collect(roots);
+
+  CHECK(heap.liveStringCount() == 1u);
+  CHECK(contentOf(heap, heap.listGet(heap.list(list), 0)) == "inside");
+}
+
+TEST_CASE("managed-string map keys are traced and compare by content") {
+  std::vector<uint8_t> storage(16 * 1024);
+  RegionArena arena(Span<uint8_t>(storage.data(), storage.size()));
+  ManagedHeap heap(arena);
+  RootSet roots;
+
+  Value map;
+  REQUIRE(heap.newMap(7, &roots, map));
+  roots.roots.push_back(map);
+
+  Value keyA;
+  REQUIRE(heap.newString("name", 4, &roots, keyA));
+  const MapKey managedKeyA{false, true, 0.0f, keyA.stringRef() & kStringRefIndexMask};
+  REQUIRE(heap.mapSet(heap.map(map), managedKeyA, Value::number(42.0f), &roots));
+
+  // A distinct managed string with equal content is the same key (content, not
+  // identity), and the key string is reachable through the map.
+  Value keyB;
+  REQUIRE(heap.newString("name", 4, &roots, keyB));
+  const MapKey managedKeyB{false, true, 0.0f, keyB.stringRef() & kStringRefIndexMask};
+  CHECK(heap.mapHas(heap.map(map), managedKeyB));
+  CHECK(heap.mapGet(heap.map(map), managedKeyB).asNumber() == 42.0f);
+
+  heap.collect(roots);
+
+  // keyA is traced as the live key; keyB (unrooted) is reclaimed.
+  CHECK(heap.liveStringCount() == 1u);
+  CHECK(heap.mapGet(heap.map(map), managedKeyA).asNumber() == 42.0f);
+  CHECK(contentOf(heap, keyA) == "name");
+}
+
+TEST_CASE("string equality and map keys unify borrowed and managed content") {
+  // A one-string constant pool so a borrowed reference resolves to "hello".
+  const char* pool = "hello";
+  ProgramImage program{};
+  program.stringData = mindcraft::ByteSpan(reinterpret_cast<const uint8_t*>(pool), 5);
+  const StringRef refs[] = {{0, 5}};
+  program.strings = Span<const StringRef>(refs, 1);
+
+  std::vector<uint8_t> storage(16 * 1024);
+  RegionArena arena(Span<uint8_t>(storage.data(), storage.size()));
+  ManagedHeap heap(arena, &program);
+  RootSet roots;
+
+  const Value borrowed = Value::borrowedString(0);
+  CHECK_FALSE(borrowed.isManagedString());
+  Value managed;
+  REQUIRE(heap.newString("hello", 5, &roots, managed));
+
+  // == operator: borrowed and managed with equal content compare equal.
+  const HostCallEnv env{&heap, &roots, nullptr};
+  const Value eqArgs[] = {borrowed, managed};
+  Value eq;
+  REQUIRE(callCoreHostFunction(CoreFuncId::OpEqualToString, Span<const Value>(eqArgs, 2), env, eq)
+              .isOk());
+  CHECK(eq.asBoolean());
+
+  // Map keys: insert under the borrowed key, look up under the managed key.
+  Value map;
+  REQUIRE(heap.newMap(7, &roots, map));
+  const MapKey borrowedKey{false, false, 0.0f, 0};
+  REQUIRE(heap.mapSet(heap.map(map), borrowedKey, Value::number(9.0f), &roots));
+  const MapKey managedKey{false, true, 0.0f, managed.stringRef() & kStringRefIndexMask};
+  CHECK(heap.mapHas(heap.map(map), managedKey));
+  CHECK(heap.mapGet(heap.map(map), managedKey).asNumber() == 9.0f);
+}
+
+TEST_CASE("a pinned value survives collection through the pin and is reclaimed once released") {
+  std::vector<uint8_t> storage(16 * 1024);
+  RegionArena arena(Span<uint8_t>(storage.data(), storage.size()));
+  ManagedHeap heap(arena);
+  RootSet roots; // deliberately empty: the list is reachable only through the pin
+
+  Value list;
+  REQUIRE(heap.newList(6, &roots, list));
+  {
+    ManagedHeap::Pin pin(heap, list);
+    // An unrooted, unpinned orphan the collection must reclaim, which confirms
+    // the collection actually fired.
+    Value orphan;
+    REQUIRE(heap.newString("orphan", 6, &roots, orphan));
+    CHECK(heap.liveListCount() == 1u);
+    CHECK(heap.liveStringCount() == 1u);
+
+    heap.collect(roots);
+
+    // The list survived a collection with no external root, by the pin alone;
+    // the orphan did not. This is the invariant the list-building host functions
+    // rely on while allocating their elements.
+    CHECK(heap.liveListCount() == 1u);
+    CHECK(heap.liveStringCount() == 0u);
+    REQUIRE(heap.listPush(heap.list(list), Value::number(5.0f), &roots));
+    CHECK(heap.list(list)->size == 1u);
+  }
+  // The pin is released; nothing roots the list now.
+  heap.collect(roots);
+  CHECK(heap.liveListCount() == 0u);
 }

@@ -6,6 +6,7 @@ add_library(mindcraft-core STATIC
   codec/program-reader.cpp
   runtime/brain-runtime.cpp
   runtime/bytecode.cpp
+  runtime/core-host-functions.cpp
   runtime/error-code.cpp
   runtime/fiber-scheduler.cpp
   runtime/load-error.cpp

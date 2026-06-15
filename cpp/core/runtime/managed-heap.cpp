@@ -12,21 +12,6 @@ namespace {
  */
 bool sameValueZero(mc_number_t a, mc_number_t b) { return a == b || (a != a && b != b); }
 
-/**
- * Map-key equality: number keys by SameValueZero; string keys by constant-pool
- * index. Borrowed string keys are deduplicated upstream, so equal content
- * always shares one index and identity reduces to an index compare.
- */
-bool keyEqual(const MapKey& a, const MapKey& b) {
-  if (a.isNumber != b.isNumber) {
-    return false;
-  }
-  if (a.isNumber) {
-    return sameValueZero(a.number, b.number);
-  }
-  return a.stringIndex == b.stringIndex;
-}
-
 } // namespace
 
 uint32_t SlabAllocator::orderForBytes(size_t bytes) {
@@ -67,9 +52,48 @@ void SlabAllocator::release(void* block, size_t bytes) {
   bins_[order] = block;
 }
 
-ManagedHeap::ManagedHeap(RegionArena& arena)
-    : base_(arena.base()), slabs_(arena), lists_(arena), maps_(arena), structs_(arena),
-      captures_(arena) {}
+ManagedHeap::ManagedHeap(RegionArena& arena, const ProgramImage* program)
+    : base_(arena.base()), program_(program), slabs_(arena), lists_(arena), maps_(arena),
+      structs_(arena), captures_(arena), strings_(arena) {}
+
+bool ManagedHeap::keyStringContent(const MapKey& key, const char*& bytes, uint32_t& length) const {
+  if (key.isManagedString) {
+    const StringObject* obj = static_cast<const StringObject*>(fromHandle(key.stringRef));
+    bytes = obj->bytes;
+    length = obj->length;
+    return true;
+  }
+  if (program_ == nullptr || key.stringRef >= program_->strings.size()) {
+    return false;
+  }
+  const StringRef& ref = program_->strings[key.stringRef];
+  bytes = reinterpret_cast<const char*>(program_->stringData.data()) + ref.offset;
+  length = ref.length;
+  return true;
+}
+
+bool ManagedHeap::keyEqual(const MapKey& a, const MapKey& b) const {
+  if (a.isNumber != b.isNumber) {
+    return false;
+  }
+  if (a.isNumber) {
+    return sameValueZero(a.number, b.number);
+  }
+  // Borrowed keys are content-deduplicated upstream, so equal-content borrowed
+  // keys share one index; that fast path also covers the no-program case.
+  if (!a.isManagedString && !b.isManagedString) {
+    return a.stringRef == b.stringRef;
+  }
+  // At least one managed key: compare by byte content across representations.
+  const char* aBytes = nullptr;
+  const char* bBytes = nullptr;
+  uint32_t aLen = 0;
+  uint32_t bLen = 0;
+  if (!keyStringContent(a, aBytes, aLen) || !keyStringContent(b, bBytes, bLen)) {
+    return false;
+  }
+  return aLen == bLen && (aLen == 0 || memcmp(aBytes, bBytes, aLen) == 0);
+}
 
 ListObject* ManagedHeap::allocListObject(GcRoots* roots) {
   ListObject* obj = lists_.alloc();
@@ -188,6 +212,74 @@ bool ManagedHeap::newCaptures(uint32_t count, GcRoots* roots, uint32_t& out) {
   return true;
 }
 
+bool ManagedHeap::allocString(uint32_t length, GcRoots* roots, Value& out, char*& bytesOut) {
+  // Back the bytes before drawing the pool object: a raw slab block is never
+  // traced or swept, so it survives a collection the pool allocation triggers
+  // (the same orphan-avoidance order as newStruct).
+  char* bytes = nullptr;
+  if (length > 0) {
+    bytes = static_cast<char*>(slabs_.allocate(length));
+    if (bytes == nullptr && roots != nullptr) {
+      collect(*roots);
+      bytes = static_cast<char*>(slabs_.allocate(length));
+    }
+    if (bytes == nullptr) {
+      return false;
+    }
+  }
+  StringObject* obj = strings_.alloc();
+  if (obj == nullptr && roots != nullptr) {
+    collect(*roots);
+    obj = strings_.alloc();
+  }
+  if (obj == nullptr) {
+    if (bytes != nullptr) {
+      slabs_.release(bytes, length);
+    }
+    return false;
+  }
+  obj->bytes = bytes;
+  obj->length = length;
+  obj->mark = false;
+  out = Value::managedString(handleOf(obj));
+  bytesOut = bytes;
+  return true;
+}
+
+bool ManagedHeap::newString(const char* data, uint32_t length, GcRoots* roots, Value& out) {
+  char* bytes = nullptr;
+  if (!allocString(length, roots, out, bytes)) {
+    return false;
+  }
+  if (length > 0) {
+    memcpy(bytes, data, length);
+  }
+  return true;
+}
+
+StringObject* ManagedHeap::stringObject(const Value& value) const {
+  return static_cast<StringObject*>(fromHandle(value.managedStringHandle()));
+}
+
+bool ManagedHeap::stringContent(const Value& value, const char*& bytes, uint32_t& length) const {
+  if (!value.isString()) {
+    return false;
+  }
+  if (value.isManagedString()) {
+    const StringObject* obj = stringObject(value);
+    bytes = obj->bytes;
+    length = obj->length;
+    return true;
+  }
+  if (program_ == nullptr || value.borrowedStringIndex() >= program_->strings.size()) {
+    return false;
+  }
+  const StringRef& ref = program_->strings[value.borrowedStringIndex()];
+  bytes = reinterpret_cast<const char*>(program_->stringData.data()) + ref.offset;
+  length = ref.length;
+  return true;
+}
+
 ListObject* ManagedHeap::list(const Value& value) const {
   return static_cast<ListObject*>(fromHandle(value.containerHandle()));
 }
@@ -254,7 +346,7 @@ bool ManagedHeap::deepCopyInto(const Value& value, DeepCopyRoots& roots, Value& 
 }
 
 bool ManagedHeap::deepCopy(const Value& value, GcRoots* roots, Value& out) {
-  DeepCopyRoots dcRoots(*this, roots);
+  DeepCopyRoots dcRoots(roots);
   return deepCopyInto(value, dcRoots, out);
 }
 
@@ -285,6 +377,10 @@ bool ManagedHeap::listEnsureCapacity(ListObject* obj, uint32_t needed, GcRoots* 
   obj->items = items;
   obj->capacity = newCap;
   return true;
+}
+
+bool ManagedHeap::listReserve(ListObject* obj, uint32_t capacity, GcRoots* roots) {
+  return listEnsureCapacity(obj, capacity, roots);
 }
 
 bool ManagedHeap::listPush(ListObject* obj, const Value& item, GcRoots* roots) {
@@ -447,14 +543,23 @@ void ManagedHeap::mark(const Value& value) {
         mark(obj->items[i]);
       }
     }
+  } else if (value.isManagedString()) {
+    // An immutable managed string has no outgoing references; marking the
+    // object is enough to keep its byte backing alive through the sweep.
+    stringObject(value)->mark = true;
   } else if (value.isMap()) {
     MapObject* obj = map(value);
     if (!obj->mark) {
       obj->mark = true;
-      // String keys are borrowed and number keys carry no heap, so only values
-      // need tracing.
+      // Number keys carry no heap and borrowed string keys are never collected;
+      // managed-string keys are heap objects and must be traced alongside the
+      // values.
       for (uint32_t i = 0; i < obj->size; i++) {
-        mark(obj->entries[i].value);
+        const MapEntry& entry = obj->entries[i];
+        if (!entry.key.isNumber && entry.key.isManagedString) {
+          static_cast<StringObject*>(fromHandle(entry.key.stringRef))->mark = true;
+        }
+        mark(entry.value);
       }
     }
   } else if (value.isStruct()) {
@@ -484,8 +589,14 @@ void ManagedHeap::collect(GcRoots& roots) {
   maps_.forEachLive([](MapObject& obj) { obj.mark = false; });
   structs_.forEachLive([](StructObject& obj) { obj.mark = false; });
   captures_.forEachLive([](CapturesObject& obj) { obj.mark = false; });
+  strings_.forEachLive([](StringObject& obj) { obj.mark = false; });
 
   roots.enumerateRoots(*this);
+  // Pinned in-flight results (deep copies, host-function container builds) are
+  // extra roots for the duration of their pin.
+  for (PinNode* node = pinHead_; node != nullptr; node = node->next) {
+    mark(node->value);
+  }
 
   lists_.forEachLive([this](ListObject& obj) {
     if (!obj.mark) {
@@ -517,6 +628,14 @@ void ManagedHeap::collect(GcRoots& roots) {
         slabs_.release(obj.slots, static_cast<size_t>(obj.count) * sizeof(Value));
       }
       captures_.free(&obj);
+    }
+  });
+  strings_.forEachLive([this](StringObject& obj) {
+    if (!obj.mark) {
+      if (obj.bytes != nullptr) {
+        slabs_.release(obj.bytes, obj.length);
+      }
+      strings_.free(&obj);
     }
   });
 }

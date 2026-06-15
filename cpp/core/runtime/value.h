@@ -103,6 +103,16 @@ public:
     return Value(ValueTag::String, Payload(stringIdx));
   }
 
+  /**
+   * A `String` value referencing managed-heap string object `handle` (a
+   * dynamically created, collectable string). The {@link kManagedStringRefBit}
+   * flag distinguishes it from a borrowed reference. Requires `handle` to fit
+   * {@link kStringRefIndexMask}.
+   */
+  static constexpr Value managedString(uint32_t handle) {
+    return Value(ValueTag::String, Payload(handle | kManagedStringRefBit));
+  }
+
   /** An `Enum` value: type-table index plus declared-symbol ordinal. */
   static constexpr Value enumSymbol(uint32_t typeId, uint32_t ordinal) {
     return Value(ValueTag::Enum, Payload(Compound{typeId, ordinal}));
@@ -178,10 +188,24 @@ public:
   constexpr uint32_t stringRef() const { return payload_.ref; }
 
   /**
+   * True when the tag is `String` and the reference is a managed (collectable)
+   * heap handle; false for a borrowed constant-pool reference.
+   */
+  constexpr bool isManagedString() const {
+    return tag_ == ValueTag::String && (payload_.ref & kManagedStringRefBit) != 0;
+  }
+
+  /**
    * The string-table index of a borrowed string reference. Requires tag
-   * `String` and a borrowed reference (the only kind this runtime creates).
+   * `String` and a borrowed (bit-clear) reference.
    */
   constexpr uint32_t borrowedStringIndex() const { return payload_.ref & kStringRefIndexMask; }
+
+  /**
+   * The managed-heap handle of a managed string reference. Requires tag
+   * `String` and a managed (bit-set) reference.
+   */
+  constexpr uint32_t managedStringHandle() const { return payload_.ref & kStringRefIndexMask; }
 
   /** The type-table index. Requires tag `Enum`, `List`, `Map`, or `Struct`. */
   constexpr uint32_t typeId() const { return payload_.compound.typeId; }
