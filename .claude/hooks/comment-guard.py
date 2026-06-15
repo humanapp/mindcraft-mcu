@@ -3,18 +3,22 @@
 banned comment-guideline phrasing.
 
 Reads the PreToolUse hook JSON on stdin, extracts the text being written
-(Write content, Edit/MultiEdit new_string), scans only comment lines of source
-files (and all lines of markdown), and exits 2 (blocking the tool call) when a
-tight set of banned phrasings appears. The matched phrasings are the recurring
-design-rationale / plan-marker offenders called out in
+(Write content, Edit/MultiEdit new_string), scans only the comment lines of
+source files, and exits 2 (blocking the tool call) when a tight set of banned
+phrasings appears. The matched phrasings are the recurring design-rationale /
+plan-marker offenders called out in
 .github/instructions/global.instructions.md.
+
+Markdown is not scanned: the project's planning and contract docs legitimately
+record rationale, phase tracking, and Locked Decisions, which the source-comment
+rules forbid only in code.
 """
 
 import json
 import re
 import sys
 
-SCANNED_EXTENSIONS = (".ts", ".tsx", ".cpp", ".h", ".hpp", ".cc", ".md")
+SCANNED_EXTENSIONS = (".ts", ".tsx", ".cpp", ".h", ".hpp", ".cc")
 
 # Tight set of banned phrasings (case-insensitive). Each is a recurring
 # design-justification or plan-only marker the comment guidelines forbid.
@@ -42,18 +46,12 @@ def written_text(tool_name, tool_input):
     return ""
 
 
-def comment_text_per_line(text, is_markdown):
-    """Yields the comment-only portion of each line.
+def comment_text_per_line(text):
+    """Yields the comment-only portion of each source line.
 
-    Markdown is prose, so every line counts. For source files only the part of
-    a line inside a `//` or `/* ... */` comment is yielded, keeping string
-    literals and code out of the scan.
+    Only the part of a line inside a `//` or `/* ... */` comment is yielded,
+    keeping string literals and code out of the scan.
     """
-    if is_markdown:
-        for line in text.splitlines():
-            yield line
-        return
-
     in_block = False
     for line in text.splitlines():
         rest = line
@@ -97,9 +95,8 @@ def main():
     if not text:
         sys.exit(0)
 
-    is_markdown = file_path.endswith(".md")
     hits = []
-    for comment in comment_text_per_line(text, is_markdown):
+    for comment in comment_text_per_line(text):
         for pattern, label in BANNED:
             if pattern.search(comment) and label not in hits:
                 hits.append(label)
