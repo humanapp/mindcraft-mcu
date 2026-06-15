@@ -130,9 +130,7 @@ TEST_CASE("a faulting rule traces the fault line shape and respawns next think")
   FaultTraceTap tap(writer);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {}, &tap};
-  std::array<uint8_t,
-             4 * (sizeof(mindcraft::FiberWorkspace) + sizeof(mindcraft::FiberRecord) + 64) + 256>
-      arenaBytes;
+  std::array<uint8_t, 4 * (2048 + sizeof(mindcraft::FiberRecord) + 64) + 256> arenaBytes;
   RegionArena arena(Span<uint8_t>(arenaBytes.data(), arenaBytes.size()));
   FiberScheduler scheduler(image, surface, arena);
   BrainRuntime brain(image, scheduler, surface);

@@ -175,6 +175,9 @@ public:
   /** True when the tag is `Function`. */
   constexpr bool isFunction() const { return tag_ == ValueTag::Function; }
 
+  /** True when the tag is `Err` (a VM-internal error value). */
+  constexpr bool isErr() const { return tag_ == ValueTag::Err; }
+
   /** The boolean payload. Requires tag `Boolean`. */
   constexpr bool asBoolean() const { return payload_.boolean; }
 

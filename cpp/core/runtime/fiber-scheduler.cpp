@@ -6,7 +6,7 @@ namespace mindcraft {
 
 FiberScheduler::FiberScheduler(const ProgramImage& program, const RuntimeSurface& surface,
                                RegionArena& arena)
-    : program_(program), surface_(surface), arena_(arena), records_(arena), workspaces_(arena) {
+    : program_(program), surface_(surface), arena_(arena), records_(arena), regions_(arena) {
   // The scheduler is the heap's root source; point the surface the dispatch
   // loop runs against back at it so an allocation can collect over all fibers.
   surface_.roots = this;
@@ -39,27 +39,43 @@ Result<uint32_t> FiberScheduler::spawn(uint32_t funcId) {
   if (records_.liveCount() >= kMaxFibers) {
     return Result<uint32_t>::fail(ErrorCode::StackOverflow);
   }
-  FiberWorkspace* workspace = workspaces_.alloc();
-  if (workspace == nullptr) {
+
+  // Reserve the four execution regions at their initial sizes; they grow on
+  // demand toward the caps. A failed reserve releases whatever already landed.
+  ExecutionState exec{};
+  exec.allocator = &regions_;
+  exec.stackLimit = kMaxStackSize;
+  exec.localsLimit = kMaxLocalsSize;
+  exec.frameLimit = kMaxFrameDepth;
+  exec.handlerLimit = kMaxHandlers;
+  exec.stack = regions_.reserve<Value>(kInitialStackSlots);
+  exec.locals = regions_.reserve<Value>(kInitialLocalsSlots);
+  exec.frames = regions_.reserve<Frame>(kInitialFrameSlots);
+  exec.handlers = regions_.reserve<Handler>(kInitialHandlerSlots);
+  if (exec.stack == nullptr || exec.locals == nullptr || exec.frames == nullptr ||
+      exec.handlers == nullptr) {
+    exec.stackCapacity = exec.stack != nullptr ? kInitialStackSlots : 0;
+    exec.localsCapacity = exec.locals != nullptr ? kInitialLocalsSlots : 0;
+    exec.frameCapacity = exec.frames != nullptr ? kInitialFrameSlots : 0;
+    exec.handlerCapacity = exec.handlers != nullptr ? kInitialHandlerSlots : 0;
+    releaseRegions(exec);
     return Result<uint32_t>::fail(ErrorCode::StackOverflow);
   }
+  exec.stackCapacity = kInitialStackSlots;
+  exec.localsCapacity = kInitialLocalsSlots;
+  exec.frameCapacity = kInitialFrameSlots;
+  exec.handlerCapacity = kInitialHandlerSlots;
+
   FiberRecord* record = records_.alloc();
   if (record == nullptr) {
-    workspaces_.free(workspace);
+    releaseRegions(exec);
     return Result<uint32_t>::fail(ErrorCode::StackOverflow);
   }
 
-  ExecutionState exec{};
-  exec.stack = workspace->stack;
-  exec.stackLimit = kMaxStackSize;
-  exec.locals = workspace->locals;
-  exec.localsLimit = kMaxLocalsSize;
-  exec.frames = workspace->frames;
-  exec.frameLimit = kMaxFrameDepth;
   const Status started = startExecution(exec, program_, funcId, {});
   if (!started.isOk()) {
     records_.free(record);
-    workspaces_.free(workspace);
+    releaseRegions(exec);
     return Result<uint32_t>::fail(started.error());
   }
 
@@ -67,9 +83,19 @@ Result<uint32_t> FiberScheduler::spawn(uint32_t funcId) {
   record->id = fiberId;
   record->state = FiberState::Runnable;
   record->exec = exec;
-  record->workspace = workspace;
   enqueue(record);
   return Result<uint32_t>::ok(fiberId);
+}
+
+void FiberScheduler::releaseRegions(ExecutionState& exec) {
+  regions_.release<Value>(exec.stack, exec.stackCapacity);
+  regions_.release<Value>(exec.locals, exec.localsCapacity);
+  regions_.release<Frame>(exec.frames, exec.frameCapacity);
+  regions_.release<Handler>(exec.handlers, exec.handlerCapacity);
+  exec.stack = nullptr;
+  exec.locals = nullptr;
+  exec.frames = nullptr;
+  exec.handlers = nullptr;
 }
 
 void FiberScheduler::cancel(uint32_t fiberId) {
@@ -127,7 +153,7 @@ void FiberScheduler::sweep() {
   records_.forEachLive([&](FiberRecord& record) {
     if (record.state == FiberState::Done || record.state == FiberState::Fault ||
         record.state == FiberState::Cancelled) {
-      workspaces_.free(record.workspace);
+      releaseRegions(record.exec);
       records_.free(&record);
     }
   });

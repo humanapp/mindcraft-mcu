@@ -263,26 +263,40 @@ private:
   std::vector<PageSpec> pages_;
 };
 
-/** An execution state bound to its own fixed stack regions. */
+/**
+ * An execution state bound to its own fixed regions, pre-allocated to the full
+ * caps with a null grow allocator: the cap arguments act as the overflow guards
+ * and the regions never grow.
+ */
 struct Machine {
   explicit Machine(uint32_t stackLimit = mindcraft::kMaxStackSize,
                    uint32_t localsLimit = mindcraft::kMaxLocalsSize,
-                   uint32_t frameLimit = mindcraft::kMaxFrameDepth) {
+                   uint32_t frameLimit = mindcraft::kMaxFrameDepth,
+                   uint32_t handlerLimit = mindcraft::kMaxHandlers) {
     state.stack = stackStorage.data();
     state.stackLimit = stackLimit;
+    state.stackCapacity = mindcraft::kMaxStackSize;
     state.stackDepth = 0;
     state.locals = localsStorage.data();
     state.localsLimit = localsLimit;
+    state.localsCapacity = mindcraft::kMaxLocalsSize;
     state.localsDepth = 0;
     state.frames = frameStorage.data();
     state.frameLimit = frameLimit;
+    state.frameCapacity = mindcraft::kMaxFrameDepth;
     state.frameDepth = 0;
+    state.handlers = handlerStorage.data();
+    state.handlerLimit = handlerLimit;
+    state.handlerCapacity = mindcraft::kMaxHandlers;
+    state.handlerDepth = 0;
+    state.allocator = nullptr;
     state.budget = 0;
   }
 
   std::array<mindcraft::Value, mindcraft::kMaxStackSize> stackStorage;
   std::array<mindcraft::Value, mindcraft::kMaxLocalsSize> localsStorage;
   std::array<mindcraft::Frame, mindcraft::kMaxFrameDepth> frameStorage;
+  std::array<mindcraft::Handler, mindcraft::kMaxHandlers> handlerStorage;
   mindcraft::ExecutionState state;
 };
 

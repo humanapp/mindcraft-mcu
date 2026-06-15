@@ -107,6 +107,10 @@ bool isImplementedOp(Op op) {
   case Op::MAP_HAS:
   case Op::MAP_DELETE:
   case Op::TYPE_CHECK:
+  case Op::YIELD:
+  case Op::TRY:
+  case Op::END_TRY:
+  case Op::THROW:
     return true;
   default:
     return false;
@@ -815,18 +819,22 @@ TEST_CASE("a suspended state survives while an independent state runs to complet
   RegionArena arena(Span<uint8_t>(arenaBytes.data(), arenaBytes.size()));
 
   // Each state's regions come from independent arena allocations, mirroring the
-  // per-fiber workspaces the scheduler draws from its pool.
+  // per-fiber regions the scheduler draws on. They are pre-allocated to their
+  // full capacity with no grow allocator, so the caps double as fixed sizes.
   const auto bindState = [&](uint32_t stackSlots, uint32_t localSlots, uint32_t frameSlots) {
     ExecutionState state{};
     state.stack =
         static_cast<Value*>(arena.allocateBytes(stackSlots * sizeof(Value), alignof(Value)));
     state.stackLimit = stackSlots;
+    state.stackCapacity = stackSlots;
     state.locals =
         static_cast<Value*>(arena.allocateBytes(localSlots * sizeof(Value), alignof(Value)));
     state.localsLimit = localSlots;
+    state.localsCapacity = localSlots;
     state.frames =
         static_cast<Frame*>(arena.allocateBytes(frameSlots * sizeof(Frame), alignof(Frame)));
     state.frameLimit = frameSlots;
+    state.frameCapacity = frameSlots;
     REQUIRE(state.stack != nullptr);
     REQUIRE(state.locals != nullptr);
     REQUIRE(state.frames != nullptr);

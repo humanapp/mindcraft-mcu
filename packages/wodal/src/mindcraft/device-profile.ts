@@ -36,6 +36,18 @@ export interface WodalDeviceProfile {
   /** Maximum number of concurrently live fibers the scheduler tracks. Mirrored as a device build constant. */
   readonly maxFibers: number;
 
+  /** Per-fiber operand-stack depth cap. Mirrored as the C++ `kMaxStackSize` guard. */
+  readonly maxStackSize: number;
+
+  /** Per-fiber total-locals depth cap. Mirrored as the C++ `kMaxLocalsSize` guard. */
+  readonly maxLocalsSize: number;
+
+  /** Per-fiber call-frame depth cap. Mirrored as the C++ `kMaxFrameDepth` guard. */
+  readonly maxFrameDepth: number;
+
+  /** Per-fiber try-handler depth cap. Mirrored as the C++ `kMaxHandlers` guard. */
+  readonly maxHandlers: number;
+
   /** Creates the Mindcraft module for this profile. */
   readonly createMindcraftModule: () => MindcraftModule;
 
@@ -52,6 +64,12 @@ export const WODAL_DEVICE_PROFILES = Object.freeze({
     defaultBudget: 1000,
     hookBudget: 10000,
     maxFibers: 100,
+    // Per-fiber overflow guards; mirrored as the C++ kMax* in
+    // cpp/core/runtime/execution-state.h. The two sides must stay equal.
+    maxStackSize: 256,
+    maxLocalsSize: 256,
+    maxFrameDepth: 64,
+    maxHandlers: 16,
     createMindcraftModule: createMicroBitV2Module,
     createProgramImage: createMicroBitV2ProgramImage,
   } satisfies WodalDeviceProfile),

@@ -1,11 +1,44 @@
 {
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/comment-guard.py\"",
+            "statusMessage": "Checking comment guidelines..."
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/seed-gate-check.py\"",
+            "statusMessage": "Checking session seeding..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/seed-gate-mark.py\""
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "echo \"==== AUTHORITATIVE PROJECT RULES (auto-injected; read and follow ALL of the following before any code, comment, edit, or audit; this is the complete ruleset, not a summary) ====\"; cat \"$CLAUDE_PROJECT_DIR/AGENTS.md\" \"$CLAUDE_PROJECT_DIR\"/.github/instructions/*.instructions.md"
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/seed-gate-init.py\""
           }
         ]
       }

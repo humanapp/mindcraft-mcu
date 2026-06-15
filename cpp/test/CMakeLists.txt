@@ -6,6 +6,7 @@ add_executable(mindcraft-tests
   byte-cursor.test.cpp
   bytecode.test.cpp
   context-field.test.cpp
+  control-flow.test.cpp
   core-func-id.test.cpp
   core-host-actions.test.cpp
   core-host-fn-parity.test.cpp

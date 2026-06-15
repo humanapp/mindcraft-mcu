@@ -33,10 +33,9 @@ using mindcraft::VmObserver;
 
 namespace {
 
-/** One shared region with room for several fibers' pool slots; tests spawn a few. */
+/** One shared region with room for several fibers' regions and records; tests spawn a few. */
 struct SchedulerStorage {
-  static constexpr size_t kArenaBytes =
-      8 * (sizeof(mindcraft::FiberWorkspace) + sizeof(mindcraft::FiberRecord) + 64) + 256;
+  static constexpr size_t kArenaBytes = 8 * (2048 + sizeof(mindcraft::FiberRecord) + 64) + 256;
   std::array<uint8_t, kArenaBytes> bytes;
   RegionArena arena{Span<uint8_t>(bytes.data(), bytes.size())};
 };

@@ -3,10 +3,56 @@
 #include "core/runtime/core-func-id.h"
 #include "core/runtime/core-host-functions.h"
 #include "core/runtime/managed-heap.h"
+#include "core/runtime/stack-region.h"
 
 namespace mindcraft {
 
 namespace {
+
+/**
+ * Grows the operand stack to hold at least `needed` slots, returning false
+ * when it cannot (no allocator, or the arena is exhausted). The caller checks
+ * the {@link ExecutionState::stackLimit} cap guard first, so `needed` never
+ * exceeds the cap. A grow re-derives `state.stack`.
+ */
+bool ensureStackCapacity(ExecutionState& state, uint32_t needed) {
+  if (needed <= state.stackCapacity) {
+    return true;
+  }
+  return state.allocator != nullptr &&
+         state.allocator->grow(&state.stack, &state.stackCapacity, state.stackDepth, needed,
+                               state.stackLimit);
+}
+
+/** Grows the locals region to hold at least `needed` slots. See {@link ensureStackCapacity}. */
+bool ensureLocalsCapacity(ExecutionState& state, uint32_t needed) {
+  if (needed <= state.localsCapacity) {
+    return true;
+  }
+  return state.allocator != nullptr &&
+         state.allocator->grow(&state.locals, &state.localsCapacity, state.localsDepth, needed,
+                               state.localsLimit);
+}
+
+/** Grows the frame stack to hold at least `needed` frames. See {@link ensureStackCapacity}. */
+bool ensureFrameCapacity(ExecutionState& state, uint32_t needed) {
+  if (needed <= state.frameCapacity) {
+    return true;
+  }
+  return state.allocator != nullptr &&
+         state.allocator->grow(&state.frames, &state.frameCapacity, state.frameDepth, needed,
+                               state.frameLimit);
+}
+
+/** Grows the handler stack to hold at least `needed` handlers. See {@link ensureStackCapacity}. */
+bool ensureHandlerCapacity(ExecutionState& state, uint32_t needed) {
+  if (needed <= state.handlerCapacity) {
+    return true;
+  }
+  return state.allocator != nullptr &&
+         state.allocator->grow(&state.handlers, &state.handlerCapacity, state.handlerDepth, needed,
+                               state.handlerLimit);
+}
 
 /**
  * Floors a brain number to an integer container index. Returns false for
@@ -47,9 +93,17 @@ bool valueToMapKey(const Value& value, MapKey& out) {
   return false;
 }
 
-/** Push `value`; false when the operand stack is at capacity. */
-bool pushValue(ExecutionState& state, const Value& value) {
+/**
+ * Push `value`; false when the operand stack is at its cap or cannot grow.
+ * Taken by value: a grow can relocate the stack, so a by-reference argument
+ * aliasing a stack slot (e.g. from `DUP`) would dangle.
+ */
+bool pushValue(ExecutionState& state, Value value) {
   if (state.stackDepth >= state.stackLimit) {
+    return false;
+  }
+  if (state.stackDepth >= state.stackCapacity &&
+      !ensureStackCapacity(state, state.stackDepth + 1)) {
     return false;
   }
   state.stack[state.stackDepth++] = value;
@@ -145,6 +199,13 @@ bool pushCallFrame(ExecutionState& state, const ProgramImage& program, uint32_t 
     err = ErrorCode::StackOverflow;
     return false;
   }
+  // Grow the locals and frame regions before any write; a grow re-derives the
+  // region base, so every access below reads the post-grow base.
+  if (!ensureLocalsCapacity(state, state.localsDepth + fn.numLocals) ||
+      !ensureFrameCapacity(state, state.frameDepth + 1)) {
+    err = ErrorCode::StackOverflow;
+    return false;
+  }
 
   const uint32_t argsBase = state.stackDepth - argc;
   const uint32_t take = argc < fn.numParams ? argc : fn.numParams;
@@ -219,6 +280,11 @@ Status startExecution(ExecutionState& state, const ProgramImage& program, uint32
     return Status::fail(ErrorCode::StackOverflow);
   }
   if (fn.numLocals > state.localsLimit - state.localsDepth) {
+    return Status::fail(ErrorCode::StackOverflow);
+  }
+  // Grow the locals and frame regions before any write (see pushCallFrame).
+  if (!ensureLocalsCapacity(state, state.localsDepth + fn.numLocals) ||
+      !ensureFrameCapacity(state, state.frameDepth + 1)) {
     return Status::fail(ErrorCode::StackOverflow);
   }
 
@@ -1169,6 +1235,77 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
         return fault(ErrorCode::StackOverflow);
       }
       frame.pc++;
+      break;
+    }
+
+    case Op::YIELD: {
+      // Cooperative yield: advance past the opcode and suspend; the scheduler
+      // re-enqueues the fiber for the next round.
+      frame.pc++;
+      return RunResult::yielded();
+    }
+
+    case Op::TRY: {
+      // Record a handler at the current frame/stack depths, with the signed
+      // operand as the relative catch target. Mirrors vm.ts execTry.
+      if (state.handlerDepth >= state.handlerLimit) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      if (state.handlerDepth >= state.handlerCapacity &&
+          !ensureHandlerCapacity(state, state.handlerDepth + 1)) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      Handler& handler = state.handlers[state.handlerDepth++];
+      handler.frameIndex = state.frameDepth;
+      handler.stackHeight = state.stackDepth;
+      handler.catchTarget = addRel(frame.pc, ins.a);
+      frame.pc++;
+      break;
+    }
+
+    case Op::END_TRY: {
+      // Pop the innermost handler. An empty stack is a no-op, mirroring the
+      // TS List.pop on an empty handler list.
+      if (state.handlerDepth > 0) {
+        state.handlerDepth--;
+      }
+      frame.pc++;
+      break;
+    }
+
+    case Op::THROW: {
+      // Pop the thrown value; an error value carries its classifier, anything
+      // else throws a ScriptError (mirrors vm.ts execThrow).
+      Value thrown;
+      if (!popValue(state, thrown)) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      const ErrorCode code = thrown.isErr() ? thrown.errorCode() : ErrorCode::ScriptError;
+      if (state.handlerDepth == 0) {
+        // No handler caught it: fault the fiber at the throwing site.
+        return fault(code);
+      }
+      // Unwind to the innermost handler: truncate frames and the operand stack
+      // to its recorded depths, then re-derive localsDepth from the frame that
+      // remains on top (a frame's locals end where the next frame's begin).
+      // Handlers carry no Values, so no root is touched.
+      const Handler handler = state.handlers[--state.handlerDepth];
+      state.frameDepth = handler.frameIndex;
+      state.localsDepth = state.frameDepth == 0
+                              ? 0
+                              : state.frames[state.frameDepth - 1].localsOffset +
+                                    state.frames[state.frameDepth - 1].localsCount;
+      if (state.stackDepth > handler.stackHeight) {
+        state.stackDepth = handler.stackHeight;
+      }
+      // The catch block receives the error value, then runs at the catch target.
+      if (!pushValue(state, Value::error(code))) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      if (state.frameDepth == 0) {
+        return RunResult::fault(ErrorCode::ScriptError, kNoFuncId, 0);
+      }
+      state.frames[state.frameDepth - 1].pc = handler.catchTarget;
       break;
     }
 

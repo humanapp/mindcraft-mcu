@@ -35,10 +35,18 @@ using mindcraft::VmObserver;
 
 namespace {
 
-/** One shared region with room for several fibers' pool slots; tests spawn a few. */
+/**
+ * A generous upper bound on the arena bytes one fiber consumes: its four
+ * grow-on-demand execution regions (slab blocks at their initial sizes, with
+ * room to grow) plus its record. The regions no longer reserve the worst-case
+ * caps, so this is far below the retired per-fiber workspace size; it stays an
+ * over-estimate so the count guard, not memory, governs the spawn tests.
+ */
+constexpr size_t kPerFiberArenaBytes = 2048 + sizeof(mindcraft::FiberRecord);
+
+/** One shared region with room for several fibers' regions and records; tests spawn a few. */
 struct SchedulerStorage {
-  static constexpr size_t kArenaBytes =
-      8 * (sizeof(mindcraft::FiberWorkspace) + sizeof(mindcraft::FiberRecord) + 64) + 256;
+  static constexpr size_t kArenaBytes = 8 * (kPerFiberArenaBytes + 64) + 256;
   std::array<uint8_t, kArenaBytes> bytes;
   RegionArena arena{Span<uint8_t>(bytes.data(), bytes.size())};
 };
@@ -187,9 +195,7 @@ TEST_CASE("spawn exhausting the region faults loudly and recovers after a sweep"
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {}, nullptr};
   // A region sized for only a couple of fibers, so spawning soon exhausts it.
-  std::array<uint8_t,
-             2 * (sizeof(mindcraft::FiberWorkspace) + sizeof(mindcraft::FiberRecord)) + 256>
-      arenaBytes;
+  std::array<uint8_t, 2 * kPerFiberArenaBytes + 256> arenaBytes;
   RegionArena arena(Span<uint8_t>(arenaBytes.data(), arenaBytes.size()));
   FiberScheduler scheduler(image, surface, arena);
 
@@ -219,8 +225,7 @@ TEST_CASE("spawn past the fiber guard faults loudly with memory to spare") {
   RuntimeSurface surface{&ctx, {}, nullptr};
   // Region with room well beyond kMaxFibers, so the count guard - not memory -
   // is what fires.
-  std::vector<uint8_t> arenaStorage((kMaxFibers + 8) * (sizeof(mindcraft::FiberWorkspace) +
-                                                        sizeof(mindcraft::FiberRecord) + 128));
+  std::vector<uint8_t> arenaStorage((kMaxFibers + 8) * (kPerFiberArenaBytes + 128));
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
   FiberScheduler scheduler(image, surface, arena);
 

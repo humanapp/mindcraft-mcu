@@ -71,6 +71,10 @@ test("buildWodalProgramImage returns PROGRAM_IMAGE_CREATION_FAILED when image cr
     defaultBudget: 1000,
     hookBudget: 10000,
     maxFibers: 100,
+    maxStackSize: 256,
+    maxLocalsSize: 256,
+    maxFrameDepth: 64,
+    maxHandlers: 16,
     createMindcraftModule: createMicroBitV2Module,
     createProgramImage: () => {
       throw cause;
