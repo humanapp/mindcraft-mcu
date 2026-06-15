@@ -2,6 +2,9 @@
 
 #include <cstring>
 
+#include "core/runtime/binary32-format.h"
+#include "core/runtime/binary32-parse.h"
+#include "core/runtime/binary32-transcendental.h"
 #include "core/runtime/managed-heap.h"
 
 namespace mindcraft {
@@ -139,8 +142,7 @@ Status okNil(Value& out) {
 // container opcodes' null-heap fault.
 constexpr Status capabilityAbsent() { return Status::fail(ErrorCode::HostError); }
 // A host-call failure surfaces as ScriptError per the VM contract (the HOST_CALL
-// row): an id this dispatch cannot service (a pinned-deferred body or an
-// unimplemented id).
+// row): an id this dispatch cannot service (an id with no body).
 constexpr Status unsupported() { return Status::fail(ErrorCode::ScriptError); }
 constexpr Status heapFault() { return Status::fail(ErrorCode::StackOverflow); }
 
@@ -969,22 +971,58 @@ Status callCoreHostFunction(CoreFuncId id, Span<const Value> args, const HostCal
   case CoreFuncId::StrConcat:
     return strConcatBody(env, args, out);
 
-  // --- Pinned-deferred: transcendentals, number->string formatter, parseFloat
-  // (device-exact implementations not yet pinned) ---
-  case CoreFuncId::OpPowerNumber:
-  case CoreFuncId::ConvNumberToString:
-  case CoreFuncId::ConvStringToNumber:
+  // --- Power operator (nil on bad operand or NaN result) ---
+  case CoreFuncId::OpPowerNumber: {
+    if (!validNumber(args, 0, a) || !validNumber(args, 1, b)) {
+      return okNil(out);
+    }
+    const float r = binary32::pow(a, b);
+    return isNan(r) ? okNil(out) : okNumber(r, out);
+  }
+
+  // --- Number <-> string (shortest-round-trip f32 / parseFloat) ---
+  case CoreFuncId::ConvNumberToString: {
+    if (!rawNumber(args, 0, a)) {
+      return unsupported();
+    }
+    if (env.heap == nullptr) {
+      return capabilityAbsent();
+    }
+    char buffer[32];
+    const uint32_t length = binary32::formatNumber(a, buffer);
+    return okString(env, buffer, length, out);
+  }
+  case CoreFuncId::ConvStringToNumber: {
+    if (!stringArg(env, args, 0, sa, la)) {
+      return unsupported();
+    }
+    const float v = binary32::parseNumber(sa, la);
+    return okNumber(isNan(v) ? 0.0f : v, out);
+  }
+
+  // --- Transcendental math builtins (f32; NaN result passes through) ---
   case CoreFuncId::MathAcos:
+    return rawNumber(args, 0, a) ? okNumber(binary32::acos(a), out) : unsupported();
   case CoreFuncId::MathAsin:
+    return rawNumber(args, 0, a) ? okNumber(binary32::asin(a), out) : unsupported();
   case CoreFuncId::MathAtan:
+    return rawNumber(args, 0, a) ? okNumber(binary32::atan(a), out) : unsupported();
   case CoreFuncId::MathAtan2:
+    return (rawNumber(args, 0, a) && rawNumber(args, 1, b)) ? okNumber(binary32::atan2(a, b), out)
+                                                            : unsupported();
   case CoreFuncId::MathCos:
+    return rawNumber(args, 0, a) ? okNumber(binary32::cos(a), out) : unsupported();
   case CoreFuncId::MathExp:
+    return rawNumber(args, 0, a) ? okNumber(binary32::exp(a), out) : unsupported();
   case CoreFuncId::MathLog:
+    return rawNumber(args, 0, a) ? okNumber(binary32::log(a), out) : unsupported();
   case CoreFuncId::MathPow:
+    return (rawNumber(args, 0, a) && rawNumber(args, 1, b)) ? okNumber(binary32::pow(a, b), out)
+                                                            : unsupported();
   case CoreFuncId::MathSin:
+    return rawNumber(args, 0, a) ? okNumber(binary32::sin(a), out) : unsupported();
   case CoreFuncId::MathTan:
-    return unsupported();
+    return rawNumber(args, 0, a) ? okNumber(binary32::tan(a), out) : unsupported();
 
   // --- Context/sensor/actuator ids: not core host-call bodies ---
   default:

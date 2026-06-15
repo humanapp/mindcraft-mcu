@@ -20,6 +20,7 @@ add_executable(mindcraft-tests
   microbit-v2-abi.test.cpp
   observable-trace.test.cpp
   on-flash-region.test.cpp
+  pinned-numerics-parity.test.cpp
   pool.test.cpp
   program-dump.test.cpp
   program-reader.test.cpp

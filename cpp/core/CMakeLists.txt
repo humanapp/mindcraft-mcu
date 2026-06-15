@@ -4,6 +4,9 @@ add_library(mindcraft-core STATIC
   codec/observable-trace.cpp
   codec/program-dump.cpp
   codec/program-reader.cpp
+  runtime/binary32-format.cpp
+  runtime/binary32-parse.cpp
+  runtime/binary32-transcendental.cpp
   runtime/brain-runtime.cpp
   runtime/bytecode.cpp
   runtime/core-host-functions.cpp
@@ -12,6 +15,18 @@ add_library(mindcraft-core STATIC
   runtime/load-error.cpp
   runtime/managed-heap.cpp
   runtime/vm.cpp
+)
+
+# The single-precision numeric pin reproduces the TypeScript reference's
+# per-operation rounding. Fused multiply-add would collapse `a * b + c` into a
+# single rounding and diverge, so these units forbid FP contraction. A runtime
+# guard (binary32::multiplyAddRoundsTwice) fails the test suite if the flag is
+# dropped.
+set_source_files_properties(
+  runtime/binary32-format.cpp
+  runtime/binary32-parse.cpp
+  runtime/binary32-transcendental.cpp
+  PROPERTIES COMPILE_OPTIONS "-ffp-contract=off"
 )
 
 target_include_directories(mindcraft-core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)

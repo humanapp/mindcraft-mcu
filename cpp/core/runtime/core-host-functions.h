@@ -64,10 +64,8 @@ struct HostCallEnv {
  * ASCII subset).
  *
  * Faults (leaving `out` untouched):
- * - `ScriptError` for an `id` this dispatch cannot service: a pinned-deferred
- *   body (the transcendentals, the number->string formatter, and `parseFloat`,
- *   whose device-exact implementations are not yet pinned) or an id with no
- *   body (context, sensor, and actuator ids and any unknown id). This is the
+ * - `ScriptError` for an `id` this dispatch cannot service: an id with no body
+ *   (context, sensor, and actuator ids and any unknown id). This is the
  *   `HOST_CALL` host-failure fault the VM contract specifies.
  * - `HostError` when a body needs a capability {@link env} does not supply (the
  *   heap for a string/list/map body, or the rng for `MathRandom`).

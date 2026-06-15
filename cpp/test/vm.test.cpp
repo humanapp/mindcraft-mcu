@@ -1425,13 +1425,12 @@ TEST_CASE("HOST_CALL draws MathRandom from the VM-global RNG") {
 }
 
 TEST_CASE("HOST_CALL host-call failures are ScriptError; absent capabilities are HostError") {
-  SUBCASE("a pinned-deferred body faults ScriptError (the contract's host-failure code)") {
+  SUBCASE("a core funcId with no host-call body faults ScriptError (the host-failure code)") {
+    // Context/sensor/actuator ids are not core host-call bodies; dispatching one
+    // through HOST_CALL hits the unserviceable-id path.
     ProgramBuilder b;
-    b.number(2.0f).number(3.0f);
     b.beginFunction()
-        .instr(Op::PUSH_CONST_NUM, 0)
-        .instr(Op::PUSH_CONST_NUM, 1)
-        .instr(Op::HOST_CALL, static_cast<int32_t>(mindcraft::CoreFuncId::OpPowerNumber), 2, 0)
+        .instr(Op::HOST_CALL, static_cast<int32_t>(mindcraft::CoreFuncId::SensorCurrentPage), 0, 0)
         .instr(Op::RET);
     std::vector<uint8_t> storage(8 * 1024);
     const ProgramImage image = b.build(storage);
