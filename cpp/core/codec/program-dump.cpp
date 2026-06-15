@@ -58,14 +58,30 @@ bool emitTypeEntry(TextWriter& w, const ProgramImage& image, uint32_t idx) {
     w.text("nullable ");
     w.hex(entry.nullable.base);
     break;
-  case TypeTag::Struct:
+  case TypeTag::Struct: {
+    if (entry.structOf.fieldsOffset > image.structFields.size() ||
+        entry.structOf.fieldsCount > image.structFields.size() - entry.structOf.fieldsOffset) {
+      return false;
+    }
     w.text("struct ");
     if (!quoteStringTableEntry(w, image, entry.structOf.nameStringIdx)) {
       return false;
     }
     w.text(" slots ");
     w.hex(entry.structOf.slotCount);
+    w.text(" fields ");
+    w.hex(entry.structOf.fieldsCount);
+    for (uint32_t j = 0; j < entry.structOf.fieldsCount; j++) {
+      const StructFieldRef& field = image.structFields[entry.structOf.fieldsOffset + j];
+      w.ch(' ');
+      if (!quoteStringTableEntry(w, image, field.nameStringIdx)) {
+        return false;
+      }
+      w.ch(' ');
+      w.hex(field.fieldId);
+    }
     break;
+  }
   case TypeTag::Enum: {
     if (entry.enumOf.symbolsOffset > image.typeRefs.size() ||
         entry.enumOf.symbolsCount > image.typeRefs.size() - entry.enumOf.symbolsOffset) {

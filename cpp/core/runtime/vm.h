@@ -16,6 +16,7 @@ namespace mindcraft {
 
 class ManagedHeap;
 class GcRoots;
+class TypeRegistry;
 struct VmRng;
 
 /**
@@ -107,6 +108,14 @@ struct RuntimeSurface {
    * `ErrorCode::HostError`.
    */
   VmRng* rng = nullptr;
+
+  /**
+   * Type registry resolving program-local struct field names, struct slot
+   * counts, and instantiated container typeIds. Null when the host registers
+   * none; the dynamic computed-key struct opcodes then resolve no field, and
+   * container results carry {@link kNoTypeIdx}.
+   */
+  const TypeRegistry* types = nullptr;
 };
 
 /**

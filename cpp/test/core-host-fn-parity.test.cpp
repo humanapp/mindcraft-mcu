@@ -7,8 +7,11 @@
 #include "core/platform/span.h"
 #include "core/runtime/core-func-id.h"
 #include "core/runtime/core-host-functions.h"
+#include "core/runtime/core-type-atom-id.h"
 #include "core/runtime/managed-heap.h"
+#include "core/runtime/program.h"
 #include "core/runtime/region-arena.h"
+#include "core/runtime/type-registry.h"
 #include "core/runtime/value.h"
 #include "doctest/doctest.h"
 #include "fixture-paths.h"
@@ -17,10 +20,13 @@ using namespace mindcraft;
 
 namespace {
 
-// The committed value vectors and this consumer share one content-only,
-// f32-profile encoding (see core-host-fn-vectors.spec.ts):
+// The committed value vectors and this consumer share one f32-profile encoding
+// (see core-host-fn-vectors.spec.ts):
 //   0x01 nil | 0x02 bool b | 0x03 number <f32 LE bits> | 0x04 string <ulen><bytes>
-//   0x06 list <ucount><elem...> | 0x07 map <ucount>(<key><value>)...
+//   0x06 list <structuralType><ucount><elem...>
+//   0x07 map <structuralType><ucount>(<key><value>)...
+// A structural typeId is 0x00 atom <atomId> | 0x01 list <elem> | 0x02 map <key>
+// <value> | 0xff none, each child itself a structural type.
 
 std::vector<uint8_t> readFile(const std::string& path) {
   std::ifstream in(path, std::ios::binary);
@@ -89,8 +95,31 @@ void encString(std::vector<uint8_t>& out, const char* bytes, uint32_t length) {
   }
 }
 
+/** Encodes the structural typeId of `typeIdx` against the gate's synthetic type table. */
+void encStructuralType(const ProgramImage& prog, uint32_t typeIdx, std::vector<uint8_t>& out) {
+  if (typeIdx >= prog.types.size()) {
+    out.push_back(0xff);
+    return;
+  }
+  const TypeEntry& entry = prog.types[typeIdx];
+  if (entry.tag == TypeTag::List) {
+    out.push_back(0x01);
+    encStructuralType(prog, entry.list.elem, out);
+  } else if (entry.tag == TypeTag::Map) {
+    out.push_back(0x02);
+    encStructuralType(prog, entry.map.key, out);
+    encStructuralType(prog, entry.map.value, out);
+  } else if (entry.tag == TypeTag::Atom) {
+    out.push_back(0x00);
+    encVaruint(out, entry.atom.atomId);
+  } else {
+    out.push_back(0xff);
+  }
+}
+
 /** Encodes a runtime value into the vector encoding for byte comparison. */
-void encodeValue(const ManagedHeap& heap, const Value& v, std::vector<uint8_t>& out) {
+void encodeValue(const ManagedHeap& heap, const ProgramImage& prog, const Value& v,
+                 std::vector<uint8_t>& out) {
   if (v.isNil()) {
     out.push_back(0x01);
   } else if (v.isBoolean()) {
@@ -106,13 +135,15 @@ void encodeValue(const ManagedHeap& heap, const Value& v, std::vector<uint8_t>& 
   } else if (v.isList()) {
     const ListObject* list = heap.list(v);
     out.push_back(0x06);
+    encStructuralType(prog, v.typeId(), out);
     encVaruint(out, list->size);
     for (uint32_t i = 0; i < list->size; i++) {
-      encodeValue(heap, list->items[i], out);
+      encodeValue(heap, prog, list->items[i], out);
     }
   } else if (v.isMap()) {
     const MapObject* map = heap.map(v);
     out.push_back(0x07);
+    encStructuralType(prog, v.typeId(), out);
     encVaruint(out, map->size);
     for (uint32_t i = 0; i < map->size; i++) {
       const MapEntry& entry = map->entries[i];
@@ -127,10 +158,23 @@ void encodeValue(const ManagedHeap& heap, const Value& v, std::vector<uint8_t>& 
         REQUIRE(heap.stringContent(keyValue, bytes, length));
         encString(out, bytes, length);
       }
-      encodeValue(heap, entry.value, out);
+      encodeValue(heap, prog, entry.value, out);
     }
   } else {
     FAIL("vector consumer: unencodable output value tag");
+  }
+}
+
+/** Advances `cur` over one structural typeId node. */
+void skipStructuralType(Cursor& cur) {
+  const uint8_t tag = cur.u8();
+  if (tag == 0x00) {
+    cur.varuint();
+  } else if (tag == 0x01) {
+    skipStructuralType(cur);
+  } else if (tag == 0x02) {
+    skipStructuralType(cur);
+    skipStructuralType(cur);
   }
 }
 
@@ -153,9 +197,10 @@ Value decodeValue(Cursor& cur, ManagedHeap& heap) {
     return out;
   }
   case 0x06: {
+    skipStructuralType(cur);
     const uint32_t count = cur.varuint();
     Value listValue;
-    REQUIRE(heap.newList(0, nullptr, listValue));
+    REQUIRE(heap.newList(kNoTypeIdx, nullptr, listValue));
     for (uint32_t i = 0; i < count; i++) {
       const Value element = decodeValue(cur, heap);
       REQUIRE(heap.listPush(heap.list(listValue), element, nullptr));
@@ -163,9 +208,10 @@ Value decodeValue(Cursor& cur, ManagedHeap& heap) {
     return listValue;
   }
   case 0x07: {
+    skipStructuralType(cur);
     const uint32_t count = cur.varuint();
     Value mapValue;
-    REQUIRE(heap.newMap(0, nullptr, mapValue));
+    REQUIRE(heap.newMap(kNoTypeIdx, nullptr, mapValue));
     for (uint32_t i = 0; i < count; i++) {
       const Value keyValue = decodeValue(cur, heap);
       const Value entryValue = decodeValue(cur, heap);
@@ -202,6 +248,7 @@ void skipValue(Cursor& cur) {
     cur.pos += cur.varuint();
     return;
   case 0x06: {
+    skipStructuralType(cur);
     const uint32_t count = cur.varuint();
     for (uint32_t i = 0; i < count; i++) {
       skipValue(cur);
@@ -209,6 +256,7 @@ void skipValue(Cursor& cur) {
     return;
   }
   case 0x07: {
+    skipStructuralType(cur);
     const uint32_t count = cur.varuint();
     for (uint32_t i = 0; i < count; i++) {
       skipValue(cur);
@@ -255,6 +303,20 @@ TEST_CASE("every committed CoreFuncId vector byte-matches the C++ host-function 
   // only the MathRandom records draw from it, in emission order.
   VmRng rng;
 
+  // A type table with String/Any atoms and List<String> / List<Any> types.
+  TypeEntry typeTable[4];
+  typeTable[0].tag = TypeTag::Atom;
+  typeTable[0].atom = {static_cast<uint32_t>(CoreTypeAtomId::String)};
+  typeTable[1].tag = TypeTag::Atom;
+  typeTable[1].atom = {static_cast<uint32_t>(CoreTypeAtomId::Any)};
+  typeTable[2].tag = TypeTag::List;
+  typeTable[2].list = {0};
+  typeTable[3].tag = TypeTag::List;
+  typeTable[3].list = {1};
+  ProgramImage typeProgram{};
+  typeProgram.types = {typeTable, 4};
+  const TypeRegistry registry(typeProgram);
+
   for (uint32_t r = 0; r < recordCount; r++) {
     const uint32_t funcId = cur.varuint();
     const uint32_t argc = cur.varuint();
@@ -267,7 +329,7 @@ TEST_CASE("every committed CoreFuncId vector byte-matches the C++ host-function 
     skipValue(cur);
     const size_t expectedEnd = cur.pos;
 
-    const HostCallEnv env{&heap, nullptr, &rng};
+    const HostCallEnv env{&heap, nullptr, &rng, &registry};
     Value out;
     const Status status = callCoreHostFunction(
         static_cast<CoreFuncId>(funcId), Span<const Value>(args.data(), args.size()), env, out);
@@ -276,7 +338,7 @@ TEST_CASE("every committed CoreFuncId vector byte-matches the C++ host-function 
     REQUIRE(status.isOk());
 
     std::vector<uint8_t> encoded;
-    encodeValue(heap, out, encoded);
+    encodeValue(heap, typeProgram, out, encoded);
 
     const size_t expectedLen = expectedEnd - expectedStart;
     INFO("expected " << hex(buf.data() + expectedStart, expectedLen) << " got "

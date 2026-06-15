@@ -7,6 +7,8 @@ import { List } from "@mindcraft-lang/core";
 import {
   CoreFuncId,
   type ExecutionContext,
+  type ListTypeDef,
+  type MapTypeDef,
   mkBooleanValue,
   mkListValue,
   mkNumberValue,
@@ -30,10 +32,16 @@ import { createMicroBitV2Environment } from "./environment";
 //   0x06 list <ucount><elem...> | 0x07 map <ucount>(<key><value>)...
 // Numbers round to f32 (Math.fround); NaN is canonicalized to 0x7fc00000 so the
 // gate is sign/payload-insensitive for NaN results.
+//
+// A list/map value carries a table-free structural encoding of its typeId after
+// the tag, before the count:
+//   0x00 atom <atomId> | 0x01 list <elem> | 0x02 map <key> <value> | 0xff none
+// where each child is itself a structural type and 0xff marks an unresolved type.
 
 const FIXTURE = fileURLToPath(new URL("./__fixtures__/core-host-fn-vectors.bin", import.meta.url));
 
 const services = createMicroBitV2Environment().brainServices;
+const types = services.runtime.types;
 // The covered bodies (operators, conversions, math/string/map/element-access
 // builtins) read only their args, so a minimal context suffices.
 const ctx: ExecutionContext = {
@@ -78,6 +86,30 @@ class ByteWriter {
       this.u8(b);
     }
   }
+  structuralType(typeId: string | undefined): void {
+    const def = typeId === undefined ? undefined : types.get(typeId);
+    if (def === undefined) {
+      this.u8(0xff);
+      return;
+    }
+    if (def.coreType === NativeType.List) {
+      this.u8(0x01);
+      this.structuralType((def as ListTypeDef).elementTypeId);
+      return;
+    }
+    if (def.coreType === NativeType.Map) {
+      this.u8(0x02);
+      this.structuralType((def as MapTypeDef).keyTypeId);
+      this.structuralType((def as MapTypeDef).valueTypeId);
+      return;
+    }
+    if (def.atomId !== undefined) {
+      this.u8(0x00);
+      this.varuint(def.atomId);
+      return;
+    }
+    this.u8(0xff);
+  }
   value(v: Value): void {
     switch (v.t) {
       case NativeType.Nil:
@@ -95,6 +127,7 @@ class ByteWriter {
         return;
       case NativeType.List: {
         this.u8(0x06);
+        this.structuralType(v.typeId);
         this.varuint(v.v.size());
         for (let i = 0; i < v.v.size(); i++) {
           this.value(v.v.get(i)!);
@@ -103,6 +136,7 @@ class ByteWriter {
       }
       case NativeType.Map: {
         this.u8(0x07);
+        this.structuralType(v.typeId);
         const keys = v.v.keys();
         const vals = v.v.values();
         this.varuint(keys.size());

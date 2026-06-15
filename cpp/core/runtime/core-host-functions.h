@@ -12,6 +12,7 @@ namespace mindcraft {
 
 class ManagedHeap;
 class GcRoots;
+class TypeRegistry;
 
 /**
  * The VM-global pseudo-random generator: the 32-bit linear congruential
@@ -52,6 +53,11 @@ struct HostCallEnv {
   GcRoots* roots = nullptr;
   /** The VM-global RNG stream, or null when no body needs it. */
   VmRng* rng = nullptr;
+  /**
+   * Type registry resolving instantiated container typeIds, or null. With a
+   * null registry, container results carry {@link kNoTypeIdx}.
+   */
+  const TypeRegistry* types = nullptr;
 };
 
 /**

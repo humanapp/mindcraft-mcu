@@ -8,11 +8,11 @@
 namespace mindcraft {
 
 /** Canonical program dump format version this emitter renders. */
-inline constexpr uint32_t kCanonicalProgramDumpFormatVersion = 1;
+inline constexpr uint32_t kCanonicalProgramDumpFormatVersion = 2;
 
 /**
  * Renders a decoded program image as the canonical program dump: format
- * version 1, ASCII, LF line endings, trailing LF, byte-identical to the
+ * version 2, ASCII, LF line endings, trailing LF, byte-identical to the
  * rendering of
  * external/mindcraft-lang/packages/core/src/runtime/brain-program-dump.ts
  * for the same decoded program. Integer scalars render as minimal lowercase

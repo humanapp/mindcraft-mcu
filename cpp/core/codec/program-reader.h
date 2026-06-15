@@ -11,7 +11,7 @@
 namespace mindcraft {
 
 /** Binary `.mcprogram` envelope/format version this reader decodes. */
-inline constexpr uint8_t kBinaryProgramFormatVersion = 2;
+inline constexpr uint8_t kBinaryProgramFormatVersion = 3;
 
 /** Options controlling {@link readProgramImage}. */
 struct ProgramReaderOptions {
@@ -26,7 +26,7 @@ struct ProgramReaderOptions {
 
 /**
  * Decodes a binary `.mcprogram` buffer into a {@link ProgramImage} whose
- * pools are allocated from `arena`. The wire layout is the format-version-2
+ * pools are allocated from `arena`. The wire layout is the format-version-3
  * encoding of
  * external/mindcraft-lang/packages/core/src/runtime/brain-program-binary-codec.ts:
  * a 4-byte magic, a format version byte, the profileId var-uint, a presence

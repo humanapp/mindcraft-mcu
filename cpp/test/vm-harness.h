@@ -11,6 +11,8 @@
 
 #include <array>
 #include <cstdint>
+#include <initializer_list>
+#include <utility>
 #include <vector>
 
 /**
@@ -41,11 +43,20 @@ public:
 
   /**
    * Appends a program-local struct type-table entry: its name (string-table
-   * entry `nameStringIdx`) and `slotCount` (`maxFieldId + 1`) field slots.
+   * entry `nameStringIdx`), `slotCount` (`maxFieldId + 1`) field slots, and an
+   * optional field name->id map (`{nameStringIdx, fieldId}` pairs) used by the
+   * dynamic computed-key opcodes.
    */
-  ProgramBuilder& structType(uint32_t nameStringIdx, uint32_t slotCount) {
+  ProgramBuilder& structType(uint32_t nameStringIdx, uint32_t slotCount,
+                             std::initializer_list<std::pair<uint32_t, uint32_t>> fields = {}) {
     typeCount_++;
-    types_.u8(6).varUint(nameStringIdx).varUint(slotCount);
+    types_.u8(6)
+        .varUint(nameStringIdx)
+        .varUint(slotCount)
+        .varUint(static_cast<uint32_t>(fields.size()));
+    for (const std::pair<uint32_t, uint32_t>& field : fields) {
+      types_.varUint(field.first).varUint(field.second);
+    }
     return *this;
   }
 

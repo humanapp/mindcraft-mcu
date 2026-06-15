@@ -1,9 +1,12 @@
 #include "core/runtime/vm.h"
 
+#include <cstring>
+
 #include "core/runtime/core-func-id.h"
 #include "core/runtime/core-host-functions.h"
 #include "core/runtime/managed-heap.h"
 #include "core/runtime/stack-region.h"
+#include "core/runtime/type-registry.h"
 
 namespace mindcraft {
 
@@ -91,6 +94,60 @@ bool valueToMapKey(const Value& value, MapKey& out) {
     return true;
   }
   return false;
+}
+
+/**
+ * Resolves the bytes of string `value`: a managed string reads from `heap`, a
+ * borrowed string reads from `program`'s string table. Returns false when the
+ * borrowed index is out of range or the heap cannot back a managed string.
+ */
+bool stringValueBytes(const Value& value, const ProgramImage& program, const ManagedHeap& heap,
+                      const char*& bytes, uint32_t& length) {
+  if (value.isManagedString()) {
+    return heap.stringContent(value, bytes, length);
+  }
+  const uint32_t index = value.borrowedStringIndex();
+  if (index >= program.strings.size()) {
+    return false;
+  }
+  const StringRef& ref = program.strings[index];
+  bytes = reinterpret_cast<const char*>(program.stringData.data()) + ref.offset;
+  length = ref.length;
+  return true;
+}
+
+/**
+ * Reads struct field `fieldId` of `source`: dispatches to the type's native
+ * getter when one is registered, else reads the managed slab slot. Mirrors
+ * `readStructFieldById` in external/mindcraft-lang/.../vm.ts. Requires a
+ * non-null `surface.heap`.
+ */
+Value readStructFieldById(const RuntimeSurface& surface, const Value& source, uint32_t fieldId) {
+  if (surface.types != nullptr) {
+    const NativeStructFieldGetter getter = surface.types->nativeStructGetter(source.typeId());
+    if (getter != nullptr) {
+      return getter(source, fieldId);
+    }
+  }
+  return surface.heap->structGet(surface.heap->structOf(source), fieldId);
+}
+
+/**
+ * Writes struct field `fieldId` of `source` as a pure store: dispatches to the
+ * type's native setter when one is registered (returning its accept/reject),
+ * else writes the managed slab slot. Mirrors `writeStructFieldById` in
+ * external/mindcraft-lang/.../vm.ts. Requires a non-null `surface.heap`.
+ */
+bool writeStructFieldById(const RuntimeSurface& surface, const Value& source, uint32_t fieldId,
+                          const Value& value) {
+  if (surface.types != nullptr) {
+    const NativeStructFieldSetter setter = surface.types->nativeStructSetter(source.typeId());
+    if (setter != nullptr) {
+      return setter(source, fieldId, value);
+    }
+  }
+  surface.heap->structSet(surface.heap->structOf(source), fieldId, value);
+  return true;
 }
 
 /**
@@ -547,7 +604,7 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       Value result;
       Status status = Status::fail(ErrorCode::ScriptError);
       if (fnId < TARGET_FUNC_ID_BASE) {
-        const HostCallEnv env{surface.heap, surface.roots, surface.rng};
+        const HostCallEnv env{surface.heap, surface.roots, surface.rng, surface.types};
         status = callCoreHostFunction(static_cast<CoreFuncId>(fnId), args, env, result);
       }
       if (!status.isOk()) {
@@ -1096,42 +1153,90 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       if (surface.heap == nullptr) {
         return fault(ErrorCode::HostError);
       }
-      // Name-keyed dynamic copy. Pop the exclude keys (strings) then the source
-      // struct. With no field names on the binary path no field copies resolve,
-      // so the result is a fresh struct of the operand type with all-nil fields.
+      // Object-rest copy: build a struct of the operand type from the source,
+      // dropping the excluded field names and mapping the rest by name. Mirrors
+      // execStructCopyExcept in external/mindcraft-lang/.../vm.ts.
       const uint32_t numExclude = ins.a;
       if (state.stackDepth < numExclude + 1u) {
         return fault(ErrorCode::StackUnderflow);
       }
+      // Stack layout: [source, key0, ..., key(numExclude-1)]; keys and source
+      // stay in place (rooted) across the result allocation below.
+      const uint32_t keysBase = state.stackDepth - numExclude;
+      const uint32_t sourceIdx = keysBase - 1;
       for (uint32_t i = 0; i < numExclude; i++) {
-        Value key;
-        popValue(state, key);
-        if (!key.isString()) {
+        if (!state.stack[keysBase + i].isString()) {
           return fault(ErrorCode::ScriptError);
         }
       }
-      Value source;
-      popValue(state, source);
+      const Value source = state.stack[sourceIdx];
       if (!source.isStruct()) {
         return fault(ErrorCode::ScriptError);
       }
-      uint32_t slotCount = 0;
-      if (ins.b != kNoTypeIdx) {
-        if (ins.b >= program.types.size()) {
+
+      uint32_t resultTypeIdx = ins.b;
+      uint32_t resultSlots = 0;
+      if (resultTypeIdx != kNoTypeIdx) {
+        if (resultTypeIdx >= program.types.size() ||
+            program.types[resultTypeIdx].tag != TypeTag::Struct) {
           return fault(ErrorCode::ScriptError);
         }
-        const TypeEntry& entry = program.types[ins.b];
-        if (entry.tag != TypeTag::Struct) {
-          return fault(ErrorCode::ScriptError);
-        }
-        slotCount = entry.structOf.slotCount;
+        resultSlots = program.types[resultTypeIdx].structOf.slotCount;
       }
-      // The source is no longer referenced, so it need not stay rooted across
-      // the allocation below.
+      // An unsized result type becomes a copy of the source's own type.
+      bool copyAll = false;
+      if (resultSlots == 0) {
+        resultTypeIdx = source.typeId();
+        resultSlots = surface.heap->structOf(source)->slotCount;
+        copyAll = true;
+      }
+      const bool sameAsSource = resultTypeIdx == source.typeId();
+
       Value result;
-      if (!surface.heap->newStruct(ins.b, slotCount, surface.roots, result)) {
+      if (!surface.heap->newStruct(resultTypeIdx, resultSlots, surface.roots, result)) {
         return fault(ErrorCode::StackOverflow);
       }
+      StructObject* srcObj = surface.heap->structOf(source);
+      StructObject* dstObj = surface.heap->structOf(result);
+      if (copyAll) {
+        for (uint32_t i = 0; i < srcObj->slotCount && i < dstObj->slotCount; i++) {
+          dstObj->slots[i] = srcObj->slots[i];
+        }
+      }
+      if (surface.types != nullptr && source.typeId() < program.types.size() &&
+          program.types[source.typeId()].tag == TypeTag::Struct) {
+        const TypeEntry::StructOf& srcStruct = program.types[source.typeId()].structOf;
+        for (uint32_t i = 0; i < srcStruct.fieldsCount; i++) {
+          const StructFieldRef& field = program.structFields[srcStruct.fieldsOffset + i];
+          const StringRef& nameRef = program.strings[field.nameStringIdx];
+          const char* nameBytes =
+              reinterpret_cast<const char*>(program.stringData.data()) + nameRef.offset;
+          const uint32_t nameLen = nameRef.length;
+          bool excluded = false;
+          for (uint32_t k = 0; k < numExclude && !excluded; k++) {
+            const char* keyBytes = nullptr;
+            uint32_t keyLen = 0;
+            if (stringValueBytes(state.stack[keysBase + k], program, *surface.heap, keyBytes,
+                                 keyLen) &&
+                keyLen == nameLen &&
+                (nameLen == 0 || std::memcmp(keyBytes, nameBytes, nameLen) == 0)) {
+              excluded = true;
+            }
+          }
+          if (excluded) {
+            if (sameAsSource && field.fieldId < dstObj->slotCount) {
+              dstObj->slots[field.fieldId] = kNilValue;
+            }
+          } else {
+            uint32_t targetId = 0;
+            if (surface.types->findStructField(resultTypeIdx, nameBytes, nameLen, targetId) &&
+                field.fieldId < srcObj->slotCount && targetId < dstObj->slotCount) {
+              dstObj->slots[targetId] = srcObj->slots[field.fieldId];
+            }
+          }
+        }
+      }
+      state.stackDepth = sourceIdx;
       if (!pushValue(state, result)) {
         return fault(ErrorCode::StackOverflow);
       }
@@ -1150,7 +1255,7 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       if (!structValue.isStruct()) {
         return fault(ErrorCode::ScriptError);
       }
-      const Value field = surface.heap->structGet(surface.heap->structOf(structValue), ins.a);
+      const Value field = readStructFieldById(surface, structValue, ins.a);
       if (!pushValue(state, field)) {
         return fault(ErrorCode::StackOverflow);
       }
@@ -1171,7 +1276,9 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       if (!structValue.isStruct()) {
         return fault(ErrorCode::ScriptError);
       }
-      surface.heap->structSet(surface.heap->structOf(structValue), ins.a, value);
+      if (!writeStructFieldById(surface, structValue, ins.a, value)) {
+        return fault(ErrorCode::ScriptError);
+      }
       if (!pushValue(state, structValue)) {
         return fault(ErrorCode::StackOverflow);
       }
@@ -1198,9 +1305,8 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
     }
 
     case Op::GET_FIELD: {
-      // Name-keyed read. With no struct field names on the binary path the name
-      // never resolves, so the read degrades to nil. Non-struct sources also
-      // yield nil.
+      // Dynamic computed-key read: resolve the field name to its id and read
+      // that field. A non-struct source or an unresolved name yields nil.
       Value fieldName;
       Value source;
       if (!popValue(state, fieldName) || !popValue(state, source)) {
@@ -1209,7 +1315,21 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       if (!fieldName.isString()) {
         return fault(ErrorCode::ScriptError);
       }
-      if (!pushValue(state, kNilValue)) {
+      Value result = kNilValue;
+      if (source.isStruct()) {
+        if (surface.heap == nullptr) {
+          return fault(ErrorCode::HostError);
+        }
+        const char* nameBytes = nullptr;
+        uint32_t nameLen = 0;
+        uint32_t fieldId = 0;
+        if (surface.types != nullptr &&
+            stringValueBytes(fieldName, program, *surface.heap, nameBytes, nameLen) &&
+            surface.types->findStructField(source.typeId(), nameBytes, nameLen, fieldId)) {
+          result = readStructFieldById(surface, source, fieldId);
+        }
+      }
+      if (!pushValue(state, result)) {
         return fault(ErrorCode::StackOverflow);
       }
       frame.pc++;
@@ -1217,23 +1337,42 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
     }
 
     case Op::SET_FIELD: {
-      // Name-keyed write. With no field names on the binary path the name never
-      // resolves, so the write is dropped and the struct returned unchanged.
-      Value value;
-      Value fieldName;
-      Value source;
-      if (!popValue(state, value) || !popValue(state, fieldName) || !popValue(state, source)) {
+      // Dynamic computed-key write: deep-copy the value (struct value-semantics),
+      // resolve the field name to its id, and write that field. An unresolved
+      // name leaves the struct unchanged.
+      if (state.stackDepth < 3) {
         return fault(ErrorCode::StackUnderflow);
       }
+      if (surface.heap == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      // The value is the stack top; deep-copy it while it stays rooted there.
+      Value copied;
+      if (!surface.heap->deepCopy(state.stack[state.stackDepth - 1], surface.roots, copied)) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      Value value;
+      Value fieldName;
+      popValue(state, value);
+      popValue(state, fieldName);
       if (!fieldName.isString()) {
         return fault(ErrorCode::ScriptError);
       }
+      const Value source = state.stack[state.stackDepth - 1];
       if (!source.isStruct()) {
         return fault(ErrorCode::ScriptError);
       }
-      if (!pushValue(state, source)) {
-        return fault(ErrorCode::StackOverflow);
+      const char* nameBytes = nullptr;
+      uint32_t nameLen = 0;
+      uint32_t fieldId = 0;
+      if (surface.types != nullptr &&
+          stringValueBytes(fieldName, program, *surface.heap, nameBytes, nameLen) &&
+          surface.types->findStructField(source.typeId(), nameBytes, nameLen, fieldId)) {
+        if (!writeStructFieldById(surface, source, fieldId, copied)) {
+          return fault(ErrorCode::ScriptError);
+        }
       }
+      // The source struct is already on the stack top as the result.
       frame.pc++;
       break;
     }

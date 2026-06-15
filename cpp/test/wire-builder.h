@@ -68,10 +68,10 @@ private:
   std::vector<uint8_t> bytes_;
 };
 
-/** Magic, format version 2, profileId, presence bitmask. */
+/** Magic, format version 3, profileId, presence bitmask. */
 inline WireBuilder programHeader(uint8_t presence = 0, uint32_t profileId = 0) {
   WireBuilder w;
-  w.u8(0x89).u8('M').u8('B').u8('P').u8(2).varUint(profileId).u8(presence);
+  w.u8(0x89).u8('M').u8('B').u8('P').u8(3).varUint(profileId).u8(presence);
   return w;
 }
 

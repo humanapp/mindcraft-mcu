@@ -18,10 +18,7 @@ import {
   type VmEvents,
 } from "@mindcraft-lang/core/runtime";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
-import {
-  parseWodalProgramImageBytes,
-  serializeWodalProgramImageBytes,
-} from "../../../mindcraft/program-image-binary";
+import { parseWodalProgramImageBytes, serializeWodalProgramImageBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Environment } from "./environment";
 import { ObservableTraceWriter } from "./observable-trace";
@@ -48,32 +45,66 @@ function buildContainerBrainJson(): LinkedBrainProgramJson {
     // local 0 = list; push 10, 20, 30
     { op: Op.LIST_NEW, a: 0 },
     { op: Op.STORE_LOCAL, a: 0 },
-    { op: Op.LOAD_LOCAL, a: 0 }, { op: Op.PUSH_CONST_NUM, a: 0 }, { op: Op.LIST_PUSH }, { op: Op.POP },
-    { op: Op.LOAD_LOCAL, a: 0 }, { op: Op.PUSH_CONST_NUM, a: 1 }, { op: Op.LIST_PUSH }, { op: Op.POP },
-    { op: Op.LOAD_LOCAL, a: 0 }, { op: Op.PUSH_CONST_NUM, a: 2 }, { op: Op.LIST_PUSH }, { op: Op.POP },
+    { op: Op.LOAD_LOCAL, a: 0 },
+    { op: Op.PUSH_CONST_NUM, a: 0 },
+    { op: Op.LIST_PUSH },
+    { op: Op.POP },
+    { op: Op.LOAD_LOCAL, a: 0 },
+    { op: Op.PUSH_CONST_NUM, a: 1 },
+    { op: Op.LIST_PUSH },
+    { op: Op.POP },
+    { op: Op.LOAD_LOCAL, a: 0 },
+    { op: Op.PUSH_CONST_NUM, a: 2 },
+    { op: Op.LIST_PUSH },
+    { op: Op.POP },
     // call A: x = len (3), y = get[1] (20), brightness = pop (30)
-    { op: Op.LOAD_LOCAL, a: 0 }, { op: Op.LIST_LEN },
-    { op: Op.LOAD_LOCAL, a: 0 }, { op: Op.PUSH_CONST_NUM, a: 3 }, { op: Op.LIST_GET },
-    { op: Op.LOAD_LOCAL, a: 0 }, { op: Op.LIST_POP },
+    { op: Op.LOAD_LOCAL, a: 0 },
+    { op: Op.LIST_LEN },
+    { op: Op.LOAD_LOCAL, a: 0 },
+    { op: Op.PUSH_CONST_NUM, a: 3 },
+    { op: Op.LIST_GET },
+    { op: Op.LOAD_LOCAL, a: 0 },
+    { op: Op.LIST_POP },
     setPixel,
     { op: Op.POP },
     // local 1 = map; set 1->4, 2->2
     { op: Op.MAP_NEW, a: 0 },
     { op: Op.STORE_LOCAL, a: 1 },
-    { op: Op.LOAD_LOCAL, a: 1 }, { op: Op.PUSH_CONST_NUM, a: 3 }, { op: Op.PUSH_CONST_NUM, a: 4 }, { op: Op.MAP_SET }, { op: Op.POP },
-    { op: Op.LOAD_LOCAL, a: 1 }, { op: Op.PUSH_CONST_NUM, a: 5 }, { op: Op.PUSH_CONST_NUM, a: 5 }, { op: Op.MAP_SET }, { op: Op.POP },
+    { op: Op.LOAD_LOCAL, a: 1 },
+    { op: Op.PUSH_CONST_NUM, a: 3 },
+    { op: Op.PUSH_CONST_NUM, a: 4 },
+    { op: Op.MAP_SET },
+    { op: Op.POP },
+    { op: Op.LOAD_LOCAL, a: 1 },
+    { op: Op.PUSH_CONST_NUM, a: 5 },
+    { op: Op.PUSH_CONST_NUM, a: 5 },
+    { op: Op.MAP_SET },
+    { op: Op.POP },
     // call B: x = get(1) (4), y = get(2) (2), brightness = has(2) (true)
-    { op: Op.LOAD_LOCAL, a: 1 }, { op: Op.PUSH_CONST_NUM, a: 3 }, { op: Op.MAP_GET },
-    { op: Op.LOAD_LOCAL, a: 1 }, { op: Op.PUSH_CONST_NUM, a: 5 }, { op: Op.MAP_GET },
-    { op: Op.LOAD_LOCAL, a: 1 }, { op: Op.PUSH_CONST_NUM, a: 5 }, { op: Op.MAP_HAS },
+    { op: Op.LOAD_LOCAL, a: 1 },
+    { op: Op.PUSH_CONST_NUM, a: 3 },
+    { op: Op.MAP_GET },
+    { op: Op.LOAD_LOCAL, a: 1 },
+    { op: Op.PUSH_CONST_NUM, a: 5 },
+    { op: Op.MAP_GET },
+    { op: Op.LOAD_LOCAL, a: 1 },
+    { op: Op.PUSH_CONST_NUM, a: 5 },
+    { op: Op.MAP_HAS },
     setPixel,
     { op: Op.POP },
     // call C: x = isList(list) (true), y = isList(map) (false), delete key 1,
     //          brightness = has(1) after delete (false)
-    { op: Op.LOAD_LOCAL, a: 0 }, { op: Op.TYPE_CHECK, a: TYPE_LIST },
-    { op: Op.LOAD_LOCAL, a: 1 }, { op: Op.TYPE_CHECK, a: TYPE_LIST },
-    { op: Op.LOAD_LOCAL, a: 1 }, { op: Op.PUSH_CONST_NUM, a: 3 }, { op: Op.MAP_DELETE }, { op: Op.POP },
-    { op: Op.LOAD_LOCAL, a: 1 }, { op: Op.PUSH_CONST_NUM, a: 3 }, { op: Op.MAP_HAS },
+    { op: Op.LOAD_LOCAL, a: 0 },
+    { op: Op.TYPE_CHECK, a: TYPE_LIST },
+    { op: Op.LOAD_LOCAL, a: 1 },
+    { op: Op.TYPE_CHECK, a: TYPE_LIST },
+    { op: Op.LOAD_LOCAL, a: 1 },
+    { op: Op.PUSH_CONST_NUM, a: 3 },
+    { op: Op.MAP_DELETE },
+    { op: Op.POP },
+    { op: Op.LOAD_LOCAL, a: 1 },
+    { op: Op.PUSH_CONST_NUM, a: 3 },
+    { op: Op.MAP_HAS },
     setPixel,
     { op: Op.POP },
     // return void
@@ -118,7 +149,11 @@ function serializeContainerBrainBytes(): Uint8Array {
 function runContainerTrace(bin: Uint8Array): { trace: string; microbit: MicroBit } {
   const environment = createMicroBitV2Environment();
   const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
-  const decoded = parseWodalProgramImageBytes(bin, WodalDeviceProfileId.MICROBIT_V2, environment.brainServices.runtime.types);
+  const decoded = parseWodalProgramImageBytes(
+    bin,
+    WodalDeviceProfileId.MICROBIT_V2,
+    environment.brainServices.runtime.types
+  );
   const writer = new ObservableTraceWriter({
     profileId: profile.numericProfileId,
     precision: profile.numberPrecision,

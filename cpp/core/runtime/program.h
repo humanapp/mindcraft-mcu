@@ -139,6 +139,14 @@ struct TypeEntry {
      * struct.
      */
     uint32_t slotCount;
+    /**
+     * Index of the first field name->id pair in `ProgramImage::structFields`.
+     * The pairs map a field name to its storage slot; a struct accessed only by
+     * static field id may carry none.
+     */
+    uint32_t fieldsOffset;
+    /** Number of field name->id pairs. */
+    uint32_t fieldsCount;
   };
 
   /** Payload of an `Enum` entry: a program-local enum. */
@@ -276,6 +284,14 @@ struct ConstValue {
   };
 };
 
+/** One program-local struct field's name -> id mapping. */
+struct StructFieldRef {
+  /** String-table index of the field name. */
+  uint32_t nameStringIdx;
+  /** Field storage slot (the numeric field id). */
+  uint32_t fieldId;
+};
+
 /** One decoded constant map entry: a number-or-string key plus its value. */
 struct ConstMapEntry {
   MapKeyKind keyKind;
@@ -392,6 +408,8 @@ struct ProgramImage {
    * indices, and enum symbol string-table indices.
    */
   Span<const uint32_t> typeRefs;
+  /** Backing pool for struct field name->id pairs referenced by `StructOf`. */
+  Span<const StructFieldRef> structFields;
 
   /** Sizes of the typed constant pools. */
   ConstantPools constantPools;
@@ -444,6 +462,8 @@ static_assert(std::is_trivially_copyable_v<StringRef>, "image structures stay tr
 static_assert(std::is_trivially_copyable_v<TypeEntry>, "image structures stay trivially copyable");
 static_assert(std::is_trivially_copyable_v<ConstValue>, "image structures stay trivially copyable");
 static_assert(std::is_trivially_copyable_v<ConstMapEntry>,
+              "image structures stay trivially copyable");
+static_assert(std::is_trivially_copyable_v<StructFieldRef>,
               "image structures stay trivially copyable");
 static_assert(std::is_trivially_copyable_v<BytecodeAction>,
               "image structures stay trivially copyable");

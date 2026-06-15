@@ -72,9 +72,7 @@ function callChain(n: number, numLocals: number): Func[] {
   const functions = [];
   for (let i = 0; i < n; i++) {
     const code: Instr[] =
-      i < n - 1
-        ? [{ op: Op.CALL, a: i + 1, b: 0 }, { op: Op.RET }]
-        : [{ op: Op.PUSH_CONST_NUM, a: 0 }, { op: Op.RET }];
+      i < n - 1 ? [{ op: Op.CALL, a: i + 1, b: 0 }, { op: Op.RET }] : [{ op: Op.PUSH_CONST_NUM, a: 0 }, { op: Op.RET }];
     functions.push({ code, numParams: 0, numLocals });
   }
   return functions;

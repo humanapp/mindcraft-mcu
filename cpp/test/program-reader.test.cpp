@@ -73,10 +73,11 @@ TEST_CASE("every TYPS entry kind decodes and interns its runs") {
   w.u8(3).varUint(2).varUint(0).varUint(2);                       // 3: union(0,2)
   w.u8(4).varUint(1).varUint(0).varUint(3);                       // 4: function(0)->3
   w.u8(5).varUint(0);                                             // 5: nullable<0>
-  w.u8(6).varUint(0).varUint(2);                                  // 6: struct "Point" slots 2
-  w.u8(7).varUint(1).varUint(1).varUint(1);                       // 7: enum "Red" ["Red"]
-  w.varUint(0).varUint(0).varUint(0).varUint(0);                  // CNUM..VARS
-  w.varUint(0);                                                   // PAGE
+  w.u8(6).varUint(0).varUint(2).varUint(1).varUint(0).varUint(
+      0);                                        // 6: struct "Point" slots 2, field "Point"->0
+  w.u8(7).varUint(1).varUint(1).varUint(1);      // 7: enum "Red" ["Red"]
+  w.varUint(0).varUint(0).varUint(0).varUint(0); // CNUM..VARS
+  w.varUint(0);                                  // PAGE
 
   std::vector<uint8_t> storage(16 * 1024);
   const ProgramImage image = decodeOk(w, storage);
@@ -97,6 +98,9 @@ TEST_CASE("every TYPS entry kind decodes and interns its runs") {
   CHECK(image.types[6].tag == TypeTag::Struct);
   CHECK(image.types[6].structOf.nameStringIdx == 0);
   CHECK(image.types[6].structOf.slotCount == 2);
+  CHECK(image.types[6].structOf.fieldsCount == 1);
+  CHECK(image.structFields[image.types[6].structOf.fieldsOffset].nameStringIdx == 0);
+  CHECK(image.structFields[image.types[6].structOf.fieldsOffset].fieldId == 0);
   CHECK(image.types[7].tag == TypeTag::Enum);
   CHECK(image.types[7].enumOf.nameStringIdx == 1);
   CHECK(image.types[7].enumOf.symbolsCount == 1);
@@ -351,8 +355,8 @@ TEST_CASE("bad magic fails InvalidMagic") {
   CHECK(decodeError(json) == LoadError::InvalidMagic);
 }
 
-TEST_CASE("format versions other than 2 fail UnsupportedFormatVersion") {
-  for (const uint8_t version : {0, 1, 3, 255}) {
+TEST_CASE("format versions other than 3 fail UnsupportedFormatVersion") {
+  for (const uint8_t version : {0, 1, 2, 255}) {
     WireBuilder w;
     w.u8(0x89).u8('M').u8('B').u8('P').u8(version).varUint(0).u8(0);
     emptyRequiredSectionsThroughVars(w);
@@ -364,7 +368,7 @@ TEST_CASE("format versions other than 2 fail UnsupportedFormatVersion") {
 TEST_CASE("a var-int needing more than 32 bits fails VarIntOverflow") {
   // Six continuation-flagged bytes in the profileId position.
   WireBuilder sixBytes;
-  sixBytes.u8(0x89).u8('M').u8('B').u8('P').u8(2);
+  sixBytes.u8(0x89).u8('M').u8('B').u8('P').u8(3);
   for (int i = 0; i < 5; i++) {
     sixBytes.u8(0x80);
   }
@@ -373,7 +377,7 @@ TEST_CASE("a var-int needing more than 32 bits fails VarIntOverflow") {
 
   // Five bytes whose 5th carries payload above bit 31.
   WireBuilder highBits;
-  highBits.u8(0x89).u8('M').u8('B').u8('P').u8(2);
+  highBits.u8(0x89).u8('M').u8('B').u8('P').u8(3);
   highBits.u8(0xff).u8(0xff).u8(0xff).u8(0xff).u8(0x1f);
   CHECK(decodeError(highBits) == LoadError::VarIntOverflow);
 }

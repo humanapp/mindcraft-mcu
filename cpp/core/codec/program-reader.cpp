@@ -139,8 +139,10 @@ bool isKnownTypeAtom(uint32_t atomId, const ProgramReaderOptions& options) {
  */
 DecodeStatus readTypsEntries(ByteCursor& cursor, uint32_t typeCount, uint32_t stringTotal,
                              const ProgramReaderOptions& options, TypeEntry* entries,
-                             uint32_t* refs, uint32_t& refCount) {
+                             uint32_t* refs, uint32_t& refCount, StructFieldRef* structFields,
+                             uint32_t& structFieldCount) {
   refCount = 0;
+  structFieldCount = 0;
   for (uint32_t i = 0; i < typeCount; i++) {
     // Children precede their parent: a child reference at or beyond the
     // entry's own index is malformed.
@@ -215,7 +217,18 @@ DecodeStatus readTypsEntries(ByteCursor& cursor, uint32_t typeCount, uint32_t st
       MC_READ(nameIdx, cursor.readVarUint());
       MC_CHECK(checkStringIndex(nameIdx, stringTotal));
       MC_READ(slotCount, cursor.readVarUint());
-      entry.structOf = {nameIdx, slotCount};
+      MC_READ(fieldCount, cursor.readVarUint());
+      MC_CHECK(checkCountFits(fieldCount, cursor));
+      entry.structOf = {nameIdx, slotCount, structFieldCount, fieldCount};
+      for (uint32_t j = 0; j < fieldCount; j++) {
+        MC_READ(fieldNameIdx, cursor.readVarUint());
+        MC_CHECK(checkStringIndex(fieldNameIdx, stringTotal));
+        MC_READ(fieldId, cursor.readVarUint());
+        if (structFields != nullptr) {
+          structFields[structFieldCount] = {fieldNameIdx, fieldId};
+        }
+        structFieldCount++;
+      }
       break;
     }
     case TypeTag::Enum: {
@@ -248,16 +261,22 @@ DecodeStatus readTypsSection(ByteCursor& cursor, RegionArena& arena, uint32_t st
   MC_CHECK(checkCountFits(typeCount, cursor));
   ByteCursor measure = cursor;
   uint32_t refCount = 0;
-  MC_CHECK(readTypsEntries(measure, typeCount, stringTotal, options, nullptr, nullptr, refCount));
+  uint32_t structFieldCount = 0;
+  MC_CHECK(readTypsEntries(measure, typeCount, stringTotal, options, nullptr, nullptr, refCount,
+                           nullptr, structFieldCount));
   TypeEntry* entries = arena.allocate<TypeEntry>(typeCount);
   uint32_t* refs = arena.allocate<uint32_t>(refCount);
-  if (entries == nullptr || refs == nullptr) {
+  StructFieldRef* structFields = arena.allocate<StructFieldRef>(structFieldCount);
+  if (entries == nullptr || refs == nullptr || structFields == nullptr) {
     return DecodeStatus::fail(LoadError::ArenaExhausted);
   }
   uint32_t filledRefCount = 0;
-  MC_CHECK(readTypsEntries(cursor, typeCount, stringTotal, options, entries, refs, filledRefCount));
+  uint32_t filledStructFieldCount = 0;
+  MC_CHECK(readTypsEntries(cursor, typeCount, stringTotal, options, entries, refs, filledRefCount,
+                           structFields, filledStructFieldCount));
   image.types = {entries, typeCount};
   image.typeRefs = {refs, refCount};
+  image.structFields = {structFields, structFieldCount};
   return DecodeStatus::ok();
 }
 

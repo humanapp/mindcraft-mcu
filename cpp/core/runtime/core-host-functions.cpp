@@ -5,10 +5,49 @@
 #include "core/runtime/binary32-format.h"
 #include "core/runtime/binary32-parse.h"
 #include "core/runtime/binary32-transcendental.h"
+#include "core/runtime/core-type-atom-id.h"
 #include "core/runtime/managed-heap.h"
+#include "core/runtime/type-registry.h"
 
 namespace mindcraft {
 namespace {
+
+/**
+ * Type-table index of `List<elementTypeIdx>` via the registry, or
+ * {@link kNoTypeIdx} when the registry is absent, the element is unresolved, or
+ * the program has no such list type.
+ */
+uint32_t listTypeId(const HostCallEnv& env, uint32_t elementTypeIdx) {
+  if (env.types == nullptr || elementTypeIdx == kNoTypeIdx) {
+    return kNoTypeIdx;
+  }
+  return env.types->findListType(elementTypeIdx);
+}
+
+/**
+ * Type-table index of the core atom `atomId` via the registry, or
+ * {@link kNoTypeIdx} when the registry is absent or the program lacks it.
+ */
+uint32_t atomTypeId(const HostCallEnv& env, CoreTypeAtomId atomId) {
+  return env.types == nullptr ? kNoTypeIdx : env.types->findAtomType(static_cast<uint32_t>(atomId));
+}
+
+/**
+ * The key element type of a map value, mirroring `MapKeys` in
+ * external/mindcraft-lang/.../map-builtins.ts: the map's declared key type when
+ * the value is typed, else the String atom.
+ */
+uint32_t mapKeyElementType(const HostCallEnv& env, const Value& mapValue) {
+  if (env.types == nullptr) {
+    return kNoTypeIdx;
+  }
+  const ProgramImage& program = env.types->program();
+  const uint32_t mapTypeIdx = mapValue.typeId();
+  if (mapTypeIdx < program.types.size() && program.types[mapTypeIdx].tag == TypeTag::Map) {
+    return program.types[mapTypeIdx].map.key;
+  }
+  return atomTypeId(env, CoreTypeAtomId::String);
+}
 
 // --- Numeric coercion ------------------------------------------------------
 //
@@ -421,8 +460,9 @@ Status mapKeysBody(const HostCallEnv& env, Span<const Value> args, Value& out) {
   ManagedHeap& heap = *env.heap;
   const MapObject* map = heap.map(args[0]);
   const uint32_t size = map->size;
+  const uint32_t resultType = listTypeId(env, mapKeyElementType(env, args[0]));
   Value listVal;
-  if (!heap.newList(kNoTypeIdx, env.roots, listVal)) {
+  if (!heap.newList(resultType, env.roots, listVal)) {
     return heapFault();
   }
   ManagedHeap::Pin pin(heap, listVal);
@@ -463,8 +503,9 @@ Status mapValuesBody(const HostCallEnv& env, Span<const Value> args, Value& out)
   }
   ManagedHeap& heap = *env.heap;
   const uint32_t size = heap.map(args[0])->size;
+  const uint32_t resultType = listTypeId(env, atomTypeId(env, CoreTypeAtomId::Any));
   Value listVal;
-  if (!heap.newList(kNoTypeIdx, env.roots, listVal)) {
+  if (!heap.newList(resultType, env.roots, listVal)) {
     return heapFault();
   }
   ManagedHeap::Pin pin(heap, listVal);
@@ -596,8 +637,9 @@ Status strSplitBody(const HostCallEnv& env, Span<const Value> args, Value& out) 
   const uint32_t count = splitCount(src, sl, sep, sepLen, limitCap);
 
   ManagedHeap& heap = *env.heap;
+  const uint32_t resultType = listTypeId(env, atomTypeId(env, CoreTypeAtomId::String));
   Value listVal;
-  if (!heap.newList(kNoTypeIdx, env.roots, listVal)) {
+  if (!heap.newList(resultType, env.roots, listVal)) {
     return heapFault();
   }
   ManagedHeap::Pin pin(heap, listVal);
