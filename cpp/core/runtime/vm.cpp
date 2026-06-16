@@ -307,6 +307,256 @@ const ActionFrameBinding* currentActionBinding(const ExecutionState& state) {
   return nullptr;
 }
 
+/**
+ * The rule funcId for `funcId`, or {@link kNoFuncId} when `funcId` is not a
+ * rule entry. Mirrors `getRuleFuncIdForFunc` in
+ * external/mindcraft-lang/packages/core/src/runtime/rule-services.ts.
+ */
+uint32_t resolveDirectRuleFuncId(const ProgramImage& program, uint32_t funcId) {
+  if (program.hasRuleFuncIds) {
+    for (uint32_t i = 0; i < program.ruleFuncIds.size(); i++) {
+      if (program.ruleFuncIds[i] == funcId) {
+        return funcId;
+      }
+    }
+  }
+  return kNoFuncId;
+}
+
+/**
+ * The rule funcId in scope for `frame`: its own rule binding when set, else its
+ * function id resolved against the program's rule set. Mirrors
+ * `resolveFrameRuleFuncId` in external/mindcraft-lang/.../vm.ts.
+ */
+uint32_t resolveFrameRuleFuncId(const ProgramImage& program, const Frame& frame) {
+  if (frame.ruleFuncId != kNoFuncId) {
+    return frame.ruleFuncId;
+  }
+  return resolveDirectRuleFuncId(program, frame.funcId);
+}
+
+/**
+ * The parent rule of `ruleFuncId` per the program's rule-ancestor edges, or
+ * {@link kNoFuncId} when it is a root rule with no enclosing rule. Mirrors the
+ * `program.ruleAncestors` lookup in `createRuleVariableServices`.
+ */
+uint32_t parentRuleFuncId(const ProgramImage& program, uint32_t ruleFuncId) {
+  if (program.hasRuleAncestors) {
+    for (uint32_t i = 0; i < program.ruleAncestors.size(); i++) {
+      if (program.ruleAncestors[i].ruleFuncId == ruleFuncId) {
+        return program.ruleAncestors[i].parentRuleFuncId;
+      }
+    }
+  }
+  return kNoFuncId;
+}
+
+/**
+ * Resolves the UTF-8 content of a string `value` tolerating a null heap: a
+ * borrowed (constant-pool) string reads from `program`, a managed string needs
+ * `heap` (false when it is null). Returns false for a non-string value.
+ */
+bool contextVarNameBytes(const Value& value, const ProgramImage& program, const ManagedHeap* heap,
+                         const char*& bytes, uint32_t& length) {
+  if (!value.isString()) {
+    return false;
+  }
+  if (value.isManagedString()) {
+    return heap != nullptr && heap->stringContent(value, bytes, length);
+  }
+  const uint32_t index = value.borrowedStringIndex();
+  if (index >= program.strings.size()) {
+    return false;
+  }
+  const StringRef& ref = program.strings[index];
+  bytes = reinterpret_cast<const char*>(program.stringData.data()) + ref.offset;
+  length = ref.length;
+  return true;
+}
+
+/**
+ * The brain-variable slot bound to `nameValue`, written to `slotOut` on a hit.
+ * Scans the program's `variableNames` pool by string content (the slot-name
+ * binding the TS brain builds from `program.variableNames`); a name the program
+ * does not declare is unbound. `heap` is needed only for a managed-string name.
+ */
+bool resolveBrainVarSlot(const ProgramImage& program, const ManagedHeap* heap,
+                         const Value& nameValue, uint32_t& slotOut) {
+  const char* nameBytes = nullptr;
+  uint32_t nameLength = 0;
+  if (!contextVarNameBytes(nameValue, program, heap, nameBytes, nameLength)) {
+    return false;
+  }
+  for (uint32_t slot = 0; slot < program.variableNames.size(); slot++) {
+    const uint32_t strIdx = program.variableNames[slot];
+    if (strIdx >= program.strings.size()) {
+      continue;
+    }
+    const StringRef& ref = program.strings[strIdx];
+    const char* varBytes = reinterpret_cast<const char*>(program.stringData.data()) + ref.offset;
+    if (ref.length == nameLength && std::memcmp(varBytes, nameBytes, nameLength) == 0) {
+      slotOut = slot;
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Reads a rule-scoped variable by name for `ruleFuncId`: the rule's own inner
+ * map first, then up the ancestor chain until a map holds the name, else nil.
+ * Mirrors `getByName` in
+ * external/mindcraft-lang/packages/core/src/runtime/rule-services.ts. Returns
+ * nil when no rule is in scope or the name is unset along the chain (which
+ * includes the case where no store has been allocated yet).
+ */
+Value ruleVarGet(const RuntimeSurface& surface, const ProgramImage& program, uint32_t ruleFuncId,
+                 const Value& nameValue) {
+  if (ruleFuncId == kNoFuncId) {
+    return kNilValue;
+  }
+  const ExecutionContext& ctx = *surface.context;
+  if (!ctx.ruleVarStores.isMap()) {
+    return kNilValue;
+  }
+  MapKey nameKey;
+  if (!valueToMapKey(nameValue, nameKey)) {
+    return kNilValue;
+  }
+  ManagedHeap& heap = *surface.heap;
+  MapObject* outer = heap.map(ctx.ruleVarStores);
+  uint32_t cur = ruleFuncId;
+  while (cur != kNoFuncId) {
+    const MapKey ruleKey{true, false, static_cast<mc_number_t>(cur), 0};
+    if (heap.mapHas(outer, ruleKey)) {
+      const Value innerValue = heap.mapGet(outer, ruleKey);
+      MapObject* inner = heap.map(innerValue);
+      if (heap.mapHas(inner, nameKey)) {
+        return heap.mapGet(inner, nameKey);
+      }
+    }
+    cur = parentRuleFuncId(program, cur);
+  }
+  return kNilValue;
+}
+
+/**
+ * Writes a rule-scoped variable by name to `ruleFuncId`'s own inner map,
+ * allocating the outer store and the inner map on demand; never writes through
+ * to ancestors. Mirrors `setByName` in
+ * external/mindcraft-lang/packages/core/src/runtime/rule-services.ts. A write
+ * with no rule in scope is a no-op (returns true). Returns false on a non-string
+ * name or when the heap cannot back an allocation.
+ */
+bool ruleVarSet(const RuntimeSurface& surface, uint32_t ruleFuncId, const Value& nameValue,
+                const Value& value) {
+  if (ruleFuncId == kNoFuncId) {
+    return true;
+  }
+  if (surface.heap == nullptr) {
+    return false;
+  }
+  MapKey nameKey;
+  if (!valueToMapKey(nameValue, nameKey)) {
+    return false;
+  }
+  ExecutionContext& ctx = *surface.context;
+  ManagedHeap& heap = *surface.heap;
+  if (!ctx.ruleVarStores.isMap()) {
+    Value outerValue;
+    if (!heap.newMap(kNoTypeIdx, surface.roots, outerValue)) {
+      return false;
+    }
+    ctx.ruleVarStores = outerValue;
+  }
+  // Pin the outer store across the inner-map allocation and the inserts below:
+  // a collection can run on any allocation, and the store is reachable as a
+  // root only once it lands on the context.
+  ManagedHeap::Pin pinOuter(heap, ctx.ruleVarStores);
+  const MapKey ruleKey{true, false, static_cast<mc_number_t>(ruleFuncId), 0};
+  MapObject* outer = heap.map(ctx.ruleVarStores);
+  Value innerValue;
+  if (heap.mapHas(outer, ruleKey)) {
+    innerValue = heap.mapGet(outer, ruleKey);
+  } else {
+    if (!heap.newMap(kNoTypeIdx, surface.roots, innerValue)) {
+      return false;
+    }
+    ManagedHeap::Pin pinFreshInner(heap, innerValue);
+    if (!heap.mapSet(outer, ruleKey, innerValue, surface.roots)) {
+      return false;
+    }
+  }
+  ManagedHeap::Pin pinInner(heap, innerValue);
+  return heap.mapSet(heap.map(innerValue), nameKey, value, surface.roots);
+}
+
+/**
+ * True for the by-name context-variable host functions: `ctx.brain` and
+ * `ctx.rule` get/set (`CoreFuncId` 48-51).
+ */
+bool isContextVariableFunc(CoreFuncId id) {
+  return id == CoreFuncId::BrainContextGetVariable || id == CoreFuncId::BrainContextSetVariable ||
+         id == CoreFuncId::RuleContextGetVariable || id == CoreFuncId::RuleContextSetVariable;
+}
+
+/**
+ * Services a by-name context-variable host function over `args`. The
+ * struct-method calling convention puts the receiver at arg 0; the variable
+ * name is arg 1 and (for the setters) the value is arg 2. Mirrors the bodies in
+ * external/mindcraft-lang/.../context-types.ts together with the brain and rule
+ * variable services. Brain variables are slot-backed (an undeclared name reads
+ * nil and writes are dropped); rule variables resolve the in-scope rule from
+ * `frame`. Faults `HostError` without a context (or, for the rule setter,
+ * without a heap) and `ScriptError` on a missing or non-string name argument.
+ */
+Status dispatchContextVariableFunc(CoreFuncId id, Span<const Value> args,
+                                   const ProgramImage& program, const RuntimeSurface& surface,
+                                   const Frame& frame, Value& out) {
+  if (surface.context == nullptr) {
+    return Status::fail(ErrorCode::HostError);
+  }
+  if (args.size() < 2 || !args[1].isString()) {
+    return Status::fail(ErrorCode::ScriptError);
+  }
+  const Value& name = args[1];
+  switch (id) {
+  case CoreFuncId::BrainContextGetVariable: {
+    uint32_t slot = 0;
+    out = resolveBrainVarSlot(program, surface.heap, name, slot) ? surface.context->variables[slot]
+                                                                 : kNilValue;
+    return Status::ok();
+  }
+  case CoreFuncId::BrainContextSetVariable: {
+    if (args.size() < 3) {
+      return Status::fail(ErrorCode::ScriptError);
+    }
+    uint32_t slot = 0;
+    if (resolveBrainVarSlot(program, surface.heap, name, slot)) {
+      surface.context->variables[slot] = args[2];
+    }
+    out = kNilValue;
+    return Status::ok();
+  }
+  case CoreFuncId::RuleContextGetVariable: {
+    out = ruleVarGet(surface, program, resolveFrameRuleFuncId(program, frame), name);
+    return Status::ok();
+  }
+  case CoreFuncId::RuleContextSetVariable: {
+    if (args.size() < 3) {
+      return Status::fail(ErrorCode::ScriptError);
+    }
+    if (!ruleVarSet(surface, resolveFrameRuleFuncId(program, frame), name, args[2])) {
+      return Status::fail(ErrorCode::HostError);
+    }
+    out = kNilValue;
+    return Status::ok();
+  }
+  default:
+    return Status::fail(ErrorCode::ScriptError);
+  }
+}
+
 } // namespace
 
 bool isTruthy(const Value& value, const ProgramImage& program, const ManagedHeap* heap) {
@@ -666,8 +916,13 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       Value result;
       Status status = Status::fail(ErrorCode::ScriptError);
       if (fnId < TARGET_FUNC_ID_BASE) {
-        const HostCallEnv env{surface.heap, surface.roots, surface.rng, surface.types};
-        status = callCoreHostFunction(static_cast<CoreFuncId>(fnId), args, env, result);
+        const CoreFuncId coreId = static_cast<CoreFuncId>(fnId);
+        if (isContextVariableFunc(coreId)) {
+          status = dispatchContextVariableFunc(coreId, args, program, surface, frame, result);
+        } else {
+          const HostCallEnv env{surface.heap, surface.roots, surface.rng, surface.types};
+          status = callCoreHostFunction(coreId, args, env, result);
+        }
       }
       if (!status.isOk()) {
         return fault(status.error());
@@ -1150,12 +1405,17 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
         return fault(ErrorCode::StackUnderflow);
       }
       const BytecodeAction& action = program.actions[actionSlot];
+      // The action inherits the calling rule so a ctx.rule access inside its
+      // body resolves to the enclosing rule's store. Resolve from the caller
+      // before pushCallFrame, which can relocate the frame region.
+      const uint32_t inheritedRuleFuncId = resolveFrameRuleFuncId(program, frame);
       ErrorCode err = ErrorCode::ScriptError;
       const ActionFrameBinding binding{actionSlot, callSiteId, false};
       if (!pushCallFrame(state, program, action.entryFuncId, argc, kNoCaptures, true, 0, true,
                          binding, err)) {
         return fault(err);
       }
+      state.frames[state.frameDepth - 1].ruleFuncId = inheritedRuleFuncId;
       break;
     }
 

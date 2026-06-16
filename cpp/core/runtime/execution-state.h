@@ -60,7 +60,7 @@ struct ActionFrameBinding {
  * Single call frame on an execution state's frame stack. Mirrors `Frame` in
  * external/mindcraft-lang/packages/core/src/runtime/vm-types.ts. `captures`,
  * `ruleFuncId`, and the action binding are carried for the closure, rule
- * bookkeeping, and action-dispatch opcodes; nothing reads them yet.
+ * bookkeeping, and action-dispatch opcodes.
  */
 struct Frame {
   /** FuncId of the executing function. */

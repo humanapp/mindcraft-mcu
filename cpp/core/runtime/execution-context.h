@@ -77,6 +77,15 @@ struct ExecutionContext {
   Span<bool> callSiteAllocated{};
 
   /**
+   * Rule-scoped variable storage: an outer managed map keyed by rule funcId,
+   * each value an inner managed map of variable name to value. Nil until the
+   * first rule-variable write allocates the outer map; brain-instance-scoped
+   * (persists across action calls, pages, and fibers). The garbage collector
+   * reaches the whole structure as one root by marking this value.
+   */
+  Value ruleVarStores = kNilValue;
+
+  /**
    * Allocates the slot tables from `arena`: `variableCount` brain-variable
    * slots (initialized to nil), `callSiteCount` per-callsite host-state slots
    * (initially absent), and the `callSiteCount` by `callSiteSlotStride`

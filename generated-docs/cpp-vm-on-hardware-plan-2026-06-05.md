@@ -57,18 +57,17 @@ is out of scope **by default** and needs a concrete, possible-today failure mode
 governing default that 7 and 8 are instances of; over-build has been the recurring
 failure, and a subtraction pass precedes every gate. When unsure, leave it out.
 
-Current focus: **Phase 6f2 (bytecode-action execution model: `ACTION_CALL` + callsite
-state + page lifecycle + `assertCanSuspend`) - the second of four 6f sub-phases (6f1
-metadata done; 6f3 context-variable host fns; 6f4 native device surface) that together
-make real microbit-v2 brains runnable on device.** Phases 6a (heap +
-containers), 6b (structs + closures), 6c (core host-function library f32 +
+Current focus: **Phase 6f4 (native device surface - the user-tile milestone), with one
+small carried prerequisite: CALL-frame rule inheritance (the 6f3 follow-up).** Phases 6a
+(heap + containers), 6b (structs + closures), 6c (core host-function library f32 +
 dynamic/managed strings), 6d (pinned numerics), 6e (exceptions, yield, and the
-grow-on-demand stack arena), and 6f1 (struct re-string v3 + type-registry foundation,
+grow-on-demand stack arena), 6f1 (struct re-string v3 + type-registry foundation), 6f2
+(bytecode-action execution model), and 6f3 (context-variable host functions 48-51,
 2026-06-15) are accepted; the GC, containers, structs, closures, the ~96 core
 `CoreFuncId` bodies, the RNG, managed strings, the 12 bit-exact pinned numeric
 components, exceptions/yield, the grow-on-demand stack arena (the last LD7 worst-case
-reservation removed), dynamic-key struct access (format v3), and the type registry all
-run. **The deploy arc is COMPLETE and hardware-proven** (2026-06-14):
+reservation removed), dynamic-key struct access (format v3), the type registry, the
+bytecode-action/page execution model, and brain+rule context variables all run. **The deploy arc is COMPLETE and hardware-proven** (2026-06-14):
 5a firmware + 5b patcher + 5c browser delivery - a brain authored in microbit-sim
 reaches a real micro:bit v2 by **download** (Blob -> drag-drop) or **WebUSB flash**
 (paired device), and `button-display` toggles the pixel both ways. With Phases 1-5
@@ -129,9 +128,9 @@ run on device).
 | Phase 6d: Pinned Numerics | **Accepted (2026-06-14)** | All 12 pinned f32 components in lockstep (TS + C++ + shared wodal vectors). 10 transcendentals ported from **Cephes single** (explicit binary32, zero `double`; `exp`/`log` loop-`frexp`/`ldexp`; `pow` = ECMAScript specials + integer binary-exp + `exp(y*log\|x\|)`). `formatNumber` = Ryu f2d (Apache/Boost) + `String(Number)` grammar, shortest-f32 (Luau-safe limb mulShift); `parseNumber` C++ = integer strtod (parseFloat grammar, no `double`). `-ffp-contract=off` per-source on `binary32-*.cpp` (FMA guard + test). Gate: `pinned-numerics-vectors` (2014 records) -> `pinned-numerics-parity.test.cpp` (6270 assertions), negative-control proven; check.sh x3 incl ASan+UBSan. No pinned id faults `ScriptError` anymore. |
 | Phase 6e: Exceptions, Yield + Grow-On-Demand Stack Arena | **Accepted (2026-06-14)** | `TRY`/`END_TRY`/`THROW` + `YIELD` (C++ mirror of vm.ts). `FiberWorkspace` deleted -> `StackRegionAllocator` (dedicated `SlabAllocator`, list-backing realloc); four per-fiber regions grow 8/4/2/1 toward the caps; `ExecutionState` cap/capacity split; **last LD7 worst-case reservation removed**. Caps reconciled 256/256/64/16 (added TS `maxLocalsSize`, threaded the profile caps into `new VM` - root-caused the silent 4096/256/64 default). Dedicated stack slab means a grow never collects (faults only on arena exhaustion). Gate: exceptions-yield trace golden + `control-flow.test.cpp` + wodal `overflow-caps.spec.ts`; check.sh x3; core 911, wodal 116. 6f2 owes `assertCanSuspend`. |
 | Phase 6f1: Struct Re-string (v3) + Type-Registry Foundation | **Accepted (2026-06-15)** | Format v2->v3: TYPS struct entry carries `fieldCount` + `(nameStringIdx, fieldId)` pairs -> `findStructField` resolves `GET_FIELD`/`SET_FIELD`/`STRUCT_COPY_EXCEPT` (dynamic-key `obj[expr]`/`{...x}` now works, no longer degrades; static stays id-based, LD2). New `TypeRegistry` over `ProgramImage` on `RuntimeSurface` (`STRUCT_GET/SET_FIELD` rewritten to `read/writeStructFieldById`; native branch present, unused until 6f4); closes 6c container-typeId carryover (`MapKeys`->`List<key>`, `MapValues`->`List<Any>`, `StrSplit`->`List<String>`). Field-name resolution lives in the program type table (not a host registry). Gate: `dynamic-field-access` golden + value-vectors 628/628 w/ structural typeIds; all fixtures regen v3; check.sh x3; core 911, wodal 117. |
-| Phase 6f2: Bytecode-Action Execution Model | Planned | Sync `ACTION_CALL` branch + per-callsite state (`LOAD/STORE_CALLSITE_VAR`) + page-lifecycle hooks (full set/order mirrored from `brain-runtime.ts`) + carried `assertCanSuspend`. Independent of the device surface and the context-var accessors. Gate: synthetic action/page trace golden; check.sh x3. Needs 6b/6e. |
-| Phase 6f3: Context-Variable Host Functions | Planned | The deferred `CoreFuncId`s 48-51 - `ctx.brain`/`ctx.rule` `getVariable`/`setVariable` by name (6c left them faulting). **Brain = slot-backed** (`variableNames` scan -> `ctx.variables`); **rule = NEW GC-traced per-rule dynamic name->value maps with ancestor-chain inheritance on read** (port `rule-services.ts`, not vm.ts; lazy-alloc, traced in `enumerateRoots`). Independent of 6f2; lands before 6f4 so the milestone has no silent state fault. Gate: `getVariable`/`setVariable` parity fixture incl. rule ancestor-inheritance + a rule-var GC test; check.sh x3. Needs 6b/6e. |
-| Phase 6f4: Native Device Surface (user-tile milestone) | Planned | Target host-fn surface (`HOST_CALL`>=1024 native method bodies via device ports) + native getters on the 6f1 registry + native-struct value representation -> **`user-tile-button-display` runs on hardware**. Scope-anchored to the fixture (not the full ABI). Gate: host trace parity (self-gate) + on-device (user-gated). Needs 6f1/6f2 (6f3 lands first for stateful brains). |
+| Phase 6f2: Bytecode-Action Execution Model | **Accepted (2026-06-15)** | `ACTION_CALL` (op 42) via extended `pushCallFrame` (actionBinding, isAsync=false); **new `callSiteSlots` pad** (flat `callSiteCount x callSiteSlotStride`, program-derived stride; distinct from the host-state cell) resolved by the per-fiber frame walk for `LOAD/STORE_CALLSITE_VAR`; `enumerateRoots` marks it. Page lifecycle: initializer (once) + activation (per-activation) in call-site order + deactivation on leave, with a page-change FSM in `think()` (deactivate old -> activate new before time-stamp); hooks via new `runActionHook`. `assertCanSuspend` (YIELD in sync action -> `ScriptError`). Gate: `action-page-lifecycle` + `sync-action-yield` goldens + 2 unit tests; check.sh x3; core 911, wodal 119. Deferred: `currentRuleFuncId` + rule inheritance (6f3); host `onInitialized`/`onPageExited` + injected-ctx entry (6f4); page restart = no-op. |
+| Phase 6f3: Context-Variable Host Functions | **Accepted (2026-06-15)** | 48-51 via `vm.cpp` `HOST_CALL` -> `dispatchContextVariableFunc`. **Brain** slot-backed (`variableNames` scan -> `ctx.variables`); **rule** = `ExecutionContext.ruleVarStores` (outer `MapObject` keyed by `ruleFuncId` -> inner `MapObject`; both 6c maps, lazy, brain-lifetime), `ruleVarGet` walks `parentRuleFuncId` ancestors, `ruleVarSet` own-only; `enumerateRoots` marks it. `currentRuleFuncId` resolved on demand (`resolveFrameRuleFuncId`); wired the action-frame `ruleFuncId` inheritance (6f2 deferral). Gate: `context-variables` fixture (brain + rule + ancestor + action-frame inheritance) + 2 GC tests (closes 6f2's callSiteSlots marking); check.sh x3; wodal 120. **REQUIRED -> 6f4 entry prereq (decided):** CALL-frame rule inheritance not mirrored (forwarding `ctx` to a non-rule helper silently no-ops `ctx.rule`); mirror `resolveCalleeRuleFuncId` on the CALL paths before the milestone. |
+| Phase 6f4: Native Device Surface (user-tile milestone) | Planned | **Entry prereq: CALL-frame rule inheritance** (6f3 carry-forward, required). Then: target host-fn surface (`HOST_CALL`>=1024 bodies via ports) + native getters on the 6f1 registry + **native-struct value rep = `Struct(env typeId, discriminator-in-handle)`** (no managed slab; buttonA/B distinguished by discriminator since TS's per-value `native` ref can't be ported) + **`ctx` injection as entry arg0** (the 6f2 deferral) + dual-path `setPixelValue` trace parity -> **`user-tile-button-display` runs on hardware**. Mirror `module.ts`. Scope = exactly the fixture's dump (not the full ABI). Gate: host trace parity (self) + on-device (user). Needs 6f1/6f2 (6f3 first). |
 | Phase 6g: Cap Parameterization (topology parity with TS) | Planned | Give the C++ scheduler a runtime caps struct sourced from the device profile by `ProgramImage::profileId` (mirrors TS threading `schedulerConfig` into `BrainRuntime`), replacing the global `constexpr` consumed directly in `spawn()`/`runActionHook()`/`tick()`. One profile row (microbit-v2) today; a second target is just another row. Caps stay LD7 runtime guards. Includes the **cap-parity guard** (C++ profile-caps table == wodal profile, profile-sourced, replacing the hand-copied literal asserts). Lands before 6i raises `kMaxHandles`. Needs the 3c scheduler. |
 | Phase 6h: Async core | Planned | The generic `HandleTable`/`AWAIT`/WAITING-resume machinery + the three async opcodes; host-gated with a deterministic test async capability. **On the microbit-v2 critical path** (scroll, 6i, is a real async action) - not conformance-only. Needs 6e/6f2. |
 | Phase 6i: Display Scroll-Text (first async capability) | Planned | An **async** `display.scroll(text)` mirroring CODAL's cooperative blocking scroll: device resolution via the CODAL `ANIMATION_COMPLETE` bus event marshaled to a next-round handle resume; CODAL-matching scroll animation in C++ + wodal; **completion-time pinned in the microbit-v2 target layer** (wodal oracle + C++ mirror, not core `vm-contract.md`) so the resume round matches for parity. microbit-v2 raises `kMaxHandles>0` as a guard (dynamic `HandleTable`, LD7 - never a pool size). The async core's on-hardware gate. Needs 6h (+6c for computed strings). |
@@ -1726,8 +1725,9 @@ independently-gated deliverable, none overweight:
   mode, opcode-completeness check.
 
 Dependencies: 6a underlies all; 6b needs 6a; 6d needs 6c; 6e needs the 3b
-fiber/stack model; 6f1 needs 6b + 6c; 6f2 needs 6b + 6e; 6f3 needs 6b + 6e (independent
-of 6f2); 6f4 needs 6f1 + 6f2 (6f3 lands first for stateful brains); 6g needs the 3c
+fiber/stack model; 6f1 needs 6b + 6c; 6f2 needs 6b + 6e; 6f3 needs 6b + 6e + 6f2
+(extends its `ACTION_CALL` entry for action-frame rule inheritance); 6f4 needs 6f1 + 6f2
+(6f3 lands first for stateful brains); 6g needs the 3c
 scheduler (independent of the 6f arc; lands before 6i's `kMaxHandles` raise); 6h needs
 6e + 6f2; 6i needs 6h (+ 6c for the computed-string variant); 6j needs all. **The
 microbit-v2 critical path is 6a -> 6b -> 6c -> 6f1 -> 6f2 -> 6f3 -> 6f4** for user-tile
@@ -2052,76 +2052,96 @@ Gate (green): new `dynamic-field-access` golden (`Point{x,y}` via `obj[expr]` /
 clang-format + check-deps; core TS 911, wodal 117; Luau build passes. `vm-contract.md`
 updated in-unit (struct `fields`, TYPS row, version 2->3, resolution note).
 
-#### Phase 6f2: Bytecode-Action Execution Model
+#### Phase 6f2: Bytecode-Action Execution Model - ACCEPTED 2026-06-15 (host build)
 
-The action calling convention and page lifecycle; independent of the device surface and
-the context-variable accessors (gateable with synthetic actions, no microbit).
+C++-only mirror of vm.ts/brain-runtime.ts; no contract change owed. As built:
 
-- **The `ACTION_CALL` (sync) bytecode branch + per-callsite state.** Enter a bytecode
-  action frame (extend 6b's `pushCallFrame` with the `actionBinding` + set
-  `currentCallSiteId`); args laid out as locals via the calling convention;
-  `LOAD/STORE_CALLSITE_VAR` resolve `currentCallSiteId` + index against the existing
-  callsite slots. (`ACTION_CALL_ASYNC` is the async branch - Phase 6h.)
-- **Page-lifecycle completion.** `brain-runtime.h` already does page activation + the
-  page-entered hook + root-rule spawn; add dispatch of the remaining decoded lifecycle
-  funcIds on page activate/deactivate. **Enumerate the exact hook set + firing order
-  from `brain-runtime.ts` and mirror it** (do not invent): the per-page
-  initializer/activation/deactivation funcIds carried on the decoded `BytecodeAction`,
-  the page-entered hook (already present), and what fires on a page *change* (deactivate
-  old -> activate new) vs first activation. Pin which run once vs per-activation.
-- **Carried from 6e (required):** add the `assertCanSuspend` fault now that sync
-  `ACTION_CALL` frames exist - a `YIELD`/await inside a sync action frame must fault
-  (the frame's `actionBinding.isAsync` is false; mirror vm.ts).
+- **`ACTION_CALL` (op 42, sync):** operands a=actionSlot/b=argc/c=callSiteId; enters the
+  action's entry function via 6b's `pushCallFrame` (extended with a
+  `(hasActionBinding, ActionFrameBinding)` param, `isAsync=false`); args lay out as
+  locals like a direct call.
+- **Per-callsite slot pad (NEW storage - kickoff deviation).** The existing
+  `callSiteStates`/`present` is the host-state cell (TS `getHostState`), **not** the
+  `LOAD/STORE_CALLSITE_VAR` pad. Added `ExecutionContext.callSiteSlots` (flat
+  `callSiteCount x callSiteSlotStride`), a program-derived `callSiteSlotStride` (max
+  callsite-var operand + 1, scanned at startup - LD7-consistent with
+  variableCount/callSiteCount), and `callSiteAllocated[]` (initializer once-guard).
+  `LOAD/STORE_CALLSITE_VAR` (140/141) resolve callSiteId via the per-fiber frame walk
+  (`currentActionBinding` = TS `getCurrentActionBinding`); the legacy `callsiteVars`/-1
+  wrapper path is intentionally not mirrored. `enumerateRoots` now marks `callSiteSlots`.
+- **Page lifecycle** (`brain-runtime`): bytecode initializer (once, `ensureCallSite`) +
+  activation (per-activation) on activate in call-site order, interleaved with the
+  existing host `onPageEntered`; deactivation (per-deactivation) on leave. Added a
+  minimal page-change FSM (`currentPageIndex_`/`desiredPageIndex_`, `requestPageChange`,
+  `deactivateCurrentPage`); `think()` reconciles a requested change (deactivate old ->
+  activate new) before stamping time (TS ordering). Hooks run synchronously via new
+  `FiberScheduler::runActionHook` (one `kHookBudget` slice), sharing an `allocFiber`
+  helper with spawn.
+- **`assertCanSuspend`** (6e carryover): `YIELD` inside a sync action frame faults
+  `ScriptError`; a bare/async-frame `YIELD` stays the legal 6e cooperative yield.
 
-Gate: a synthetic action/page-lifecycle trace golden (an action call laying args as
-locals, callsite state persisting across calls, page enter/leave running the lifecycle
-funcIds in the mirrored order, and a `YIELD`-in-sync-action fault) byte-matches;
-`check.sh` x3.
+Deferrals: bytecode callsite-id resolves from the frame walk, so
+`ctx.currentCallSiteId`/`currentRuleFuncId` bookkeeping is not maintained for the
+bytecode path (only the context-var accessors need it -> `currentRuleFuncId` added in
+6f3); action-frame `ruleFuncId` inheritance left `kNoFuncId` (as existing `CALL`; nothing
+in 6f2 reads it -> 6f3). Deferred to 6f4: host `onInitialized`/`onPageExited` (no
+`HostActionBinding` fields) + injected-ctx action entry (currently faults via
+`pushCallFrame`'s arity check). Page **restart** (change to current page) is a documented
+no-op.
 
-#### Phase 6f3: Context-Variable Host Functions (brain + rule, by name)
+Gate (green): `action-page-lifecycle` golden (2-page: args-as-locals, callsite state
+persisting across calls + a page round-trip, lifecycle order, once-vs-per-activation) +
+`sync-action-yield` golden (legal rule YIELD survives a round; illegal action YIELD ->
+`fault 1 4`) + 2 control-flow unit tests; `check.sh` x3; core 911, wodal 119.
 
-The deferred `CoreFuncId`s **48-51** - `ctx.brain.getVariable(name)`/`setVariable(name, v)`
-and `ctx.rule.getVariable(name)`/`setVariable(name, v)` - which compile to `HOST_CALL` ->
-`BrainContextGetVariable`=48 / `BrainContextSetVariable`=49 / `RuleContextGetVariable`=50 /
-`RuleContextSetVariable`=51, **by-name** at runtime (even for a string literal; the
-compiler does not lower these to `LOAD_VAR_SLOT`). 6c carved them out
-(`callCoreHostFunction` returns `unsupported()` -> `ScriptError` for the
-"Context/sensor/actuator ids"), so they fault on device today. Independent of 6f2 (they
-run from rule-body fibers via `currentRuleFuncId`, needing no `ACTION_CALL`/callsite/page
-machinery). Dispatch from `vm.cpp`'s `HOST_CALL` handler (it has `surface.context` + the
-program), not the context-free `callCoreHostFunction`. **The brain and rule stores are
-structurally different - do not treat them as one shape:**
+#### Phase 6f3: Context-Variable Host Functions (brain + rule, by name) - ACCEPTED 2026-06-15
 
-- **Brain (48/49) - slot-backed (simple).** Resolve name -> slot by scanning the
-  program's `variableNames` pool (CSTR content compare, 6c's unified string compare),
-  then read/write `ctx.variables[slot]`. Machinery already exists. Only get/set are
-  user-reachable (the service's `clearByName` is host-internal, not a `CoreFuncId`).
-- **Rule (50/51) - per-rule dynamic maps with ancestor inheritance (new, GC-traced).**
-  The reference is **`rule-services.ts` (`createRuleVariableServices`)**, NOT vm.ts
-  (vm.ts only delegates). There is **no program-declared rule-variable slot space** -
-  rule vars are a **map of `ruleFuncId` -> a dynamic name->value dict**, each dict
-  **allocated lazily on first write**. Semantics to mirror exactly:
-  - *Read* `getByName(ruleFuncId, name)`: check the current rule's own store; if
-    absent, **walk the ancestor chain** (`program.ruleAncestors` - the RANC pairs,
-    already decoded) up the parent-rule tree until a store has `name`, else nil.
-  - *Write* `setByName(ruleFuncId, name, value)`: writes **only** the current rule's
-    own store (lazily allocated); never writes through to ancestors.
-  - `currentRuleFuncId` resolves from the frame's `ruleFuncId` (the TS
-    `resolveFrameRuleFuncId` walk); an undefined rule -> write no-op, read nil.
-  - **GC + memory (LD7):** the per-rule dicts hold `Value`s, so they are a **new GC
-    root source** - `enumerateRoots` must trace every rule-var store - and they are
-    **allocated on demand** (no pre-sizing; managed-string keys, content-compared like
-    6c maps). This is genuinely new managed state, not a slot array.
+Closes the last `CoreFuncId` carve-out (48-51); C++-only, no contract change. As built:
 
-This lands **before** the 6f4 milestone so the "real brains run on device" claim is not
-shipped with a silent fault for any stateful tile (same logic that put re-string first).
+- **Dispatch:** `vm.cpp`'s `HOST_CALL` branches on `isContextVariableFunc` ->
+  file-local `dispatchContextVariableFunc` (has program + `surface.context` + heap +
+  current frame); other ids stay on `callCoreHostFunction`. Struct-method convention:
+  arg0 = ignored receiver, arg1 = name, arg2 = value. Faults: `HostError` (no context;
+  or no heap on the rule setter), `ScriptError` (missing/non-string name).
+- **Brain (48/49), slot-backed:** `resolveBrainVarSlot` content-scans
+  `program.variableNames` (via `contextVarNameBytes`, which tolerates a null heap so a
+  heapless brain's borrowed-literal names resolve); hit reads/writes `ctx.variables[slot]`,
+  an undeclared name reads nil / writes no-op. Blessed deviation: TS lazily allocates a
+  slot on set of an undeclared name; C++ no-ops (gate avoids the divergence).
+- **Rule (50/51):** new `ExecutionContext.ruleVarStores` = outer managed `MapObject`
+  keyed by `ruleFuncId` -> inner managed `MapObject` (name->value); both reuse 6c maps,
+  both lazy on first write (LD7), brain-lifetime. `ruleVarGet` walks own map then up
+  `parentRuleFuncId` (ruleAncestors) -> nil; `ruleVarSet` writes own map only,
+  intermediates pinned across collecting allocations. Mirrors `createRuleVariableServices`.
+- **`currentRuleFuncId`:** resolved on demand at the accessor via
+  `resolveFrameRuleFuncId(topFrame)` (frame's `ruleFuncId` else membership in
+  `ruleFuncIds`); not maintained on the context.
+- **Action-frame inheritance (the 6f2 deferral):** at `ACTION_CALL` entry the action
+  frame's `ruleFuncId = resolveFrameRuleFuncId(caller)` (resolved before `pushCallFrame`,
+  which can relocate frames).
+- **GC:** `enumerateRoots` marks `ctx.ruleVarStores` (one root; recursion traces inner
+  maps + contents).
 
-Gate: a **`getVariable`/`setVariable` parity fixture** covering, on both sides: brain
-get/set round-trip + a miss (-> nil); rule get/set round-trip + a miss; and the rule
-**ancestor-inheritance** cases - a child rule **reads** a var set on its parent
-(inherited), and a child **write does not propagate** to the parent (the trickiest
-semantics, must be exercised); a C++ GC test that a reachable rule-var store survives
-collection; `check.sh` x3.
+Gate (green): new wodal `context-variables` fixture (root rule + child rule + sync
+action, 3 ticks): brain get/set + miss; rule get/set + miss; ancestor inheritance (child
+reads parent's var; child write does not appear in parent); action-frame inheritance
+(action reads + writes the calling rule's store) - C++ byte-matches the TS golden. Two
+GC tests: a reachable rule-var store survives collection; a container in a `callSiteSlots`
+slot survives collection (closes 6f2's untested `enumerateRoots` marking). `check.sh` x3;
+wodal 120. Over-build pass removed 4 redundant guards + a redundant handle re-resolve.
+
+**Follow-up - REQUIRED, must close (decided 2026-06-15): CALL-frame rule inheritance is
+NOT mirrored.** TS `CALL`/`CALL_INDIRECT` set the callee frame's `ruleFuncId` via
+`resolveCalleeRuleFuncId` (= `resolveDirectRuleFuncId(callee) ?? resolveFrameRuleFuncId(caller)`),
+so a rule/action calling a **non-rule helper** that touches `ctx.rule` inherits the
+caller's rule. C++ `pushCallFrame` leaves `ruleFuncId = kNoFuncId` and the on-demand
+resolver only inspects the top frame, so such a helper resolves to no-rule (read nil /
+write no-op). Forwarding `ctx` into a helper is idiomatic and TS authors expect it to
+work, so this silently mis-runs real brains - a correctness bug, not deferrable. Calling
+a *rule* funcId matches on both sides (6f3's child-rule CALL exercises that); only the
+non-rule-helper path diverges. Scheduled as the **6f4 entry prerequisite** (see there);
+the fix mirrors `resolveCalleeRuleFuncId` on the `CALL`/`CALL_INDIRECT[_ARGS]` paths, the
+same mechanism 6f3 used for action frames.
 
 #### Phase 6f4: Native Device Surface - the User-Tile Milestone
 
@@ -2129,27 +2149,62 @@ The native surface that makes a real user-tile brain run end-to-end. Needs 6f1 (
 registry) and 6f2 (the action/page model). Internally indivisible: a button read is a
 host-fn reached through a native sub-struct.
 
+**Prerequisite carried from 6f3 - REQUIRED, must close (decided 2026-06-15): CALL-frame
+rule inheritance.** Forwarding `ctx` (or `ctx.rule`) into a plain helper is idiomatic and
+TypeScript authors expect it to just work; the C++ silently no-ops it (read nil / write
+no-op), so this is a real correctness bug, not an edge case - not deferrable. Mirror TS
+`resolveCalleeRuleFuncId` on the `CALL`/`CALL_INDIRECT[_ARGS]` paths: the callee frame's
+`ruleFuncId = resolveDirectRuleFuncId(callee) ?? resolveFrameRuleFuncId(caller)`, the same
+mechanism 6f3 used for action frames (set the callee `ruleFuncId` from the caller at the
+push site; or, equivalently, have the accessor walk down the frame stack). Calling a
+*rule* funcId already matches; only the non-rule-helper path is broken. **Gate** (must
+pass before the milestone): a fixture where a rule calls a non-rule helper that
+reads/writes `ctx.rule` and it resolves to the calling rule's store - on both VMs.
+
+The behavior reference is the wodal microbit-v2 module
+(`packages/wodal/.../module.ts`) - mirror its field getters, host-fn bodies, and
+receiver extraction.
+
+- **Native-struct value representation (the one piece that can't be ported verbatim).**
+  TS `mkNativeStructValue(typeId, native)` carries an actual device-object reference, so
+  `buttonA` vs `buttonB` (same `Button` typeId) is distinguished by the `native` ref. C++
+  has no object refs, so **pin a per-instance discriminator**: a native struct is a
+  `Struct` value `(env typeId, discriminator)` using the otherwise-unused `handle` field
+  (no managed slab). The `MicroBit` getter for `ButtonA`/`ButtonB`/`Logo` returns
+  `Struct(Button|TouchButton, discriminator = the producing field id)`; singletons
+  (`ctx`, `microbit`, `display`) use discriminator 0. The discriminator carries identity
+  only - all mutable state lives in the device/ports - so native struct values are
+  immutable and GC-inert (no managed handle). The scheme is **shared** between the
+  getters (encode it) and the host-fn bodies (decode it).
+- **Native getters on the registry + device wiring.** Populate the 6f1 registry's native
+  `fieldGetter`s for the env types (`ctx.microbit` is a static `STRUCT_GET_FIELD <6>`
+  whose getter returns a `MicroBit`-typed struct, etc.). Getters and host-fn bodies reach
+  the device through the `RuntimeSurface` (stub ports on the host build, as the 3c action
+  bindings do; `microbit-ports.h` on device) - mirror `module.ts`'s receiver extraction:
+  read `(typeId, discriminator)` from arg0, map to the port.
 - **The target host-function surface (new `RuntimeSurface` member).** 6c left the
   `HOST_CALL` target range (funcId >= `TARGET_FUNC_ID_BASE` = 1024) a stub. Add the
   target host-function binding table, mirroring the existing `actions` (host-action)
-  binding pattern, with the bodies (`Button.isPressed`, `Display.setPixelValue`, ...)
-  reaching device state through the device ports - stub ports on the host build (as the
-  3c action bindings do), `microbit-ports.h` on device.
-- **Native getters on the registry + native-struct value representation.** Populate the
-  6f1 registry's native `fieldGetter`s for the env types. A native struct (`ctx`,
-  `microbit`, a button) is a `Struct` value carrying an env `typeId` and **no managed
-  slab** - its getter reads native state; `ctx.microbit` is a static
-  `STRUCT_GET_FIELD <6>` whose getter returns a `Struct` value of the `MicroBit` type,
-  and so on. Pin how the root rule obtains the initial `ctx` value. GC: native struct
-  values hold no managed handle, so they are inert to the collector.
+  binding pattern, with the bodies (`Button.isPressed`=1027, `Display.setPixelValue`=1024,
+  ...) operating on the receiver's `(typeId, discriminator)` via the ports.
+- **`ctx` injection (the 6f2 deferral lands here).** The rule/action entry takes `ctx`
+  as arg0 (`onExecute(ctx)`); 6f2 left injected-ctx entry faulting. So construct the root
+  `ctx` native struct value (`Struct(Context, 0)`) and inject it as the entry function's
+  arg0 when spawning rule/action fibers (the brain-runtime/scheduler spawn path).
+- **Dual-path port-write trace parity.** A pixel can be written two ways: the 3c
+  host-**action** path (`DisplaySetPixel`, the host-only `button-display`) and this
+  host-**function** path (`ctx.microbit.display.setPixelValue`, user-tile). Both must
+  emit the **identical** observable port trace line, or the user-tile parity gate
+  diverges from the established trace format - route the host-fn port write through the
+  same trace emission.
 
-**Scope anchor (LD9).** Build exactly the native surface the
-`user-tile-button-display.mcprogram` fixture exercises - almost certainly
-`Context.microbit` + `MicroBit.display`/`buttonA` + `Display.setPixelValue` +
-`Button.isPressed` - **not** the full `MicroBitField` ABI. Register only the env types
-and methods the fixture reaches; reuse the host-action binding-table pattern for the
-target host-fn table (no new dispatch mechanism); add no device capability the fixture
-does not touch. An unexercised field, method, or env type is out of scope.
+**Scope anchor (LD9) - derive from the fixture, do not guess.** Read
+`user-tile-button-display.mcprogram.dump` and build **exactly** the native fields +
+host-fn ids it references (expected: `Context.microbit` + `MicroBit.display`/`buttonA` +
+`Display.setPixelValue` + `Button.isPressed`) - **not** the full ABI. The ABI also
+declares `TouchButton`/`logo`, `GetPixelValue`, `Clear`, threshold methods, etc.; any of
+those the fixture does not touch is out of scope. Reuse the host-action binding-table
+pattern (no new dispatch mechanism); add no device capability the fixture does not use.
 
 Gate, split by who can sign it off:
 
@@ -2228,6 +2283,12 @@ Scope:
   feature*, not just a contract requirement. This phase is the generic mechanism; 6i
   is its first shipped consumer + on-hardware parity gate, and 6i is where
   microbit-v2's `kMaxHandles` is raised above 0.
+- **Fix the fiber-id space divergence first (6f2 follow-up).** C++ hook fibers consume
+  the shared positive `nextFiberId_`; TS uses a separate **negative** inline id space
+  (`nextInlineFiberId`). Invisible to current gates (only `fault` lines render a fiber
+  id, and no current fixture combines hooks + a fault), but an async fixture mixing
+  hooks and faults would diverge - give C++ hook fibers their own id space before such
+  goldens land.
 
 Gate (host): async goldens driven by a **deterministic test async capability** (a
 host function that resolves / rejects / cancels its handle on a fixed schedule) -
@@ -2385,6 +2446,36 @@ Condensed dated ledger of accepted phases (newest first). Full per-phase as-buil
 detail lives in the session memory and git history; the accepted phase sections above
 carry the contracts each produced.
 
+- **2026-06-15 - Phase 6f3 accepted** (host build): context-variable host fns 48-51
+  (`ctx.brain`/`ctx.rule` `getVariable`/`setVariable` by name), closing the last
+  `CoreFuncId` carve-out. `vm.cpp` `HOST_CALL` -> `dispatchContextVariableFunc`. Brain =
+  slot-backed (`variableNames` scan -> `ctx.variables`); rule = new
+  `ExecutionContext.ruleVarStores` (outer `MapObject` keyed by `ruleFuncId` -> inner
+  `MapObject`; both 6c maps reused, lazy, brain-lifetime), read walks `parentRuleFuncId`
+  ancestors, write own-map-only; `enumerateRoots` marks it. `currentRuleFuncId` resolved
+  on demand (`resolveFrameRuleFuncId`); wired the action-frame `ruleFuncId` inheritance
+  (6f2 deferral). Gate: `context-variables` parity fixture (brain + rule + ancestor +
+  action-frame inheritance) + 2 GC tests (rule-var store; callSiteSlots - closes 6f2's
+  untested marking); check.sh x3; wodal 120. REQUIRED -> 6f4 entry prereq (decided
+  2026-06-15): CALL-frame rule inheritance not mirrored (forwarding `ctx` to a non-rule
+  helper silently no-ops `ctx.rule` - idiomatic, must close); mirror
+  `resolveCalleeRuleFuncId` on the CALL paths before the milestone.
+- **2026-06-15 - Phase 6f2 accepted** (host build): bytecode-action execution model,
+  C++-only mirror of vm.ts/brain-runtime.ts. `ACTION_CALL` (op 42) via extended
+  `pushCallFrame` (actionBinding). NEW `ExecutionContext.callSiteSlots` pad (flat
+  `callSiteCount x callSiteSlotStride`, program-derived stride - distinct from the
+  host-state cell `callSiteStates`/`present`) for `LOAD/STORE_CALLSITE_VAR`, resolved by
+  the per-fiber frame walk (`currentActionBinding`); `enumerateRoots` marks it. Page
+  lifecycle: initializer (once) + activation (per-activation) in call-site order +
+  deactivation on leave; page-change FSM in `think()` (deactivate old -> activate new
+  before time-stamp); hooks via new `FiberScheduler::runActionHook` + `allocFiber`.
+  `assertCanSuspend` (sync-action YIELD -> ScriptError). Gate: `action-page-lifecycle` +
+  `sync-action-yield` goldens + 2 control-flow unit tests; check.sh x3; core 911, wodal
+  119. Deferred: `currentRuleFuncId`/rule inheritance (6f3); host
+  `onInitialized`/`onPageExited` + injected-ctx entry (6f4); page restart = no-op.
+  Follow-ups (non-blocking): callSiteSlots GC marking untested (fold a GC test into 6f3);
+  C++ hook fibers share the positive `nextFiberId_` while TS uses a negative inline id
+  space (invisible now; fix before 6h async fixtures combine hooks + faults).
 - **2026-06-15 - Phase 6f1 accepted** (host build): struct field-name re-string
   (binary format v2->v3, dump v1->v2) + the type-registry foundation, TS + C++ in
   lockstep. TYPS struct entry now carries `fieldCount` + `(nameStringIdx, fieldId)` pairs

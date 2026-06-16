@@ -35,6 +35,9 @@ void FiberScheduler::enumerateRoots(GcMarker& marker) {
     for (size_t i = 0; i < ctx.callSiteSlots.size(); i++) {
       marker.mark(ctx.callSiteSlots[i]);
     }
+    // The rule-variable store is one root: marking the outer map traces every
+    // per-rule inner map and the values they hold.
+    marker.mark(ctx.ruleVarStores);
   }
 }
 

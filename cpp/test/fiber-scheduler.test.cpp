@@ -3,6 +3,8 @@
 #include "core/runtime/execution-context.h"
 #include "core/runtime/fiber-scheduler.h"
 #include "core/runtime/host-action.h"
+#include "core/runtime/managed-heap.h"
+#include "core/runtime/program.h"
 #include "core/runtime/value.h"
 #include "core/runtime/vm.h"
 #include "vm-harness.h"
@@ -23,6 +25,9 @@ using mindcraft::kMaxFibers;
 using mindcraft::kMaxFrameDepth;
 using mindcraft::kMaxLocalsSize;
 using mindcraft::kMaxStackSize;
+using mindcraft::kNoTypeIdx;
+using mindcraft::ManagedHeap;
+using mindcraft::MapKey;
 using mindcraft::Op;
 using mindcraft::ProgramImage;
 using mindcraft::RegionArena;
@@ -68,6 +73,9 @@ struct OrderObserver : VmObserver {
 };
 
 Value execNoop(void*, ExecutionContext&, Span<const Value>) { return mindcraft::kVoidValue; }
+
+/** A number-keyed map key. */
+MapKey numKey(float n) { return MapKey{true, false, n, 0}; }
 
 /** A one-rule program whose body completes in a handful of instructions. */
 ProgramImage shortProgram(ProgramBuilder& b, std::vector<uint8_t>& storage) {
@@ -276,4 +284,73 @@ TEST_CASE("a cancelled fiber is skipped by the round and reclaimed") {
   CHECK(scheduler.tick() == 0);
   scheduler.sweep();
   CHECK(scheduler.fiber(spawned.value()) == nullptr);
+}
+
+TEST_CASE("a reachable rule-variable store survives collection") {
+  ProgramBuilder b;
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = shortProgram(b, storage);
+
+  std::vector<uint8_t> arenaStorage(16 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  ManagedHeap heap(arena);
+
+  // Build the rule-variable store shape: an outer map keyed by rule funcId,
+  // each value an inner map of variable name to value; the value here is a
+  // managed list so its survival across collection is observable.
+  Value outer;
+  REQUIRE(heap.newMap(kNoTypeIdx, nullptr, outer));
+  Value inner;
+  REQUIRE(heap.newMap(kNoTypeIdx, nullptr, inner));
+  Value listValue;
+  REQUIRE(heap.newList(kNoTypeIdx, nullptr, listValue));
+  REQUIRE(heap.listPush(heap.list(listValue), Value::number(7.0f), nullptr));
+  REQUIRE(heap.mapSet(heap.map(inner), numKey(0.0f), listValue, nullptr));
+  REQUIRE(heap.mapSet(heap.map(outer), numKey(1.0f), inner, nullptr));
+
+  ExecutionContext ctx;
+  ctx.ruleVarStores = outer;
+  RuntimeSurface surface{&ctx, {}, nullptr, &heap};
+  FiberScheduler scheduler(image, surface, arena);
+
+  heap.collect(scheduler);
+  CHECK(heap.liveMapCount() == 2);
+  CHECK(heap.liveListCount() == 1);
+  CHECK(heap.list(heap.mapGet(heap.map(inner), numKey(0.0f)))->size == 1);
+
+  // Dropping the store from the context makes the whole structure unreachable.
+  ctx.ruleVarStores = mindcraft::kNilValue;
+  heap.collect(scheduler);
+  CHECK(heap.liveMapCount() == 0);
+  CHECK(heap.liveListCount() == 0);
+}
+
+TEST_CASE("a container in a callsite-var slot survives collection") {
+  ProgramBuilder b;
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = shortProgram(b, storage);
+
+  std::vector<uint8_t> arenaStorage(16 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  ManagedHeap heap(arena);
+
+  ExecutionContext ctx;
+  // One call site with a two-wide bytecode callsite-var pad.
+  REQUIRE(ctx.bindSlots(arena, 0, 1, 2));
+  Value listValue;
+  REQUIRE(heap.newList(kNoTypeIdx, nullptr, listValue));
+  REQUIRE(heap.listPush(heap.list(listValue), Value::number(9.0f), nullptr));
+  ctx.setCallSiteSlot(0, 1, listValue);
+
+  RuntimeSurface surface{&ctx, {}, nullptr, &heap};
+  FiberScheduler scheduler(image, surface, arena);
+
+  heap.collect(scheduler);
+  CHECK(heap.liveListCount() == 1);
+  CHECK(heap.list(ctx.callSiteSlot(0, 1))->size == 1);
+
+  // Clearing the slot makes the list unreachable.
+  ctx.setCallSiteSlot(0, 1, mindcraft::kNilValue);
+  heap.collect(scheduler);
+  CHECK(heap.liveListCount() == 0);
 }
