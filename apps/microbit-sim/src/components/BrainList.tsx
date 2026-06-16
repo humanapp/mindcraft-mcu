@@ -4,9 +4,9 @@ import { useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";
 import { microbitFirmwareHex, microbitFirmwareMetadata } from "@/services/firmware-asset";
-import { patchFirmwareForImage } from "@/services/firmware-deploy";
+import { patchFirmwareForImage, programJsonFromImage } from "@/services/firmware-deploy";
 import { isWebUsbSupported, microbitFlasher } from "@/services/microbit-flasher";
-import { downloadHexFile } from "@/utils/file-download";
+import { downloadHexFile, downloadTextFile } from "@/utils/file-download";
 import { BrainEditor } from "./BrainEditor";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { NameInputDialog } from "./NameInputDialog";
@@ -17,10 +17,9 @@ type BrainDialog =
   | { kind: "remove"; id: string; name: string }
   | null;
 
-/** Derives a `.hex` download filename from a brain name. */
-function hexFilename(name: string): string {
-  const slug = name.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-+|-+$/g, "");
-  return `${slug || "brain"}.hex`;
+/** Slugifies a brain name for use as a download filename stem. */
+function filenameSlug(name: string): string {
+  return name.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-+|-+$/g, "") || "brain";
 }
 
 /** User-managed brain list: add, select, rename, remove, and deploy brains. */
@@ -33,8 +32,8 @@ export function BrainList() {
   const [editingBrainId, setEditingBrainId] = useState<string | null>(null);
   const webUsbSupported = isWebUsbSupported();
 
-  /** Builds and patches a brain into firmware hex, toasting on failure. */
-  async function buildHexForBrain(brainId: string): Promise<string | undefined> {
+  /** Loads and builds a brain's program image, toasting on failure. */
+  async function buildImageForBrain(brainId: string) {
     const input = await store.getBuildInputForBrain(brainId);
     if (!input) {
       toast.error("Could not load brain");
@@ -45,7 +44,16 @@ export function BrainList() {
       toast.error(built.errors[0]?.message ?? "Build failed");
       return undefined;
     }
-    const result = patchFirmwareForImage(built.image, microbitFirmwareHex, microbitFirmwareMetadata);
+    return built.image;
+  }
+
+  /** Builds and patches a brain into firmware hex, toasting on failure. */
+  async function buildHexForBrain(brainId: string): Promise<string | undefined> {
+    const image = await buildImageForBrain(brainId);
+    if (!image) {
+      return undefined;
+    }
+    const result = patchFirmwareForImage(image, microbitFirmwareHex, microbitFirmwareMetadata);
     if (!result.ok) {
       toast.error(
         `Program too large: needs ${result.error.requiredBytes} bytes, region holds ${result.error.regionSize}`
@@ -69,7 +77,16 @@ export function BrainList() {
     if (hex === undefined) {
       return;
     }
-    downloadHexFile(hex, hexFilename(brainName));
+    downloadHexFile(hex, `${filenameSlug(brainName)}.hex`);
+  }
+
+  /** Downloads the brain's built program as a JSON `.mcprogram`. */
+  async function handleDownloadProgram(brainId: string, brainName: string) {
+    const image = await buildImageForBrain(brainId);
+    if (!image) {
+      return;
+    }
+    downloadTextFile(programJsonFromImage(image), `${filenameSlug(brainName)}.mcprogram`);
   }
 
   async function handleFlash(brainId: string) {
@@ -145,6 +162,15 @@ export function BrainList() {
                   onClick={() => handleDownload(brain.id, brain.name)}
                 >
                   Download
+                </button>
+                <button
+                  type="button"
+                  data-testid="brain-download-program"
+                  data-brain-name={brain.name}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => handleDownloadProgram(brain.id, brain.name)}
+                >
+                  Program
                 </button>
                 {webUsbSupported && paired && (
                   <button

@@ -22,8 +22,12 @@ import {
  * writes into the firmware region.
  */
 export function programBytesFromImage(image: WodalProgramImage<LinkedBrainProgram>): Uint8Array {
-  const json = serializeWodalProgramImageJson({ ...image, program: linkedBrainProgramToJson(image.program) });
-  return wodalProgramBytes(new TextEncoder().encode(json));
+  return wodalProgramBytes(new TextEncoder().encode(programJsonFromImage(image)));
+}
+
+/** Serializes a built program image to the JSON `.mcprogram` text. */
+export function programJsonFromImage(image: WodalProgramImage<LinkedBrainProgram>): string {
+  return serializeWodalProgramImageJson({ ...image, program: linkedBrainProgramToJson(image.program) });
 }
 
 /**
