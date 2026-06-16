@@ -53,8 +53,19 @@ public:
    */
   Status think(mc_number_t currentTimeMs);
 
+  /**
+   * Requests a switch to page `pageIndex` at the next {@link think}, which
+   * deactivates the current page (running its actions' deactivation hooks and
+   * cancelling its rule fibers) and activates the requested one. A no-op when
+   * `pageIndex` is out of range or already the current page. Mirrors
+   * `requestPageChange` in
+   * external/mindcraft-lang/packages/core/src/runtime/brain-runtime.ts.
+   */
+  void requestPageChange(uint32_t pageIndex);
+
 private:
   Status activatePage(uint32_t pageIndex);
+  Status deactivateCurrentPage();
 
   /** One root rule of the active page and its current fiber. */
   struct RuleFiber {
@@ -72,6 +83,10 @@ private:
   bool pageActive_ = false;
   bool inThink_ = false;
   mc_number_t lastThinkTime_ = 0;
+  /** Index of the active page; meaningful only while {@link pageActive_}. */
+  uint32_t currentPageIndex_ = 0;
+  /** Index of the page a {@link requestPageChange} asked to switch to. */
+  uint32_t desiredPageIndex_ = 0;
 };
 
 } // namespace mindcraft

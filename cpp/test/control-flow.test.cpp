@@ -31,6 +31,7 @@ using mindcraft::RunResult;
 using mindcraft::RunStatus;
 using mindcraft::RuntimeSurface;
 using mindcraft::Span;
+using mindcraft::Status;
 using mindcraft::Value;
 using mindcraft::ValueTag;
 using mindcraft::VmObserver;
@@ -213,6 +214,49 @@ TEST_CASE("YIELD suspends the fiber to the next round and preserves locals") {
   REQUIRE(finished->exec.stackDepth == 1);
   CHECK(finished->exec.stack[0].tag() == ValueTag::Boolean);
   CHECK(finished->exec.stack[0].asBoolean());
+}
+
+TEST_CASE("a YIELD inside a sync action hook faults ScriptError and the hook runner reports it") {
+  // A page-lifecycle hook runs as a sync action frame, so its YIELD cannot
+  // suspend: the dispatch loop faults ScriptError and runActionHook returns it.
+  ProgramBuilder b;
+  b.valueNil();
+  b.beginFunction().instr(Op::YIELD).instr(Op::PUSH_CONST_VAL, 0).instr(Op::RET);
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  ExecutionContext ctx;
+  RuntimeSurface surface{&ctx, {}, nullptr};
+  std::vector<uint8_t> arenaStorage(16 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  FiberScheduler scheduler(image, surface, arena);
+
+  const Status hook = scheduler.runActionHook(0, 0, 0);
+  CHECK_FALSE(hook.isOk());
+  CHECK(hook.error() == ErrorCode::ScriptError);
+}
+
+TEST_CASE("STORE_CALLSITE_VAR outside any action frame faults ScriptError") {
+  // A rule fiber carries no action binding, so a callsite-var store finds no
+  // bound call site and faults.
+  ProgramBuilder b;
+  b.number(1.0f);
+  b.beginFunction().instr(Op::PUSH_CONST_NUM, 0).instr(Op::STORE_CALLSITE_VAR, 0).instr(Op::RET);
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  ExecutionContext ctx;
+  std::vector<uint8_t> arenaStorage(16 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  REQUIRE(ctx.bindSlots(arena, 0, 1, 1));
+  FaultObserver observer;
+  RuntimeSurface surface{&ctx, {}, &observer};
+  FiberScheduler scheduler(image, surface, arena);
+  REQUIRE(scheduler.spawn(0).isOk());
+
+  scheduler.tick();
+  REQUIRE(observer.codes.size() == 1);
+  CHECK(observer.codes[0] == ErrorCode::ScriptError);
 }
 
 // --- Grow-on-demand regions reach the caps and fault StackOverflow --------------

@@ -55,25 +55,92 @@ struct ExecutionContext {
   Span<bool> callSiteStatePresent{};
 
   /**
-   * Allocates the slot tables from `arena`: `variableCount` brain-variable
-   * slots (initialized to nil) and `callSiteCount` per-callsite state slots
-   * (initially absent). Returns false when the arena cannot back them, leaving
-   * the tables empty.
+   * Bytecode-addressable per-callsite state slots backing `LOAD_CALLSITE_VAR` /
+   * `STORE_CALLSITE_VAR`: a flat row-major pad of `callSiteCount` rows by
+   * {@link callSiteSlotStride} columns, indexed by the active action's
+   * call-site id and the operand slot index. Brain-instance-scoped: a slot
+   * persists across action calls and page changes. Nil until written.
    */
-  bool bindSlots(RegionArena& arena, uint32_t variableCount, uint32_t callSiteCount) {
+  Span<Value> callSiteSlots{};
+
+  /**
+   * Columns per call site in {@link callSiteSlots}: the program's largest
+   * callsite-var index plus one, 0 when the program uses no callsite vars.
+   */
+  uint32_t callSiteSlotStride = 0;
+
+  /**
+   * Whether each call site's persistent state has been allocated. Drives the
+   * once-only action initializer hook: it fires the first time a call site is
+   * activated and never again for the brain's lifetime. False until then.
+   */
+  Span<bool> callSiteAllocated{};
+
+  /**
+   * Allocates the slot tables from `arena`: `variableCount` brain-variable
+   * slots (initialized to nil), `callSiteCount` per-callsite host-state slots
+   * (initially absent), and the `callSiteCount` by `callSiteSlotStride`
+   * bytecode callsite-var pad (initialized to nil) plus its allocation flags.
+   * Returns false when the arena cannot back them, leaving the tables empty.
+   */
+  bool bindSlots(RegionArena& arena, uint32_t variableCount, uint32_t callSiteCount,
+                 uint32_t slotStride = 0) {
     Value* vars = arena.allocate<Value>(variableCount);
     Value* states = arena.allocate<Value>(callSiteCount);
     bool* present = arena.allocate<bool>(callSiteCount);
+    const uint32_t slotTotal = callSiteCount * slotStride;
+    Value* slots = arena.allocate<Value>(slotTotal);
+    bool* allocated = arena.allocate<bool>(callSiteCount);
     if ((variableCount > 0 && vars == nullptr) ||
-        (callSiteCount > 0 && (states == nullptr || present == nullptr))) {
+        (callSiteCount > 0 && (states == nullptr || present == nullptr || allocated == nullptr)) ||
+        (slotTotal > 0 && slots == nullptr)) {
       return false;
     }
     for (uint32_t i = 0; i < variableCount; i++) {
       vars[i] = kNilValue;
     }
+    for (uint32_t i = 0; i < slotTotal; i++) {
+      slots[i] = kNilValue;
+    }
     variables = {vars, variableCount};
     callSiteStates = {states, callSiteCount};
     callSiteStatePresent = {present, callSiteCount};
+    callSiteSlots = {slots, slotTotal};
+    callSiteSlotStride = slotStride;
+    callSiteAllocated = {allocated, callSiteCount};
+    return true;
+  }
+
+  /**
+   * Reads bytecode callsite-var slot `idx` of `callSiteId`; nil when the index
+   * is past the slot stride (mirrors an unwritten slot). `callSiteId` must be
+   * within {@link callSiteAllocated}.
+   */
+  Value callSiteSlot(uint32_t callSiteId, uint32_t idx) const {
+    if (idx >= callSiteSlotStride) {
+      return kNilValue;
+    }
+    return callSiteSlots[callSiteId * callSiteSlotStride + idx];
+  }
+
+  /**
+   * Writes bytecode callsite-var slot `idx` of `callSiteId`. Requires
+   * `idx` < {@link callSiteSlotStride} and `callSiteId` within the pad.
+   */
+  void setCallSiteSlot(uint32_t callSiteId, uint32_t idx, const Value& value) {
+    callSiteSlots[callSiteId * callSiteSlotStride + idx] = value;
+  }
+
+  /**
+   * Marks `callSiteId`'s persistent state allocated, returning true the first
+   * time (when the action's one-time initializer hook must run) and false
+   * thereafter.
+   */
+  bool ensureCallSite(uint32_t callSiteId) {
+    if (callSiteAllocated[callSiteId]) {
+      return false;
+    }
+    callSiteAllocated[callSiteId] = true;
     return true;
   }
 

@@ -13,23 +13,35 @@ Status BrainRuntime::startup() {
   if (surface_.context == nullptr) {
     return Status::fail(ErrorCode::HostError);
   }
-  // Bind the brain-lifetime slot tables from the shared region, sized to the
-  // program: one slot per declared variable, and one call-site state slot per
-  // distinct call-site id.
+  // Bind the brain-lifetime slot tables from the shared region: one slot per
+  // declared variable, one host-state slot per distinct call-site id, and a
+  // per-callsite bytecode state pad whose column count is the program's
+  // largest callsite-var index plus one.
   uint32_t callSiteCount = 0;
   for (const ActionCallSite& site : program_.callSites) {
     if (site.callSiteId + 1 > callSiteCount) {
       callSiteCount = site.callSiteId + 1;
     }
   }
+  uint32_t callSiteSlotStride = 0;
+  for (const Instr& ins : program_.instructions) {
+    if (ins.op == Op::LOAD_CALLSITE_VAR || ins.op == Op::STORE_CALLSITE_VAR) {
+      if (ins.a + 1 > callSiteSlotStride) {
+        callSiteSlotStride = ins.a + 1;
+      }
+    }
+  }
   const uint32_t variableCount = static_cast<uint32_t>(program_.variableNames.size());
-  if (!surface_.context->bindSlots(scheduler_.arena(), variableCount, callSiteCount)) {
+  if (!surface_.context->bindSlots(scheduler_.arena(), variableCount, callSiteCount,
+                                   callSiteSlotStride)) {
     return Status::fail(ErrorCode::HostError);
   }
   lastThinkTime_ = 0;
   if (program_.pages.empty()) {
     return Status::ok();
   }
+  currentPageIndex_ = 0;
+  desiredPageIndex_ = 0;
   return activatePage(0);
 }
 
@@ -45,21 +57,45 @@ Status BrainRuntime::activatePage(uint32_t pageIndex) {
 
   for (uint32_t i = 0; i < page.callSitesCount; i++) {
     const ActionCallSite& site = program_.callSites[page.callSitesOffset + i];
-    if (site.binding != CallSiteBinding::Host) {
+    if (site.binding == CallSiteBinding::Host) {
+      // An unregistered action is skipped here; the existence check faults at
+      // dispatch, mirroring the TS activation flow.
+      const HostActionBinding* action = findHostActionById(surface_.actions, site.boundId);
+      if (action == nullptr || action->onPageEntered == nullptr) {
+        continue;
+      }
+      if (site.callSiteId >= ctx.callSiteStates.size()) {
+        return Status::fail(ErrorCode::HostError);
+      }
+      ctx.currentCallSiteId = site.callSiteId;
+      action->onPageEntered(action->hostData, ctx);
+      ctx.currentCallSiteId = kNoCallSiteId;
       continue;
     }
-    // An unregistered action is skipped here; the existence check faults at
-    // dispatch, mirroring the TS activation flow.
-    const HostActionBinding* action = findHostActionById(surface_.actions, site.boundId);
-    if (action == nullptr || action->onPageEntered == nullptr) {
+
+    // Bytecode call site: run the action's one-time initializer (only the first
+    // activation of this call site) and its per-activation hook, in that order.
+    if (!program_.hasActions || site.boundId >= program_.actions.size()) {
       continue;
     }
-    if (site.callSiteId >= ctx.callSiteStates.size()) {
+    if (site.callSiteId >= ctx.callSiteAllocated.size()) {
       return Status::fail(ErrorCode::HostError);
     }
-    ctx.currentCallSiteId = site.callSiteId;
-    action->onPageEntered(action->hostData, ctx);
-    ctx.currentCallSiteId = kNoCallSiteId;
+    const BytecodeAction& action = program_.actions[site.boundId];
+    if (action.initializerFuncId != kNoFuncId && ctx.ensureCallSite(site.callSiteId)) {
+      const Status hook =
+          scheduler_.runActionHook(action.initializerFuncId, site.boundId, site.callSiteId);
+      if (!hook.isOk()) {
+        return hook;
+      }
+    }
+    if (action.activationFuncId != kNoFuncId) {
+      const Status hook =
+          scheduler_.runActionHook(action.activationFuncId, site.boundId, site.callSiteId);
+      if (!hook.isOk()) {
+        return hook;
+      }
+    }
   }
 
   ruleFiberCount_ = 0;
@@ -76,6 +112,46 @@ Status BrainRuntime::activatePage(uint32_t pageIndex) {
   return Status::ok();
 }
 
+Status BrainRuntime::deactivateCurrentPage() {
+  const PageMetadata& page = program_.pages[currentPageIndex_];
+  ExecutionContext& ctx = *surface_.context;
+
+  // Run each bytecode call site's deactivation hook in call-site order, then
+  // cancel the page's rule fibers.
+  for (uint32_t i = 0; i < page.callSitesCount; i++) {
+    const ActionCallSite& site = program_.callSites[page.callSitesOffset + i];
+    if (site.binding != CallSiteBinding::Bytecode) {
+      continue;
+    }
+    if (!program_.hasActions || site.boundId >= program_.actions.size()) {
+      continue;
+    }
+    const BytecodeAction& action = program_.actions[site.boundId];
+    if (action.deactivationFuncId == kNoFuncId) {
+      continue;
+    }
+    const Status hook =
+        scheduler_.runActionHook(action.deactivationFuncId, site.boundId, site.callSiteId);
+    if (!hook.isOk()) {
+      return hook;
+    }
+  }
+
+  for (uint32_t i = 0; i < ruleFiberCount_; i++) {
+    scheduler_.cancel(ruleFibers_[i].fiberId);
+  }
+  ruleFiberCount_ = 0;
+  ctx.currentCallSiteId = kNoCallSiteId;
+  return Status::ok();
+}
+
+void BrainRuntime::requestPageChange(uint32_t pageIndex) {
+  if (pageIndex >= program_.pages.size()) {
+    return;
+  }
+  desiredPageIndex_ = pageIndex;
+}
+
 Status BrainRuntime::think(mc_number_t currentTimeMs) {
   if (inThink_) {
     return Status::fail(ErrorCode::HostError);
@@ -84,6 +160,22 @@ Status BrainRuntime::think(mc_number_t currentTimeMs) {
     return Status::ok();
   }
   inThink_ = true;
+
+  // A requested page switch deactivates the current page and activates the
+  // requested one before the tick's time is stamped.
+  if (currentPageIndex_ != desiredPageIndex_) {
+    const Status deactivated = deactivateCurrentPage();
+    if (!deactivated.isOk()) {
+      inThink_ = false;
+      return deactivated;
+    }
+    currentPageIndex_ = desiredPageIndex_;
+    const Status activated = activatePage(currentPageIndex_);
+    if (!activated.isOk()) {
+      inThink_ = false;
+      return activated;
+    }
+  }
 
   ExecutionContext& ctx = *surface_.context;
   ctx.time = currentTimeMs;

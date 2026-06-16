@@ -58,9 +58,9 @@ governing default that 7 and 8 are instances of; over-build has been the recurri
 failure, and a subtraction pass precedes every gate. When unsure, leave it out.
 
 Current focus: **Phase 6f2 (bytecode-action execution model: `ACTION_CALL` + callsite
-state + page lifecycle + `assertCanSuspend` + the context-variable host fns 48-51) - the
-second of three 6f sub-phases (6f1 metadata done, 6f3 native device surface next) that
-together make real microbit-v2 brains runnable on device.** Phases 6a (heap +
+state + page lifecycle + `assertCanSuspend`) - the second of four 6f sub-phases (6f1
+metadata done; 6f3 context-variable host fns; 6f4 native device surface) that together
+make real microbit-v2 brains runnable on device.** Phases 6a (heap +
 containers), 6b (structs + closures), 6c (core host-function library f32 +
 dynamic/managed strings), 6d (pinned numerics), 6e (exceptions, yield, and the
 grow-on-demand stack arena), and 6f1 (struct re-string v3 + type-registry foundation,
@@ -72,7 +72,7 @@ run. **The deploy arc is COMPLETE and hardware-proven** (2026-06-14):
 5a firmware + 5b patcher + 5c browser delivery - a brain authored in microbit-sim
 reaches a real micro:bit v2 by **download** (Blob -> drag-drop) or **WebUSB flash**
 (paired device), and `button-display` toggles the pixel both ways. With Phases 1-5
-done, what remains is opcode conformance (Phase 6a-6i); user-tile brains already
+done, what remains is opcode conformance (Phase 6a-6j); user-tile brains already
 patch + flash but run inert on device until 6f's bytecode-action support.
 Phase 5 is three sub-phases: **5a** (accepted 2026-06-13) is the
 cpp firmware foundation - the on-flash region/header format + build->patcher
@@ -125,15 +125,17 @@ run on device).
 | Phase 5c: microbit-sim Deploy - Download + WebUSB Flash (TS/web) | **Accepted (2026-06-14)** | Per-brain links in `BrainList`: a **"download"** link (build patched hex -> Blob, always shown) and, after **Connect micro:bit** pairing, a per-brain **"flash"** link. WebUSB via **`@microbit/microbit-connection`** (wraps dapjs) with **partial flashing** (changed pages only, SoftDevice intact); flasher in microbit-sim, wodal core reused unchanged. Firmware asset vendored via `npm run vendor:firmware`. Chromium-only; download is the fallback. **Both gates hardware-validated**; download hex asserted byte-identical to the 5b CLI in CI. **The deploy arc (5a+5b+5c) is COMPLETE.** See Phase Log. |
 | Phase 6a: Managed Heap + Value Containers | **Accepted (2026-06-14)** | Recursive mark-sweep GC + `SlabAllocator` (segregated free lists) + `ListObject`/`MapObject` in `managed-heap.*`; `LIST_*`/`MAP_*`/`TYPE_CHECK` wired; collect-on-alloc-fail at safe points, `FiberScheduler` is the `GcRoots` source; handles = arena byte-offsets. **As-built deviations (blessed): map hash index deferred** (ordered array + linear scan, LD9); **borrowed string-key equality by const-pool index** (managed-string keys need content compare in 6c). Gate: `container-ops` golden trace-parity + `managed-heap.test` (GC stress / cycles / aliasing) green x3 incl. UBSan. |
 | Phase 6b: Structs + Closures | **Accepted (2026-06-14)** | Closed structs (`StructObject` slab from TYPS `slotCount`; `STRUCT_*` id-based + deep-copy + `STORE_VAR_SLOT`), `INSTANCE_OF` (TYPS-index compare), `CALL`/`CALL_INDIRECT*`/closures (`CapturesObject`); collector traces struct slots + captures. Name-keyed fallback shipped **option (a)** (degrades parity-correct - no field names in binary). Blessed: struct-sizing seam; deep-copy `PinNode` GC-safety (accepted, not deterministically testable). **Committed follow-up: re-string struct field names** (non-negotiable; leads Phase 6f1, 2026-06-15). Gate: `struct-closure` golden + managed-heap/vm tests; check.sh x3. |
-| Phase 6c: Core Host-Function Library (f32) | **Accepted (2026-06-14)** | `HOST_CALL` dispatch (both ranges; core bodies only) + every non-pinned `CoreFuncId` in `core-host-functions.*`; **f32-native** (zero `double`/64-bit int - bit-identical to "f64 then fround" for `+ - * / % sqrt`, verified 120M pairs; exact `ToInt32`/`ToUint32`, Sterbenz `Math.round`); LCG RNG seed=`1` on `RuntimeSurface.rng`. **Managed strings**: immutable `Pool<StringObject>` + slab byte block (`kManagedStringRefBit`); `MapKey` content-compare unified across both string reps + traced. Pinned-deferred ids fault `ScriptError`. Value-vector gate in **wodal** (`core-host-fn-vectors`) - 628/628; check.sh x3 incl UBSan. Generalized 6b pin -> `Pin` RAII (collect-during-build now tested). Deferred: byte-only string builtins (ASCII-exact), `kNoTypeIdx` on container producers (->6f1), **context-variable host fns 48-51** (`ctx.brain`/`ctx.rule` `getVariable`/`setVariable`; carved out as "not core host-call bodies" -> fault, ->6f2). |
+| Phase 6c: Core Host-Function Library (f32) | **Accepted (2026-06-14)** | `HOST_CALL` dispatch (both ranges; core bodies only) + every non-pinned `CoreFuncId` in `core-host-functions.*`; **f32-native** (zero `double`/64-bit int - bit-identical to "f64 then fround" for `+ - * / % sqrt`, verified 120M pairs; exact `ToInt32`/`ToUint32`, Sterbenz `Math.round`); LCG RNG seed=`1` on `RuntimeSurface.rng`. **Managed strings**: immutable `Pool<StringObject>` + slab byte block (`kManagedStringRefBit`); `MapKey` content-compare unified across both string reps + traced. Pinned-deferred ids fault `ScriptError`. Value-vector gate in **wodal** (`core-host-fn-vectors`) - 628/628; check.sh x3 incl UBSan. Generalized 6b pin -> `Pin` RAII (collect-during-build now tested). Deferred: byte-only string builtins (ASCII-exact), `kNoTypeIdx` on container producers (->6f1), **context-variable host fns 48-51** (`ctx.brain`/`ctx.rule` `getVariable`/`setVariable`; carved out as "not core host-call bodies" -> fault, ->6f3). |
 | Phase 6d: Pinned Numerics | **Accepted (2026-06-14)** | All 12 pinned f32 components in lockstep (TS + C++ + shared wodal vectors). 10 transcendentals ported from **Cephes single** (explicit binary32, zero `double`; `exp`/`log` loop-`frexp`/`ldexp`; `pow` = ECMAScript specials + integer binary-exp + `exp(y*log\|x\|)`). `formatNumber` = Ryu f2d (Apache/Boost) + `String(Number)` grammar, shortest-f32 (Luau-safe limb mulShift); `parseNumber` C++ = integer strtod (parseFloat grammar, no `double`). `-ffp-contract=off` per-source on `binary32-*.cpp` (FMA guard + test). Gate: `pinned-numerics-vectors` (2014 records) -> `pinned-numerics-parity.test.cpp` (6270 assertions), negative-control proven; check.sh x3 incl ASan+UBSan. No pinned id faults `ScriptError` anymore. |
 | Phase 6e: Exceptions, Yield + Grow-On-Demand Stack Arena | **Accepted (2026-06-14)** | `TRY`/`END_TRY`/`THROW` + `YIELD` (C++ mirror of vm.ts). `FiberWorkspace` deleted -> `StackRegionAllocator` (dedicated `SlabAllocator`, list-backing realloc); four per-fiber regions grow 8/4/2/1 toward the caps; `ExecutionState` cap/capacity split; **last LD7 worst-case reservation removed**. Caps reconciled 256/256/64/16 (added TS `maxLocalsSize`, threaded the profile caps into `new VM` - root-caused the silent 4096/256/64 default). Dedicated stack slab means a grow never collects (faults only on arena exhaustion). Gate: exceptions-yield trace golden + `control-flow.test.cpp` + wodal `overflow-caps.spec.ts`; check.sh x3; core 911, wodal 116. 6f2 owes `assertCanSuspend`. |
-| Phase 6f1: Struct Re-string (v3) + Type-Registry Foundation | **Accepted (2026-06-15)** | Format v2->v3: TYPS struct entry carries `fieldCount` + `(nameStringIdx, fieldId)` pairs -> `findStructField` resolves `GET_FIELD`/`SET_FIELD`/`STRUCT_COPY_EXCEPT` (dynamic-key `obj[expr]`/`{...x}` now works, no longer degrades; static stays id-based, LD2). New `TypeRegistry` over `ProgramImage` on `RuntimeSurface` (`STRUCT_GET/SET_FIELD` rewritten to `read/writeStructFieldById`; native branch present, unused until 6f3); closes 6c container-typeId carryover (`MapKeys`->`List<key>`, `MapValues`->`List<Any>`, `StrSplit`->`List<String>`). Field-name resolution lives in the program type table (not a host registry). Gate: `dynamic-field-access` golden + value-vectors 628/628 w/ structural typeIds; all fixtures regen v3; check.sh x3; core 911, wodal 117. |
-| Phase 6f2: Bytecode-Action Execution Model | Planned | Sync `ACTION_CALL` branch + per-callsite state (`LOAD/STORE_CALLSITE_VAR`) + page-lifecycle hooks (initializer/deactivation funcIds) + the carried `assertCanSuspend` fault + **the deferred context-variable host fns 48-51** (`ctx.brain`/`ctx.rule` `getVariable`/`setVariable` by name; 6c left them faulting; rule-var store is new C++ state). Independent of the device surface. Gate: synthetic action/page-lifecycle trace golden + `getVariable`/`setVariable` parity fixture; check.sh x3. Needs 6b/6e. |
-| Phase 6f3: Native Device Surface (user-tile milestone) | Planned | Target host-fn surface (`HOST_CALL`>=1024 native method bodies via device ports) + native getters on the 6f1 registry + native-struct value representation -> **`user-tile-button-display` runs on hardware**. Scope-anchored to the fixture (not the full ABI). Gate: host trace parity (self-gate) + on-device (user-gated). Needs 6f1/6f2. |
-| Phase 6g: Async core | Planned | The generic `HandleTable`/`AWAIT`/WAITING-resume machinery + the three async opcodes; host-gated with a deterministic test async capability. **On the microbit-v2 critical path** (scroll, 6h, is a real async action) - not conformance-only. Needs 6e/6f2. |
-| Phase 6h: Display Scroll-Text (first async capability) | Planned | An **async** `display.scroll(text)` mirroring CODAL's cooperative blocking scroll: device resolution via the CODAL `ANIMATION_COMPLETE` bus event marshaled to a next-round handle resume; CODAL-matching scroll animation in C++ + wodal; **completion-time pinned in the microbit-v2 target layer** (wodal oracle + C++ mirror, not core `vm-contract.md`) so the resume round matches for parity. microbit-v2 raises `kMaxHandles>0` as a guard (dynamic `HandleTable`, LD7 - never a pool size). The async core's on-hardware gate. Needs 6g (+6c for computed strings). |
-| Phase 6i: Conformance + Parity Suite | Planned | Full golden parity set through both VMs; instruction-level trace mode; opcode-completeness check (no fault-on-unimplemented); shared input-script file format; the port-typing-seam resolution. Needs all. |
+| Phase 6f1: Struct Re-string (v3) + Type-Registry Foundation | **Accepted (2026-06-15)** | Format v2->v3: TYPS struct entry carries `fieldCount` + `(nameStringIdx, fieldId)` pairs -> `findStructField` resolves `GET_FIELD`/`SET_FIELD`/`STRUCT_COPY_EXCEPT` (dynamic-key `obj[expr]`/`{...x}` now works, no longer degrades; static stays id-based, LD2). New `TypeRegistry` over `ProgramImage` on `RuntimeSurface` (`STRUCT_GET/SET_FIELD` rewritten to `read/writeStructFieldById`; native branch present, unused until 6f4); closes 6c container-typeId carryover (`MapKeys`->`List<key>`, `MapValues`->`List<Any>`, `StrSplit`->`List<String>`). Field-name resolution lives in the program type table (not a host registry). Gate: `dynamic-field-access` golden + value-vectors 628/628 w/ structural typeIds; all fixtures regen v3; check.sh x3; core 911, wodal 117. |
+| Phase 6f2: Bytecode-Action Execution Model | Planned | Sync `ACTION_CALL` branch + per-callsite state (`LOAD/STORE_CALLSITE_VAR`) + page-lifecycle hooks (full set/order mirrored from `brain-runtime.ts`) + carried `assertCanSuspend`. Independent of the device surface and the context-var accessors. Gate: synthetic action/page trace golden; check.sh x3. Needs 6b/6e. |
+| Phase 6f3: Context-Variable Host Functions | Planned | The deferred `CoreFuncId`s 48-51 - `ctx.brain`/`ctx.rule` `getVariable`/`setVariable` by name (6c left them faulting). **Brain = slot-backed** (`variableNames` scan -> `ctx.variables`); **rule = NEW GC-traced per-rule dynamic name->value maps with ancestor-chain inheritance on read** (port `rule-services.ts`, not vm.ts; lazy-alloc, traced in `enumerateRoots`). Independent of 6f2; lands before 6f4 so the milestone has no silent state fault. Gate: `getVariable`/`setVariable` parity fixture incl. rule ancestor-inheritance + a rule-var GC test; check.sh x3. Needs 6b/6e. |
+| Phase 6f4: Native Device Surface (user-tile milestone) | Planned | Target host-fn surface (`HOST_CALL`>=1024 native method bodies via device ports) + native getters on the 6f1 registry + native-struct value representation -> **`user-tile-button-display` runs on hardware**. Scope-anchored to the fixture (not the full ABI). Gate: host trace parity (self-gate) + on-device (user-gated). Needs 6f1/6f2 (6f3 lands first for stateful brains). |
+| Phase 6g: Cap Parameterization (topology parity with TS) | Planned | Give the C++ scheduler a runtime caps struct sourced from the device profile by `ProgramImage::profileId` (mirrors TS threading `schedulerConfig` into `BrainRuntime`), replacing the global `constexpr` consumed directly in `spawn()`/`runActionHook()`/`tick()`. One profile row (microbit-v2) today; a second target is just another row. Caps stay LD7 runtime guards. Includes the **cap-parity guard** (C++ profile-caps table == wodal profile, profile-sourced, replacing the hand-copied literal asserts). Lands before 6i raises `kMaxHandles`. Needs the 3c scheduler. |
+| Phase 6h: Async core | Planned | The generic `HandleTable`/`AWAIT`/WAITING-resume machinery + the three async opcodes; host-gated with a deterministic test async capability. **On the microbit-v2 critical path** (scroll, 6i, is a real async action) - not conformance-only. Needs 6e/6f2. |
+| Phase 6i: Display Scroll-Text (first async capability) | Planned | An **async** `display.scroll(text)` mirroring CODAL's cooperative blocking scroll: device resolution via the CODAL `ANIMATION_COMPLETE` bus event marshaled to a next-round handle resume; CODAL-matching scroll animation in C++ + wodal; **completion-time pinned in the microbit-v2 target layer** (wodal oracle + C++ mirror, not core `vm-contract.md`) so the resume round matches for parity. microbit-v2 raises `kMaxHandles>0` as a guard (dynamic `HandleTable`, LD7 - never a pool size). The async core's on-hardware gate. Needs 6h (+6c for computed strings). |
+| Phase 6j: Conformance + Parity Suite | Planned | Full golden parity set through both VMs; instruction-level trace mode; opcode-completeness check (no fault-on-unimplemented); shared input-script file format; the port-typing-seam resolution. Needs all. |
 
 ## Workflow Convention
 
@@ -999,7 +1001,7 @@ The TS VM is the oracle for each.
   `liveFibers x defaultBudget`. These are not free tuning knobs.
 - **Lesser, still pinned.** String ops follow JS UTF-16 semantics (length/index)
   where exposed; `time` / `dt` / `currentTick` are parity *inputs* the harness must
-  feed identically to both VMs; async handle resume ordering (Phase 6g) must match.
+  feed identically to both VMs; async handle resume ordering (Phase 6h) must match.
 
 ## Parity Transport (cross-phase infrastructure)
 
@@ -1027,7 +1029,7 @@ tests** - no live TS<->C++ process bridge, no JSON parser in C++:
   ~10-line schedule embedded in the TS spec and the C++ test, cross-referenced;
   drift is self-policing - diverging inputs fail the trace gate loudly): a
   shared script FILE format + a C++ parser for one fixture's ten lines would be
-  over-build. The **shared script-file format lands at Phase 6i**, where the
+  over-build. The **shared script-file format lands at Phase 6j**, where the
   golden suite (many programs x many scripts) gives it real consumers and
   hand-mirroring stops scaling.
 - **Observable trace.** Both VMs emit a deterministic, line-oriented trace of
@@ -1035,7 +1037,7 @@ tests** - no live TS<->C++ process bridge, no JSON parser in C++:
   faults with codes, per-tick boundaries). TS generates the committed golden; the
   C++ parity test runs the same program + script and byte-compares. An optional
   instruction-level trace mode (per-instruction pc/op/stack-depth) is the
-  divergence-localizing escalation, added in Phase 6i.
+  divergence-localizing escalation, added in Phase 6j.
 - **ABI binding comparison** (Prep B's guard): the **field-by-field parity test**
   is the cross-side check - every registered TS id has a C++ binding with a
   matching signature (id, key, kind, arity, ordered slot types, `isAsync`, result
@@ -1584,8 +1586,8 @@ Prep C.
   wodal ports in `targets/microbit-v2/abi/host-action-bindings.h`.
 - Ratified seams, do not re-raise: flag-bit string reservation; typeId = direct TYPS
   index; the f32->u8 display-port conversion lives in the C++ action body (the
-  port-typing seam, resolved in 6i - see Deferred Work); `RunStatus::Waiting` faults
-  `HostError` through the observer (unproduced until async, 6g); `sweep()` LIFO reclaim
+  port-typing seam, resolved in 6j - see Deferred Work); `RunStatus::Waiting` faults
+  `HostError` through the observer (unproduced until async, 6h); `sweep()` LIFO reclaim
   is parity-invisible. Caps (`kMaxStackSize`/`LocalsSize`/`FrameDepth`/`Handlers`/
   `Handles`) are runtime guards, never pre-sizing (LD7).
 
@@ -1685,7 +1687,7 @@ until 6f.
 
 ---
 
-## Phase 6: Full Conformance (split: 6a-6i)
+## Phase 6: Full Conformance (split: 6a-6j)
 
 Goal: Bring the C++ VM to full VM-contract conformance (every opcode), implement
 bytecode (user-tile) action execution, and stand up a golden parity suite that runs
@@ -1704,29 +1706,37 @@ independently-gated deliverable, none overweight:
 - **6d - Pinned numerics:** bit-exact transcendentals + f32 formatter + parseFloat.
 - **6e - Exceptions, yield + the grow-on-demand stack arena:** try/throw/yield; the
   `FiberWorkspace` worst-case block removed (the last Locked Decision 7 reservation).
-- **6f - Bytecode actions + the user-tile surface (split 6f1/6f2/6f3):** the
+- **6f - Bytecode actions + the user-tile surface (split 6f1/6f2/6f3/6f4):** the
   milestone - `user-tile-button-display` runs on real hardware. **6f1** = struct
   re-string (v3) + type-registry foundation; **6f2** = bytecode-action execution model
-  (`ACTION_CALL` + callsite + page lifecycle + `assertCanSuspend`); **6f3** = native
-  device surface, reaching the on-hardware run.
-- **6g - Async core:** the generic handles/await/WAITING-resume machinery + the
-  three async opcodes; host-gated. **On the microbit-v2 critical path** - scroll (6h)
+  (`ACTION_CALL` + callsite + page lifecycle + `assertCanSuspend`); **6f3** =
+  context-variable host fns (`ctx.brain`/`ctx.rule` `getVariable`/`setVariable`, 48-51);
+  **6f4** = native device surface, reaching the on-hardware run.
+- **6g - Cap parameterization (topology parity with TS):** the C++ scheduler sources
+  its caps from the device profile (by `profileId`) through a runtime config seam, as
+  the TS reference does, replacing the global `constexpr`; folds in the cap-parity
+  guard. Lands before 6i's `kMaxHandles` raise.
+- **6h - Async core:** the generic handles/await/WAITING-resume machinery + the
+  three async opcodes; host-gated. **On the microbit-v2 critical path** - scroll (6i)
   is a real async capability.
-- **6h - Display scroll-text (the first async capability):** an *async*
+- **6i - Display scroll-text (the first async capability):** an *async*
   `display.scroll(text)` mirroring CODAL's cooperative blocking scroll; the async
   core's on-hardware parity gate. microbit-v2 gains a handle budget here.
-- **6i - Conformance + parity suite:** full golden set green, instruction-trace
+- **6j - Conformance + parity suite:** full golden set green, instruction-trace
   mode, opcode-completeness check.
 
 Dependencies: 6a underlies all; 6b needs 6a; 6d needs 6c; 6e needs the 3b
-fiber/stack model; 6f1 needs 6b + 6c; 6f2 needs 6b + 6e; 6f3 needs 6f1 + 6f2; 6g needs
-6e + 6f2; 6h needs 6g (+ 6c for the computed-string variant); 6i needs all. **The
-microbit-v2 critical path is 6a -> 6b -> 6c -> 6f1 -> 6f2 -> 6f3** for user-tile brains,
-**plus 6g -> 6h for the scroll capability** (an async host action, so async is on the
+fiber/stack model; 6f1 needs 6b + 6c; 6f2 needs 6b + 6e; 6f3 needs 6b + 6e (independent
+of 6f2); 6f4 needs 6f1 + 6f2 (6f3 lands first for stateful brains); 6g needs the 3c
+scheduler (independent of the 6f arc; lands before 6i's `kMaxHandles` raise); 6h needs
+6e + 6f2; 6i needs 6h (+ 6c for the computed-string variant); 6j needs all. **The
+microbit-v2 critical path is 6a -> 6b -> 6c -> 6f1 -> 6f2 -> 6f3 -> 6f4** for user-tile
+brains,
+**plus 6h -> 6i for the scroll capability** (an async host action, so async is on the
 path now, not conformance-only) and 6d for numeric parity.
 
 **Opcode coverage (every `Op` has a home).** A one-time audit (2026-06-14) assigning
-each opcode to the phase that implements it - 6i's conformance check is the backstop,
+each opcode to the phase that implements it - 6j's conformance check is the backstop,
 but no opcode is left orphaned. "Done" = live in the Phase 1-3 slice (`vm.cpp`).
 
 | Phase | Opcodes |
@@ -1737,11 +1747,11 @@ but no opcode is left orphaned. "Done" = live in the Phase 1-3 slice (`vm.cpp`).
 | 6c | `HOST_CALL`40 (the opcode dispatch + the ~96 `CoreFuncId` bodies) |
 | 6e | `YIELD`51 `TRY`60 `END_TRY`61 `THROW`62 |
 | 6f2 | `ACTION_CALL`42 `LOAD_CALLSITE_VAR`140 `STORE_CALLSITE_VAR`141 |
-| 6g | `HOST_CALL_ASYNC`41 `ACTION_CALL_ASYNC`43 `HOST_ACTION_CALL_ASYNC`45 `AWAIT`50 |
+| 6h | `HOST_CALL_ASYNC`41 `ACTION_CALL_ASYNC`43 `HOST_ACTION_CALL_ASYNC`45 `AWAIT`50 |
 | Reserved | `RESERVED_111`111 `RESERVED_112`112 - decode but permanently fault; **no handler, ever** |
 
-6d / 6h / 6i add no new opcodes (6d swaps host-fn *implementations*; 6h is a
-host-action capability over `HOST_ACTION_CALL_ASYNC`45; 6i verifies completeness).
+6d / 6i / 6j add no new opcodes (6d swaps host-fn *implementations*; 6i is a
+host-action capability over `HOST_ACTION_CALL_ASYNC`45; 6j verifies completeness).
 
 ### Phase 6a: Managed Heap + Value Containers - ACCEPTED 2026-06-14 (host build)
 
@@ -1770,7 +1780,7 @@ Closed/program-local structs + closures, host-parity. As built:
   TYPS `StructOf.slotCount`), its own `Pool<T>`, GC-traced. `STRUCT_NEW` (reserved-0
   `a`, optional type-index `b`), `STRUCT_GET_FIELD`/`STRUCT_SET_FIELD <fieldId>`
   (direct slot; OOB read -> nil, write -> drop); `RESERVED_111`/`112`
-  decode-and-fault. (Native-backed structs remain 6f3; binary structs are always
+  decode-and-fault. (Native-backed structs remain 6f4; binary structs are always
   closed.)
 - **Value semantics:** `STRUCT_SET_FIELD` is a pure store; recursive struct-only deep
   copy at `STRUCT_DEEP_COPY` and the extended 3b `STORE_VAR_SLOT` (peek -> copy -> pop
@@ -1821,12 +1831,12 @@ See the Phase 6f1 accepted summary for the as-built and gate.
 ### Phase 6c: Core Host-Function Library (f32) - ACCEPTED 2026-06-14 (host build)
 
 `HOST_CALL` (40) dispatch (both id ranges; only **core** bodies land - target array
-stub until 6h et al.) + every non-pinned `CoreFuncId` operator/conversion/builtin in
+stub until 6i et al.) + every non-pinned `CoreFuncId` operator/conversion/builtin in
 new `core-host-functions.{h,cpp}` (`VmRng`, `HostCallEnv`, `callCoreHostFunction`),
 plus **dynamic (managed) strings**. (Carve-out, recorded after the fact: the
 **context-variable ids 48-51** - `ctx.brain`/`ctx.rule` `getVariable`/`setVariable` -
 were treated as "not core host-call bodies" and return `unsupported()`/`ScriptError`;
-they need the execution context, so they are scheduled in 6f2, not here.) As built:
+they need the execution context, so they are scheduled in 6f3, not here.) As built:
 
 - **Managed-string layout (as planned):** immutable `Pool<StringObject>`
   (`{char* bytes; uint32_t length; bool mark}`) owning one `SlabAllocator` byte block;
@@ -1991,10 +2001,12 @@ faults at the device caps, proving the threading + the new locals bound). `check
 
 Phase 6f is **the milestone that makes real microbit-v2 brains runnable** on device,
 beyond the host-only `button-display` slice (which 5c already deploys). It was the
-heaviest single phase, so it is split into three sub-phases along their natural seams
+heaviest single phase, so it is split into four sub-phases along their natural seams
 (decided 2026-06-15): the static type/struct metadata (6f1), the bytecode-action
-execution model (6f2), and the native device surface that reaches the milestone (6f3).
-6f1 and 6f2 are mutually independent; 6f3 needs both. Much of the data scaffolding
+execution model (6f2), the context-variable host functions (6f3), and the native device
+surface that reaches the milestone (6f4). 6f2 and 6f3 are independent of each other and
+each need only 6b/6e; 6f4 needs 6f1 + 6f2 (with 6f3 landing first so a stateful tile
+does not hit a silent fault at the milestone). Much of the data scaffolding
 already exists - the opcodes (`ACTION_CALL`=42, `LOAD/STORE_CALLSITE_VAR`=140/141), the
 decoded actions table (`program.h` `BytecodeAction` + `ActionCallSite` +
 `ProgramImage::actions`/`hasActions`, including the lifecycle funcIds), callsite-state
@@ -2020,7 +2032,7 @@ Static type/struct metadata, TS + C++ in lockstep. As built:
   `nativeStructGetter`/`Setter`), on `RuntimeSurface` as `const TypeRegistry* types` +
   threaded into `HostCallEnv`. 6b's `STRUCT_GET/SET_FIELD` rewritten into
   `readStructFieldById`/`writeStructFieldById`; the native getter/setter branch is present
-  but never taken (no env types until 6f3).
+  but never taken (no env types until 6f4).
 - **6c carryover closed:** `MapKeys`->`List<keyType>` (default `String`),
   `MapValues`->`List<Any>`, `StrSplit`->`List<String>`, resolved via the registry
   (`kNoTypeIdx` only when the program lacks the type).
@@ -2029,7 +2041,7 @@ Blessed decisions: (1) **field-name resolution lives in the program type table, 
 host registry** - both VMs fall back to `prog.types[idx].structOf.fields` /
 `findStructField` for program-local structs (truest mirror; no fabricated field typeIds;
 no `runtime.types` registration at load). (2) `INSTANCE_OF` unchanged (type-table-index
-equality IS the program-local identity; env identity is 6f3). (3) The container-typeId
+equality IS the program-local identity; env identity is 6f4). (3) The container-typeId
 gate uses a **table-free structural typeId** (`atom <id> | list <elem> | map <k> <v> |
 none`) both VMs encode independently - so the assertion shares no table indices.
 
@@ -2042,49 +2054,76 @@ updated in-unit (struct `fields`, TYPS row, version 2->3, resolution note).
 
 #### Phase 6f2: Bytecode-Action Execution Model
 
-The action calling convention and page lifecycle; independent of the device surface
-(gateable with synthetic actions, no microbit).
+The action calling convention and page lifecycle; independent of the device surface and
+the context-variable accessors (gateable with synthetic actions, no microbit).
 
 - **The `ACTION_CALL` (sync) bytecode branch + per-callsite state.** Enter a bytecode
   action frame (extend 6b's `pushCallFrame` with the `actionBinding` + set
   `currentCallSiteId`); args laid out as locals via the calling convention;
   `LOAD/STORE_CALLSITE_VAR` resolve `currentCallSiteId` + index against the existing
-  callsite slots. (`ACTION_CALL_ASYNC` is the async branch - Phase 6g.)
+  callsite slots. (`ACTION_CALL_ASYNC` is the async branch - Phase 6h.)
 - **Page-lifecycle completion.** `brain-runtime.h` already does page activation + the
-  page-entered hook + root-rule spawn; add dispatch of the decoded
-  initializer/deactivation lifecycle funcIds on page activate/deactivate.
-- **Context-variable host functions (the deferred `CoreFuncId`s 48-51).** The
-  user-facing `ctx.brain.getVariable(name)`/`setVariable(name, v)` and
-  `ctx.rule.getVariable(name)`/`setVariable(name, v)` compile to `HOST_CALL` ->
-  `BrainContextGetVariable`=48 / `BrainContextSetVariable`=49 /
-  `RuleContextGetVariable`=50 / `RuleContextSetVariable`=51 - **by-name** at runtime
-  (even for a string literal; the compiler does not lower these to `LOAD_VAR_SLOT`).
-  6c carved these out (`callCoreHostFunction` returns `unsupported()` -> `ScriptError`
-  for the "Context/sensor/actuator ids"), so they fault on device today and **no other
-  6f sub-phase covers them** - they belong here, with the execution context.
-  - **Brain (48/49):** resolve the name -> slot by scanning the program's
-    `variableNames` pool (CSTR content compare, using 6c's unified string compare),
-    then read/write `ctx.variables[slot]`. Machinery already exists (the pool is in the
-    decoded image; `ctx.variables` is the slot store).
-  - **Rule (50/51):** the same shape against **rule-variable state**, which the C++
-    `ExecutionContext` does **not** carry yet - add the rule-var store (keyed off the
-    frame's `ruleFuncId`), mirroring vm.ts's `ruleVars`. This is the one piece with no
-    existing C++ backing.
-  - Dispatch from `vm.cpp`'s `HOST_CALL` handler (it has `surface.context` + the
-    program), not from the context-free `callCoreHostFunction`; mirror vm.ts's
-    `brainVars`/`ruleVars` by-name resolution exactly.
+  page-entered hook + root-rule spawn; add dispatch of the remaining decoded lifecycle
+  funcIds on page activate/deactivate. **Enumerate the exact hook set + firing order
+  from `brain-runtime.ts` and mirror it** (do not invent): the per-page
+  initializer/activation/deactivation funcIds carried on the decoded `BytecodeAction`,
+  the page-entered hook (already present), and what fires on a page *change* (deactivate
+  old -> activate new) vs first activation. Pin which run once vs per-activation.
 - **Carried from 6e (required):** add the `assertCanSuspend` fault now that sync
   `ACTION_CALL` frames exist - a `YIELD`/await inside a sync action frame must fault
-  (mirror vm.ts).
+  (the frame's `actionBinding.isAsync` is false; mirror vm.ts).
 
 Gate: a synthetic action/page-lifecycle trace golden (an action call laying args as
 locals, callsite state persisting across calls, page enter/leave running the lifecycle
-funcIds, and a `YIELD`-in-sync-action fault) byte-matches; a **`getVariable`/`setVariable`
-parity fixture** exercises brain- and rule-variable get/set by name (round-trip + a
-miss) on both sides - so the by-name path is actually covered, not silently faulting;
+funcIds in the mirrored order, and a `YIELD`-in-sync-action fault) byte-matches;
 `check.sh` x3.
 
-#### Phase 6f3: Native Device Surface - the User-Tile Milestone
+#### Phase 6f3: Context-Variable Host Functions (brain + rule, by name)
+
+The deferred `CoreFuncId`s **48-51** - `ctx.brain.getVariable(name)`/`setVariable(name, v)`
+and `ctx.rule.getVariable(name)`/`setVariable(name, v)` - which compile to `HOST_CALL` ->
+`BrainContextGetVariable`=48 / `BrainContextSetVariable`=49 / `RuleContextGetVariable`=50 /
+`RuleContextSetVariable`=51, **by-name** at runtime (even for a string literal; the
+compiler does not lower these to `LOAD_VAR_SLOT`). 6c carved them out
+(`callCoreHostFunction` returns `unsupported()` -> `ScriptError` for the
+"Context/sensor/actuator ids"), so they fault on device today. Independent of 6f2 (they
+run from rule-body fibers via `currentRuleFuncId`, needing no `ACTION_CALL`/callsite/page
+machinery). Dispatch from `vm.cpp`'s `HOST_CALL` handler (it has `surface.context` + the
+program), not the context-free `callCoreHostFunction`. **The brain and rule stores are
+structurally different - do not treat them as one shape:**
+
+- **Brain (48/49) - slot-backed (simple).** Resolve name -> slot by scanning the
+  program's `variableNames` pool (CSTR content compare, 6c's unified string compare),
+  then read/write `ctx.variables[slot]`. Machinery already exists. Only get/set are
+  user-reachable (the service's `clearByName` is host-internal, not a `CoreFuncId`).
+- **Rule (50/51) - per-rule dynamic maps with ancestor inheritance (new, GC-traced).**
+  The reference is **`rule-services.ts` (`createRuleVariableServices`)**, NOT vm.ts
+  (vm.ts only delegates). There is **no program-declared rule-variable slot space** -
+  rule vars are a **map of `ruleFuncId` -> a dynamic name->value dict**, each dict
+  **allocated lazily on first write**. Semantics to mirror exactly:
+  - *Read* `getByName(ruleFuncId, name)`: check the current rule's own store; if
+    absent, **walk the ancestor chain** (`program.ruleAncestors` - the RANC pairs,
+    already decoded) up the parent-rule tree until a store has `name`, else nil.
+  - *Write* `setByName(ruleFuncId, name, value)`: writes **only** the current rule's
+    own store (lazily allocated); never writes through to ancestors.
+  - `currentRuleFuncId` resolves from the frame's `ruleFuncId` (the TS
+    `resolveFrameRuleFuncId` walk); an undefined rule -> write no-op, read nil.
+  - **GC + memory (LD7):** the per-rule dicts hold `Value`s, so they are a **new GC
+    root source** - `enumerateRoots` must trace every rule-var store - and they are
+    **allocated on demand** (no pre-sizing; managed-string keys, content-compared like
+    6c maps). This is genuinely new managed state, not a slot array.
+
+This lands **before** the 6f4 milestone so the "real brains run on device" claim is not
+shipped with a silent fault for any stateful tile (same logic that put re-string first).
+
+Gate: a **`getVariable`/`setVariable` parity fixture** covering, on both sides: brain
+get/set round-trip + a miss (-> nil); rule get/set round-trip + a miss; and the rule
+**ancestor-inheritance** cases - a child rule **reads** a var set on its parent
+(inherited), and a child **write does not propagate** to the parent (the trickiest
+semantics, must be exercised); a C++ GC test that a reachable rule-var store survives
+collection; `check.sh` x3.
+
+#### Phase 6f4: Native Device Surface - the User-Tile Milestone
 
 The native surface that makes a real user-tile brain run end-to-end. Needs 6f1 (the
 registry) and 6f2 (the action/page model). Internally indivisible: a button read is a
@@ -2121,7 +2160,53 @@ Gate, split by who can sign it off:
   toggles the pixel on real hardware (as 4b/5c were validated). The implementer builds
   the hex and reports host-gated + pending-hardware; final acceptance needs the device.
 
-### Phase 6g: Async Core
+### Phase 6g: Cap Parameterization - Topology Parity with TS
+
+The C++ VM mirrors the TS reference, and the TS reference **parameterizes** the
+scheduling/resource caps - it threads them from the device profile into the scheduler
+config at construction (`runtime.ts` -> `BrainRuntime({ defaultBudget, hookBudget,
+maxFibers, maxStackSize, maxLocalsSize, maxFrameDepth, maxHandlers })` from
+`getWodalDeviceProfile`). The C++ core instead hardcodes them as global `constexpr`
+consumed directly. That is a **topology divergence from the reference**, and it leaves
+the caps-equal-profile invariant with no structural home - maintained by hand, and it
+already drifted once (the 6e mismatch). This phase brings the C++ topology into line.
+It is not multi-target speculation (LD9): one profile row exists today; a second target
+is just another row.
+
+Scope:
+
+- **A C++ caps struct** mirroring the TS `schedulerConfig` + cap fields
+  (`defaultBudget`, `hookBudget`, `maxFibers`, `maxStackSize`, `maxLocalsSize`,
+  `maxFrameDepth`, `maxHandlers`, `maxHandles`). `FiberScheduler`'s constructor takes it
+  (mirroring TS threading config into the scheduler); `spawn()` / `runActionHook()` /
+  `tick()` read it instead of the globals.
+- **Profile-sourced selection.** A C++ profile-caps table keyed by
+  `ProgramImage::profileId` (decoded already; today only used for dump/trace headers)
+  with **one entry, microbit-v2**, mirroring the wodal device profile. The scheduler
+  selects its caps from the table by the program's `profileId`. A second target adds a
+  row; nothing general is built ahead of need.
+- **LD7 unchanged:** the values are still runtime upper-bound guards; regions grow on
+  demand toward them. This moves *where the numbers come from*, not what they mean.
+- **The cap-parity guard (folded in here):** the C++ profile-caps table must equal the
+  wodal device profile, **sourced from the profile, not a third literal copy** - unlike
+  `microbit-v2-abi.test.cpp` (literal asserts, fine for independently-wire-stable ABI
+  ids), caps have the profile as their source of truth, so a C++-only literal test would
+  not catch a profile-only change. Mechanism: wodal emits the profile caps to a
+  committed fixture; a C++ test asserts the table equals it (the `MC_WODAL_FIXTURES_DIR`
+  pattern), so a one-sided change on **either** side fails loudly. This **replaces** the
+  hand-copied literal cap asserts in `fiber-scheduler.test.cpp` / `vm.test.cpp`.
+
+Sequencing: lands **before 6i raises `kMaxHandles` from 0** so the new `maxHandles` cap
+enters the profile-sourced seam (and the parity guard) from the start, rather than being
+added as one more global to migrate later. Independent of 6h (async); needs only the 3c
+scheduler + the decoded `profileId`.
+
+Gate: the existing trace-parity goldens still byte-match through the parameterized
+scheduler (behavior unchanged - same values, sourced differently); the cap-parity guard
+passes (and fails loudly under a deliberate one-sided edit, negative-control proven);
+`check.sh` x3.
+
+### Phase 6h: Async Core
 
 Scope:
 
@@ -2130,7 +2215,7 @@ Scope:
   semantics, resume ordering per the Parity Surface, and the async host obligation
   (every async call resolves/rejects/cancels its handle). These semantics are
   **already core contract** (`vm-contract.md` - the async opcodes + the Prep C
-  "handle resumes join the next round" rule); 6g implements them in C++, it does not
+  "handle resumes join the next round" rule); 6h implements them in C++, it does not
   invent new core contract. Needs 6e's grow-on-demand stack arena (long-lived
   suspensions are its first real load) and 6f2's action machinery (for the bytecode `ACTION_CALL_ASYNC`
   branch).
@@ -2139,20 +2224,20 @@ Scope:
   `Handle[kMaxHandles]` array or a table sized to the cap; same discipline as
   `kMaxFibers` and the `kMaxHandlers` handler stack (6e).
 - **On the microbit-v2 critical path, not conformance-only:** the device's scroll
-  capability (6h) is a real async host action, so async is a *shipped microbit-v2
-  feature*, not just a contract requirement. This phase is the generic mechanism; 6h
-  is its first shipped consumer + on-hardware parity gate, and 6h is where
+  capability (6i) is a real async host action, so async is a *shipped microbit-v2
+  feature*, not just a contract requirement. This phase is the generic mechanism; 6i
+  is its first shipped consumer + on-hardware parity gate, and 6i is where
   microbit-v2's `kMaxHandles` is raised above 0.
 
 Gate (host): async goldens driven by a **deterministic test async capability** (a
 host function that resolves / rejects / cancels its handle on a fixed schedule) -
 await-resolve, reject, cancel, multi-waiter resume order - pass trace parity on the
-host build. (The real on-hardware async proof is 6h's scroll.)
+host build. (The real on-hardware async proof is 6i's scroll.)
 
-### Phase 6h: Display Scroll-Text - the First Async Capability (microbit-v2)
+### Phase 6i: Display Scroll-Text - the First Async Capability (microbit-v2)
 
 **The first shipped async capability on microbit-v2, and the async core's
-on-hardware parity gate.** Built on 6g; this is where microbit-v2 first registers a
+on-hardware parity gate.** Built on 6h; this is where microbit-v2 first registers a
 handle budget (`kMaxHandles > 0` in `execution-state.h`, replacing the Phase-3
 slice's 0). A real flagship micro:bit feature *and* the proof that async resolves
 correctly on device.
@@ -2170,7 +2255,7 @@ Scope:
 
 - **The async scroll host action** (`display-scroll-text`, dispatched async via
   `HOST_ACTION_CALL_ASYNC`): allocate a handle, start the scroll, return the handle;
-  the fiber AWAITs -> WAITING -> resumes on completion (per 6g). A new
+  the fiber AWAITs -> WAITING -> resumes on completion (per 6h). A new
   `MicroBitV2HostActions` entry (append-only id, Locked Decision 2), C++ binding +
   body, and the microbit-sim tile so a brain authors `display.scroll("...")`.
 - **Device resolution = the CODAL bus event** (confirmed in vendored source,
@@ -2241,12 +2326,12 @@ fiber resumes - the **same round** in both VMs) AND scrolls on real hardware wit
 fiber resuming after the animation; two concurrent scrolls serialize matching CODAL.
 This is the async core's first on-hardware validation.
 
-### Phase 6i: Conformance + Parity Suite
+### Phase 6j: Conformance + Parity Suite
 
 Scope:
 
 - The full parity suite: the two committed wodal fixtures plus the golden
-  `.mcprogram` set accumulated across 6a-6h, run through both VMs with the Parity
+  `.mcprogram` set accumulated across 6a-6i, run through both VMs with the Parity
   Transport script/trace artifacts; the **instruction-level trace mode** (the
   divergence-localizing escalation: per-instruction pc/op/stack-depth, emitted by
   the TS VM via a trace observer and the C++ VM via the passive hook) lands here.
@@ -2258,12 +2343,14 @@ Scope:
 - **Carve-out gate (covers the `HOST_CALL` fan-out, where opcode-completeness alone is
   blind):** a generated test asserts that the set of user-reachable lowering targets
   that fall to `default -> unsupported()` equals an explicit **allow-list**. The
-  allow-list is empty once 6f2 lands ids 48-51; any new carve-out then fails the build
+  allow-list is empty once 6f3 lands ids 48-51; any new carve-out then fails the build
   until it is either implemented or consciously allow-listed (a reviewer sees the edit).
   This is the durable guard for the class of gap that shipped silently in 6c (the
   context-variable ids were carved out as "not core bodies" and no fixture caught it).
   A one-time per-`CoreFuncId`/host-action census (2026-06-15) confirmed 48-51 were the
   only such carve-out; the gate keeps it that way.
+  (The scheduling/resource-cap parity guard moved to Phase 6g, where the caps become
+  profile-sourced.)
 
 Decisions to lock (before coding): the instruction-trace line format; the
 **shared input-script FILE format** (generalizing Phase 3's mirrored in-code
@@ -2305,7 +2392,7 @@ carry the contracts each produced.
   `GET_FIELD`/`SET_FIELD`/`STRUCT_COPY_EXCEPT` **resolve** (dynamic `obj[expr]`/`{...x}`
   works; static stays id-based, LD2). New `TypeRegistry` (`type-registry.h`) over
   `ProgramImage` on `RuntimeSurface`; `STRUCT_GET/SET_FIELD` rewritten to
-  `read/writeStructFieldById` (native branch present, unused until 6f3). 6c container
+  `read/writeStructFieldById` (native branch present, unused until 6f4). 6c container
   carryover closed (`MapKeys`->`List<key>`, `MapValues`->`List<Any>`,
   `StrSplit`->`List<String>`). Blessed: field-name resolution lives in the program type
   table, not a host registry (truest mirror); container-typeId gate uses a table-free
@@ -2433,7 +2520,7 @@ carry the contracts each produced.
   clamps", but the accepted `PixelDisplayPort` is u8-typed, so the f32->u8
   conversion (wodal-mirroring discard/clamp) lives in the C++ action body. For
   fractional or out-of-range COORDINATE args the TS trace emits a port line
-  the C++ side cannot - unexercised by the current golden. **Phase 6i must
+  the C++ side cannot - unexercised by the current golden. **Phase 6j must
   resolve it** before the golden suite exercises such args: either a
   float-typed port crossing or conversion semantics pinned in the contract.
 - Hosted CI (GitHub Actions) for this repo: deferred. "CI" today is the
@@ -2453,7 +2540,7 @@ carry the contracts each produced.
 - Additional micro:bit v2 host actions/sensors beyond button A and set-pixel
   (button B, logo touch, accelerometer, display image, etc.), each added to
   the registry -> mirrored-enum -> C++ table path. (**`display.scroll(text)` is
-  promoted out of this list** to a scheduled sub-phase, **Phase 6h** (the first
+  promoted out of this list** to a scheduled sub-phase, **Phase 6i** (the first
   async capability) - see Phase 6 - the async `display.scroll(text)` on-hardware
   gate, with managed-string scroll layering on 6c.)
 - Cross-device simulated medium on hardware (radio), and the matching device
@@ -2544,7 +2631,7 @@ each phase):
 - Phase 6a: the slab/size-class allocator backing the value-container pools over
   the shared region (mark-sweep strategy and dynamic-first allocation already
   locked - see Locked Decision 7; caps are runtime guards, not pool sizes).
-- Phase 6i: the instruction-trace line format and the golden program set
+- Phase 6j: the instruction-trace line format and the golden program set
   (including map cases that pin JS-`Map` insertion-order semantics, for forward-
   compatibility with future map-iteration opcodes; the `map` ordered-hashmap layout
   is already locked in Heap And Value Memory Model).

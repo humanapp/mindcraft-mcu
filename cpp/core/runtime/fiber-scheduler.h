@@ -26,18 +26,25 @@ inline constexpr uint32_t kInitialFrameSlots = 2;
 inline constexpr uint32_t kInitialHandlerSlots = 1;
 
 /**
- * Instruction budget granted to each fiber's slice of a tick. Mirrors the
- * microbit-v2 profile's `defaultBudget` (wodal `device-profile.ts`); the two
- * values must stay equal.
+ * Instruction budget granted to each fiber's slice of a scheduler round. One
+ * unit is consumed per dispatched instruction; a fiber that reaches zero
+ * suspends at the next instruction boundary and resumes in a later round.
  */
 inline constexpr int32_t kDefaultBudget = 1000;
 
 /**
- * Maximum number of concurrently live fibers, checked at spawn. Mirrors the
- * microbit-v2 profile's `maxFibers` (wodal `device-profile.ts`); the two values
- * must stay equal.
+ * Upper bound on concurrently live fibers, checked at spawn; a spawn past it
+ * faults `ErrorCode::StackOverflow`. A runtime guard, never a preallocation
+ * size.
  */
 inline constexpr uint32_t kMaxFibers = 100;
+
+/**
+ * Instruction budget granted to a synchronous page-lifecycle hook fiber for its
+ * single slice; a hook that does not complete within it cannot suspend and
+ * faults.
+ */
+inline constexpr int32_t kHookBudget = 10000;
 
 /** Sentinel fiber id; real ids start at 1. */
 inline constexpr uint32_t kNoFiberId = 0;
@@ -117,6 +124,19 @@ public:
    */
   Result<uint32_t> spawn(uint32_t funcId);
 
+  /**
+   * Runs a page-lifecycle hook function to completion synchronously, outside
+   * the round queue, as a sync bytecode action frame: the entry frame carries
+   * an action binding ({@link actionId}, {@link callSiteId}, not async) so the
+   * hook's `LOAD_CALLSITE_VAR` / `STORE_CALLSITE_VAR` resolve and a `YIELD`
+   * inside it faults. The hook gets one {@link kHookBudget} slice and must
+   * finish in it. Returns ok when the hook completes; fails with the fault
+   * code when it faults, and with `ErrorCode::ScriptError` when it cannot
+   * finish in one slice (it suspended). Mirrors `runBytecodeHook` in
+   * external/mindcraft-lang/packages/core/src/runtime/brain-runtime.ts.
+   */
+  Status runActionHook(uint32_t funcId, uint32_t actionId, uint32_t callSiteId);
+
   /** Cancels the fiber holding `fiberId`; a no-op when it is not live. */
   void cancel(uint32_t fiberId);
 
@@ -156,6 +176,12 @@ public:
   void enumerateRoots(GcMarker& marker) override;
 
 private:
+  // Reserves a fiber's record and four execution regions and pushes its entry
+  // frame for `funcId`, without enqueuing it. Returns the record, or nullptr
+  // with `err` set on a cap, region-exhaustion, or entry-frame failure. Shared
+  // by spawn (which then enqueues) and the synchronous hook runner.
+  FiberRecord* allocFiber(uint32_t funcId, ErrorCode& err);
+
   FiberRecord* findFiber(uint32_t fiberId);
   void enqueue(FiberRecord* record);
   FiberRecord* dequeue();

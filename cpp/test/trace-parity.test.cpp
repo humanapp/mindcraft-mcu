@@ -349,6 +349,107 @@ TEST_CASE("the dynamic-field-access fixture byte-matches the golden observable t
   CHECK(sink.text() == golden);
 }
 
+TEST_CASE("the sync-action-yield fixture byte-matches the golden observable trace") {
+  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/sync-action-yield";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  TraceTap tap(writer);
+
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  ExecutionContext ctx;
+  // ACTION_CALL and the YIELD-in-sync-action fault touch no managed heap.
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap};
+
+  FiberScheduler scheduler(image, surface, arena);
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // The rule yields legally across a round boundary, then a sync action yields
+  // and faults; three 16ms ticks mirror the TS oracle schedule. A per-fiber
+  // fault does not latch host-loop fault mode.
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 3; i++) {
+    const float timeMs = lastThinkTimeMs + 16;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+}
+
+TEST_CASE("the action-page-lifecycle fixture byte-matches the golden observable trace") {
+  const std::string base =
+      std::string(mindcraft::test::kWodalFixturesDir) + "/action-page-lifecycle";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  TraceTap tap(writer);
+
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  ExecutionContext ctx;
+  // The bytecode actions and lifecycle hooks touch no managed heap.
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap};
+
+  FiberScheduler scheduler(image, surface, arena);
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  // Startup runs page 0's initializer and activation hooks before tick 1.
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Page index requested before each tick; -1 leaves the current page in place.
+  // Switching to page 1 then back to page 0 mirrors the TS oracle schedule.
+  const int requestedPage[4] = {-1, -1, 1, 0};
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 4; i++) {
+    if (requestedPage[i] >= 0) {
+      brain.requestPageChange(static_cast<uint32_t>(requestedPage[i]));
+    }
+    const float timeMs = lastThinkTimeMs + 16;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+}
+
 TEST_CASE("the struct-closure fixture byte-matches the golden observable trace") {
   const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/struct-closure";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");

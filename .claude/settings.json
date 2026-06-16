@@ -42,6 +42,28 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/biome-gate.py\"",
+            "statusMessage": "Checking Biome (zero-noise) on changed TS/JS..."
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/biome-gate.py\"",
+            "statusMessage": "Checking Biome (zero-noise) on changed TS/JS..."
+          }
+        ]
+      }
     ]
   }
 }

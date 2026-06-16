@@ -238,7 +238,7 @@ bool constValueToRuntime(const ConstValue& constant, Value& out) {
  */
 bool pushCallFrame(ExecutionState& state, const ProgramImage& program, uint32_t calleeId,
                    uint32_t argc, uint32_t captures, bool exactArity, uint32_t extraDrop,
-                   ErrorCode& err) {
+                   bool hasActionBinding, const ActionFrameBinding& actionBinding, ErrorCode& err) {
   if (calleeId >= program.functions.size()) {
     err = ErrorCode::ScriptError;
     return false;
@@ -287,9 +287,24 @@ bool pushCallFrame(ExecutionState& state, const ProgramImage& program, uint32_t 
   callee.localsCount = fn.numLocals;
   callee.captures = captures;
   callee.ruleFuncId = kNoFuncId;
-  callee.hasActionBinding = false;
-  callee.actionBinding = ActionFrameBinding{0, 0, false};
+  callee.hasActionBinding = hasActionBinding;
+  callee.actionBinding = actionBinding;
   return true;
+}
+
+/**
+ * The action binding of the nearest enclosing action frame on `state`'s frame
+ * stack, or nullptr when no live frame carries one. Mirrors
+ * `getCurrentActionBinding` in
+ * external/mindcraft-lang/packages/core/src/runtime/vm.ts.
+ */
+const ActionFrameBinding* currentActionBinding(const ExecutionState& state) {
+  for (uint32_t i = state.frameDepth; i-- > 0;) {
+    if (state.frames[i].hasActionBinding) {
+      return &state.frames[i].actionBinding;
+    }
+  }
+  return nullptr;
 }
 
 } // namespace
@@ -586,6 +601,53 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       }
       surface.context->variables[ins.a] = stored;
       state.stackDepth--;
+      frame.pc++;
+      break;
+    }
+
+    case Op::LOAD_CALLSITE_VAR: {
+      // An unwritten or out-of-stride slot reads nil; no bound action is a
+      // host-contract violation.
+      if (surface.context == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      const ActionFrameBinding* binding = currentActionBinding(state);
+      if (binding == nullptr) {
+        return fault(ErrorCode::ScriptError);
+      }
+      ExecutionContext& ctx = *surface.context;
+      if (binding->callSiteId >= ctx.callSiteAllocated.size()) {
+        return fault(ErrorCode::HostError);
+      }
+      if (!pushValue(state, ctx.callSiteSlot(binding->callSiteId, ins.a))) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      frame.pc++;
+      break;
+    }
+
+    case Op::STORE_CALLSITE_VAR: {
+      // No bound action is a host-contract violation; a slot index past the
+      // program-sized pad is a script error.
+      if (surface.context == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      const ActionFrameBinding* binding = currentActionBinding(state);
+      if (binding == nullptr) {
+        return fault(ErrorCode::ScriptError);
+      }
+      ExecutionContext& ctx = *surface.context;
+      if (binding->callSiteId >= ctx.callSiteAllocated.size()) {
+        return fault(ErrorCode::HostError);
+      }
+      if (ins.a >= ctx.callSiteSlotStride) {
+        return fault(ErrorCode::ScriptError);
+      }
+      Value value;
+      if (!popValue(state, value)) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      ctx.setCallSiteSlot(binding->callSiteId, ins.a, value);
       frame.pc++;
       break;
     }
@@ -1043,7 +1105,8 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
         return fault(ErrorCode::StackUnderflow);
       }
       ErrorCode err = ErrorCode::ScriptError;
-      if (!pushCallFrame(state, program, ins.a, argc, kNoCaptures, true, 0, err)) {
+      if (!pushCallFrame(state, program, ins.a, argc, kNoCaptures, true, 0, false,
+                         ActionFrameBinding{0, 0, false}, err)) {
         return fault(err);
       }
       // The caller pc was advanced inside pushCallFrame; the callee runs next.
@@ -1066,7 +1129,31 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       const uint32_t captures = funcRef.functionCaptures();
       const bool exactArity = ins.op == Op::CALL_INDIRECT;
       ErrorCode err = ErrorCode::ScriptError;
-      if (!pushCallFrame(state, program, calleeId, argc, captures, exactArity, 1, err)) {
+      if (!pushCallFrame(state, program, calleeId, argc, captures, exactArity, 1, false,
+                         ActionFrameBinding{0, 0, false}, err)) {
+        return fault(err);
+      }
+      break;
+    }
+
+    case Op::ACTION_CALL: {
+      // Operand layout: a = action slot, b = argc, c = call-site id. Enter the
+      // action's entry function as a sync action frame; args lay out as locals
+      // like a direct call, and the frame's action binding keys callsite state.
+      const uint32_t actionSlot = ins.a;
+      const uint32_t argc = ins.b;
+      const uint32_t callSiteId = ins.c;
+      if (!program.hasActions || actionSlot >= program.actions.size()) {
+        return fault(ErrorCode::ScriptError);
+      }
+      if (argc > state.stackDepth) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      const BytecodeAction& action = program.actions[actionSlot];
+      ErrorCode err = ErrorCode::ScriptError;
+      const ActionFrameBinding binding{actionSlot, callSiteId, false};
+      if (!pushCallFrame(state, program, action.entryFuncId, argc, kNoCaptures, true, 0, true,
+                         binding, err)) {
         return fault(err);
       }
       break;
@@ -1378,8 +1465,13 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
     }
 
     case Op::YIELD: {
-      // Cooperative yield: advance past the opcode and suspend; the scheduler
-      // re-enqueues the fiber for the next round.
+      // A YIELD inside a sync action frame cannot suspend and faults; outside
+      // one (or inside an async action) it is a cooperative yield that suspends
+      // and re-enqueues the fiber for the next round. Mirrors assertCanSuspend.
+      const ActionFrameBinding* binding = currentActionBinding(state);
+      if (binding != nullptr && !binding->isAsync) {
+        return fault(ErrorCode::ScriptError);
+      }
       frame.pc++;
       return RunResult::yielded();
     }

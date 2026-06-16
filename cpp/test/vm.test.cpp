@@ -78,7 +78,10 @@ bool isImplementedOp(Op op) {
   case Op::LOAD_VAR_SLOT:
   case Op::STORE_VAR_SLOT:
   case Op::CALL:
+  case Op::ACTION_CALL:
   case Op::HOST_ACTION_CALL:
+  case Op::LOAD_CALLSITE_VAR:
+  case Op::STORE_CALLSITE_VAR:
   case Op::STRUCT_NEW:
   case Op::STRUCT_COPY_EXCEPT:
   case Op::STRUCT_GET_FIELD:

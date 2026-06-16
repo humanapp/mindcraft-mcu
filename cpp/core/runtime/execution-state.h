@@ -11,10 +11,8 @@ namespace mindcraft {
 class StackRegionAllocator;
 
 /**
- * Per-fiber operand-stack depth cap in values. Mirrors `VmConfig.maxStackSize`
- * in external/mindcraft-lang/packages/core/src/runtime/vm-types.ts, sized for
- * the device profile. Exceeding it faults `ErrorCode::StackOverflow`; the
- * region grows on demand toward this cap.
+ * Per-fiber operand-stack depth cap in values. A push past it faults
+ * `ErrorCode::StackOverflow`; the region grows on demand toward this cap.
  */
 inline constexpr uint32_t kMaxStackSize = 256;
 
@@ -26,23 +24,20 @@ inline constexpr uint32_t kMaxStackSize = 256;
 inline constexpr uint32_t kMaxLocalsSize = 256;
 
 /**
- * Per-fiber call-frame depth cap. Mirrors `VmConfig.maxFrameDepth`, sized for
- * the device profile. Exceeding it faults `ErrorCode::StackOverflow`; the
- * region grows on demand toward this cap.
+ * Per-fiber call-frame depth cap. A push past it faults
+ * `ErrorCode::StackOverflow`; the region grows on demand toward this cap.
  */
 inline constexpr uint32_t kMaxFrameDepth = 64;
 
 /**
- * Per-fiber try-handler depth cap. Mirrors `VmConfig.maxHandlers`, sized for
- * the device profile. Crossing it faults `ErrorCode::StackOverflow`; the
- * handler stack grows on demand toward this cap.
+ * Per-fiber try-handler depth cap. A push past it faults
+ * `ErrorCode::StackOverflow`; the handler stack grows on demand toward this cap.
  */
 inline constexpr uint32_t kMaxHandlers = 16;
 
 /**
- * Pending async-handle cap. Mirrors the `HandleTable` capacity in
- * external/mindcraft-lang/packages/core/src/runtime/vm-types.ts. Zero: the
- * device registers no async capabilities, so no handle may ever be created.
+ * Pending async-handle cap. Zero until async handles are implemented: no handle
+ * may be created and any async opcode faults.
  */
 inline constexpr uint32_t kMaxHandles = 0;
 

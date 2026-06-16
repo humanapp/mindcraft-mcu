@@ -16,12 +16,15 @@ Subagent task:
 ----
 You are an independent comment reviewer. Do NOT edit any files; only read and report.
 
-1. Collect the change's source diff (working tree vs HEAD), changed lines only:
-   `git diff -U0 HEAD -- '*.ts' '*.tsx' '*.cpp' '*.h' '*.hpp' '*.cc'`
-   If the invoker scoped paths, restrict the pathspec to those: $ARGUMENTS
-   (Changes inside the `external/mindcraft-lang` submodule do not appear in the
-   parent diff; if the change touched it, also run the same diff from inside
-   that directory.)
+1. Collect the change's source diff (changed lines only). Submodule file
+   changes do NOT appear in the parent diff, so diff BOTH the main repo and the
+   `external/mindcraft-lang` submodule:
+   - Main repo (working tree vs HEAD):
+     `git diff -U0 HEAD -- '*.ts' '*.tsx' '*.cpp' '*.h' '*.hpp' '*.cc'`
+   - Submodule, relative to the commit the parent records (this catches both
+     uncommitted edits and commits made inside the submodule):
+     `base=$(git rev-parse HEAD:external/mindcraft-lang) && git -C external/mindcraft-lang diff -U0 "$base" -- '*.ts' '*.tsx' '*.cpp' '*.h' '*.hpp' '*.cc'`
+   If the invoker scoped paths, restrict the pathspecs to those: $ARGUMENTS
 
 2. Read `.github/instructions/global.instructions.md`, section
    "Comments in Source Files". Treat it as the authority.

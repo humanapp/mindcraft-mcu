@@ -32,12 +32,16 @@ void FiberScheduler::enumerateRoots(GcMarker& marker) {
         marker.mark(ctx.callSiteStates[i]);
       }
     }
+    for (size_t i = 0; i < ctx.callSiteSlots.size(); i++) {
+      marker.mark(ctx.callSiteSlots[i]);
+    }
   }
 }
 
-Result<uint32_t> FiberScheduler::spawn(uint32_t funcId) {
+FiberRecord* FiberScheduler::allocFiber(uint32_t funcId, ErrorCode& err) {
   if (records_.liveCount() >= kMaxFibers) {
-    return Result<uint32_t>::fail(ErrorCode::StackOverflow);
+    err = ErrorCode::StackOverflow;
+    return nullptr;
   }
 
   // Reserve the four execution regions at their initial sizes; they grow on
@@ -59,7 +63,8 @@ Result<uint32_t> FiberScheduler::spawn(uint32_t funcId) {
     exec.frameCapacity = exec.frames != nullptr ? kInitialFrameSlots : 0;
     exec.handlerCapacity = exec.handlers != nullptr ? kInitialHandlerSlots : 0;
     releaseRegions(exec);
-    return Result<uint32_t>::fail(ErrorCode::StackOverflow);
+    err = ErrorCode::StackOverflow;
+    return nullptr;
   }
   exec.stackCapacity = kInitialStackSlots;
   exec.localsCapacity = kInitialLocalsSlots;
@@ -69,22 +74,65 @@ Result<uint32_t> FiberScheduler::spawn(uint32_t funcId) {
   FiberRecord* record = records_.alloc();
   if (record == nullptr) {
     releaseRegions(exec);
-    return Result<uint32_t>::fail(ErrorCode::StackOverflow);
+    err = ErrorCode::StackOverflow;
+    return nullptr;
   }
 
   const Status started = startExecution(exec, program_, funcId, {});
   if (!started.isOk()) {
     records_.free(record);
     releaseRegions(exec);
-    return Result<uint32_t>::fail(started.error());
+    err = started.error();
+    return nullptr;
   }
 
-  const uint32_t fiberId = nextFiberId_++;
-  record->id = fiberId;
+  record->id = nextFiberId_++;
   record->state = FiberState::Runnable;
   record->exec = exec;
+  return record;
+}
+
+Result<uint32_t> FiberScheduler::spawn(uint32_t funcId) {
+  ErrorCode err = ErrorCode::StackOverflow;
+  FiberRecord* record = allocFiber(funcId, err);
+  if (record == nullptr) {
+    return Result<uint32_t>::fail(err);
+  }
   enqueue(record);
-  return Result<uint32_t>::ok(fiberId);
+  return Result<uint32_t>::ok(record->id);
+}
+
+Status FiberScheduler::runActionHook(uint32_t funcId, uint32_t actionId, uint32_t callSiteId) {
+  ErrorCode err = ErrorCode::StackOverflow;
+  FiberRecord* record = allocFiber(funcId, err);
+  if (record == nullptr) {
+    return Status::fail(err);
+  }
+  // Mark the entry frame as a sync action frame bound to this action and call
+  // site.
+  record->exec.frames[0].hasActionBinding = true;
+  record->exec.frames[0].actionBinding = ActionFrameBinding{actionId, callSiteId, false};
+
+  record->exec.budget = kHookBudget;
+  const RunResult result = runExecution(record->exec, program_, surface_);
+
+  Status status = Status::ok();
+  switch (result.status) {
+  case RunStatus::Done:
+    break;
+  case RunStatus::Fault:
+    status = Status::fail(result.error);
+    break;
+  case RunStatus::Yielded:
+  case RunStatus::Waiting:
+    // A hook that did not complete in its single slice cannot suspend.
+    status = Status::fail(ErrorCode::ScriptError);
+    break;
+  }
+
+  releaseRegions(record->exec);
+  records_.free(record);
+  return status;
 }
 
 void FiberScheduler::releaseRegions(ExecutionState& exec) {
