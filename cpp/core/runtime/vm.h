@@ -18,6 +18,7 @@ namespace mindcraft {
 class ManagedHeap;
 class GcRoots;
 class TypeRegistry;
+class HandleTable;
 struct VmRng;
 
 /**
@@ -30,7 +31,7 @@ enum class RunStatus : uint8_t {
   Done,
   /** The instruction budget ran out; the state is suspended and resumable. */
   Yielded,
-  /** The state is blocked on a pending async handle. */
+  /** The state parked on a pending async handle (`AWAIT`); resumed on settle. */
   Waiting,
   /** Execution faulted; the state must not be re-entered. */
   Fault,
@@ -66,6 +67,12 @@ struct RunResult {
   /** A `Yielded` result: budget exhausted, state suspended and resumable. */
   static constexpr RunResult yielded() {
     return RunResult{RunStatus::Yielded, kNilValue, ErrorCode::HostError, {kNoFuncId, 0}};
+  }
+
+  /** A `Waiting` result: the fiber parked on a pending handle, recorded in its
+   * execution state's await site. */
+  static constexpr RunResult waiting() {
+    return RunResult{RunStatus::Waiting, kNilValue, ErrorCode::HostError, {kNoFuncId, 0}};
   }
 
   /** A `Fault` result carrying the classifier and faulting site. */
@@ -125,6 +132,13 @@ struct RuntimeSurface {
    * `ErrorCode::ScriptError`.
    */
   Span<const TargetHostFuncBinding> hostFunctions{};
+
+  /**
+   * Async-handle table backing `HOST_CALL_ASYNC`, `HOST_ACTION_CALL_ASYNC`, and
+   * `AWAIT`. Null when the scheduler configures no async capacity
+   * (`maxHandles == 0`); the async opcodes then fault `ErrorCode::HostError`.
+   */
+  HandleTable* handles = nullptr;
 };
 
 /**

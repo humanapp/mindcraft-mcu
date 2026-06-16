@@ -13,4 +13,19 @@ namespace mindcraft::test {
  */
 inline constexpr DeviceProfileCaps kDeviceProfileCaps = kMicroBitV2DeviceProfileCaps;
 
+/** Returns `caps` with its async-handle cap raised to `maxHandles`. */
+inline constexpr DeviceProfileCaps withMaxHandles(DeviceProfileCaps caps, uint32_t maxHandles) {
+  caps.maxHandles = maxHandles;
+  return caps;
+}
+
+/**
+ * The microbit-v2 caps with a positive async-handle cap, for tests that exercise
+ * `HOST_CALL_ASYNC` / `AWAIT`. The microbit-v2 profile itself keeps `maxHandles`
+ * at 0 until its first async capability ships; this variant only lifts that one
+ * guard so the async dispatch path can allocate handles.
+ */
+inline constexpr DeviceProfileCaps kAsyncDeviceProfileCaps =
+    withMaxHandles(kMicroBitV2DeviceProfileCaps, 16);
+
 } // namespace mindcraft::test

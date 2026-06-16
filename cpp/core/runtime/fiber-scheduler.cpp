@@ -7,10 +7,12 @@ namespace mindcraft {
 FiberScheduler::FiberScheduler(const ProgramImage& program, const RuntimeSurface& surface,
                                RegionArena& arena, const DeviceProfileCaps& caps)
     : program_(program), surface_(surface), arena_(arena), caps_(caps), records_(arena),
-      regions_(arena) {
+      regions_(arena), handles_(arena, caps.maxHandles) {
   // The scheduler is the heap's root source; point the surface the dispatch
   // loop runs against back at it so an allocation can collect over all fibers.
   surface_.roots = this;
+  // The async opcodes reach the handle table through the same surface.
+  surface_.handles = &handles_;
 }
 
 void FiberScheduler::enumerateRoots(GcMarker& marker) {
@@ -40,9 +42,12 @@ void FiberScheduler::enumerateRoots(GcMarker& marker) {
     // per-rule inner map and the values they hold.
     marker.mark(ctx.ruleVarStores);
   }
+  // A resolved handle holds its result value until a waiter consumes it, so the
+  // handle table is also a root source.
+  handles_.enumerateResults(marker);
 }
 
-FiberRecord* FiberScheduler::allocFiber(uint32_t funcId, ErrorCode& err) {
+FiberRecord* FiberScheduler::allocFiber(uint32_t funcId, bool inlineId, ErrorCode& err) {
   if (records_.liveCount() >= caps_.maxFibers) {
     err = ErrorCode::StackOverflow;
     return nullptr;
@@ -90,7 +95,7 @@ FiberRecord* FiberScheduler::allocFiber(uint32_t funcId, ErrorCode& err) {
     return nullptr;
   }
 
-  record->id = nextFiberId_++;
+  record->id = inlineId ? nextInlineFiberId_-- : nextFiberId_++;
   record->state = FiberState::Runnable;
   record->exec = exec;
   return record;
@@ -98,7 +103,7 @@ FiberRecord* FiberScheduler::allocFiber(uint32_t funcId, ErrorCode& err) {
 
 Result<uint32_t> FiberScheduler::spawn(uint32_t funcId) {
   ErrorCode err = ErrorCode::StackOverflow;
-  FiberRecord* record = allocFiber(funcId, err);
+  FiberRecord* record = allocFiber(funcId, false, err);
   if (record == nullptr) {
     return Result<uint32_t>::fail(err);
   }
@@ -108,7 +113,7 @@ Result<uint32_t> FiberScheduler::spawn(uint32_t funcId) {
 
 Status FiberScheduler::runActionHook(uint32_t funcId, uint32_t actionId, uint32_t callSiteId) {
   ErrorCode err = ErrorCode::StackOverflow;
-  FiberRecord* record = allocFiber(funcId, err);
+  FiberRecord* record = allocFiber(funcId, true, err);
   if (record == nullptr) {
     return Status::fail(err);
   }
@@ -156,12 +161,62 @@ void FiberScheduler::cancel(uint32_t fiberId) {
       (record->state != FiberState::Runnable && record->state != FiberState::Waiting)) {
     return;
   }
+  // A waiting fiber must leave its handle's waiter list so a later settle does
+  // not try to resume a cancelled fiber.
+  if (record->state == FiberState::Waiting && record->exec.awaiting) {
+    handles_.removeWaiter(record->exec.await.handleId, record->id);
+    record->exec.awaiting = false;
+  }
   record->state = FiberState::Cancelled;
   // Signal an in-flight dispatch slice (a self-cancel from a host body) to stop
   // at its next instruction boundary.
   record->exec.cancelled = true;
   // A cancelled record must leave the run queue before a sweep can free it.
   removeFromQueue(record);
+}
+
+void FiberScheduler::resumeFiberFromHandle(FiberRecord& record, const Handle& h) {
+  if (record.state != FiberState::Waiting || !record.exec.awaiting ||
+      record.exec.await.handleId != h.id) {
+    return;
+  }
+  ExecutionState& exec = record.exec;
+  const AwaitSite site = exec.await;
+  // Restore the operand and frame stacks to the await depths and resume at the
+  // instruction past the await. The handle was popped at AWAIT, so its slot is
+  // free for the resolved value.
+  exec.frameDepth = site.frameDepth;
+  exec.stackDepth = site.stackHeight;
+  exec.localsDepth = exec.frameDepth == 0 ? 0
+                                          : exec.frames[exec.frameDepth - 1].localsOffset +
+                                                exec.frames[exec.frameDepth - 1].localsCount;
+  if (exec.frameDepth > 0) {
+    exec.frames[exec.frameDepth - 1].pc = site.resumePc;
+  }
+  exec.awaiting = false;
+  record.state = FiberState::Runnable;
+
+  if (h.state == HandleState::Resolved) {
+    exec.stack[exec.stackDepth++] = h.result;
+  } else {
+    // Rejected or cancelled: throw the handle's error at the resume point.
+    exec.pendingInjectedThrow = true;
+    exec.injectedError = h.error;
+  }
+  enqueue(&record);
+}
+
+void FiberScheduler::drainCompletedHandles() {
+  for (Handle* h = handles_.popCompleted(); h != nullptr; h = handles_.popCompleted()) {
+    const uint32_t handleId = h->id;
+    for (HandleWaiter* waiter = h->waitersHead; waiter != nullptr; waiter = waiter->next) {
+      FiberRecord* record = findFiber(waiter->fiberId);
+      if (record != nullptr) {
+        resumeFiberFromHandle(*record, *h);
+      }
+    }
+    handles_.deleteHandle(handleId);
+  }
 }
 
 uint32_t FiberScheduler::tick() {
@@ -197,12 +252,11 @@ uint32_t FiberScheduler::tick() {
       }
       break;
     case RunStatus::Waiting:
-      // No async capability exists, so a Waiting slice is a host-contract
-      // violation: fault the fiber loudly rather than parking it.
-      record->state = FiberState::Fault;
-      if (surface_.observer != nullptr) {
-        surface_.observer->onFiberFault(record->id, ErrorCode::HostError);
-      }
+      // The fiber parked on a pending handle (AWAIT). Hold it Waiting and add it
+      // to the handle's waiters (the await site, including the handle id, lives
+      // on the fiber's execution state); a later drain resumes it on settle.
+      record->state = FiberState::Waiting;
+      handles_.addWaiter(record->exec.await.handleId, record->id);
       break;
     }
     executed++;

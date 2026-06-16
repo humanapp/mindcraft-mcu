@@ -4,6 +4,7 @@
 
 #include "core/platform/span.h"
 #include "core/runtime/execution-context.h"
+#include "core/runtime/result.h"
 #include "core/runtime/value.h"
 
 namespace mindcraft {
@@ -18,6 +19,17 @@ namespace mindcraft {
 using HostActionExecSync = Value (*)(void* hostData, ExecutionContext& ctx, Span<const Value> args);
 
 /**
+ * Asynchronous host-action body, serviced by `HOST_ACTION_CALL_ASYNC`. `args`
+ * is an owned snapshot of the positional arg buffer valid only for the duration
+ * of the call; the bound call site is `ctx.currentCallSiteId`; `handleId` is the
+ * pending handle the call owns. The body must arrange for that handle to
+ * eventually resolve, reject, or cancel. A non-ok status faults the dispatching
+ * call (the opcode frees the handle first).
+ */
+using HostActionExecAsync = Status (*)(void* hostData, ExecutionContext& ctx,
+                                       Span<const Value> args, uint32_t handleId);
+
+/**
  * Page-lifecycle hook of a host action. Invoked with the hook's call site
  * bound on `ctx.currentCallSiteId`.
  */
@@ -25,21 +37,26 @@ using HostActionPageHook = void (*)(void* hostData, ExecutionContext& ctx);
 
 /**
  * One registered host action: its stable action id, the synchronous body,
- * the optional page-activation hook, and the opaque pointer passed back to
- * both.
+ * the optional page-activation hook, the opaque pointer passed back to them,
+ * and the optional asynchronous body. An action is sync ({@link execSync} set,
+ * serviced by `HOST_ACTION_CALL`) or async ({@link execAsync} set, serviced by
+ * `HOST_ACTION_CALL_ASYNC`); the opcode validates the matching body is present.
  */
 struct HostActionBinding {
   /** Stable host-action id (the `HOST_ACTION_CALL` operand). */
   uint32_t actionId;
 
-  /** Synchronous body. Must be non-null. */
+  /** Synchronous body, or null when the action is asynchronous. */
   HostActionExecSync execSync;
 
   /** Hook run on page activation for each of the action's call sites, or null. */
   HostActionPageHook onPageEntered;
 
-  /** Opaque pointer handed to {@link execSync} and {@link onPageEntered}. */
+  /** Opaque pointer handed to {@link execSync}, {@link execAsync}, and {@link onPageEntered}. */
   void* hostData;
+
+  /** Asynchronous body, or null when the action is synchronous. */
+  HostActionExecAsync execAsync = nullptr;
 };
 
 /**

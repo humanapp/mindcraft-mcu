@@ -110,6 +110,9 @@ bool isImplementedOp(Op op) {
   case Op::TRY:
   case Op::END_TRY:
   case Op::THROW:
+  case Op::HOST_CALL_ASYNC:
+  case Op::HOST_ACTION_CALL_ASYNC:
+  case Op::AWAIT:
     return true;
   default:
     return false;

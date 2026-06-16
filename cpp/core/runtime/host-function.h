@@ -21,18 +21,36 @@ namespace mindcraft {
 using TargetHostFuncExec = Status (*)(void* hostData, Span<const Value> args, Value& result);
 
 /**
+ * An asynchronous target host-function body: services one `HOST_CALL_ASYNC`
+ * whose funcId is at or above {@link TARGET_FUNC_ID_BASE}. `args` is an owned
+ * snapshot of the positional arg buffer valid only for the duration of the
+ * call; `handleId` is the pending handle the call owns. The body must arrange
+ * for that handle to eventually resolve, reject, or cancel. A non-ok status
+ * faults the dispatching call (the opcode frees the handle first). `hostData`
+ * is the pointer the function was registered with.
+ */
+using TargetHostFuncExecAsync = Status (*)(void* hostData, Span<const Value> args,
+                                           uint32_t handleId);
+
+/**
  * One registered target host function: its stable funcId, the body, and the
- * opaque pointer passed back to the body.
+ * opaque pointer passed back to the body. A function is either synchronous
+ * ({@link exec} set, serviced by `HOST_CALL`) or asynchronous
+ * ({@link execAsync} set, serviced by `HOST_CALL_ASYNC`); exactly one body is
+ * non-null.
  */
 struct TargetHostFuncBinding {
   /** Stable host-function id (the `HOST_CALL` operand), >= `TARGET_FUNC_ID_BASE`. */
   uint32_t funcId;
 
-  /** Body. Must be non-null. */
+  /** Synchronous body, or null when the function is asynchronous. */
   TargetHostFuncExec exec;
 
-  /** Opaque pointer handed to {@link exec}. */
+  /** Opaque pointer handed to {@link exec} or {@link execAsync}. */
   void* hostData;
+
+  /** Asynchronous body, or null when the function is synchronous. */
+  TargetHostFuncExecAsync execAsync = nullptr;
 };
 
 /**

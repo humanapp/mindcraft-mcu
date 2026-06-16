@@ -178,6 +178,9 @@ public:
   /** True when the tag is `Err` (a VM-internal error value). */
   constexpr bool isErr() const { return tag_ == ValueTag::Err; }
 
+  /** True when the tag is `Handle` (a VM-internal async handle value). */
+  constexpr bool isHandle() const { return tag_ == ValueTag::Handle; }
+
   /** The boolean payload. Requires tag `Boolean`. */
   constexpr bool asBoolean() const { return payload_.boolean; }
 

@@ -3,12 +3,30 @@
 #include <cstdint>
 #include <type_traits>
 
+#include "core/runtime/error-code.h"
 #include "core/runtime/program.h"
 #include "core/runtime/value.h"
 
 namespace mindcraft {
 
 class StackRegionAllocator;
+
+/**
+ * State recorded when a fiber parks on a pending async handle (`AWAIT`), used
+ * to restore its frame and operand stacks and resume at the instruction past
+ * the await. Mirrors `AwaitSite` in
+ * external/mindcraft-lang/packages/core/src/runtime/vm-types.ts.
+ */
+struct AwaitSite {
+  /** Absolute pc within the awaiting frame's function to resume at. */
+  uint32_t resumePc;
+  /** Operand-stack depth to truncate to before pushing the resolved value. */
+  uint32_t stackHeight;
+  /** Frame-stack depth to truncate to before resuming. */
+  uint32_t frameDepth;
+  /** The handle the fiber is waiting on. */
+  uint32_t handleId;
+};
 
 /**
  * Per-frame binding describing the action call and call site whose state
@@ -137,6 +155,25 @@ struct ExecutionState {
    * boundary and stops the slice, abandoning the rest of the current body.
    */
   bool cancelled = false;
+
+  /**
+   * Set while the fiber is parked on a pending async handle; {@link await}
+   * records where to resume. Cleared when the scheduler resumes the fiber.
+   */
+  bool awaiting = false;
+
+  /** The park site; meaningful only while {@link awaiting}. */
+  AwaitSite await{};
+
+  /**
+   * Set when a handle settled to rejected/cancelled and the fiber must throw
+   * {@link injectedError} at its next instruction before resuming normal
+   * dispatch. Mirrors `Fiber.pendingInjectedThrow` in vm.ts.
+   */
+  bool pendingInjectedThrow = false;
+
+  /** The error injected on resume; meaningful only while {@link pendingInjectedThrow}. */
+  ErrorCode injectedError = ErrorCode::ScriptError;
 };
 
 static_assert(std::is_trivially_copyable_v<Frame>, "execution state stays trivially copyable");

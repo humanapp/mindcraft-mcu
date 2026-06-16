@@ -4,6 +4,7 @@
 
 #include "core/runtime/core-func-id.h"
 #include "core/runtime/core-host-functions.h"
+#include "core/runtime/handle-table.h"
 #include "core/runtime/managed-heap.h"
 #include "core/runtime/stack-region.h"
 #include "core/runtime/type-registry.h"
@@ -173,6 +174,42 @@ bool popValue(ExecutionState& state, Value& out) {
     return false;
   }
   out = state.stack[--state.stackDepth];
+  return true;
+}
+
+/**
+ * Throws fault classifier `code` into `state` through the innermost active
+ * handler. Returns true and positions execution at the catch target when a
+ * handler catches it; otherwise returns false and writes the escaping fault to
+ * `out` (located at `siteFunc`/`sitePc`), which the caller returns. Mirrors
+ * `throwValue` in external/mindcraft-lang/packages/core/src/runtime/vm.ts.
+ */
+bool throwError(ExecutionState& state, ErrorCode code, uint32_t siteFunc, uint32_t sitePc,
+                RunResult& out) {
+  if (state.handlerDepth == 0) {
+    out = RunResult::fault(code, siteFunc, sitePc);
+    return false;
+  }
+  // Unwind to the innermost handler: truncate frames and the operand stack to
+  // its recorded depths, then re-derive localsDepth from the frame that remains
+  // on top. Handlers carry no Values, so no root is touched.
+  const Handler handler = state.handlers[--state.handlerDepth];
+  state.frameDepth = handler.frameIndex;
+  state.localsDepth = state.frameDepth == 0 ? 0
+                                            : state.frames[state.frameDepth - 1].localsOffset +
+                                                  state.frames[state.frameDepth - 1].localsCount;
+  if (state.stackDepth > handler.stackHeight) {
+    state.stackDepth = handler.stackHeight;
+  }
+  if (!pushValue(state, Value::error(code))) {
+    out = RunResult::fault(ErrorCode::StackOverflow, siteFunc, sitePc);
+    return false;
+  }
+  if (state.frameDepth == 0) {
+    out = RunResult::fault(ErrorCode::ScriptError, kNoFuncId, 0);
+    return false;
+  }
+  state.frames[state.frameDepth - 1].pc = handler.catchTarget;
   return true;
 }
 
@@ -686,6 +723,22 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
     }
     state.budget--;
 
+    if (state.pendingInjectedThrow) {
+      // A handle settled rejected/cancelled; throw it at the resume point before
+      // running the next instruction. Mirrors the pendingInjectedThrow check at
+      // the top of runFiber in vm.ts.
+      state.pendingInjectedThrow = false;
+      if (state.frameDepth == 0) {
+        return RunResult::fault(state.injectedError, kNoFuncId, 0);
+      }
+      const Frame& top = state.frames[state.frameDepth - 1];
+      RunResult escaped = RunResult::yielded();
+      if (!throwError(state, state.injectedError, top.funcId, top.pc, escaped)) {
+        return escaped;
+      }
+      continue;
+    }
+
     if (state.frameDepth == 0) {
       return RunResult::fault(ErrorCode::ScriptError, kNoFuncId, 0);
     }
@@ -1015,6 +1068,141 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       }
       frame.pc++;
       break;
+    }
+
+    case Op::HOST_CALL_ASYNC: {
+      // a = funcId, b = argc, c = callSiteId. Allocates a pending handle, hands
+      // it to the async target host function, and pushes it. Mirrors
+      // execHostCallAsync in vm.ts. Inside a sync action frame the dispatch
+      // cannot suspend, so the await it sets up would be illegal: fault now.
+      const ActionFrameBinding* suspendBinding = currentActionBinding(state);
+      if (suspendBinding != nullptr && !suspendBinding->isAsync) {
+        return fault(ErrorCode::ScriptError);
+      }
+      if (surface.handles == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      const uint32_t fnId = ins.a;
+      const uint32_t argc = ins.b;
+      if (argc > state.stackDepth) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      // Only target host functions carry async bodies; core ids have none.
+      const TargetHostFuncBinding* binding =
+          fnId >= TARGET_FUNC_ID_BASE ? findTargetHostFuncById(surface.hostFunctions, fnId)
+                                      : nullptr;
+      if (binding == nullptr || binding->execAsync == nullptr) {
+        return fault(ErrorCode::ScriptError);
+      }
+      const uint32_t handleId = surface.handles->createPending();
+      if (handleId == kNoHandleId) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      // The arg view is valid only for the call; the body copies what it
+      // retains. A failing body rolls back the handle and faults.
+      const Span<const Value> args(state.stack + (state.stackDepth - argc), argc);
+      const Status status = binding->execAsync(binding->hostData, args, handleId);
+      if (!status.isOk()) {
+        surface.handles->deleteHandle(handleId);
+        return fault(status.error());
+      }
+      state.stackDepth -= argc;
+      if (!pushValue(state, Value::handle(handleId))) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      frame.pc++;
+      break;
+    }
+
+    case Op::HOST_ACTION_CALL_ASYNC: {
+      // a = actionId, b = argc, c = callSiteId. Allocates a pending handle, hands
+      // it to the async host action with its call site bound, and pushes it.
+      // Mirrors execHostActionCallAsync in vm.ts.
+      const ActionFrameBinding* suspendBinding = currentActionBinding(state);
+      if (suspendBinding != nullptr && !suspendBinding->isAsync) {
+        return fault(ErrorCode::ScriptError);
+      }
+      if (surface.handles == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      const uint32_t argc = ins.b;
+      if (argc > state.stackDepth) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      const HostActionBinding* action = findHostActionById(surface.actions, ins.a);
+      if (action == nullptr || action->execAsync == nullptr) {
+        // No registration holds the id, or it has no async body: mirrors the
+        // resolveHostAction fault for a sync/missing async action.
+        return fault(ErrorCode::ScriptError);
+      }
+      if (surface.context == nullptr || ins.c >= surface.context->callSiteStates.size()) {
+        return fault(ErrorCode::HostError);
+      }
+      ExecutionContext& ctx = *surface.context;
+      ctx.currentCallSiteId = ins.c;
+      const uint32_t handleId = surface.handles->createPending();
+      if (handleId == kNoHandleId) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      const Span<const Value> args(state.stack + (state.stackDepth - argc), argc);
+      const Status status = action->execAsync(action->hostData, ctx, args, handleId);
+      ctx.currentCallSiteId = kNoCallSiteId;
+      if (!status.isOk()) {
+        surface.handles->deleteHandle(handleId);
+        return fault(status.error());
+      }
+      state.stackDepth -= argc;
+      if (!pushValue(state, Value::handle(handleId))) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      frame.pc++;
+      break;
+    }
+
+    case Op::AWAIT: {
+      // Pops a handle. Resolved -> push its value; rejected/cancelled -> throw
+      // into the handler path; pending -> park the fiber WAITING and let the
+      // scheduler register it as a waiter. An await inside a sync action frame
+      // cannot suspend and faults. Mirrors execAwait in vm.ts.
+      const ActionFrameBinding* suspendBinding = currentActionBinding(state);
+      if (suspendBinding != nullptr && !suspendBinding->isAsync) {
+        return fault(ErrorCode::ScriptError);
+      }
+      if (surface.handles == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      Value handleValue;
+      if (!popValue(state, handleValue)) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      if (!handleValue.isHandle()) {
+        return fault(ErrorCode::ScriptError);
+      }
+      Handle* h = surface.handles->get(handleValue.handleId());
+      if (h == nullptr) {
+        return fault(ErrorCode::ScriptError);
+      }
+      if (h->state == HandleState::Resolved) {
+        if (!pushValue(state, h->result)) {
+          return fault(ErrorCode::StackOverflow);
+        }
+        frame.pc++;
+        break;
+      }
+      if (h->state == HandleState::Rejected || h->state == HandleState::Cancelled) {
+        RunResult escaped = RunResult::yielded();
+        if (!throwError(state, h->error, frame.funcId, frame.pc, escaped)) {
+          return escaped;
+        }
+        break;
+      }
+      // Pending: record where to resume (stack height is post-pop) and return
+      // Waiting; the scheduler parks the fiber and adds it to the handle's
+      // waiters.
+      state.awaiting = true;
+      state.await =
+          AwaitSite{frame.pc + 1, state.stackDepth, state.frameDepth, handleValue.handleId()};
+      return RunResult::waiting();
     }
 
     case Op::WHEN_START:
@@ -1830,31 +2018,10 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
         return fault(ErrorCode::StackUnderflow);
       }
       const ErrorCode code = thrown.isErr() ? thrown.errorCode() : ErrorCode::ScriptError;
-      if (state.handlerDepth == 0) {
-        // No handler caught it: fault the fiber at the throwing site.
-        return fault(code);
+      RunResult escaped = RunResult::yielded();
+      if (!throwError(state, code, frame.funcId, frame.pc, escaped)) {
+        return escaped;
       }
-      // Unwind to the innermost handler: truncate frames and the operand stack
-      // to its recorded depths, then re-derive localsDepth from the frame that
-      // remains on top (a frame's locals end where the next frame's begin).
-      // Handlers carry no Values, so no root is touched.
-      const Handler handler = state.handlers[--state.handlerDepth];
-      state.frameDepth = handler.frameIndex;
-      state.localsDepth = state.frameDepth == 0
-                              ? 0
-                              : state.frames[state.frameDepth - 1].localsOffset +
-                                    state.frames[state.frameDepth - 1].localsCount;
-      if (state.stackDepth > handler.stackHeight) {
-        state.stackDepth = handler.stackHeight;
-      }
-      // The catch block receives the error value, then runs at the catch target.
-      if (!pushValue(state, Value::error(code))) {
-        return fault(ErrorCode::StackOverflow);
-      }
-      if (state.frameDepth == 0) {
-        return RunResult::fault(ErrorCode::ScriptError, kNoFuncId, 0);
-      }
-      state.frames[state.frameDepth - 1].pc = handler.catchTarget;
       break;
     }
 

@@ -5,6 +5,7 @@
 #include "core/platform/span.h"
 #include "core/runtime/device-profile-caps.h"
 #include "core/runtime/execution-state.h"
+#include "core/runtime/handle-table.h"
 #include "core/runtime/managed-heap.h"
 #include "core/runtime/pool.h"
 #include "core/runtime/program.h"
@@ -124,6 +125,24 @@ public:
   void cancel(uint32_t fiberId);
 
   /**
+   * The async-handle table backing this scheduler's fibers. The host loop and
+   * async host bodies settle handles through it; the dispatch loop reaches it
+   * via the runtime surface.
+   */
+  HandleTable& handles() { return handles_; }
+
+  /**
+   * Drains every settled handle: for each, resumes the fibers waiting on it
+   * (restoring their await sites, queuing a resolved value or a pending throw)
+   * and then frees the handle. Resumed fibers enqueue as runnable, so they join
+   * the next round (the round-tick rule). Safe to call from the host loop after
+   * external callbacks have settled handles out of band. Mirrors the
+   * `onHandleCompleted` drain in
+   * external/mindcraft-lang/packages/core/src/runtime/vm.ts.
+   */
+  void drainCompletedHandles();
+
+  /**
    * Runs one round: every fiber runnable at entry gets one budget slice in
    * FIFO order; fibers enqueued during the round (a spawn or a
    * budget-exhaustion re-enqueue) run in the next round. A slice ending in
@@ -162,13 +181,21 @@ private:
   // Reserves a fiber's record and four execution regions and pushes its entry
   // frame for `funcId`, without enqueuing it. Returns the record, or nullptr
   // with `err` set on a cap, region-exhaustion, or entry-frame failure. Shared
-  // by spawn (which then enqueues) and the synchronous hook runner.
-  FiberRecord* allocFiber(uint32_t funcId, ErrorCode& err);
+  // by spawn (which then enqueues) and the synchronous hook runner. When
+  // `inlineId` is true the record takes its id from the descending inline space
+  // (hook fibers).
+  FiberRecord* allocFiber(uint32_t funcId, bool inlineId, ErrorCode& err);
 
   FiberRecord* findFiber(uint32_t fiberId);
   void enqueue(FiberRecord* record);
   FiberRecord* dequeue();
   void removeFromQueue(FiberRecord* record);
+
+  // Resumes a single waiting fiber whose handle `h` has settled: restores its
+  // await site, queues the resolved value or a pending injected throw, marks it
+  // runnable, and enqueues it. A no-op when the fiber is no longer waiting on
+  // `h`. Mirrors resumeFiberFromHandle in vm.ts.
+  void resumeFiberFromHandle(FiberRecord& record, const Handle& h);
 
   // Releases all four execution regions of `exec` back to the region allocator.
   void releaseRegions(ExecutionState& exec);
@@ -180,12 +207,18 @@ private:
   Pool<FiberRecord> records_;
   // Grow-on-demand backing for every fiber's stack/locals/frame/handler regions.
   StackRegionAllocator regions_;
+  // Pending async handles backing AWAIT; pool-backed, capped by caps_.maxHandles.
+  HandleTable handles_;
   // Intrusive FIFO run queue over the records. Each live fiber is enqueued at
   // most once (at spawn or on a budget re-enqueue after being dequeued).
   FiberRecord* runHead_ = nullptr;
   FiberRecord* runTail_ = nullptr;
   uint32_t queueCount_ = 0;
+  // Ascending id space for root/rule fibers, starting at 1.
   uint32_t nextFiberId_ = 1;
+  // Descending id space for synchronous hook fibers, starting at (uint32_t)-1
+  // and counting down. Mirrors TS `nextInlineFiberId`.
+  uint32_t nextInlineFiberId_ = 0xffffffffu;
 };
 
 } // namespace mindcraft

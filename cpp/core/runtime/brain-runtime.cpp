@@ -246,6 +246,10 @@ Status BrainRuntime::think(mc_number_t currentTimeMs) {
   }
 
   scheduler_.tick();
+  // Drain any handles a host body settled during the round: resume their
+  // waiters so they join the next round. An external callback may also have
+  // settled a handle out of band before this think; the same drain handles it.
+  scheduler_.drainCompletedHandles();
   scheduler_.sweep();
 
   lastThinkTime_ = currentTimeMs;
