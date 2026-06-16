@@ -12,6 +12,7 @@ add_executable(mindcraft-tests
   core-host-fn-parity.test.cpp
   core-type-atom-id.test.cpp
   device-port.test.cpp
+  device-profile-caps-parity.test.cpp
   error-code.test.cpp
   fiber-scheduler.test.cpp
   fixture-paths.test.cpp

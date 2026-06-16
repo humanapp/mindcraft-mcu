@@ -26,11 +26,6 @@ using mindcraft::FunctionBytecode;
 using mindcraft::Instr;
 using mindcraft::isTruthy;
 using mindcraft::kFalseValue;
-using mindcraft::kMaxFrameDepth;
-using mindcraft::kMaxHandlers;
-using mindcraft::kMaxHandles;
-using mindcraft::kMaxLocalsSize;
-using mindcraft::kMaxStackSize;
 using mindcraft::kNilValue;
 using mindcraft::kNoCaptures;
 using mindcraft::kNoFuncId;
@@ -52,6 +47,7 @@ using mindcraft::startExecution;
 using mindcraft::Status;
 using mindcraft::Value;
 using mindcraft::ValueTag;
+using mindcraft::test::kDeviceProfileCaps;
 
 namespace {
 
@@ -121,14 +117,6 @@ bool isImplementedOp(Op op) {
 }
 
 } // namespace
-
-TEST_CASE("the device caps hold their decided values") {
-  CHECK(kMaxStackSize == 256u);
-  CHECK(kMaxLocalsSize == 256u);
-  CHECK(kMaxFrameDepth == 64u);
-  CHECK(kMaxHandlers == 16u);
-  CHECK(kMaxHandles == 0u);
-}
 
 TEST_CASE("PUSH_CONST_VAL pushes every inline constant kind") {
   ProgramBuilder b;
@@ -683,12 +671,12 @@ TEST_CASE("startExecution rejects bad funcIds and exhausted regions") {
   REQUIRE(!badFunc.isOk());
   CHECK(badFunc.error() == ErrorCode::HostError);
 
-  Machine noLocals(kMaxStackSize, 2);
+  Machine noLocals(kDeviceProfileCaps.maxStackSize, 2);
   const Status localsFull = startExecution(noLocals.state, image, 0, {});
   REQUIRE(!localsFull.isOk());
   CHECK(localsFull.error() == ErrorCode::StackOverflow);
 
-  Machine noFrames(kMaxStackSize, kMaxLocalsSize, 1);
+  Machine noFrames(kDeviceProfileCaps.maxStackSize, kDeviceProfileCaps.maxLocalsSize, 1);
   REQUIRE(startExecution(noFrames.state, image, 0, {}).isOk());
   const Status framesFull = startExecution(noFrames.state, image, 0, {});
   REQUIRE(!framesFull.isOk());

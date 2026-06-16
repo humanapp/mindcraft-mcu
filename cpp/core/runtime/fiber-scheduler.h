@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "core/platform/span.h"
+#include "core/runtime/device-profile-caps.h"
 #include "core/runtime/execution-state.h"
 #include "core/runtime/managed-heap.h"
 #include "core/runtime/pool.h"
@@ -24,27 +25,6 @@ inline constexpr uint32_t kInitialStackSlots = 8;
 inline constexpr uint32_t kInitialLocalsSlots = 4;
 inline constexpr uint32_t kInitialFrameSlots = 2;
 inline constexpr uint32_t kInitialHandlerSlots = 1;
-
-/**
- * Instruction budget granted to each fiber's slice of a scheduler round. One
- * unit is consumed per dispatched instruction; a fiber that reaches zero
- * suspends at the next instruction boundary and resumes in a later round.
- */
-inline constexpr int32_t kDefaultBudget = 1000;
-
-/**
- * Upper bound on concurrently live fibers, checked at spawn; a spawn past it
- * faults `ErrorCode::StackOverflow`. A runtime guard, never a preallocation
- * size.
- */
-inline constexpr uint32_t kMaxFibers = 100;
-
-/**
- * Instruction budget granted to a synchronous page-lifecycle hook fiber for its
- * single slice; a hook that does not complete within it cannot suspend and
- * faults.
- */
-inline constexpr int32_t kHookBudget = 10000;
 
 /** Sentinel fiber id; real ids start at 1. */
 inline constexpr uint32_t kNoFiberId = 0;
@@ -85,12 +65,13 @@ struct FiberRecord {
 /**
  * Cooperative fiber scheduler with round-based ticks. A `tick()` is one
  * round: every fiber in the runnable queue at entry receives exactly one
- * {@link kDefaultBudget} slice in FIFO order, and anything enqueued while
- * the round runs joins the next round. A fiber's record is drawn from a pool
- * and its execution regions are slab-backed blocks - both over one shared
- * {@link RegionArena} - and the run queue is an intrusive FIFO threaded through
- * the records; spawn faults `ErrorCode::StackOverflow` at {@link kMaxFibers} or
- * when the region is exhausted. Mirrors `FiberScheduler` in
+ * {@link DeviceProfileCaps::defaultBudget} slice in FIFO order, and anything
+ * enqueued while the round runs joins the next round. A fiber's record is drawn
+ * from a pool and its execution regions are slab-backed blocks - both over one
+ * shared {@link RegionArena} - and the run queue is an intrusive FIFO threaded
+ * through the records; spawn faults `ErrorCode::StackOverflow` at
+ * {@link DeviceProfileCaps::maxFibers} or when the region is exhausted. Mirrors
+ * `FiberScheduler` in
  * external/mindcraft-lang/packages/core/src/runtime/vm.ts under the
  * round-tick semantics.
  *
@@ -105,22 +86,24 @@ struct FiberRecord {
 class FiberScheduler : public GcRoots {
 public:
   /**
-   * A scheduler executing `program` against `surface`. Each fiber's four
+   * A scheduler executing `program` against `surface` under `caps`. The caps
+   * supply the per-round instruction budget and every per-fiber resource limit;
+   * the target/host builds them from the device profile. Each fiber's four
    * execution regions start small (the `kInitial*Slots` counts) and grow on
-   * demand toward their caps; their blocks, and the fiber records, are drawn
-   * from `arena`. `arena` is the shared VM working-memory block - typically the
-   * same one the program image was decoded into - and must outlive the
-   * scheduler.
+   * demand toward the caps; their blocks, and the fiber records, are drawn from
+   * `arena`. `arena` is the shared VM working-memory block - typically the same
+   * one the program image was decoded into - and must outlive the scheduler.
    */
-  FiberScheduler(const ProgramImage& program, const RuntimeSurface& surface, RegionArena& arena);
+  FiberScheduler(const ProgramImage& program, const RuntimeSurface& surface, RegionArena& arena,
+                 const DeviceProfileCaps& caps);
 
   /**
    * Spawns a runnable fiber executing `funcId` with no arguments and
    * enqueues it. The new fiber joins the round a subsequent `tick()` opens.
    * Fails with `ErrorCode::StackOverflow` when the live-fiber count is already
-   * {@link kMaxFibers} or the region cannot back the fiber's record or initial
-   * execution regions, and with the {@link startExecution} code when the entry
-   * frame cannot be pushed.
+   * {@link DeviceProfileCaps::maxFibers} or the region cannot back the fiber's
+   * record or initial execution regions, and with the {@link startExecution}
+   * code when the entry frame cannot be pushed.
    */
   Result<uint32_t> spawn(uint32_t funcId);
 
@@ -129,8 +112,8 @@ public:
    * the round queue, as a sync bytecode action frame: the entry frame carries
    * an action binding ({@link actionId}, {@link callSiteId}, not async) so the
    * hook's `LOAD_CALLSITE_VAR` / `STORE_CALLSITE_VAR` resolve and a `YIELD`
-   * inside it faults. The hook gets one {@link kHookBudget} slice and must
-   * finish in it. Returns ok when the hook completes; fails with the fault
+   * inside it faults. The hook gets one {@link DeviceProfileCaps::hookBudget} slice
+   * and must finish in it. Returns ok when the hook completes; fails with the fault
    * code when it faults, and with `ErrorCode::ScriptError` when it cannot
    * finish in one slice (it suspended). Mirrors `runBytecodeHook` in
    * external/mindcraft-lang/packages/core/src/runtime/brain-runtime.ts.
@@ -193,6 +176,7 @@ private:
   const ProgramImage& program_;
   RuntimeSurface surface_;
   RegionArena& arena_;
+  DeviceProfileCaps caps_;
   Pool<FiberRecord> records_;
   // Grow-on-demand backing for every fiber's stack/locals/frame/handler regions.
   StackRegionAllocator regions_;

@@ -24,10 +24,11 @@ TEST_CASE("LoadError values are stable") {
   CHECK(static_cast<uint16_t>(LoadError::EnumOrdinalOutOfRange) == 12);
   CHECK(static_cast<uint16_t>(LoadError::UnknownTypeAtom) == 13);
   CHECK(static_cast<uint16_t>(LoadError::ArenaExhausted) == 14);
+  CHECK(static_cast<uint16_t>(LoadError::UnsupportedDeviceProfile) == 15);
 }
 
 TEST_CASE("name table covers every declared code in declaration order") {
-  REQUIRE(std::size(kLoadErrorNames) == 14);
+  REQUIRE(std::size(kLoadErrorNames) == 15);
   CHECK(kLoadErrorNames[0].code == LoadError::Truncated);
   CHECK(kLoadErrorNames[1].code == LoadError::VarIntOverflow);
   CHECK(kLoadErrorNames[2].code == LoadError::InvalidMagic);
@@ -42,6 +43,7 @@ TEST_CASE("name table covers every declared code in declaration order") {
   CHECK(kLoadErrorNames[11].code == LoadError::EnumOrdinalOutOfRange);
   CHECK(kLoadErrorNames[12].code == LoadError::UnknownTypeAtom);
   CHECK(kLoadErrorNames[13].code == LoadError::ArenaExhausted);
+  CHECK(kLoadErrorNames[14].code == LoadError::UnsupportedDeviceProfile);
 
   // Each row's code is a distinct declared member with consecutive values.
   for (size_t i = 0; i < std::size(kLoadErrorNames); i++) {
@@ -67,9 +69,11 @@ TEST_CASE("loadErrorName returns canonical names") {
         doctest::String("EnumOrdinalOutOfRange"));
   CHECK(loadErrorName(LoadError::UnknownTypeAtom) == doctest::String("UnknownTypeAtom"));
   CHECK(loadErrorName(LoadError::ArenaExhausted) == doctest::String("ArenaExhausted"));
+  CHECK(loadErrorName(LoadError::UnsupportedDeviceProfile) ==
+        doctest::String("UnsupportedDeviceProfile"));
 }
 
 TEST_CASE("loadErrorName returns nullptr for undeclared values") {
   CHECK(loadErrorName(static_cast<LoadError>(0)) == nullptr);
-  CHECK(loadErrorName(static_cast<LoadError>(15)) == nullptr);
+  CHECK(loadErrorName(static_cast<LoadError>(16)) == nullptr);
 }

@@ -42,6 +42,11 @@ enum class LoadError : uint16_t {
   UnknownTypeAtom = 13,
   /** The decode arena cannot hold the program's pools. */
   ArenaExhausted = 14,
+  /**
+   * The decoded program's numeric device-profile id is not the one this device
+   * accepts. Raised by the host after a successful decode.
+   */
+  UnsupportedDeviceProfile = 15,
 };
 
 /** One row of the {@link kLoadErrorNames} table: a code and its canonical ASCII name. */
@@ -66,6 +71,7 @@ inline constexpr LoadErrorName kLoadErrorNames[] = {
     {LoadError::EnumOrdinalOutOfRange, "EnumOrdinalOutOfRange"},
     {LoadError::UnknownTypeAtom, "UnknownTypeAtom"},
     {LoadError::ArenaExhausted, "ArenaExhausted"},
+    {LoadError::UnsupportedDeviceProfile, "UnsupportedDeviceProfile"},
 };
 
 /**

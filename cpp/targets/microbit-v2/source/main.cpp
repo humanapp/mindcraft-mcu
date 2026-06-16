@@ -18,6 +18,7 @@
 #include "core/runtime/type-registry.h"
 #include "core/runtime/value.h"
 #include "core/runtime/vm.h"
+#include "targets/microbit-v2/abi/device-profile.h"
 #include "targets/microbit-v2/abi/host-action-bindings.h"
 #include "targets/microbit-v2/abi/host-func-bindings.h"
 #include "targets/microbit-v2/abi/native-struct-bindings.h"
@@ -99,6 +100,14 @@ int main()
     }
     const ProgramImage &image = decoded.value();
 
+    // Reject a program built for any other device profile before running it.
+    if (image.profileId != kMicroBitV2NumericProfileId)
+    {
+        uBit.serial.printf("mc L%d\r\n", static_cast<int>(LoadError::UnsupportedDeviceProfile));
+        faultLoop(faultDisplay, FaultDomain::Load,
+                  static_cast<uint16_t>(LoadError::UnsupportedDeviceProfile));
+    }
+
     // The firmware action table is the core sensor/actuator surface (ids 0-7)
     // followed by the microbit-v2 host actions (ids 1024+). The core bodies
     // reach the brain, RNG, and heap through coreEnv, filled once the scheduler
@@ -127,7 +136,7 @@ int main()
     surface.types = &types;
     surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
     surface.rng = &rng;
-    FiberScheduler scheduler(image, surface, arena);
+    FiberScheduler scheduler(image, surface, arena, kMicroBitV2DeviceProfileCaps);
     BrainRuntime brain(image, scheduler, surface);
     coreEnv.brain = &brain;
     coreEnv.rng = &rng;

@@ -5,8 +5,9 @@
 namespace mindcraft {
 
 FiberScheduler::FiberScheduler(const ProgramImage& program, const RuntimeSurface& surface,
-                               RegionArena& arena)
-    : program_(program), surface_(surface), arena_(arena), records_(arena), regions_(arena) {
+                               RegionArena& arena, const DeviceProfileCaps& caps)
+    : program_(program), surface_(surface), arena_(arena), caps_(caps), records_(arena),
+      regions_(arena) {
   // The scheduler is the heap's root source; point the surface the dispatch
   // loop runs against back at it so an allocation can collect over all fibers.
   surface_.roots = this;
@@ -42,7 +43,7 @@ void FiberScheduler::enumerateRoots(GcMarker& marker) {
 }
 
 FiberRecord* FiberScheduler::allocFiber(uint32_t funcId, ErrorCode& err) {
-  if (records_.liveCount() >= kMaxFibers) {
+  if (records_.liveCount() >= caps_.maxFibers) {
     err = ErrorCode::StackOverflow;
     return nullptr;
   }
@@ -51,10 +52,10 @@ FiberRecord* FiberScheduler::allocFiber(uint32_t funcId, ErrorCode& err) {
   // demand toward the caps. A failed reserve releases whatever already landed.
   ExecutionState exec{};
   exec.allocator = &regions_;
-  exec.stackLimit = kMaxStackSize;
-  exec.localsLimit = kMaxLocalsSize;
-  exec.frameLimit = kMaxFrameDepth;
-  exec.handlerLimit = kMaxHandlers;
+  exec.stackLimit = caps_.maxStackSize;
+  exec.localsLimit = caps_.maxLocalsSize;
+  exec.frameLimit = caps_.maxFrameDepth;
+  exec.handlerLimit = caps_.maxHandlers;
   exec.stack = regions_.reserve<Value>(kInitialStackSlots);
   exec.locals = regions_.reserve<Value>(kInitialLocalsSlots);
   exec.frames = regions_.reserve<Frame>(kInitialFrameSlots);
@@ -116,7 +117,7 @@ Status FiberScheduler::runActionHook(uint32_t funcId, uint32_t actionId, uint32_
   record->exec.frames[0].hasActionBinding = true;
   record->exec.frames[0].actionBinding = ActionFrameBinding{actionId, callSiteId, false};
 
-  record->exec.budget = kHookBudget;
+  record->exec.budget = caps_.hookBudget;
   const RunResult result = runExecution(record->exec, program_, surface_);
 
   Status status = Status::ok();
@@ -174,7 +175,7 @@ uint32_t FiberScheduler::tick() {
       continue;
     }
 
-    record->exec.budget = kDefaultBudget;
+    record->exec.budget = caps_.defaultBudget;
     const RunResult result = runExecution(record->exec, program_, surface_);
     if (record->state == FiberState::Cancelled) {
       // A host body cancelled this fiber mid-slice (a page change or restart);

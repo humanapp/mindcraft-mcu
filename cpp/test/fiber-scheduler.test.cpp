@@ -20,11 +20,6 @@ using mindcraft::FiberScheduler;
 using mindcraft::FiberState;
 using mindcraft::Frame;
 using mindcraft::HostActionBinding;
-using mindcraft::kDefaultBudget;
-using mindcraft::kMaxFibers;
-using mindcraft::kMaxFrameDepth;
-using mindcraft::kMaxLocalsSize;
-using mindcraft::kMaxStackSize;
 using mindcraft::kNoTypeIdx;
 using mindcraft::ManagedHeap;
 using mindcraft::MapKey;
@@ -37,6 +32,7 @@ using mindcraft::Span;
 using mindcraft::Value;
 using mindcraft::ValueTag;
 using mindcraft::VmObserver;
+using mindcraft::test::kDeviceProfileCaps;
 
 namespace {
 
@@ -86,12 +82,6 @@ ProgramImage shortProgram(ProgramBuilder& b, std::vector<uint8_t>& storage) {
 
 } // namespace
 
-TEST_CASE("the scheduler constants hold their decided values") {
-  CHECK(kDefaultBudget == 1000);
-  // Mirrors the wodal microbit-v2 profile's maxFibers; the two must stay equal.
-  CHECK(kMaxFibers == 100u);
-}
-
 TEST_CASE("a round gives every fiber queued at entry exactly one slice, FIFO") {
   // Two fibers each dispatch a distinct action; the round runs both in spawn
   // order within one tick.
@@ -110,7 +100,7 @@ TEST_CASE("a round gives every fiber queued at entry exactly one slice, FIFO") {
 
   SchedulerStorage pools;
   REQUIRE(ctx.bindSlots(pools.arena, 0, 2));
-  FiberScheduler scheduler(image, surface, pools.arena);
+  FiberScheduler scheduler(image, surface, pools.arena, kDeviceProfileCaps);
   REQUIRE(scheduler.spawn(0).isOk());
   REQUIRE(scheduler.spawn(1).isOk());
 
@@ -139,7 +129,7 @@ TEST_CASE("budget exhaustion suspends mid-body and resumes in the next round") {
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {}, nullptr};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.arena);
+  FiberScheduler scheduler(image, surface, pools.arena, kDeviceProfileCaps);
   const Result<uint32_t> spawned = scheduler.spawn(0);
   REQUIRE(spawned.isOk());
   const uint32_t fiberId = spawned.value();
@@ -179,7 +169,7 @@ TEST_CASE("a faulting fiber reports through the observer and dies") {
   OrderObserver observer;
   RuntimeSurface surface{&ctx, {}, &observer};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.arena);
+  FiberScheduler scheduler(image, surface, pools.arena, kDeviceProfileCaps);
   const Result<uint32_t> spawned = scheduler.spawn(0);
   REQUIRE(spawned.isOk());
 
@@ -205,7 +195,7 @@ TEST_CASE("spawn exhausting the region faults loudly and recovers after a sweep"
   // A region sized for only a couple of fibers, so spawning soon exhausts it.
   std::array<uint8_t, 2 * kPerFiberArenaBytes + 256> arenaBytes;
   RegionArena arena(Span<uint8_t>(arenaBytes.data(), arenaBytes.size()));
-  FiberScheduler scheduler(image, surface, arena);
+  FiberScheduler scheduler(image, surface, arena, kDeviceProfileCaps);
 
   uint32_t spawned = 0;
   while (scheduler.spawn(0).isOk()) {
@@ -231,16 +221,17 @@ TEST_CASE("spawn past the fiber guard faults loudly with memory to spare") {
 
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {}, nullptr};
-  // Region with room well beyond kMaxFibers, so the count guard - not memory -
-  // is what fires.
-  std::vector<uint8_t> arenaStorage((kMaxFibers + 8) * (kPerFiberArenaBytes + 128));
+  // Region with room well beyond the fiber cap, so the count guard - not memory
+  // - is what fires.
+  std::vector<uint8_t> arenaStorage((kDeviceProfileCaps.maxFibers + 8) *
+                                    (kPerFiberArenaBytes + 128));
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  FiberScheduler scheduler(image, surface, arena);
+  FiberScheduler scheduler(image, surface, arena, kDeviceProfileCaps);
 
-  for (uint32_t i = 0; i < kMaxFibers; i++) {
+  for (uint32_t i = 0; i < kDeviceProfileCaps.maxFibers; i++) {
     REQUIRE(scheduler.spawn(0).isOk());
   }
-  CHECK(scheduler.liveCount() == kMaxFibers);
+  CHECK(scheduler.liveCount() == kDeviceProfileCaps.maxFibers);
   const Result<uint32_t> overflow = scheduler.spawn(0);
   REQUIRE(!overflow.isOk());
   CHECK(overflow.error() == ErrorCode::StackOverflow);
@@ -254,7 +245,7 @@ TEST_CASE("spawn of an invalid funcId propagates the start failure") {
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {}, nullptr};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.arena);
+  FiberScheduler scheduler(image, surface, pools.arena, kDeviceProfileCaps);
   const Result<uint32_t> bad = scheduler.spawn(9);
   REQUIRE(!bad.isOk());
   CHECK(bad.error() == ErrorCode::HostError);
@@ -273,7 +264,7 @@ TEST_CASE("a cancelled fiber is skipped by the round and reclaimed") {
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {}, nullptr};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.arena);
+  FiberScheduler scheduler(image, surface, pools.arena, kDeviceProfileCaps);
   const Result<uint32_t> spawned = scheduler.spawn(0);
   REQUIRE(spawned.isOk());
   scheduler.cancel(spawned.value());
@@ -311,7 +302,7 @@ TEST_CASE("a reachable rule-variable store survives collection") {
   ExecutionContext ctx;
   ctx.ruleVarStores = outer;
   RuntimeSurface surface{&ctx, {}, nullptr, &heap};
-  FiberScheduler scheduler(image, surface, arena);
+  FiberScheduler scheduler(image, surface, arena, kDeviceProfileCaps);
 
   heap.collect(scheduler);
   CHECK(heap.liveMapCount() == 2);
@@ -343,7 +334,7 @@ TEST_CASE("a container in a callsite-var slot survives collection") {
   ctx.setCallSiteSlot(0, 1, listValue);
 
   RuntimeSurface surface{&ctx, {}, nullptr, &heap};
-  FiberScheduler scheduler(image, surface, arena);
+  FiberScheduler scheduler(image, surface, arena, kDeviceProfileCaps);
 
   heap.collect(scheduler);
   CHECK(heap.liveListCount() == 1);

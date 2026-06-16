@@ -11,37 +11,6 @@ namespace mindcraft {
 class StackRegionAllocator;
 
 /**
- * Per-fiber operand-stack depth cap in values. A push past it faults
- * `ErrorCode::StackOverflow`; the region grows on demand toward this cap.
- */
-inline constexpr uint32_t kMaxStackSize = 256;
-
-/**
- * Per-fiber locals-region depth cap in values: the summed `numLocals` of every
- * live frame. Exceeding it faults `ErrorCode::StackOverflow`; the region grows
- * on demand toward this cap.
- */
-inline constexpr uint32_t kMaxLocalsSize = 256;
-
-/**
- * Per-fiber call-frame depth cap. A push past it faults
- * `ErrorCode::StackOverflow`; the region grows on demand toward this cap.
- */
-inline constexpr uint32_t kMaxFrameDepth = 64;
-
-/**
- * Per-fiber try-handler depth cap. A push past it faults
- * `ErrorCode::StackOverflow`; the handler stack grows on demand toward this cap.
- */
-inline constexpr uint32_t kMaxHandlers = 16;
-
-/**
- * Pending async-handle cap. Zero until async handles are implemented: no handle
- * may be created and any async opcode faults.
- */
-inline constexpr uint32_t kMaxHandles = 0;
-
-/**
  * Per-frame binding describing the action call and call site whose state
  * slots back the frame. Mirrors `ActionFrameBinding` in
  * external/mindcraft-lang/packages/core/src/runtime/vm-types.ts with the

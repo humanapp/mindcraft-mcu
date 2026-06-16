@@ -7,6 +7,7 @@
 #include "core/runtime/program.h"
 #include "core/runtime/value.h"
 #include "core/runtime/vm.h"
+#include "device-profile-caps.h"
 #include "wire-builder.h"
 
 #include <array>
@@ -280,34 +281,34 @@ private:
  * and the regions never grow.
  */
 struct Machine {
-  explicit Machine(uint32_t stackLimit = mindcraft::kMaxStackSize,
-                   uint32_t localsLimit = mindcraft::kMaxLocalsSize,
-                   uint32_t frameLimit = mindcraft::kMaxFrameDepth,
-                   uint32_t handlerLimit = mindcraft::kMaxHandlers) {
+  explicit Machine(uint32_t stackLimit = mindcraft::test::kDeviceProfileCaps.maxStackSize,
+                   uint32_t localsLimit = mindcraft::test::kDeviceProfileCaps.maxLocalsSize,
+                   uint32_t frameLimit = mindcraft::test::kDeviceProfileCaps.maxFrameDepth,
+                   uint32_t handlerLimit = mindcraft::test::kDeviceProfileCaps.maxHandlers) {
     state.stack = stackStorage.data();
     state.stackLimit = stackLimit;
-    state.stackCapacity = mindcraft::kMaxStackSize;
+    state.stackCapacity = mindcraft::test::kDeviceProfileCaps.maxStackSize;
     state.stackDepth = 0;
     state.locals = localsStorage.data();
     state.localsLimit = localsLimit;
-    state.localsCapacity = mindcraft::kMaxLocalsSize;
+    state.localsCapacity = mindcraft::test::kDeviceProfileCaps.maxLocalsSize;
     state.localsDepth = 0;
     state.frames = frameStorage.data();
     state.frameLimit = frameLimit;
-    state.frameCapacity = mindcraft::kMaxFrameDepth;
+    state.frameCapacity = mindcraft::test::kDeviceProfileCaps.maxFrameDepth;
     state.frameDepth = 0;
     state.handlers = handlerStorage.data();
     state.handlerLimit = handlerLimit;
-    state.handlerCapacity = mindcraft::kMaxHandlers;
+    state.handlerCapacity = mindcraft::test::kDeviceProfileCaps.maxHandlers;
     state.handlerDepth = 0;
     state.allocator = nullptr;
     state.budget = 0;
   }
 
-  std::array<mindcraft::Value, mindcraft::kMaxStackSize> stackStorage;
-  std::array<mindcraft::Value, mindcraft::kMaxLocalsSize> localsStorage;
-  std::array<mindcraft::Frame, mindcraft::kMaxFrameDepth> frameStorage;
-  std::array<mindcraft::Handler, mindcraft::kMaxHandlers> handlerStorage;
+  std::array<mindcraft::Value, mindcraft::test::kDeviceProfileCaps.maxStackSize> stackStorage;
+  std::array<mindcraft::Value, mindcraft::test::kDeviceProfileCaps.maxLocalsSize> localsStorage;
+  std::array<mindcraft::Frame, mindcraft::test::kDeviceProfileCaps.maxFrameDepth> frameStorage;
+  std::array<mindcraft::Handler, mindcraft::test::kDeviceProfileCaps.maxHandlers> handlerStorage;
   mindcraft::ExecutionState state;
 };
 

@@ -18,10 +18,6 @@ using mindcraft::ExecutionContext;
 using mindcraft::FiberRecord;
 using mindcraft::FiberScheduler;
 using mindcraft::FiberState;
-using mindcraft::kMaxFrameDepth;
-using mindcraft::kMaxHandlers;
-using mindcraft::kMaxLocalsSize;
-using mindcraft::kMaxStackSize;
 using mindcraft::ManagedHeap;
 using mindcraft::Op;
 using mindcraft::ProgramImage;
@@ -35,6 +31,7 @@ using mindcraft::Status;
 using mindcraft::Value;
 using mindcraft::ValueTag;
 using mindcraft::VmObserver;
+using mindcraft::test::kDeviceProfileCaps;
 
 namespace {
 
@@ -162,7 +159,7 @@ TEST_CASE("re-throwing a caught error value re-enters the exception path with it
 
 TEST_CASE("the handler stack faults StackOverflow at its cap") {
   // A loop that pushes a handler each iteration without popping; the push past
-  // kMaxHandlers faults.
+  // the handler cap faults.
   ProgramBuilder b;
   b.beginFunction().instr(Op::TRY, 1).instr(Op::JMP, -1);
   std::vector<uint8_t> storage(16 * 1024);
@@ -172,7 +169,7 @@ TEST_CASE("the handler stack faults StackOverflow at its cap") {
   const RunResult result = runProgram(machine, image, {}, 1000);
   REQUIRE(result.status == RunStatus::Fault);
   CHECK(result.error == ErrorCode::StackOverflow);
-  CHECK(machine.state.handlerDepth == kMaxHandlers);
+  CHECK(machine.state.handlerDepth == kDeviceProfileCaps.maxHandlers);
 }
 
 // --- Cooperative YIELD ----------------------------------------------------------
@@ -195,7 +192,7 @@ TEST_CASE("YIELD suspends the fiber to the next round and preserves locals") {
   RuntimeSurface surface{&ctx, {}, nullptr};
   std::vector<uint8_t> arenaStorage(16 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  FiberScheduler scheduler(image, surface, arena);
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
   const Result<uint32_t> spawned = scheduler.spawn(0);
   REQUIRE(spawned.isOk());
   const uint32_t fiberId = spawned.value();
@@ -229,7 +226,7 @@ TEST_CASE("a YIELD inside a sync action hook faults ScriptError and the hook run
   RuntimeSurface surface{&ctx, {}, nullptr};
   std::vector<uint8_t> arenaStorage(16 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  FiberScheduler scheduler(image, surface, arena);
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
 
   const Status hook = scheduler.runActionHook(0, 0, 0);
   CHECK_FALSE(hook.isOk());
@@ -251,7 +248,7 @@ TEST_CASE("STORE_CALLSITE_VAR outside any action frame faults ScriptError") {
   REQUIRE(ctx.bindSlots(arena, 0, 1, 1));
   FaultObserver observer;
   RuntimeSurface surface{&ctx, {}, &observer};
-  FiberScheduler scheduler(image, surface, arena);
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
   REQUIRE(scheduler.spawn(0).isOk());
 
   scheduler.tick();
@@ -273,7 +270,7 @@ TEST_CASE("the operand stack grows on demand and faults StackOverflow at its cap
   RuntimeSurface surface{&ctx, {}, &observer};
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  FiberScheduler scheduler(image, surface, arena);
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
   const Result<uint32_t> spawned = scheduler.spawn(0);
   REQUIRE(spawned.isOk());
 
@@ -283,8 +280,8 @@ TEST_CASE("the operand stack grows on demand and faults StackOverflow at its cap
   const FiberRecord* record = scheduler.fiber(spawned.value());
   REQUIRE(record != nullptr);
   // The region grew from its small initial size all the way to the cap.
-  CHECK(record->exec.stackDepth == kMaxStackSize);
-  CHECK(record->exec.stackCapacity == kMaxStackSize);
+  CHECK(record->exec.stackDepth == kDeviceProfileCaps.maxStackSize);
+  CHECK(record->exec.stackCapacity == kDeviceProfileCaps.maxStackSize);
 }
 
 TEST_CASE("the frame stack grows on demand and faults StackOverflow at its cap") {
@@ -298,7 +295,7 @@ TEST_CASE("the frame stack grows on demand and faults StackOverflow at its cap")
   RuntimeSurface surface{&ctx, {}, &observer};
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  FiberScheduler scheduler(image, surface, arena);
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
   REQUIRE(scheduler.spawn(0).isOk());
 
   CHECK(scheduler.tick() == 1);
@@ -319,7 +316,7 @@ TEST_CASE("the locals region faults StackOverflow before the frame cap when loca
   RuntimeSurface surface{&ctx, {}, &observer};
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  FiberScheduler scheduler(image, surface, arena);
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
   const Result<uint32_t> spawned = scheduler.spawn(0);
   REQUIRE(spawned.isOk());
 
@@ -329,8 +326,8 @@ TEST_CASE("the locals region faults StackOverflow before the frame cap when loca
   const FiberRecord* record = scheduler.fiber(spawned.value());
   REQUIRE(record != nullptr);
   // The locals cap fired with frames still below their own cap.
-  CHECK(record->exec.localsDepth + 5u > kMaxLocalsSize);
-  CHECK(record->exec.frameDepth < kMaxFrameDepth);
+  CHECK(record->exec.localsDepth + 5u > kDeviceProfileCaps.maxLocalsSize);
+  CHECK(record->exec.frameDepth < kDeviceProfileCaps.maxFrameDepth);
 }
 
 // --- Garbage collection over a grown region -------------------------------------
@@ -354,7 +351,7 @@ TEST_CASE("the collector traces a grown operand stack") {
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
   ManagedHeap heap(arena);
   RuntimeSurface surface{&ctx, {}, nullptr, &heap};
-  FiberScheduler scheduler(image, surface, arena);
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
   const Result<uint32_t> spawned = scheduler.spawn(0);
   REQUIRE(spawned.isOk());
 

@@ -15,6 +15,7 @@
 #include "core/runtime/type-registry.h"
 #include "core/runtime/value.h"
 #include "core/runtime/vm.h"
+#include "device-profile-caps.h"
 #include "fixture-paths.h"
 #include "string-sink.h"
 #include "targets/microbit-v2/abi/host-action-bindings.h"
@@ -175,7 +176,7 @@ TEST_CASE("the button-display fixture byte-matches the golden observable trace")
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap};
 
-  FiberScheduler scheduler(image, surface, arena);
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   // Drive the cpp/codal host loop: it sources time through the clock port and
@@ -230,7 +231,7 @@ TEST_CASE("the exceptions-yield fixture byte-matches the golden observable trace
   // scheduler runs without one - exercising the no-heap grow-on-demand path.
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap};
 
-  FiberScheduler scheduler(image, surface, arena);
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
@@ -279,7 +280,7 @@ TEST_CASE("the container-ops fixture byte-matches the golden observable trace") 
   mindcraft::ManagedHeap heap(arena);
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
 
-  FiberScheduler scheduler(image, surface, arena);
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
@@ -332,7 +333,7 @@ TEST_CASE("the dynamic-field-access fixture byte-matches the golden observable t
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
 
-  FiberScheduler scheduler(image, surface, arena);
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
@@ -377,7 +378,7 @@ TEST_CASE("the sync-action-yield fixture byte-matches the golden observable trac
   // ACTION_CALL and the YIELD-in-sync-action fault touch no managed heap.
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap};
 
-  FiberScheduler scheduler(image, surface, arena);
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
@@ -426,7 +427,7 @@ TEST_CASE("the action-page-lifecycle fixture byte-matches the golden observable 
   // The bytecode actions and lifecycle hooks touch no managed heap.
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap};
 
-  FiberScheduler scheduler(image, surface, arena);
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
@@ -480,7 +481,7 @@ TEST_CASE("the context-variables fixture byte-matches the golden observable trac
   mindcraft::ManagedHeap heap(arena, &image);
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
 
-  FiberScheduler scheduler(image, surface, arena);
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
@@ -531,7 +532,7 @@ TEST_CASE("the rule-helper-variables fixture byte-matches the golden observable 
   mindcraft::ManagedHeap heap(arena, &image);
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
 
-  FiberScheduler scheduler(image, surface, arena);
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
@@ -580,7 +581,7 @@ TEST_CASE("the struct-closure fixture byte-matches the golden observable trace")
   mindcraft::ManagedHeap heap(arena);
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
 
-  FiberScheduler scheduler(image, surface, arena);
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
@@ -640,7 +641,7 @@ TEST_CASE("the user-tile button-display fixture byte-matches the golden observab
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena);
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
@@ -729,7 +730,7 @@ TEST_CASE("the timer-brain fixture byte-matches the golden observable trace") {
   RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
   surface.rng = &rng;
 
-  FiberScheduler scheduler(image, surface, arena);
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   coreEnv.brain = &brain;
   coreEnv.rng = &rng;
@@ -786,7 +787,7 @@ TEST_CASE("the restart-interrupt fixture byte-matches the golden observable trac
   RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
   surface.rng = &rng;
 
-  FiberScheduler scheduler(image, surface, arena);
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   coreEnv.brain = &brain;
   coreEnv.rng = &rng;
@@ -846,7 +847,7 @@ TEST_CASE("the core-host-actions fixture byte-matches the golden observable trac
   RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
   surface.rng = &rng;
 
-  FiberScheduler scheduler(image, surface, arena);
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   coreEnv.brain = &brain;
   coreEnv.rng = &rng;

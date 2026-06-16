@@ -57,21 +57,21 @@ is out of scope **by default** and needs a concrete, possible-today failure mode
 governing default that 7 and 8 are instances of; over-build has been the recurring
 failure, and a subtraction pass precedes every gate. When unsure, leave it out.
 
-Current focus: **Phase 6f5 (core sensor/actuator host actions) - newly added after a
-real on-device fault: a timer/page-switch brain runs in the wodal sim but faults on
-device because the firmware never registered the core host-action bodies (ids 0-7).
-Sequenced before 6g.** Phases 6a (heap + containers), 6b (structs + closures), 6c (core
-host-function library f32 + dynamic/managed strings), 6d (pinned numerics), 6e
+Current focus: **Phase 6h (async core - the generic `HandleTable`/`AWAIT`/WAITING-resume
+machinery + the three async opcodes; on the microbit-v2 critical path because scroll, 6i,
+is a real async action).** Phases 6a (heap + containers), 6b (structs + closures), 6c
+(core host-function library f32 + dynamic/managed strings), 6d (pinned numerics), 6e
 (exceptions, yield, and the grow-on-demand stack arena), 6f1 (struct re-string v3 +
 type-registry foundation), 6f2 (bytecode-action execution model), 6f3 (context-variable
-host functions 48-51), and 6f4 (native device surface - the user-tile milestone,
-host-gated; hardware hex pending the user's flash, 2026-06-15) are accepted; the GC,
-containers, structs, closures, the ~96 core `CoreFuncId` bodies, the RNG, managed
-strings, the 12 bit-exact pinned numeric components, exceptions/yield, the grow-on-demand
-stack arena (the last LD7 worst-case reservation removed), dynamic-key struct access
-(format v3), the type registry, the bytecode-action/page execution model, brain+rule
-context variables, and the native microbit device surface (user-tile button-display)
-all run. **The deploy arc is COMPLETE and hardware-proven** (2026-06-14):
+host functions 48-51), 6f4 (native device surface - user-tile milestone, host-gated), 6f5
+(core sensor/actuator host actions, hardware-validated), and 6g (cap parameterization -
+profile-sourced scheduler caps + parity guard, 2026-06-16) are accepted; the GC,
+containers, structs, closures, the ~96 core `CoreFuncId` bodies, the RNG, managed strings,
+the 12 bit-exact pinned numeric components, exceptions/yield, the grow-on-demand stack
+arena (the last LD7 worst-case reservation removed), dynamic-key struct access (format
+v3), the type registry, the bytecode-action/page execution model, brain+rule context
+variables, the native microbit device surface, the core sensor/actuator host actions
+(timer/page-switch brains run on hardware), and profile-sourced scheduler caps all run. **The deploy arc is COMPLETE and hardware-proven** (2026-06-14):
 5a firmware + 5b patcher + 5c browser delivery - a brain authored in microbit-sim
 reaches a real micro:bit v2 by **download** (Blob -> drag-drop) or **WebUSB flash**
 (paired device), and `button-display` toggles the pixel both ways. With Phases 1-5
@@ -136,9 +136,9 @@ run on device).
 | Phase 6f2: Bytecode-Action Execution Model | **Accepted (2026-06-15)** | `ACTION_CALL` (op 42) via extended `pushCallFrame` (actionBinding, isAsync=false); **new `callSiteSlots` pad** (flat `callSiteCount x callSiteSlotStride`, program-derived stride; distinct from the host-state cell) resolved by the per-fiber frame walk for `LOAD/STORE_CALLSITE_VAR`; `enumerateRoots` marks it. Page lifecycle: initializer (once) + activation (per-activation) in call-site order + deactivation on leave, with a page-change FSM in `think()` (deactivate old -> activate new before time-stamp); hooks via new `runActionHook`. `assertCanSuspend` (YIELD in sync action -> `ScriptError`). Gate: `action-page-lifecycle` + `sync-action-yield` goldens + 2 unit tests; check.sh x3; core 911, wodal 119. Deferred: `currentRuleFuncId` + rule inheritance (6f3); host `onInitialized`/`onPageExited` + injected-ctx entry (6f4); page restart = no-op. |
 | Phase 6f3: Context-Variable Host Functions | **Accepted (2026-06-15)** | 48-51 via `vm.cpp` `HOST_CALL` -> `dispatchContextVariableFunc`. **Brain** slot-backed (`variableNames` scan -> `ctx.variables`); **rule** = `ExecutionContext.ruleVarStores` (outer `MapObject` keyed by `ruleFuncId` -> inner `MapObject`; both 6c maps, lazy, brain-lifetime), `ruleVarGet` walks `parentRuleFuncId` ancestors, `ruleVarSet` own-only; `enumerateRoots` marks it. `currentRuleFuncId` resolved on demand (`resolveFrameRuleFuncId`); wired the action-frame `ruleFuncId` inheritance (6f2 deferral). Gate: `context-variables` fixture (brain + rule + ancestor + action-frame inheritance) + 2 GC tests (closes 6f2's callSiteSlots marking); check.sh x3; wodal 120. (Flagged the CALL-frame rule-inheritance gap - forwarding `ctx` to a non-rule helper silently no-ops `ctx.rule`; **closed in 6f4** via `resolveCalleeRuleFuncId` on the CALL paths.) |
 | Phase 6f4: Native Device Surface (user-tile milestone) | **Accepted (2026-06-15, host-gated; hardware hex pending user flash)** | CALL-frame rule inheritance (`resolveCalleeRuleFuncId` on CALL paths) + native-struct rep `Struct(typeId, disc-in-handle)` (mixed key: ctx = program-table index, device = type-atom-id; disc = `MicroBitField` id) + registry native getters (`native-struct-bindings.h`) + target host-fn surface (core `host-function.h` + `RuntimeSurface.hostFunctions`; `isPressed`/`setPixelValue` over `DevicePorts`) + `ctx` injection at root+`ACTION_CALL` (`pushCallFrame` `injectCtx` flag) + dual-path setPixel trace parity. `user-tile-button-display` byte-matches golden, ends pixel (0,0)=255; C++ 234 x3, wodal 122. Hex built (region 0x44000). |
-| Phase 6f5: Core Sensor/Actuator Host Actions | Planned (current focus) | Port the 8 **core** host actions (ids 0-7: SwitchPage/RestartPage/Yield/Random/OnPageEntered/Timeout/CurrentPage/PreviousPage) as core host-action bindings + bodies, mirroring TS, wired into the firmware action table. Fixes a **real silent on-device fault**: a timer/page-switch brain runs in sim but faults on device (no core action bodies registered). Reuses the host-action binding mechanism + callsite-state/page plumbing. Gate: timer-brain golden trace parity + check.sh x3 + hardware. Needs 3c scheduler + 6f2 callsite/page machinery. Independent of 6g/6h/6i; sequenced before 6g. |
-| Phase 6g: Cap Parameterization (topology parity with TS) | Planned | Give the C++ scheduler a runtime caps struct sourced from the device profile by `ProgramImage::profileId` (mirrors TS threading `schedulerConfig` into `BrainRuntime`), replacing the global `constexpr` consumed directly in `spawn()`/`runActionHook()`/`tick()`. One profile row (microbit-v2) today; a second target is just another row. Caps stay LD7 runtime guards. Includes the **cap-parity guard** (C++ profile-caps table == wodal profile, profile-sourced, replacing the hand-copied literal asserts). Lands before 6i raises `kMaxHandles`. Needs the 3c scheduler. |
-| Phase 6h: Async core | Planned | The generic `HandleTable`/`AWAIT`/WAITING-resume machinery + the three async opcodes; host-gated with a deterministic test async capability. **On the microbit-v2 critical path** (scroll, 6i, is a real async action) - not conformance-only. Needs 6e/6f2. |
+| Phase 6f5: Core Sensor/Actuator Host Actions | **Accepted (2026-06-16, hardware-validated)** | All 8 core host actions (ids 0-7) ported as **core, target-agnostic** bodies (`cpp/core/runtime/host-actions/`; `makeCoreHostActionBindings`); firmware table = core 8 + microbit 2. Fixed the real on-device fault (op-44 core ids -> null -> ScriptError). BrainRuntime gained `requestPageRestart`/`requestPageChangeByPageId`/`get{Current,Previous}PageId`; `requestPageChange` mirrors TS (same-page = restart, real change cancels fibers). Timeout = per-callsite managed `List[fireTime,lastTick]` (GC-rooted). **Plus a general scheduler-interrupt fix** (`ExecutionState.cancelled` checked at each instruction boundary; mirrors TS mid-run state check) - touches the VM dispatch hot path, first exercised by in-rule page changes. Gate: 3 fixtures (timer/core-actions/restart-interrupt) byte-matched + unit tests; check.sh x3; wodal 125; **hardware-validated** (timer brain). |
+| Phase 6g: Cap Parameterization (topology parity with TS) | **Accepted (2026-06-16)** | New core `DeviceProfileCaps` (8 fields); `FiberScheduler` ctor takes it (`spawn`/`runActionHook`/`tick` read `caps_`). Host supplies `kMicroBitV2DeviceProfileCaps` (`targets/.../device-profile.h`); global `constexpr` caps deleted; ~40 ctor sites threaded via a test helper. `profileId` validated in the host (`main.cpp`, faithful to TS) -> new core `LoadError::UnsupportedDeviceProfile`=15 on mismatch. Cap-parity guard: wodal `device-profile-caps-vectors` fixture -> C++ `device-profile-caps-parity.test.cpp` asserts each cap == the host caps (replaces literal asserts; 7 caps, `maxHandles` joins in 6i); negative-control proven. Pure refactor: 237 C++ cases, goldens byte-match; wodal 126. |
+| Phase 6h: Async core | Planned (current focus) | The 4 async opcodes (41/43/45/50) + `HandleTable` (`{state,waiters,result}`, Pool-backed/LD7, new GC root), mirroring vm.ts. `AWAIT` parks `WAITING` (flips 3c's Waiting->HostError) - resolved->push/rejected->throw/cancelled; `assertCanSuspend` still faults await in a sync action frame. **Resolution is enqueue->drain, callable from outside the think loop** (so 6i's CODAL callback fits; resumes join the next round in Parity-Surface order). Gate uses a **test caps with `maxHandles>0`** (microbit-v2 profile stays 0 until 6i) + a deterministic tick-scheduled test capability on both sides. **Fix the 6f2 fiber-id divergence first.** Needs 6e/6f2. |
 | Phase 6i: Display Scroll-Text (first async capability) | Planned | An **async** `display.scroll(text)` mirroring CODAL's cooperative blocking scroll: device resolution via the CODAL `ANIMATION_COMPLETE` bus event marshaled to a next-round handle resume; CODAL-matching scroll animation in C++ + wodal; **completion-time pinned in the microbit-v2 target layer** (wodal oracle + C++ mirror, not core `vm-contract.md`) so the resume round matches for parity. microbit-v2 raises `kMaxHandles>0` as a guard (dynamic `HandleTable`, LD7 - never a pool size). The async core's on-hardware gate. Needs 6h (+6c for computed strings). |
 | Phase 6j: Conformance + Parity Suite | Planned | Full golden parity set through both VMs; instruction-level trace mode; opcode-completeness check (no fault-on-unimplemented); shared input-script file format; the port-typing-seam resolution. Needs all. |
 | Phase 7: microbit-v2 Device-Surface Completeness | Placeholder - refine after Phase 6 | The **full** onboard sensor/actuator surface on both TS + C++ (accelerometer/gesture/temperature/magnetometer/compass/GPIO/... - today only display+buttons+touch exist). Front-loaded by a two-stage process the user owns: (1) CODAL capability inventory, (2) tile-language design deciding how to surface it (the `Context` surface is the **design output**, not predetermined). Then downstream build reuses 6f4's mechanism (append ABI ids, `Struct(typeId,disc)` rep, both-side impl, per-peripheral fixtures). Key new harness: deterministic injectable sensor inputs for parity. Needs 6f4/6f5. Under-specified + un-split until Phase 6 is done. |
@@ -2205,129 +2205,153 @@ Recorded seam (negligible, far-future): the mixed native-typeId scheme is collis
 for the fixture; a hypothetical program with 1028+ types placing a managed struct at a
 table index equal to a device atom id would collide.
 
-#### Phase 6f5: Core Sensor/Actuator Host Actions
+#### Phase 6f5: Core Sensor/Actuator Host Actions - ACCEPTED 2026-06-16 (hardware-validated)
 
-Discovered from a real on-device fault: a two-page **timer** brain (page-switch +
-timeout + display) builds and runs in the wodal sim but **faults on device**. The
-firmware registers only the two microbit host actions (button-a 1024, display-set-pixel
-1025); the entire **core** host-action surface (`core-host-actions.h`, host-action ids
-0-7: SwitchPage, RestartPage, Yield, Random, OnPageEntered, Timeout, CurrentPage,
-PreviousPage) has **no C++ bodies anywhere**, so a `HOST_ACTION_CALL` (op 44) to
-SwitchPage(0)/Timeout(5)/etc. resolves null -> `ScriptError`, respawning into the same
-fault each tick (and SwitchPage failing pins the brain on page 0). This is **orthogonal
-to 6f4** (which delivered bytecode actions op 42 + the native device host-fn surface) -
-the user-tile fixture passed because it used those, not core host actions. Every other
-opcode the timer brain needs is already implemented; the core host actions are the sole
-gap. (Census note: the 6c carve-out census checked `HOST_CALL` `CoreFuncId` **bodies**
-and recorded the sensor/actuator ids as "action-dispatched" - but never verified the
-action **bindings** were registered in the firmware. The 6j carve-out gate must cover
-host-action binding coverage too - see there.)
+Fixed a real on-device fault: a timer/page-switch brain ran in the wodal sim but faulted
+on device because the firmware bound only the 2 microbit host actions - the 8 **core**
+host actions (`core-host-actions.h` ids 0-7) had no C++ bodies, so op-44 `HOST_ACTION_CALL`
+resolved null -> `ScriptError` each tick (SwitchPage failing pinned page 0). Orthogonal to
+6f4 (op 42 + native host-fns). As built:
 
-Scope: port the 8 core sensor/actuator host actions as **core** host-action bindings +
-bodies (target-agnostic, so a core bindings unit consumed by every target, not the
-microbit-v2 abi), mirroring the TS sensor/actuator definitions, wired into the firmware
-action table alongside the microbit bindings. Reuse the existing host-action
-binding-table mechanism + the `ExecutionContext` callsite-state + page plumbing (no new
-dispatch):
+- **All 8 actions** (SwitchPage/RestartPage/Yield/Random/OnPageEntered/Timeout/
+  CurrentPage/PreviousPage) ported as **core, target-agnostic** bodies mirroring the TS
+  sensors/actuators - one per file under `cpp/core/runtime/host-actions/{actuators,
+  sensors}/` + `core-host-action-env.h` (`CoreHostActionEnv`: brain/rng/heap/roots) + a
+  thin `core-host-action-bindings.h` aggregator (`makeCoreHostActionBindings`, 8 entries).
+  Firmware action table = core 8 + microbit 2.
+- **BrainRuntime additions:** `requestPageRestart` (cancel active fibers -> respawn from
+  entry next think, no lifecycle events), `requestPageChangeByPageId` (pageId content
+  scan), `getCurrent/PreviousPageId` (borrowed-string Values), `previousPageIndex_`;
+  `requestPageChange` now mirrors TS (same-page -> restart; a real change cancels active
+  fibers immediately).
+- **Body state:** Timeout = a per-callsite 2-element managed `List` `[fireTime, lastTick]`,
+  freshly allocated on each page activation, mutated in place, GC-rooted via
+  `callSiteStates`; Random = the shared `VmRng` (seed 1, same stream as `MathRandom`);
+  Current/Previous page = borrowed strings from the program string table; Yield = no-op
+  (the `YIELD` opcode suspends).
 
-- **SwitchPage(0) / RestartPage(1):** page control via `BrainRuntime::requestPageChange`
-  (exists from 6f2, currently unwired to an action); verify restart end-to-end.
-- **Timeout(5) / OnPageEntered(4):** per-callsite state + `ctx.time` edge semantics (the
-  6f2 callsite-state / button-a-sensor model).
-- **Random(3):** `VmRng` (already on the surface).
-- **CurrentPage(6) / PreviousPage(7):** read brain page state.
-- **Yield(2):** the `YIELD` path.
+**Scheduler-interrupt fix (general conformance, beyond the host-action surface - touches
+the VM dispatch hot path):** added `ExecutionState.cancelled`; `FiberScheduler::cancel`
+raises it; `runExecution` checks it at each instruction boundary and stops; the tick loop
+preserves `Cancelled` (mirrors TS `runFiber`'s mid-run `state !== RUNNABLE` check). Effect:
+a rule that triggers a page change/restart **from within itself** is now interrupted at
+the next instruction (trailing actions abandoned), not run to completion. First exercised
+here (in-rule page changes are new), but it is a VM-wide dispatch change.
 
-Gate: a golden timer brain (page-switch + timeout + display - the user's failing brain,
-committed as `.mcprogram.bin` + `.ticks.trace`) byte-matches the wodal oracle host-side;
-`check.sh` x3 + full TS suite; then rebuild the firmware hex and validate on hardware
-(user-gated, as 6f4). Repro: the timer brain JSON is exportable from microbit-sim via the
-new per-brain "Program" button (added this session).
+Deviations: SwitchPage page-**name** fallback not mirrored (the decoded image carries no
+page-name table; pageId scan only); out-of-range switch stays a no-op (pre-existing).
+Over-build pass removed 4 dead guards (null rng/heap, page-index bound - ASan/UBSan
+confirmed unreachable).
 
-Needs only the 3c scheduler + the existing callsite-state/page machinery; independent of
-6g/6h/6i. **Sequenced before 6g** - it fixes a demonstrated silent on-device fault for a
-whole class of user brains (timers, multi-page), which outranks 6g's internal
-topology-parity work.
+Gate (green): committed fixtures byte-matched cpp<->wodal exercising all 8 - `timer-brain`
+(Timeout + SwitchPage-by-number + display), `core-host-actions` (SwitchPage-by-pageId,
+RestartPage, Yield, OnPageEntered, CurrentPage, PreviousPage), `restart-interrupt`
+(same-page switch abandons a trailing pixel write); C++ unit tests (Random vs reference;
+same-page restart respawns vs resumes). `check.sh` x3 (ASan+UBSan); wodal 125.
+**Hardware-validated** (user flashed `MICROBIT-timer-brain.hex`: ~1.8s -> timeout -> page
+switch -> pixel lights).
 
-### Phase 6g: Cap Parameterization - Topology Parity with TS
+### Phase 6g: Cap Parameterization - Topology Parity with TS - ACCEPTED 2026-06-16
 
-The C++ VM mirrors the TS reference, and the TS reference **parameterizes** the
-scheduling/resource caps - it threads them from the device profile into the scheduler
-config at construction (`runtime.ts` -> `BrainRuntime({ defaultBudget, hookBudget,
-maxFibers, maxStackSize, maxLocalsSize, maxFrameDepth, maxHandlers })` from
-`getWodalDeviceProfile`). The C++ core instead hardcodes them as global `constexpr`
-consumed directly. That is a **topology divergence from the reference**, and it leaves
-the caps-equal-profile invariant with no structural home - maintained by hand, and it
-already drifted once (the 6e mismatch). This phase brings the C++ topology into line.
-It is not multi-target speculation (LD9): one profile row exists today; a second target
-is just another row.
+A pure refactor + guard: the scheduling/resource caps now come from the device profile
+(like TS), not global `constexpr` consumed directly - giving the caps-equal-profile
+invariant (which drifted once at 6e) a structural home. As built:
 
-Scope:
+- **New core `DeviceProfileCaps`** (`device-profile-caps.h`): 8 profile-agnostic fields
+  (`defaultBudget`/`hookBudget`/`maxFibers`/`maxStackSize`/`maxLocalsSize`/
+  `maxFrameDepth`/`maxHandlers`/`maxHandles`), mirroring the union of TS `SchedulerConfig`
+  + `VmConfig` caps. (Named for the **device profile**, not the scheduler: TS has no
+  single combined type, the owning aggregate is `WodalDeviceProfile`, and "scheduler"
+  would scope it to one consumer and fragment if a non-scheduler cap is added.)
+  `FiberScheduler` ctor now **takes** it
+  (`(program, surface, arena, const DeviceProfileCaps&)`); `spawn`/`allocFiber`/
+  `runActionHook`/`tick` read `caps_` - no default param, no internal `profileId`
+  resolution.
+- **Host supplies the values** (`cpp/targets/microbit-v2/abi/device-profile.h`):
+  `kMicroBitV2DeviceProfileCaps` (1000/10000/100/256/256/64/16/0) + `kMicroBitV2NumericProfileId`
+  = 1. The global `constexpr` caps in `fiber-scheduler.h`/`execution-state.h` are
+  **deleted** (grep-clean). ~40 ctor sites threaded via one shared test helper
+  (`cpp/test/device-profile-caps.h`).
+- **`profileId` validated in the HOST** (`main.cpp`), faithful to TS (`runtime.ts`
+  validates in the host facade, not the codec; the C++ reader is untouched). On mismatch:
+  the existing Load-fault loop with a new core code **`LoadError::UnsupportedDeviceProfile`
+  = 15** (core names it via the `mc L<n>` fault rendering; the host owns the comparison +
+  raises it). No new fault machinery.
+- **Cap-parity guard:** wodal `device-profile-caps-vectors.spec.ts` -> committed fixture;
+  C++ `device-profile-caps-parity.test.cpp` reads it (`MC_WODAL_FIXTURES_DIR`) and asserts each
+  named cap == `kMicroBitV2DeviceProfileCaps`, **replacing** the literal asserts. Covers the
+  **7** caps the profile declares; `maxHandles` (=0) is in the struct but joins the
+  fixture/guard in 6i. Negative control proven.
 
-- **A C++ caps struct** mirroring the TS `schedulerConfig` + cap fields
-  (`defaultBudget`, `hookBudget`, `maxFibers`, `maxStackSize`, `maxLocalsSize`,
-  `maxFrameDepth`, `maxHandlers`, `maxHandles`). `FiberScheduler`'s constructor takes it
-  (mirroring TS threading config into the scheduler); `spawn()` / `runActionHook()` /
-  `tick()` read it instead of the globals.
-- **Profile-sourced selection.** A C++ profile-caps table keyed by
-  `ProgramImage::profileId` (decoded already; today only used for dump/trace headers)
-  with **one entry, microbit-v2**, mirroring the wodal device profile. The scheduler
-  selects its caps from the table by the program's `profileId`. A second target adds a
-  row; nothing general is built ahead of need.
-- **LD7 unchanged:** the values are still runtime upper-bound guards; regions grow on
-  demand toward them. This moves *where the numbers come from*, not what they mean.
-- **The cap-parity guard (folded in here):** the C++ profile-caps table must equal the
-  wodal device profile, **sourced from the profile, not a third literal copy** - unlike
-  `microbit-v2-abi.test.cpp` (literal asserts, fine for independently-wire-stable ABI
-  ids), caps have the profile as their source of truth, so a C++-only literal test would
-  not catch a profile-only change. Mechanism: wodal emits the profile caps to a
-  committed fixture; a C++ test asserts the table equals it (the `MC_WODAL_FIXTURES_DIR`
-  pattern), so a one-sided change on **either** side fails loudly. This **replaces** the
-  hand-copied literal cap asserts in `fiber-scheduler.test.cpp` / `vm.test.cpp`.
+LD7/LD9 honored: no second profile, no `profileId`->caps registry, no core-side default;
+`kMax*` semantics unchanged (still runtime guards, regions grow on demand). Pure refactor -
+trace-parity goldens byte-match unchanged.
 
-Sequencing: lands **before 6i raises `kMaxHandles` from 0** so the new `maxHandles` cap
-enters the profile-sourced seam (and the parity guard) from the start, rather than being
-added as one more global to migrate later. Independent of 6h (async); needs only the 3c
-scheduler + the decoded `profileId`.
+Gate (green): 237 C++ cases (goldens byte-match through the parameterized scheduler);
+`check.sh` x3 (ASan+UBSan); wodal 126 (+1 cap emitter); Biome + typecheck clean.
 
-Gate: the existing trace-parity goldens still byte-match through the parameterized
-scheduler (behavior unchanged - same values, sourced differently); the cap-parity guard
-passes (and fails loudly under a deliberate one-sided edit, negative-control proven);
-`check.sh` x3.
+**6i seam:** when 6i raises `kMaxHandles` > 0, add `maxHandles` to the wodal device
+profile + the cap-parity fixture/guard - the `DeviceProfileCaps` field and the C++ value are
+already in place.
 
 ### Phase 6h: Async Core
 
+The generic async machinery (`HOST_CALL_ASYNC`=41 / `ACTION_CALL_ASYNC`=43 /
+`HOST_ACTION_CALL_ASYNC`=45 / `AWAIT`=50 + the `HandleTable`). The semantics are
+**already core contract** (`vm-contract.md` + the Prep C "handle resumes join the next
+round" rule) - 6h implements them in C++, mirroring vm.ts; it invents no new contract.
+Needs 6e's grow-on-demand stack arena (long-lived suspensions are its first real load)
+and 6f2's action machinery (the `ACTION_CALL_ASYNC` branch). C++-only mirror + a shared
+test capability for the gate.
+
 Scope:
 
-- The generic async machinery: `HOST_CALL_ASYNC` / `HOST_ACTION_CALL_ASYNC` /
-  `ACTION_CALL_ASYNC` / `AWAIT` with the `HandleTable`, fiber WAITING/resume
-  semantics, resume ordering per the Parity Surface, and the async host obligation
-  (every async call resolves/rejects/cancels its handle). These semantics are
-  **already core contract** (`vm-contract.md` - the async opcodes + the Prep C
-  "handle resumes join the next round" rule); 6h implements them in C++, it does not
-  invent new core contract. Needs 6e's grow-on-demand stack arena (long-lived
-  suspensions are its first real load) and 6f2's action machinery (for the bytecode `ACTION_CALL_ASYNC`
-  branch).
-- **The `HandleTable` is `Pool<T>`-backed / carve-on-demand (Locked Decision 7)** -
+- **`HandleTable`** (mirror the TS shape): a handle = `{state, waiters, result}` with
+  `state` in `PENDING`/`RESOLVED`/`REJECTED`/`CANCELLED`; `resolve(id, value)`/
+  `reject(id, err)`/`cancel(id)` legal **only from `PENDING`**; resolve/reject/cancel
+  add the waiters to the next round. **`Pool<T>`-backed / carve-on-demand (LD7)** -
   `kMaxHandles` is a runtime upper-bound guard (fault on exceed), **never** a
-  `Handle[kMaxHandles]` array or a table sized to the cap; same discipline as
-  `kMaxFibers` and the `kMaxHandlers` handler stack (6e).
-- **On the microbit-v2 critical path, not conformance-only:** the device's scroll
-  capability (6i) is a real async host action, so async is a *shipped microbit-v2
-  feature*, not just a contract requirement. This phase is the generic mechanism; 6i
-  is its first shipped consumer + on-hardware parity gate, and 6i is where
-  microbit-v2's `kMaxHandles` is raised above 0.
+  `Handle[kMaxHandles]` array (same discipline as `kMaxFibers`/`kMaxHandlers`). **New GC
+  root source:** a handle holds its `result` `Value` until the waiter consumes it, so
+  `enumerateRoots` must trace pending/resolved handle results.
+- **The four opcodes** (mirror vm.ts): `HOST_CALL_ASYNC`/`HOST_ACTION_CALL_ASYNC`/
+  `ACTION_CALL_ASYNC` allocate a handle, dispatch the async call (the host/action owns
+  the handle), and push the handle; `AWAIT` pops a handle and, if `PENDING`, adds the
+  fiber to the handle's waiters and suspends it **`WAITING`**; if already settled it
+  resumes inline - `RESOLVED` -> push `result`, `REJECTED` -> throw the error (the 6e
+  handler path), `CANCELLED` -> per vm.ts. `ACTION_CALL_ASYNC` enters a 6f2 action frame
+  with `isAsync=true`.
+- **Flip the 3c guard.** 3c made `RunStatus::Waiting` fault `HostError` ("no async
+  capability"); 6h makes `WAITING` legal - the fiber parks on its handle and the tick
+  loop leaves it until its handle settles. `AWAIT`/await **inside a sync action frame
+  still faults** via 6f2's `assertCanSuspend` (`actionBinding.isAsync == false`); legal
+  in async frames and rule bodies.
+- **Resolution is enqueue -> drain, callable from outside the think loop.** Settling a
+  handle enqueues its resolution; the think loop drains settled handles and re-enqueues
+  the waiters for the **next round** (the Prep C rule), in the Parity-Surface resume
+  order. Build this enqueue->drain path **so an external callback can settle a handle
+  from outside the single-entry loop** - 6h's own test capability settles in-loop, but
+  6i's CODAL `ANIMATION_COMPLETE` listener settles out-of-loop (enqueue-only, per the
+  single-entry rule). Designing it enqueue->drain now is what lets 6i fit without rework.
+- **`kMaxHandles` for the gate.** microbit-v2's profile keeps `maxHandles = 0` until 6i,
+  so 6h's async tests run under a **test `DeviceProfileCaps` with `maxHandles > 0`**
+  (the 6g `kDeviceProfileCaps` helper stays the microbit-v2 0; add a test variant). 6h
+  does **not** touch the microbit-v2 profile.
 - **Fix the fiber-id space divergence first (6f2 follow-up).** C++ hook fibers consume
   the shared positive `nextFiberId_`; TS uses a separate **negative** inline id space
-  (`nextInlineFiberId`). Invisible to current gates (only `fault` lines render a fiber
-  id, and no current fixture combines hooks + a fault), but an async fixture mixing
-  hooks and faults would diverge - give C++ hook fibers their own id space before such
+  (`nextInlineFiberId`). Invisible to current gates, but an async fixture mixing hooks
+  and a fault would diverge - give C++ hook fibers their own id space before such
   goldens land.
+- **On the microbit-v2 critical path, not conformance-only:** scroll (6i) is a real
+  async host action, so async is a *shipped* microbit-v2 feature. 6h is the generic
+  mechanism; 6i is its first shipped consumer + on-hardware proof, and 6i raises
+  microbit-v2's `kMaxHandles` above 0.
 
-Gate (host): async goldens driven by a **deterministic test async capability** (a
-host function that resolves / rejects / cancels its handle on a fixed schedule) -
-await-resolve, reject, cancel, multi-waiter resume order - pass trace parity on the
-host build. (The real on-hardware async proof is 6i's scroll.)
+Gate (host): async goldens driven by a **deterministic test async capability** - a host
+function that resolves / rejects / cancels its handle on a **fixed tick schedule** (not
+wall-clock), built on **both** sides for parity - covering await-resolve, reject, cancel,
+and multi-waiter resume order; trace parity on the host build, `check.sh` x3. (The real
+on-hardware async proof is 6i's scroll.)
 
 ### Phase 6i: Display Scroll-Text - the First Async Capability (microbit-v2)
 
@@ -2385,12 +2409,14 @@ Scope:
   observable-trace contract (the format lives in the wodal microbit module's
   `observable-trace.ts`, where `port display set-pixel` is defined) + the C++ target
   emitter + goldens. Not a core `vm-contract.md` change.
-- **microbit-v2 raises its handle ceiling** (`kMaxHandles > 0` in
-  `execution-state.h`, replacing the Phase-3 slice's 0). `kMaxHandles` is a
-  **runtime upper-bound guard** (Locked Decision 7) - exceeding it faults, it is
-  **never a pool size**; the `HandleTable` is `Pool<T>`-backed / carve-on-demand
-  like every other runtime allocation. Set the ceiling against the device budget,
-  not "sized to" anything.
+- **microbit-v2 raises its handle ceiling.** `maxHandles` now lives in the 6g
+  `DeviceProfileCaps` (the field + the C++ value are already in place at 0) - **6g left
+  this seam ready**, so raising it means: set `kMicroBitV2DeviceProfileCaps.maxHandles`,
+  add `maxHandles` to the wodal device profile, and add it to the cap-parity
+  fixture/guard (the 8th cap). It is a **runtime upper-bound guard** (Locked Decision
+  7) - exceeding it faults, it is **never a pool size**; the `HandleTable` is
+  `Pool<T>`-backed / carve-on-demand. Set the ceiling against the device budget, not
+  "sized to" anything.
 
 Strings: scroll a **borrowed/literal** string first (no managed-string machinery -
 the borrowed path exists since 3b). Scrolling a **computed/managed** string layers
@@ -2531,6 +2557,37 @@ Condensed dated ledger of accepted phases (newest first). Full per-phase as-buil
 detail lives in the session memory and git history; the accepted phase sections above
 carry the contracts each produced.
 
+- **2026-06-16 - Phase 6g accepted** (host build; pure refactor, no reflash): cap
+  parameterization - the scheduling/resource caps now come from the device profile, not
+  global `constexpr`. New core `DeviceProfileCaps` (8 fields); `FiberScheduler` ctor takes it
+  (`spawn`/`runActionHook`/`tick` read `caps_`; no default, no internal `profileId`
+  resolution). Host supplies `kMicroBitV2DeviceProfileCaps` (`targets/microbit-v2/abi/
+  device-profile.h`); the global `constexpr` caps are deleted (grep-clean); ~40 ctor sites
+  threaded via one shared test helper. `profileId` validated in the host (`main.cpp`,
+  faithful to TS) -> existing Load-fault loop with new core `LoadError::UnsupportedDeviceProfile`
+  = 15 (core names it, host raises it; no new fault machinery). Cap-parity guard: wodal
+  `device-profile-caps-vectors` fixture -> C++ `device-profile-caps-parity.test.cpp` asserts
+  each cap == the host caps (replaces the literal asserts; 7 caps, `maxHandles`=0 in the
+  struct joins the profile + guard in 6i); negative-control proven. LD7/LD9 honored (no
+  second profile, no registry, no core default; `kMax*` still runtime guards). Pure
+  refactor: 237 C++ cases, goldens byte-match; check.sh x3; wodal 126.
+- **2026-06-16 - Phase 6f5 accepted** (hardware-validated): all 8 core sensor/actuator
+  host actions (ids 0-7) ported as core, target-agnostic bodies (`cpp/core/runtime/
+  host-actions/{actuators,sensors}/` + `core-host-action-env.h` +
+  `makeCoreHostActionBindings`); firmware action table = core 8 + microbit 2. Fixed the
+  real on-device fault (op-44 core ids resolved null -> ScriptError, pinning page 0).
+  BrainRuntime: `requestPageRestart` (cancel fibers -> respawn from entry, no lifecycle
+  events), `requestPageChangeByPageId`, `get{Current,Previous}PageId`, `previousPageIndex_`;
+  `requestPageChange` mirrors TS (same-page = restart; real change cancels active fibers).
+  Timeout = per-callsite managed `List[fireTime,lastTick]` reset on activation, GC-rooted;
+  Random = shared `VmRng`; Current/Previous page = borrowed strings; Yield = no-op.
+  **Plus a general scheduler-interrupt fix** (`ExecutionState.cancelled`, checked each
+  instruction boundary; mirrors TS `runFiber` mid-run `state != RUNNABLE`) - a rule that
+  changes/restarts its own page is now interrupted at the next instruction; touches the VM
+  dispatch hot path, first exercised here. Deviations: no page-NAME fallback (no name table;
+  pageId scan only); out-of-range switch = no-op. Over-build pass cut 4 dead guards. Gate:
+  timer-brain/core-host-actions/restart-interrupt fixtures byte-matched + unit tests;
+  check.sh x3; wodal 125; hardware-validated (timer brain).
 - **2026-06-15 - Phase 6f4 accepted** (host-gated; hardware hex pending the user's
   flash): native device surface, the user-tile milestone - `user-tile-button-display`
   runs end-to-end (byte-exact host parity; patched hex built). Closed the 6f3 CALL-frame

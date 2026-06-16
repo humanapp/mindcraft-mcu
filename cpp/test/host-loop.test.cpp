@@ -11,6 +11,7 @@
 #include "core/runtime/region-arena.h"
 #include "core/runtime/value.h"
 #include "core/runtime/vm.h"
+#include "device-profile-caps.h"
 #include "fixture-paths.h"
 #include "targets/microbit-v2/abi/type-atom-id.h"
 
@@ -137,7 +138,7 @@ TEST_CASE("the host loop latches fault mode when startup fails") {
   // A surface with no execution context: BrainRuntime::startup faults
   // HostError before activating the page.
   RuntimeSurface surface{nullptr, {}, nullptr};
-  FiberScheduler scheduler(image, surface, arena);
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   NullDisplay display;

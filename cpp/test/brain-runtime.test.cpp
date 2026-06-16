@@ -18,9 +18,6 @@ using mindcraft::ExecutionContext;
 using mindcraft::FiberScheduler;
 using mindcraft::Frame;
 using mindcraft::HostActionBinding;
-using mindcraft::kMaxFrameDepth;
-using mindcraft::kMaxLocalsSize;
-using mindcraft::kMaxStackSize;
 using mindcraft::kNoCallSiteId;
 using mindcraft::Op;
 using mindcraft::ProgramImage;
@@ -82,7 +79,7 @@ TEST_CASE("think stamps time, the dt rule, and the tick counter") {
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {bindings, 1}, nullptr};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.arena);
+  FiberScheduler scheduler(image, surface, pools.arena, mindcraft::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   REQUIRE(brain.startup().isOk());
 
@@ -108,7 +105,7 @@ TEST_CASE("a completed rule fiber respawns and re-evaluates every think") {
   CountingObserver observer;
   RuntimeSurface surface{&ctx, {bindings, 1}, &observer};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.arena);
+  FiberScheduler scheduler(image, surface, pools.arena, mindcraft::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   REQUIRE(brain.startup().isOk());
 
@@ -131,7 +128,7 @@ TEST_CASE("a fault kills the fiber, not the rule: it respawns next think") {
   CountingObserver observer;
   RuntimeSurface surface{&ctx, {}, &observer};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.arena);
+  FiberScheduler scheduler(image, surface, pools.arena, mindcraft::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   REQUIRE(brain.startup().isOk());
 
@@ -158,7 +155,7 @@ TEST_CASE("an unregistered action id faults the fiber and the rule respawns") {
   CountingObserver observer;
   RuntimeSurface surface{&ctx, {}, &observer};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.arena);
+  FiberScheduler scheduler(image, surface, pools.arena, mindcraft::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   // Activation skips the unregistered call site; the existence check faults
   // at dispatch instead.
@@ -185,7 +182,7 @@ TEST_CASE("page activation runs each call site's page-entered hook bound to it")
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {bindings, 1}, nullptr};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.arena);
+  FiberScheduler scheduler(image, surface, pools.arena, mindcraft::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   REQUIRE(brain.startup().isOk());
 
@@ -221,7 +218,7 @@ TEST_CASE("think is single-entry: re-entering from a host body fails loudly") {
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {bindings, 1}, nullptr};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.arena);
+  FiberScheduler scheduler(image, surface, pools.arena, mindcraft::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   probe.brain = &brain;
   REQUIRE(brain.startup().isOk());
@@ -244,7 +241,7 @@ TEST_CASE("a program with no pages starts up and thinks as a no-op") {
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {}, nullptr};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.arena);
+  FiberScheduler scheduler(image, surface, pools.arena, mindcraft::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   REQUIRE(brain.startup().isOk());
   REQUIRE(brain.think(16.0f).isOk());
@@ -267,7 +264,7 @@ TEST_CASE("requesting the active page restarts its rules from their entry") {
   CountingObserver observer;
   RuntimeSurface surface{&ctx, {bindings, 1}, &observer};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.arena);
+  FiberScheduler scheduler(image, surface, pools.arena, mindcraft::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   REQUIRE(brain.startup().isOk());
 
