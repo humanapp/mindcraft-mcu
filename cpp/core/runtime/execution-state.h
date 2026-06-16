@@ -161,6 +161,13 @@ struct ExecutionState {
    * cleanly at the first instruction boundary where it reaches zero.
    */
   int32_t budget;
+
+  /**
+   * Set when the running fiber is cancelled mid-slice (a host body requested a
+   * page change or restart). The dispatch loop checks it at each instruction
+   * boundary and stops the slice, abandoning the rest of the current body.
+   */
+  bool cancelled = false;
 };
 
 static_assert(std::is_trivially_copyable_v<Frame>, "execution state stays trivially copyable");

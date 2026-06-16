@@ -1,13 +1,26 @@
 #include "doctest/doctest.h"
 
 #include "core/runtime/core-host-actions.h"
+#include "core/runtime/core-host-functions.h"
+#include "core/runtime/execution-context.h"
+#include "core/runtime/host-action.h"
+#include "core/runtime/host-actions/core-host-action-bindings.h"
+#include "core/runtime/value.h"
 
 #include <cstdint>
 #include <iterator>
 
 using mindcraft::CoreFuncId;
+using mindcraft::CoreHostActionEnv;
+using mindcraft::ExecutionContext;
+using mindcraft::findHostActionById;
+using mindcraft::HostActionBinding;
 using mindcraft::kCoreHostActions;
+using mindcraft::makeCoreHostActionBindings;
+using mindcraft::Span;
 using mindcraft::TARGET_ACTION_ID_BASE;
+using mindcraft::Value;
+using mindcraft::VmRng;
 namespace CoreHostActions = mindcraft::CoreHostActions;
 
 TEST_CASE("action partition constant matches the TS declaration") {
@@ -42,5 +55,23 @@ TEST_CASE("record table covers every action densely in action-id order") {
   for (uint32_t i = 0; i < std::size(kCoreHostActions); i++) {
     CHECK(kCoreHostActions[i].actionId == i);
     CHECK(kCoreHostActions[i].actionId < TARGET_ACTION_ID_BASE);
+  }
+}
+
+TEST_CASE("the random sensor yields the surface rng stream") {
+  VmRng rng;
+  VmRng reference;
+  CoreHostActionEnv env;
+  env.rng = &rng;
+  auto bindings = makeCoreHostActionBindings(env);
+  const HostActionBinding* random =
+      findHostActionById({bindings.data(), bindings.size()}, CoreHostActions::Random.actionId);
+  REQUIRE(random != nullptr);
+
+  ExecutionContext ctx;
+  for (int i = 0; i < 4; i++) {
+    const Value result = random->execSync(random->hostData, ctx, Span<const Value>{});
+    REQUIRE(result.isNumber());
+    CHECK(result.asNumber() == reference.next());
   }
 }

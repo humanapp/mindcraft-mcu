@@ -251,3 +251,34 @@ TEST_CASE("a program with no pages starts up and thinks as a no-op") {
   CHECK(ctx.currentTick == 0);
   CHECK(scheduler.liveCount() == 0);
 }
+
+TEST_CASE("requesting the active page restarts its rules from their entry") {
+  ProgramBuilder b;
+  b.poolString("page-id");
+  // The rule dispatches the action, then yields and suspends mid-rule.
+  b.beginFunction().instr(Op::HOST_ACTION_CALL, 1, 0, 0).instr(Op::YIELD).instr(Op::RET);
+  b.ruleFunc(0);
+  b.beginPage(0).pageRoot(0).pageHostCallSite(0, 1);
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  const HostActionBinding bindings[1] = {{1, &execNoop, nullptr, nullptr}};
+  ExecutionContext ctx;
+  CountingObserver observer;
+  RuntimeSurface surface{&ctx, {bindings, 1}, &observer};
+  SchedulerStorage pools;
+  FiberScheduler scheduler(image, surface, pools.arena);
+  BrainRuntime brain(image, scheduler, surface);
+  REQUIRE(brain.startup().isOk());
+
+  // Think 1 dispatches the action once, then the rule yields and suspends.
+  REQUIRE(brain.think(16.0f).isOk());
+  CHECK(observer.actionCalls == 1);
+
+  // Requesting the active page restarts it: the suspended fiber is cancelled and
+  // respawned from its entry, so think 2 re-dispatches the action. A plain
+  // resume past the yield would leave the count at 1.
+  brain.requestPageChange(0);
+  REQUIRE(brain.think(32.0f).isOk());
+  CHECK(observer.actionCalls == 2);
+}

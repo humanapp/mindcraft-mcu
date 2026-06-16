@@ -1,5 +1,7 @@
 #include "core/runtime/brain-runtime.h"
 
+#include <cstring>
+
 #include "core/runtime/execution-context.h"
 #include "core/runtime/host-action.h"
 
@@ -37,6 +39,7 @@ Status BrainRuntime::startup() {
     return Status::fail(ErrorCode::HostError);
   }
   lastThinkTime_ = 0;
+  previousPageIndex_ = kNoPageIndex;
   if (program_.pages.empty()) {
     return Status::ok();
   }
@@ -137,19 +140,60 @@ Status BrainRuntime::deactivateCurrentPage() {
     }
   }
 
-  for (uint32_t i = 0; i < ruleFiberCount_; i++) {
-    scheduler_.cancel(ruleFibers_[i].fiberId);
-  }
+  cancelActiveFibers();
   ruleFiberCount_ = 0;
   ctx.currentCallSiteId = kNoCallSiteId;
   return Status::ok();
 }
 
+void BrainRuntime::cancelActiveFibers() {
+  for (uint32_t i = 0; i < ruleFiberCount_; i++) {
+    scheduler_.cancel(ruleFibers_[i].fiberId);
+  }
+}
+
 void BrainRuntime::requestPageChange(uint32_t pageIndex) {
+  // Out of range is a no-op; the current page stays active.
   if (pageIndex >= program_.pages.size()) {
     return;
   }
+  if (pageIndex == currentPageIndex_) {
+    requestPageRestart();
+    return;
+  }
   desiredPageIndex_ = pageIndex;
+  cancelActiveFibers();
+}
+
+void BrainRuntime::requestPageRestart() { cancelActiveFibers(); }
+
+void BrainRuntime::requestPageChangeByPageId(const char* pageId, uint32_t length) {
+  for (uint32_t i = 0; i < program_.pages.size(); i++) {
+    const uint32_t idx = program_.pages[i].pageIdStringIdx;
+    if (idx >= program_.strings.size()) {
+      continue;
+    }
+    const StringRef& ref = program_.strings[idx];
+    if (ref.length != length) {
+      continue;
+    }
+    const char* pageBytes = reinterpret_cast<const char*>(program_.stringData.data()) + ref.offset;
+    if (length == 0 || std::memcmp(pageBytes, pageId, length) == 0) {
+      requestPageChange(i);
+      return;
+    }
+  }
+}
+
+Value BrainRuntime::getCurrentPageId() const {
+  return Value::borrowedString(program_.pages[currentPageIndex_].pageIdStringIdx);
+}
+
+Value BrainRuntime::getPreviousPageId() const {
+  if (previousPageIndex_ >= program_.pages.size()) {
+    return getCurrentPageId();
+  }
+  return Value::borrowedString(program_.pages[previousPageIndex_].pageIdStringIdx);
 }
 
 Status BrainRuntime::think(mc_number_t currentTimeMs) {
@@ -169,6 +213,7 @@ Status BrainRuntime::think(mc_number_t currentTimeMs) {
       inThink_ = false;
       return deactivated;
     }
+    previousPageIndex_ = currentPageIndex_;
     currentPageIndex_ = desiredPageIndex_;
     const Status activated = activatePage(currentPageIndex_);
     if (!activated.isOk()) {

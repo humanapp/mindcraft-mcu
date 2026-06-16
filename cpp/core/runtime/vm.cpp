@@ -678,6 +678,12 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
   }
 
   while (state.budget > 0) {
+    if (state.cancelled) {
+      // Cancelled mid-slice by a host body (page change or restart): stop at
+      // this instruction boundary and abandon the rest of the body. Mirrors the
+      // mid-run cancel check in runFiber (TS vm.ts).
+      return RunResult::done(kNilValue);
+    }
     state.budget--;
 
     if (state.frameDepth == 0) {

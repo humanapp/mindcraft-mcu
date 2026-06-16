@@ -7,8 +7,10 @@
 #include "core/codec/program-reader.h"
 #include "core/platform/span.h"
 #include "core/runtime/brain-runtime.h"
+#include "core/runtime/core-host-functions.h"
 #include "core/runtime/execution-context.h"
 #include "core/runtime/fiber-scheduler.h"
+#include "core/runtime/host-actions/core-host-action-bindings.h"
 #include "core/runtime/load-error.h"
 #include "core/runtime/managed-heap.h"
 #include "core/runtime/region-arena.h"
@@ -23,6 +25,9 @@
 
 #include "microbit-ports.h"
 #include "program-region.h"
+
+#include <array>
+#include <cstddef>
 
 MicroBit uBit;
 
@@ -94,18 +99,40 @@ int main()
     }
     const ProgramImage &image = decoded.value();
 
-    auto bindings = makeMicroBitV2HostActionBindings(ports);
+    // The firmware action table is the core sensor/actuator surface (ids 0-7)
+    // followed by the microbit-v2 host actions (ids 1024+). The core bodies
+    // reach the brain, RNG, and heap through coreEnv, filled once the scheduler
+    // and brain exist.
+    CoreHostActionEnv coreEnv;
+    VmRng rng;
+    auto coreBindings = makeCoreHostActionBindings(coreEnv);
+    auto mbBindings = makeMicroBitV2HostActionBindings(ports);
+    std::array<HostActionBinding, kCoreHostActionBindingCount + kMicroBitV2HostActionBindingCount>
+        actions{};
+    for (size_t i = 0; i < coreBindings.size(); i++)
+    {
+        actions[i] = coreBindings[i];
+    }
+    for (size_t i = 0; i < mbBindings.size(); i++)
+    {
+        actions[coreBindings.size() + i] = mbBindings[i];
+    }
     auto hostFuncs = makeMicroBitV2HostFuncBindings(ports);
     ManagedHeap heap(arena);
     TypeRegistry types(image);
     auto nativeStructs = makeMicroBitV2NativeStructBindings(types);
     types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
     ExecutionContext ctx;
-    RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, nullptr, &heap};
+    RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, nullptr, &heap};
     surface.types = &types;
     surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
+    surface.rng = &rng;
     FiberScheduler scheduler(image, surface, arena);
     BrainRuntime brain(image, scheduler, surface);
+    coreEnv.brain = &brain;
+    coreEnv.rng = &rng;
+    coreEnv.heap = &heap;
+    coreEnv.roots = &scheduler;
 
     HostLoop hostLoop(brain, ports);
     const mindcraft::Status startupStatus = hostLoop.startup();

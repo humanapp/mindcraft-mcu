@@ -6,9 +6,13 @@
 #include "core/runtime/mc-number.h"
 #include "core/runtime/program.h"
 #include "core/runtime/result.h"
+#include "core/runtime/value.h"
 #include "core/runtime/vm.h"
 
 namespace mindcraft {
+
+/** Sentinel page index marking "no page" (before any deactivation). */
+inline constexpr uint32_t kNoPageIndex = 0xffffffffu;
 
 /**
  * The brain think loop over one active page: page activation, per-think rule
@@ -56,16 +60,52 @@ public:
   /**
    * Requests a switch to page `pageIndex` at the next {@link think}, which
    * deactivates the current page (running its actions' deactivation hooks and
-   * cancelling its rule fibers) and activates the requested one. A no-op when
-   * `pageIndex` is out of range or already the current page. Mirrors
+   * cancelling its rule fibers) and activates the requested one. Cancels the
+   * current page's rule fibers immediately; the rest of the in-flight round does
+   * not run them. Requesting the current page restarts it (see
+   * {@link requestPageRestart}); out of range is a no-op. Mirrors
    * `requestPageChange` in
    * external/mindcraft-lang/packages/core/src/runtime/brain-runtime.ts.
    */
   void requestPageChange(uint32_t pageIndex);
 
+  /**
+   * Requests that the current page restart at the next {@link think}: cancels
+   * its rule fibers so {@link think} respawns them from their entry, without
+   * re-running the page's activation hooks or resetting per-callsite state.
+   * Mirrors `requestPageRestart` in
+   * external/mindcraft-lang/packages/core/src/runtime/brain-runtime.ts.
+   */
+  void requestPageRestart();
+
+  /**
+   * Requests a switch to the page whose stable id equals the `length` bytes at
+   * `pageId`, comparing by content against each page's id. A no-op when no page
+   * matches. Mirrors the stable-id arm of `requestPageChangeByPageId` in
+   * external/mindcraft-lang/packages/core/src/runtime/brain-runtime.ts; the TS
+   * page-name fallback has no mirror because the decoded image carries no page
+   * names.
+   */
+  void requestPageChangeByPageId(const char* pageId, uint32_t length);
+
+  /**
+   * The stable page id of the active page as a borrowed-string {@link Value}.
+   * Meaningful only while a page is active.
+   */
+  Value getCurrentPageId() const;
+
+  /**
+   * The stable page id of the most recently deactivated page as a
+   * borrowed-string {@link Value}, or the current page's id when no page has
+   * been deactivated yet. Mirrors `getPreviousPageId` in
+   * external/mindcraft-lang/packages/core/src/runtime/brain-runtime.ts.
+   */
+  Value getPreviousPageId() const;
+
 private:
   Status activatePage(uint32_t pageIndex);
   Status deactivateCurrentPage();
+  void cancelActiveFibers();
 
   /** One root rule of the active page and its current fiber. */
   struct RuleFiber {
@@ -87,6 +127,8 @@ private:
   uint32_t currentPageIndex_ = 0;
   /** Index of the page a {@link requestPageChange} asked to switch to. */
   uint32_t desiredPageIndex_ = 0;
+  /** Index of the most recently deactivated page, or {@link kNoPageIndex}. */
+  uint32_t previousPageIndex_ = kNoPageIndex;
 };
 
 } // namespace mindcraft

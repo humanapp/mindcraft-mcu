@@ -1,0 +1,10 @@
+mctrace 1
+profile 1
+precision f32
+tick 1 time 44160000 dt 00000000
+action 4 site 0 args 0 result bool 1
+action 0 site 1 args 2 number 3f800000 nil result void
+tick 2 time 44960000 dt 44160000
+action 4 site 0 args 0 result bool 0
+tick 3 time 44e10000 dt 44160000
+action 4 site 0 args 0 result bool 0

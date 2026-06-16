@@ -1,0 +1,17 @@
+mctrace 1
+profile 1
+precision f32
+tick 1 time 44160000 dt 00000000
+action 6 site 0 args 0 result string "cov-page-0"
+action 7 site 1 args 0 result string "cov-page-0"
+action 2 site 2 args 0 result void
+action 4 site 3 args 0 result bool 1
+action 0 site 4 args 2 nil string "cov-page-1" result void
+tick 2 time 44960000 dt 44160000
+action 6 site 5 args 0 result string "cov-page-1"
+action 7 site 6 args 0 result string "cov-page-0"
+action 1 site 7 args 0 result void
+tick 3 time 44e10000 dt 44160000
+action 6 site 5 args 0 result string "cov-page-1"
+action 7 site 6 args 0 result string "cov-page-0"
+action 1 site 7 args 0 result void

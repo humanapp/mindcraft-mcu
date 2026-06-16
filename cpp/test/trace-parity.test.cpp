@@ -5,8 +5,10 @@
 #include "core/codec/observable-trace.h"
 #include "core/codec/program-reader.h"
 #include "core/runtime/brain-runtime.h"
+#include "core/runtime/core-host-functions.h"
 #include "core/runtime/execution-context.h"
 #include "core/runtime/fiber-scheduler.h"
+#include "core/runtime/host-actions/core-host-action-bindings.h"
 #include "core/runtime/load-error.h"
 #include "core/runtime/managed-heap.h"
 #include "core/runtime/region-arena.h"
@@ -667,4 +669,207 @@ TEST_CASE("the user-tile button-display fixture byte-matches the golden observab
   CHECK(sink.text() == golden);
   // The device ends with pixel (0,0) lit, mirroring the TS oracle assertion.
   CHECK(microbit.display.pixels[0][0] == 255);
+}
+
+namespace {
+
+/**
+ * The firmware action table: the core sensor/actuator surface (ids 0-7)
+ * followed by the microbit-v2 host actions. Mirrors the table assembled in
+ * targets/microbit-v2/source/main.cpp.
+ */
+std::array<mindcraft::HostActionBinding,
+           mindcraft::kCoreHostActionBindingCount + mindcraft::kMicroBitV2HostActionBindingCount>
+combineActionTable(
+    const std::array<mindcraft::HostActionBinding, mindcraft::kCoreHostActionBindingCount>& core,
+    const std::array<mindcraft::HostActionBinding, mindcraft::kMicroBitV2HostActionBindingCount>&
+        microbit) {
+  std::array<mindcraft::HostActionBinding,
+             mindcraft::kCoreHostActionBindingCount + mindcraft::kMicroBitV2HostActionBindingCount>
+      table{};
+  for (size_t i = 0; i < core.size(); i++) {
+    table[i] = core[i];
+  }
+  for (size_t i = 0; i < microbit.size(); i++) {
+    table[core.size() + i] = microbit[i];
+  }
+  return table;
+}
+
+} // namespace
+
+TEST_CASE("the timer-brain fixture byte-matches the golden observable trace") {
+  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/timer-brain";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  TraceTap tap(writer);
+
+  // The core sensor/actuator surface reaches the brain, RNG, and heap; the
+  // timeout sensor's per-callsite state list draws from the managed heap.
+  mindcraft::CoreHostActionEnv coreEnv;
+  mindcraft::VmRng rng;
+  mindcraft::ManagedHeap heap(arena, &image);
+  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto actions = combineActionTable(coreBindings, mbBindings);
+  ExecutionContext ctx;
+  RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
+  surface.rng = &rng;
+
+  FiberScheduler scheduler(image, surface, arena);
+  BrainRuntime brain(image, scheduler, surface);
+  coreEnv.brain = &brain;
+  coreEnv.rng = &rng;
+  coreEnv.heap = &heap;
+  coreEnv.roots = &scheduler;
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Four 600ms thinks mirror the TS oracle schedule: the timeout fires on tick
+  // 3 and switches to page 2, which lights pixel (0,0) on tick 4.
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 4; i++) {
+    const float timeMs = lastThinkTimeMs + 600;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+  CHECK(microbit.display.pixels[0][0] == 255);
+}
+
+TEST_CASE("the restart-interrupt fixture byte-matches the golden observable trace") {
+  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/restart-interrupt";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  TraceTap tap(writer);
+
+  mindcraft::CoreHostActionEnv coreEnv;
+  mindcraft::VmRng rng;
+  mindcraft::ManagedHeap heap(arena, &image);
+  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto actions = combineActionTable(coreBindings, mbBindings);
+  ExecutionContext ctx;
+  RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
+  surface.rng = &rng;
+
+  FiberScheduler scheduler(image, surface, arena);
+  BrainRuntime brain(image, scheduler, surface);
+  coreEnv.brain = &brain;
+  coreEnv.rng = &rng;
+  coreEnv.heap = &heap;
+  coreEnv.roots = &scheduler;
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Three 600ms thinks mirror the TS oracle schedule: tick 1 switches to the
+  // current page (a restart), which cancels the rule before its pixel write, so
+  // the write is abandoned and the pixel never lights.
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 3; i++) {
+    const float timeMs = lastThinkTimeMs + 600;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+  CHECK(microbit.display.pixels[0][0] == 0);
+}
+
+TEST_CASE("the core-host-actions fixture byte-matches the golden observable trace") {
+  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/core-host-actions";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  TraceTap tap(writer);
+
+  // The switch-page-by-id actuator resolves the borrowed page-id string through
+  // the heap configured with the image.
+  mindcraft::CoreHostActionEnv coreEnv;
+  mindcraft::VmRng rng;
+  mindcraft::ManagedHeap heap(arena, &image);
+  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto actions = combineActionTable(coreBindings, mbBindings);
+  ExecutionContext ctx;
+  RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
+  surface.rng = &rng;
+
+  FiberScheduler scheduler(image, surface, arena);
+  BrainRuntime brain(image, scheduler, surface);
+  coreEnv.brain = &brain;
+  coreEnv.rng = &rng;
+  coreEnv.heap = &heap;
+  coreEnv.roots = &scheduler;
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Three 600ms thinks mirror the TS oracle schedule: page 0 reads page state,
+  // yields, and switches by page id on tick 1; page 1 reads page state and
+  // restarts itself on ticks 2 and 3.
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 3; i++) {
+    const float timeMs = lastThinkTimeMs + 600;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
 }

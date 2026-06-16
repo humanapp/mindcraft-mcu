@@ -156,6 +156,9 @@ void FiberScheduler::cancel(uint32_t fiberId) {
     return;
   }
   record->state = FiberState::Cancelled;
+  // Signal an in-flight dispatch slice (a self-cancel from a host body) to stop
+  // at its next instruction boundary.
+  record->exec.cancelled = true;
   // A cancelled record must leave the run queue before a sweep can free it.
   removeFromQueue(record);
 }
@@ -173,6 +176,12 @@ uint32_t FiberScheduler::tick() {
 
     record->exec.budget = kDefaultBudget;
     const RunResult result = runExecution(record->exec, program_, surface_);
+    if (record->state == FiberState::Cancelled) {
+      // A host body cancelled this fiber mid-slice (a page change or restart);
+      // the slice stopped early. Leave the Cancelled state in place.
+      executed++;
+      continue;
+    }
     switch (result.status) {
     case RunStatus::Yielded:
       enqueue(record);

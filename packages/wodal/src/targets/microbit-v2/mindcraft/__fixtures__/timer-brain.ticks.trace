@@ -1,0 +1,13 @@
+mctrace 1
+profile 1
+precision f32
+tick 1 time 44160000 dt 00000000
+action 5 site 0 args 1 nil result bool 0
+tick 2 time 44960000 dt 44160000
+action 5 site 0 args 1 nil result bool 0
+tick 3 time 44e10000 dt 44160000
+action 5 site 0 args 1 nil result bool 1
+action 0 site 1 args 2 number 40000000 nil result void
+tick 4 time 45160000 dt 44160000
+port display set-pixel 00000000 00000000 437f0000
+action 401 site 2 args 3 number 00000000 number 00000000 number 437f0000 result void

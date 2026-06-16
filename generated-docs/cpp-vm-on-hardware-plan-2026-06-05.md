@@ -57,22 +57,27 @@ is out of scope **by default** and needs a concrete, possible-today failure mode
 governing default that 7 and 8 are instances of; over-build has been the recurring
 failure, and a subtraction pass precedes every gate. When unsure, leave it out.
 
-Current focus: **Phase 6f4 (native device surface - the user-tile milestone), with one
-small carried prerequisite: CALL-frame rule inheritance (the 6f3 follow-up).** Phases 6a
-(heap + containers), 6b (structs + closures), 6c (core host-function library f32 +
-dynamic/managed strings), 6d (pinned numerics), 6e (exceptions, yield, and the
-grow-on-demand stack arena), 6f1 (struct re-string v3 + type-registry foundation), 6f2
-(bytecode-action execution model), and 6f3 (context-variable host functions 48-51,
-2026-06-15) are accepted; the GC, containers, structs, closures, the ~96 core
-`CoreFuncId` bodies, the RNG, managed strings, the 12 bit-exact pinned numeric
-components, exceptions/yield, the grow-on-demand stack arena (the last LD7 worst-case
-reservation removed), dynamic-key struct access (format v3), the type registry, the
-bytecode-action/page execution model, and brain+rule context variables all run. **The deploy arc is COMPLETE and hardware-proven** (2026-06-14):
+Current focus: **Phase 6f5 (core sensor/actuator host actions) - newly added after a
+real on-device fault: a timer/page-switch brain runs in the wodal sim but faults on
+device because the firmware never registered the core host-action bodies (ids 0-7).
+Sequenced before 6g.** Phases 6a (heap + containers), 6b (structs + closures), 6c (core
+host-function library f32 + dynamic/managed strings), 6d (pinned numerics), 6e
+(exceptions, yield, and the grow-on-demand stack arena), 6f1 (struct re-string v3 +
+type-registry foundation), 6f2 (bytecode-action execution model), 6f3 (context-variable
+host functions 48-51), and 6f4 (native device surface - the user-tile milestone,
+host-gated; hardware hex pending the user's flash, 2026-06-15) are accepted; the GC,
+containers, structs, closures, the ~96 core `CoreFuncId` bodies, the RNG, managed
+strings, the 12 bit-exact pinned numeric components, exceptions/yield, the grow-on-demand
+stack arena (the last LD7 worst-case reservation removed), dynamic-key struct access
+(format v3), the type registry, the bytecode-action/page execution model, brain+rule
+context variables, and the native microbit device surface (user-tile button-display)
+all run. **The deploy arc is COMPLETE and hardware-proven** (2026-06-14):
 5a firmware + 5b patcher + 5c browser delivery - a brain authored in microbit-sim
 reaches a real micro:bit v2 by **download** (Blob -> drag-drop) or **WebUSB flash**
 (paired device), and `button-display` toggles the pixel both ways. With Phases 1-5
-done, what remains is opcode conformance (Phase 6a-6j); user-tile brains already
-patch + flash but run inert on device until 6f's bytecode-action support.
+done, what remains is VM conformance (Phase 6a-6j) and then the full microbit-v2
+device surface (Phase 7); user-tile brains already patch + flash but run inert on
+device until 6f's bytecode-action support.
 Phase 5 is three sub-phases: **5a** (accepted 2026-06-13) is the
 cpp firmware foundation - the on-flash region/header format + build->patcher
 metadata schema, the linker region + boot read-path, the dual-artifact build -
@@ -129,12 +134,14 @@ run on device).
 | Phase 6e: Exceptions, Yield + Grow-On-Demand Stack Arena | **Accepted (2026-06-14)** | `TRY`/`END_TRY`/`THROW` + `YIELD` (C++ mirror of vm.ts). `FiberWorkspace` deleted -> `StackRegionAllocator` (dedicated `SlabAllocator`, list-backing realloc); four per-fiber regions grow 8/4/2/1 toward the caps; `ExecutionState` cap/capacity split; **last LD7 worst-case reservation removed**. Caps reconciled 256/256/64/16 (added TS `maxLocalsSize`, threaded the profile caps into `new VM` - root-caused the silent 4096/256/64 default). Dedicated stack slab means a grow never collects (faults only on arena exhaustion). Gate: exceptions-yield trace golden + `control-flow.test.cpp` + wodal `overflow-caps.spec.ts`; check.sh x3; core 911, wodal 116. 6f2 owes `assertCanSuspend`. |
 | Phase 6f1: Struct Re-string (v3) + Type-Registry Foundation | **Accepted (2026-06-15)** | Format v2->v3: TYPS struct entry carries `fieldCount` + `(nameStringIdx, fieldId)` pairs -> `findStructField` resolves `GET_FIELD`/`SET_FIELD`/`STRUCT_COPY_EXCEPT` (dynamic-key `obj[expr]`/`{...x}` now works, no longer degrades; static stays id-based, LD2). New `TypeRegistry` over `ProgramImage` on `RuntimeSurface` (`STRUCT_GET/SET_FIELD` rewritten to `read/writeStructFieldById`; native branch present, unused until 6f4); closes 6c container-typeId carryover (`MapKeys`->`List<key>`, `MapValues`->`List<Any>`, `StrSplit`->`List<String>`). Field-name resolution lives in the program type table (not a host registry). Gate: `dynamic-field-access` golden + value-vectors 628/628 w/ structural typeIds; all fixtures regen v3; check.sh x3; core 911, wodal 117. |
 | Phase 6f2: Bytecode-Action Execution Model | **Accepted (2026-06-15)** | `ACTION_CALL` (op 42) via extended `pushCallFrame` (actionBinding, isAsync=false); **new `callSiteSlots` pad** (flat `callSiteCount x callSiteSlotStride`, program-derived stride; distinct from the host-state cell) resolved by the per-fiber frame walk for `LOAD/STORE_CALLSITE_VAR`; `enumerateRoots` marks it. Page lifecycle: initializer (once) + activation (per-activation) in call-site order + deactivation on leave, with a page-change FSM in `think()` (deactivate old -> activate new before time-stamp); hooks via new `runActionHook`. `assertCanSuspend` (YIELD in sync action -> `ScriptError`). Gate: `action-page-lifecycle` + `sync-action-yield` goldens + 2 unit tests; check.sh x3; core 911, wodal 119. Deferred: `currentRuleFuncId` + rule inheritance (6f3); host `onInitialized`/`onPageExited` + injected-ctx entry (6f4); page restart = no-op. |
-| Phase 6f3: Context-Variable Host Functions | **Accepted (2026-06-15)** | 48-51 via `vm.cpp` `HOST_CALL` -> `dispatchContextVariableFunc`. **Brain** slot-backed (`variableNames` scan -> `ctx.variables`); **rule** = `ExecutionContext.ruleVarStores` (outer `MapObject` keyed by `ruleFuncId` -> inner `MapObject`; both 6c maps, lazy, brain-lifetime), `ruleVarGet` walks `parentRuleFuncId` ancestors, `ruleVarSet` own-only; `enumerateRoots` marks it. `currentRuleFuncId` resolved on demand (`resolveFrameRuleFuncId`); wired the action-frame `ruleFuncId` inheritance (6f2 deferral). Gate: `context-variables` fixture (brain + rule + ancestor + action-frame inheritance) + 2 GC tests (closes 6f2's callSiteSlots marking); check.sh x3; wodal 120. **REQUIRED -> 6f4 entry prereq (decided):** CALL-frame rule inheritance not mirrored (forwarding `ctx` to a non-rule helper silently no-ops `ctx.rule`); mirror `resolveCalleeRuleFuncId` on the CALL paths before the milestone. |
-| Phase 6f4: Native Device Surface (user-tile milestone) | Planned | **Entry prereq: CALL-frame rule inheritance** (6f3 carry-forward, required). Then: target host-fn surface (`HOST_CALL`>=1024 bodies via ports) + native getters on the 6f1 registry + **native-struct value rep = `Struct(env typeId, discriminator-in-handle)`** (no managed slab; buttonA/B distinguished by discriminator since TS's per-value `native` ref can't be ported) + **`ctx` injection as entry arg0** (the 6f2 deferral) + dual-path `setPixelValue` trace parity -> **`user-tile-button-display` runs on hardware**. Mirror `module.ts`. Scope = exactly the fixture's dump (not the full ABI). Gate: host trace parity (self) + on-device (user). Needs 6f1/6f2 (6f3 first). |
+| Phase 6f3: Context-Variable Host Functions | **Accepted (2026-06-15)** | 48-51 via `vm.cpp` `HOST_CALL` -> `dispatchContextVariableFunc`. **Brain** slot-backed (`variableNames` scan -> `ctx.variables`); **rule** = `ExecutionContext.ruleVarStores` (outer `MapObject` keyed by `ruleFuncId` -> inner `MapObject`; both 6c maps, lazy, brain-lifetime), `ruleVarGet` walks `parentRuleFuncId` ancestors, `ruleVarSet` own-only; `enumerateRoots` marks it. `currentRuleFuncId` resolved on demand (`resolveFrameRuleFuncId`); wired the action-frame `ruleFuncId` inheritance (6f2 deferral). Gate: `context-variables` fixture (brain + rule + ancestor + action-frame inheritance) + 2 GC tests (closes 6f2's callSiteSlots marking); check.sh x3; wodal 120. (Flagged the CALL-frame rule-inheritance gap - forwarding `ctx` to a non-rule helper silently no-ops `ctx.rule`; **closed in 6f4** via `resolveCalleeRuleFuncId` on the CALL paths.) |
+| Phase 6f4: Native Device Surface (user-tile milestone) | **Accepted (2026-06-15, host-gated; hardware hex pending user flash)** | CALL-frame rule inheritance (`resolveCalleeRuleFuncId` on CALL paths) + native-struct rep `Struct(typeId, disc-in-handle)` (mixed key: ctx = program-table index, device = type-atom-id; disc = `MicroBitField` id) + registry native getters (`native-struct-bindings.h`) + target host-fn surface (core `host-function.h` + `RuntimeSurface.hostFunctions`; `isPressed`/`setPixelValue` over `DevicePorts`) + `ctx` injection at root+`ACTION_CALL` (`pushCallFrame` `injectCtx` flag) + dual-path setPixel trace parity. `user-tile-button-display` byte-matches golden, ends pixel (0,0)=255; C++ 234 x3, wodal 122. Hex built (region 0x44000). |
+| Phase 6f5: Core Sensor/Actuator Host Actions | Planned (current focus) | Port the 8 **core** host actions (ids 0-7: SwitchPage/RestartPage/Yield/Random/OnPageEntered/Timeout/CurrentPage/PreviousPage) as core host-action bindings + bodies, mirroring TS, wired into the firmware action table. Fixes a **real silent on-device fault**: a timer/page-switch brain runs in sim but faults on device (no core action bodies registered). Reuses the host-action binding mechanism + callsite-state/page plumbing. Gate: timer-brain golden trace parity + check.sh x3 + hardware. Needs 3c scheduler + 6f2 callsite/page machinery. Independent of 6g/6h/6i; sequenced before 6g. |
 | Phase 6g: Cap Parameterization (topology parity with TS) | Planned | Give the C++ scheduler a runtime caps struct sourced from the device profile by `ProgramImage::profileId` (mirrors TS threading `schedulerConfig` into `BrainRuntime`), replacing the global `constexpr` consumed directly in `spawn()`/`runActionHook()`/`tick()`. One profile row (microbit-v2) today; a second target is just another row. Caps stay LD7 runtime guards. Includes the **cap-parity guard** (C++ profile-caps table == wodal profile, profile-sourced, replacing the hand-copied literal asserts). Lands before 6i raises `kMaxHandles`. Needs the 3c scheduler. |
 | Phase 6h: Async core | Planned | The generic `HandleTable`/`AWAIT`/WAITING-resume machinery + the three async opcodes; host-gated with a deterministic test async capability. **On the microbit-v2 critical path** (scroll, 6i, is a real async action) - not conformance-only. Needs 6e/6f2. |
 | Phase 6i: Display Scroll-Text (first async capability) | Planned | An **async** `display.scroll(text)` mirroring CODAL's cooperative blocking scroll: device resolution via the CODAL `ANIMATION_COMPLETE` bus event marshaled to a next-round handle resume; CODAL-matching scroll animation in C++ + wodal; **completion-time pinned in the microbit-v2 target layer** (wodal oracle + C++ mirror, not core `vm-contract.md`) so the resume round matches for parity. microbit-v2 raises `kMaxHandles>0` as a guard (dynamic `HandleTable`, LD7 - never a pool size). The async core's on-hardware gate. Needs 6h (+6c for computed strings). |
 | Phase 6j: Conformance + Parity Suite | Planned | Full golden parity set through both VMs; instruction-level trace mode; opcode-completeness check (no fault-on-unimplemented); shared input-script file format; the port-typing-seam resolution. Needs all. |
+| Phase 7: microbit-v2 Device-Surface Completeness | Placeholder - refine after Phase 6 | The **full** onboard sensor/actuator surface on both TS + C++ (accelerometer/gesture/temperature/magnetometer/compass/GPIO/... - today only display+buttons+touch exist). Front-loaded by a two-stage process the user owns: (1) CODAL capability inventory, (2) tile-language design deciding how to surface it (the `Context` surface is the **design output**, not predetermined). Then downstream build reuses 6f4's mechanism (append ABI ids, `Struct(typeId,disc)` rep, both-side impl, per-peripheral fixtures). Key new harness: deterministic injectable sensor inputs for parity. Needs 6f4/6f5. Under-specified + un-split until Phase 6 is done. |
 
 ## Workflow Convention
 
@@ -1710,7 +1717,9 @@ independently-gated deliverable, none overweight:
   re-string (v3) + type-registry foundation; **6f2** = bytecode-action execution model
   (`ACTION_CALL` + callsite + page lifecycle + `assertCanSuspend`); **6f3** =
   context-variable host fns (`ctx.brain`/`ctx.rule` `getVariable`/`setVariable`, 48-51);
-  **6f4** = native device surface, reaching the on-hardware run.
+  **6f4** = native device surface, reaching the on-hardware run; **6f5** = core
+  sensor/actuator host actions (page-switch/timeout/random/page-sensors - added after a
+  timer brain faulted on device).
 - **6g - Cap parameterization (topology parity with TS):** the C++ scheduler sources
   its caps from the device profile (by `profileId`) through a runtime config seam, as
   the TS reference does, replacing the global `constexpr`; folds in the cap-parity
@@ -1727,7 +1736,8 @@ independently-gated deliverable, none overweight:
 Dependencies: 6a underlies all; 6b needs 6a; 6d needs 6c; 6e needs the 3b
 fiber/stack model; 6f1 needs 6b + 6c; 6f2 needs 6b + 6e; 6f3 needs 6b + 6e + 6f2
 (extends its `ACTION_CALL` entry for action-frame rule inheritance); 6f4 needs 6f1 + 6f2
-(6f3 lands first for stateful brains); 6g needs the 3c
+(6f3 lands first for stateful brains); 6f5 needs the 3c scheduler + 6f2's callsite/page
+machinery (independent of 6f1/6f3/6f4; sequenced before 6g); 6g needs the 3c
 scheduler (independent of the 6f arc; lands before 6i's `kMaxHandles` raise); 6h needs
 6e + 6f2; 6i needs 6h (+ 6c for the computed-string variant); 6j needs all. **The
 microbit-v2 critical path is 6a -> 6b -> 6c -> 6f1 -> 6f2 -> 6f3 -> 6f4** for user-tile
@@ -2143,77 +2153,101 @@ non-rule-helper path diverges. Scheduled as the **6f4 entry prerequisite** (see 
 the fix mirrors `resolveCalleeRuleFuncId` on the `CALL`/`CALL_INDIRECT[_ARGS]` paths, the
 same mechanism 6f3 used for action frames.
 
-#### Phase 6f4: Native Device Surface - the User-Tile Milestone
+#### Phase 6f4: Native Device Surface - the User-Tile Milestone - ACCEPTED 2026-06-15 (host-gated; hardware hex built, pending the user's flash)
 
-The native surface that makes a real user-tile brain run end-to-end. Needs 6f1 (the
-registry) and 6f2 (the action/page model). Internally indivisible: a button read is a
-host-fn reached through a native sub-struct.
+C++-only mirror of the wodal microbit-v2 module. `user-tile-button-display` runs
+end-to-end: host-gated (byte-exact trace parity vs the oracle) + a patched hex built for
+the user to flash. As built:
 
-**Prerequisite carried from 6f3 - REQUIRED, must close (decided 2026-06-15): CALL-frame
-rule inheritance.** Forwarding `ctx` (or `ctx.rule`) into a plain helper is idiomatic and
-TypeScript authors expect it to just work; the C++ silently no-ops it (read nil / write
-no-op), so this is a real correctness bug, not an edge case - not deferrable. Mirror TS
-`resolveCalleeRuleFuncId` on the `CALL`/`CALL_INDIRECT[_ARGS]` paths: the callee frame's
-`ruleFuncId = resolveDirectRuleFuncId(callee) ?? resolveFrameRuleFuncId(caller)`, the same
-mechanism 6f3 used for action frames (set the callee `ruleFuncId` from the caller at the
-push site; or, equivalently, have the accessor walk down the frame stack). Calling a
-*rule* funcId already matches; only the non-rule-helper path is broken. **Gate** (must
-pass before the milestone): a fixture where a rule calls a non-rule helper that
-reads/writes `ctx.rule` and it resolves to the calling rule's store - on both VMs.
+- **CALL-frame rule inheritance (the 6f3 entry prereq, closed):** new
+  `resolveCalleeRuleFuncId` wired into `CALL`/`CALL_INDIRECT[_ARGS]` (inherited rule
+  resolved from the caller before `pushCallFrame`, then written to the callee frame), so
+  a non-rule helper's `ctx.rule` resolves to the calling rule. Gate: new
+  `rule-helper-variables` parity fixture.
+- **Native-struct value rep:** `Struct(typeId, discriminator)` with the discriminator in
+  the unused `handle` (no slab, GC-inert). Mixed typeId key (deliberate): `ctx` carries
+  the Context type's **program-table index** (`injectCtxTypeIdx`); device structs
+  (MicroBit/Display/Button) carry their **type-atom-id** (1027/1024/1025) since those
+  types are not in the program table. Discriminator: singletons = 0; a button = its
+  `MicroBitField` id (encode in getters, decode in host-fn bodies as
+  `disc - MicroBitField::ButtonA`).
+- **Registry native getters (closes the 6f1 placeholder):** `TypeRegistry` gained an
+  injected `Span<NativeStructTypeBinding>` (`setNativeStructBindings`, default empty);
+  `native-struct-bindings.h` does pure identity navigation (Context field 6 -> MicroBit;
+  MicroBit field 0/1 -> Display/Button), no port access.
+- **Target host-function surface:** new core `host-function.h`
+  (`TargetHostFuncBinding`/`findTargetHostFuncById`, mirroring the host-action pattern);
+  `RuntimeSurface.hostFunctions` added (struct end, preserving aggregate inits);
+  `HOST_CALL` funcId >= `TARGET_FUNC_ID_BASE` dispatches through it (unregistered ->
+  `ScriptError`). `host-func-bindings.h`: `execButtonIsPressed`(1027) +
+  `execDisplaySetPixelValue`(1024) over `DevicePorts`.
+- **`ctx` injection (closes the 6f2 deferral):** inject `Struct(injectCtxTypeIdx, 0)` at
+  the two TS sites only - root spawn (`startExecution`) and `ACTION_CALL`; `pushCallFrame`
+  gained an `injectCtx` flag (true only for `ACTION_CALL`; plain `CALL` forwards ctx
+  explicitly - why the CALL-inheritance prereq mattered). Injected ctx occupies local 0,
+  args follow, arity check expects `numParams - 1`.
+- **Dual-path trace parity:** the host-fn pixel write calls the same `ports.display->
+  setPixel` as the 3c action path, so the tracing-display wrapper emits the identical
+  `port display set-pixel` line.
 
-The behavior reference is the wodal microbit-v2 module
-(`packages/wodal/.../module.ts`) - mirror its field getters, host-fn bodies, and
-receiver extraction.
+Scope (LD9, from the fixture dump): built `Context.microbit` + `MicroBit.display`/
+`buttonA` + `Display.setPixelValue` + `Button.isPressed`; NOT TouchButton/logo, buttonB,
+`getPixelValue`/`clear`, threshold methods (unreferenced fields read nil). Device wiring:
+`main.cpp` builds heap + registry (native bindings) + host-fn bindings on the surface;
+firmware rebuilt (region 0x44000), patched hex
+`MICROBIT.user-tile-button-display.hex` ready.
 
-- **Native-struct value representation (the one piece that can't be ported verbatim).**
-  TS `mkNativeStructValue(typeId, native)` carries an actual device-object reference, so
-  `buttonA` vs `buttonB` (same `Button` typeId) is distinguished by the `native` ref. C++
-  has no object refs, so **pin a per-instance discriminator**: a native struct is a
-  `Struct` value `(env typeId, discriminator)` using the otherwise-unused `handle` field
-  (no managed slab). The `MicroBit` getter for `ButtonA`/`ButtonB`/`Logo` returns
-  `Struct(Button|TouchButton, discriminator = the producing field id)`; singletons
-  (`ctx`, `microbit`, `display`) use discriminator 0. The discriminator carries identity
-  only - all mutable state lives in the device/ports - so native struct values are
-  immutable and GC-inert (no managed handle). The scheme is **shared** between the
-  getters (encode it) and the host-fn bodies (decode it).
-- **Native getters on the registry + device wiring.** Populate the 6f1 registry's native
-  `fieldGetter`s for the env types (`ctx.microbit` is a static `STRUCT_GET_FIELD <6>`
-  whose getter returns a `MicroBit`-typed struct, etc.). Getters and host-fn bodies reach
-  the device through the `RuntimeSurface` (stub ports on the host build, as the 3c action
-  bindings do; `microbit-ports.h` on device) - mirror `module.ts`'s receiver extraction:
-  read `(typeId, discriminator)` from arg0, map to the port.
-- **The target host-function surface (new `RuntimeSurface` member).** 6c left the
-  `HOST_CALL` target range (funcId >= `TARGET_FUNC_ID_BASE` = 1024) a stub. Add the
-  target host-function binding table, mirroring the existing `actions` (host-action)
-  binding pattern, with the bodies (`Button.isPressed`=1027, `Display.setPixelValue`=1024,
-  ...) operating on the receiver's `(typeId, discriminator)` via the ports.
-- **`ctx` injection (the 6f2 deferral lands here).** The rule/action entry takes `ctx`
-  as arg0 (`onExecute(ctx)`); 6f2 left injected-ctx entry faulting. So construct the root
-  `ctx` native struct value (`Struct(Context, 0)`) and inject it as the entry function's
-  arg0 when spawning rule/action fibers (the brain-runtime/scheduler spawn path).
-- **Dual-path port-write trace parity.** A pixel can be written two ways: the 3c
-  host-**action** path (`DisplaySetPixel`, the host-only `button-display`) and this
-  host-**function** path (`ctx.microbit.display.setPixelValue`, user-tile). Both must
-  emit the **identical** observable port trace line, or the user-tile parity gate
-  diverges from the established trace format - route the host-fn port write through the
-  same trace emission.
+Gate (green): C++ 234 cases x3 (debug/release/sanitize incl ASan+UBSan); user-tile fixture
+byte-matches golden, ends pixel (0,0)=255; wodal 122; biome + typecheck clean.
+On-device flash is the user's sign-off (host-accepted).
 
-**Scope anchor (LD9) - derive from the fixture, do not guess.** Read
-`user-tile-button-display.mcprogram.dump` and build **exactly** the native fields +
-host-fn ids it references (expected: `Context.microbit` + `MicroBit.display`/`buttonA` +
-`Display.setPixelValue` + `Button.isPressed`) - **not** the full ABI. The ABI also
-declares `TouchButton`/`logo`, `GetPixelValue`, `Clear`, threshold methods, etc.; any of
-those the fixture does not touch is out of scope. Reuse the host-action binding-table
-pattern (no new dispatch mechanism); add no device capability the fixture does not use.
+Recorded seam (negligible, far-future): the mixed native-typeId scheme is collision-free
+for the fixture; a hypothetical program with 1028+ types placing a managed struct at a
+table index equal to a device atom id would collide.
 
-Gate, split by who can sign it off:
+#### Phase 6f5: Core Sensor/Actuator Host Actions
 
-- **Host build (implementer self-gates):** the `user-tile-button-display` fixture runs
-  end-to-end with trace parity on the host build; `check.sh` x3. The implementation-
-  complete bar.
-- **On-device (hardware acceptance, user-gated):** the same brain, flashed via 5c,
-  toggles the pixel on real hardware (as 4b/5c were validated). The implementer builds
-  the hex and reports host-gated + pending-hardware; final acceptance needs the device.
+Discovered from a real on-device fault: a two-page **timer** brain (page-switch +
+timeout + display) builds and runs in the wodal sim but **faults on device**. The
+firmware registers only the two microbit host actions (button-a 1024, display-set-pixel
+1025); the entire **core** host-action surface (`core-host-actions.h`, host-action ids
+0-7: SwitchPage, RestartPage, Yield, Random, OnPageEntered, Timeout, CurrentPage,
+PreviousPage) has **no C++ bodies anywhere**, so a `HOST_ACTION_CALL` (op 44) to
+SwitchPage(0)/Timeout(5)/etc. resolves null -> `ScriptError`, respawning into the same
+fault each tick (and SwitchPage failing pins the brain on page 0). This is **orthogonal
+to 6f4** (which delivered bytecode actions op 42 + the native device host-fn surface) -
+the user-tile fixture passed because it used those, not core host actions. Every other
+opcode the timer brain needs is already implemented; the core host actions are the sole
+gap. (Census note: the 6c carve-out census checked `HOST_CALL` `CoreFuncId` **bodies**
+and recorded the sensor/actuator ids as "action-dispatched" - but never verified the
+action **bindings** were registered in the firmware. The 6j carve-out gate must cover
+host-action binding coverage too - see there.)
+
+Scope: port the 8 core sensor/actuator host actions as **core** host-action bindings +
+bodies (target-agnostic, so a core bindings unit consumed by every target, not the
+microbit-v2 abi), mirroring the TS sensor/actuator definitions, wired into the firmware
+action table alongside the microbit bindings. Reuse the existing host-action
+binding-table mechanism + the `ExecutionContext` callsite-state + page plumbing (no new
+dispatch):
+
+- **SwitchPage(0) / RestartPage(1):** page control via `BrainRuntime::requestPageChange`
+  (exists from 6f2, currently unwired to an action); verify restart end-to-end.
+- **Timeout(5) / OnPageEntered(4):** per-callsite state + `ctx.time` edge semantics (the
+  6f2 callsite-state / button-a-sensor model).
+- **Random(3):** `VmRng` (already on the surface).
+- **CurrentPage(6) / PreviousPage(7):** read brain page state.
+- **Yield(2):** the `YIELD` path.
+
+Gate: a golden timer brain (page-switch + timeout + display - the user's failing brain,
+committed as `.mcprogram.bin` + `.ticks.trace`) byte-matches the wodal oracle host-side;
+`check.sh` x3 + full TS suite; then rebuild the firmware hex and validate on hardware
+(user-gated, as 6f4). Repro: the timer brain JSON is exportable from microbit-sim via the
+new per-brain "Program" button (added this session).
+
+Needs only the 3c scheduler + the existing callsite-state/page machinery; independent of
+6g/6h/6i. **Sequenced before 6g** - it fixes a demonstrated silent on-device fault for a
+whole class of user brains (timers, multi-page), which outranks 6g's internal
+topology-parity work.
 
 ### Phase 6g: Cap Parameterization - Topology Parity with TS
 
@@ -2408,8 +2442,14 @@ Scope:
   until it is either implemented or consciously allow-listed (a reviewer sees the edit).
   This is the durable guard for the class of gap that shipped silently in 6c (the
   context-variable ids were carved out as "not core bodies" and no fixture caught it).
-  A one-time per-`CoreFuncId`/host-action census (2026-06-15) confirmed 48-51 were the
-  only such carve-out; the gate keeps it that way.
+  **The gate must cover TWO dispatch surfaces, not one:** (a) `HOST_CALL` `CoreFuncId`
+  bodies (the original), and (b) **`HOST_ACTION_CALL` binding coverage** - every core
+  host-action id a program can dispatch must have a registered binding in the firmware's
+  action table. The 6c census checked only (a) and recorded the sensor/actuator ids as
+  "action-dispatched," but never verified their bindings existed - which is exactly the
+  6f5 fault (core action ids 0-7 declared in the ABI, bound nowhere, faulting on device).
+  So the allow-list spans both surfaces, and "registered" means *a body exists*, not
+  *an id is declared*.
   (The scheduling/resource-cap parity guard moved to Phase 6g, where the caps become
   profile-sourced.)
 
@@ -2440,12 +2480,70 @@ hardware.
 
 ---
 
+## Phase 7: microbit-v2 Device-Surface Completeness (placeholder - refine after Phase 6)
+
+The full microbit-v2 onboard sensor/actuator surface, on both TS and C++. 6f4 built the
+**native device-surface mechanism** (native-struct rep, registry getters, the target
+host-fn surface, device ports) but proved it on a slice (`display.setPixelValue` +
+`buttonA.isPressed`); the device ABI today is only **display + buttons + touch** (4
+`MicroBitField`s, 11 host-fns, 4 type-atoms). Accelerometer, gesture, temperature,
+magnetometer/compass, GPIO, and the rest exist on **neither side**. This phase completes
+them. It is microbit-v2-specific (the wodal module + sim, the ambient `Context` `.d.ts`,
+`cpp/targets/microbit-v2/`) - target completeness, not VM conformance, hence its own
+phase - and reuses 6f4's mechanism; it invents no new VM machinery.
+
+**Deliberately under-specified for now; refine (and sub-split) after Phase 6 is
+complete.** What the surface *is* is not yet known: it comes out of a two-stage front the
+user owns -
+
+1. **CODAL capability inventory** - catalog what the CODAL `MicroBit` API actually offers
+   (`uBit.accelerometer`/`thermometer`/`compass`/`io.pinN`/gesture/... and the rest).
+2. **Tile-language design** - decide *how* to surface that capability as sensors and
+   actuators in the language. The exposed `Context` surface is the **output of this
+   design**, not a given; the peripherals named above are CODAL inputs to it, not a
+   committed scope list. Only after the design are the `Context` types/fields/methods and
+   the ABI ids knowable.
+
+Once the surface is designed, the build is downstream and reuses established machinery:
+extend `DevicePorts`/`microbit-ports.h` per peripheral; expose in the ambient `.d.ts` +
+the wodal module with **appended** ABI ids (`MicroBitField`/`MicroBitV2HostFuncId`/
+`MicroBitV2TypeAtomId` - append-only, never renumber, LD2); reuse 6f4's `Struct(typeId,
+discriminator)` native rep (e.g. a pin carries its pin number); implement both sides
+mirroring; and gate with per-peripheral fixtures exercising every I/O, **no I/O
+registered-but-untested** (the 6f5 binding-coverage lesson).
+
+Carry-forward notes for the refinement:
+- **The key new harness piece** is deterministic, injectable **sensor inputs** on both
+  sides (scriptable wodal-sim peripherals + matching C++ host stub ports) - without it a
+  sensor *read* cannot be trace-parity-checked. Host trace parity under injected values is
+  the rigorous gate; **hardware is a per-peripheral manual smoke test** (user-gated) -
+  sensors cannot be deterministically trace-matched on device.
+- GPIO analog/PWM intersects the **port-crossing numeric-typing seam** (Deferred Work),
+  which must resolve before fractional/out-of-range pin args are gated.
+- Dependencies: 6f4 + 6f5; mostly sync (no async needed); the async display slice
+  (`scroll`) is 6i.
+
+---
+
 ## Phase Log
 
 Condensed dated ledger of accepted phases (newest first). Full per-phase as-built
 detail lives in the session memory and git history; the accepted phase sections above
 carry the contracts each produced.
 
+- **2026-06-15 - Phase 6f4 accepted** (host-gated; hardware hex pending the user's
+  flash): native device surface, the user-tile milestone - `user-tile-button-display`
+  runs end-to-end (byte-exact host parity; patched hex built). Closed the 6f3 CALL-frame
+  rule-inheritance prereq (`resolveCalleeRuleFuncId` on the CALL paths). Native-struct rep
+  = `Struct(typeId, discriminator-in-handle)`, GC-inert (mixed key: ctx = program-table
+  index, device structs = type-atom-id; discriminator = `MicroBitField` id). Registry
+  native getters (`native-struct-bindings.h`, closes the 6f1 placeholder); target host-fn
+  surface (core `host-function.h` + `RuntimeSurface.hostFunctions`; `isPressed`/
+  `setPixelValue` over `DevicePorts`); `ctx` injection at root + `ACTION_CALL` only
+  (`pushCallFrame` `injectCtx` flag; closes the 6f2 deferral); host-fn pixel write shares
+  the action path's trace line. Scope = exactly the fixture dump. Gate: C++ 234 x3
+  (ASan+UBSan), wodal 122. On-device fault discovered in testing (core host actions
+  unbound) -> new Phase 6f5. Seam noted: mixed native-typeId collision is far-future only.
 - **2026-06-15 - Phase 6f3 accepted** (host build): context-variable host fns 48-51
   (`ctx.brain`/`ctx.rule` `getVariable`/`setVariable` by name), closing the last
   `CoreFuncId` carve-out. `vm.cpp` `HOST_CALL` -> `dispatchContextVariableFunc`. Brain =
