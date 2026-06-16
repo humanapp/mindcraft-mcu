@@ -16,6 +16,8 @@
 #include "fixture-paths.h"
 #include "string-sink.h"
 #include "targets/microbit-v2/abi/host-action-bindings.h"
+#include "targets/microbit-v2/abi/host-func-bindings.h"
+#include "targets/microbit-v2/abi/native-struct-bindings.h"
 #include "targets/microbit-v2/abi/type-atom-id.h"
 
 #include <array>
@@ -499,6 +501,57 @@ TEST_CASE("the context-variables fixture byte-matches the golden observable trac
   CHECK(sink.text() == golden);
 }
 
+TEST_CASE("the rule-helper-variables fixture byte-matches the golden observable trace") {
+  const std::string base =
+      std::string(mindcraft::test::kWodalFixturesDir) + "/rule-helper-variables";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  TraceTap tap(writer);
+
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  ExecutionContext ctx;
+  // The root rule calls a plain helper that reads and writes rule variables
+  // through the calling rule's store; the per-rule maps and their borrowed
+  // variable-name keys resolve through the heap configured with the image.
+  mindcraft::ManagedHeap heap(arena, &image);
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+
+  FiberScheduler scheduler(image, surface, arena);
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // The brain ignores input and runs identically each tick; advance 16ms thrice
+  // to mirror the TS oracle schedule.
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 3; i++) {
+    const float timeMs = lastThinkTimeMs + 16;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+}
+
 TEST_CASE("the struct-closure fixture byte-matches the golden observable trace") {
   const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/struct-closure";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
@@ -546,4 +599,72 @@ TEST_CASE("the struct-closure fixture byte-matches the golden observable trace")
 
   CHECK(tap.renderable);
   CHECK(sink.text() == golden);
+}
+
+TEST_CASE("the user-tile button-display fixture byte-matches the golden observable trace") {
+  const std::string base =
+      std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-button-display";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  TraceTap tap(writer);
+
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  // The injected context reaches the device through native struct field getters
+  // (ctx.microbit, microbit.display/buttonA) and the button read / pixel write
+  // dispatch through the target host-function table; both reach the same device
+  // ports the host-action path uses, so the pixel write emits the same port line.
+  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  ExecutionContext ctx;
+  // STRUCT_GET_FIELD requires a heap even though native struct values carry no
+  // managed slab; the brain allocates nothing on it.
+  mindcraft::ManagedHeap heap(arena);
+  mindcraft::TypeRegistry types(image);
+  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+  surface.types = &types;
+  surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
+
+  FiberScheduler scheduler(image, surface, arena);
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Mirrors HELD_PIXEL_SCHEDULE in wodal
+  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-observable-trace.spec.ts.
+  // The level-triggered rule lights the pixel on the two held ticks. -1 leaves
+  // the button level unchanged before the think.
+  constexpr int kButtonSchedule[4] = {-1, 1, -1, 0};
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 4; i++) {
+    if (kButtonSchedule[i] >= 0) {
+      microbit.buttons.pressed[0] = kButtonSchedule[i] == 1;
+    }
+    const float timeMs = lastThinkTimeMs + 16;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+  // The device ends with pixel (0,0) lit, mirroring the TS oracle assertion.
+  CHECK(microbit.display.pixels[0][0] == 255);
 }

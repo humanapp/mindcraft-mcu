@@ -10,11 +10,15 @@
 #include "core/runtime/execution-context.h"
 #include "core/runtime/fiber-scheduler.h"
 #include "core/runtime/load-error.h"
+#include "core/runtime/managed-heap.h"
 #include "core/runtime/region-arena.h"
 #include "core/runtime/result.h"
+#include "core/runtime/type-registry.h"
 #include "core/runtime/value.h"
 #include "core/runtime/vm.h"
 #include "targets/microbit-v2/abi/host-action-bindings.h"
+#include "targets/microbit-v2/abi/host-func-bindings.h"
+#include "targets/microbit-v2/abi/native-struct-bindings.h"
 #include "targets/microbit-v2/abi/type-atom-id.h"
 
 #include "microbit-ports.h"
@@ -91,8 +95,15 @@ int main()
     const ProgramImage &image = decoded.value();
 
     auto bindings = makeMicroBitV2HostActionBindings(ports);
+    auto hostFuncs = makeMicroBitV2HostFuncBindings(ports);
+    ManagedHeap heap(arena);
+    TypeRegistry types(image);
+    auto nativeStructs = makeMicroBitV2NativeStructBindings(types);
+    types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
     ExecutionContext ctx;
-    RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, nullptr};
+    RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, nullptr, &heap};
+    surface.types = &types;
+    surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
     FiberScheduler scheduler(image, surface, arena);
     BrainRuntime brain(image, scheduler, surface);
 

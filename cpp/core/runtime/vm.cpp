@@ -228,17 +228,21 @@ bool constValueToRuntime(const ConstValue& constant, Value& out) {
  * operands (arg0 deepest); they are moved into the callee's locals 0..argc-1 and
  * the operand stack is truncated, dropping the args plus `extraDrop` slots below
  * them (1 for the indirect-call function reference, 0 for a direct call).
- * `captures` becomes the callee frame's capture handle. With `exactArity`, `argc`
- * must equal `callee.numParams`; otherwise surplus args are dropped and missing
- * args are nil-padded to `numParams`. On success the caller frame's pc is
- * advanced past the call instruction. Returns false with `err` set on an
- * out-of-bounds funcId, arity mismatch, or frame/locals overflow; on failure
- * the caller pc is left at the call instruction. The caller must have checked
- * that `argc + extraDrop <= stackDepth`.
+ * `captures` becomes the callee frame's capture handle. When `injectCtx` is set
+ * and the callee declares a context injection, a native context struct is
+ * synthesized into local 0 and the bytecode args follow it, so `argc` is one
+ * short of `numParams`. With `exactArity`, `argc` must equal the stack-supplied
+ * parameter count (`numParams`, less the injected context); otherwise surplus
+ * args are dropped and missing args are nil-padded. On success the caller
+ * frame's pc is advanced past the call instruction. Returns false with `err`
+ * set on an out-of-bounds funcId, arity mismatch, or frame/locals overflow; on
+ * failure the caller pc is left at the call instruction. The caller must have
+ * checked that `argc + extraDrop <= stackDepth`.
  */
 bool pushCallFrame(ExecutionState& state, const ProgramImage& program, uint32_t calleeId,
                    uint32_t argc, uint32_t captures, bool exactArity, uint32_t extraDrop,
-                   bool hasActionBinding, const ActionFrameBinding& actionBinding, ErrorCode& err) {
+                   bool hasActionBinding, const ActionFrameBinding& actionBinding, bool injectCtx,
+                   ErrorCode& err) {
   if (calleeId >= program.functions.size()) {
     err = ErrorCode::ScriptError;
     return false;
@@ -248,7 +252,12 @@ bool pushCallFrame(ExecutionState& state, const ProgramImage& program, uint32_t 
     return false;
   }
   const FunctionBytecode& fn = program.functions[calleeId];
-  if (exactArity && argc != fn.numParams) {
+  // An action/rule entry takes its context as an implicit first parameter the
+  // call site does not push; the bytecode arg count is then one short of the
+  // declared parameter count.
+  const uint32_t injected = (injectCtx && fn.injectCtxTypeIdx != kNoTypeIdx) ? 1u : 0u;
+  const uint32_t stackParams = fn.numParams - injected;
+  if (exactArity && argc != stackParams) {
     err = ErrorCode::ScriptError;
     return false;
   }
@@ -265,12 +274,18 @@ bool pushCallFrame(ExecutionState& state, const ProgramImage& program, uint32_t 
   }
 
   const uint32_t argsBase = state.stackDepth - argc;
-  const uint32_t take = argc < fn.numParams ? argc : fn.numParams;
+  const uint32_t take = argc < stackParams ? argc : stackParams;
   const uint32_t localsOffset = state.localsDepth;
   // The operand stack and locals region are distinct arrays, so the args are
-  // read out before the stack is truncated below.
+  // read out before the stack is truncated below. The injected context, when
+  // present, occupies local 0 and the bytecode args follow it.
   for (uint32_t i = 0; i < fn.numLocals; i++) {
-    state.locals[localsOffset + i] = i < take ? state.stack[argsBase + i] : kNilValue;
+    if (injected == 1 && i == 0) {
+      state.locals[localsOffset] = Value::structValue(fn.injectCtxTypeIdx, 0);
+      continue;
+    }
+    const uint32_t argIdx = i - injected;
+    state.locals[localsOffset + i] = argIdx < take ? state.stack[argsBase + argIdx] : kNilValue;
   }
   state.localsDepth += fn.numLocals;
   state.stackDepth = argsBase - extraDrop;
@@ -333,6 +348,22 @@ uint32_t resolveFrameRuleFuncId(const ProgramImage& program, const Frame& frame)
     return frame.ruleFuncId;
   }
   return resolveDirectRuleFuncId(program, frame.funcId);
+}
+
+/**
+ * The rule funcId a called function runs under: the callee's own rule binding
+ * when it is itself a rule entry, else the calling frame's rule in scope. So a
+ * rule that calls a plain helper forwards its rule, and a `ctx.rule` access
+ * inside the helper resolves to the calling rule's store. Mirrors
+ * `resolveCalleeRuleFuncId` in external/mindcraft-lang/.../vm.ts.
+ */
+uint32_t resolveCalleeRuleFuncId(const ProgramImage& program, const Frame& caller,
+                                 uint32_t calleeId) {
+  const uint32_t direct = resolveDirectRuleFuncId(program, calleeId);
+  if (direct != kNoFuncId) {
+    return direct;
+  }
+  return resolveFrameRuleFuncId(program, caller);
 }
 
 /**
@@ -610,9 +641,18 @@ Status startExecution(ExecutionState& state, const ProgramImage& program, uint32
     return Status::fail(ErrorCode::StackOverflow);
   }
 
+  // A rule/action entry spawned as a root fiber takes its context as an
+  // implicit first parameter; the injected context occupies local 0 and the
+  // caller-supplied args follow it.
+  const uint32_t injected = fn.injectCtxTypeIdx != kNoTypeIdx ? 1u : 0u;
   const uint32_t localsOffset = state.localsDepth;
   for (uint32_t i = 0; i < fn.numLocals; i++) {
-    state.locals[localsOffset + i] = i < args.size() ? args[i] : kNilValue;
+    if (injected == 1 && i == 0) {
+      state.locals[localsOffset] = Value::structValue(fn.injectCtxTypeIdx, 0);
+      continue;
+    }
+    const uint32_t argIdx = i - injected;
+    state.locals[localsOffset + i] = argIdx < args.size() ? args[argIdx] : kNilValue;
   }
   state.localsDepth += fn.numLocals;
 
@@ -905,8 +945,9 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
     case Op::HOST_CALL: {
       // Operand layout: a = funcId, b = argc, c = callSiteId. The core bodies
       // take no execution context, so the call-site operand is unused. Core ids
-      // dispatch by id; target ids (>= TARGET_FUNC_ID_BASE) have no registered
-      // body and fault as unregistered.
+      // dispatch by id; target ids (>= TARGET_FUNC_ID_BASE) dispatch through the
+      // registered target host-function table and fault as unregistered when no
+      // binding holds the id.
       const uint32_t fnId = ins.a;
       const uint32_t argc = ins.b;
       if (argc > state.stackDepth) {
@@ -922,6 +963,11 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
         } else {
           const HostCallEnv env{surface.heap, surface.roots, surface.rng, surface.types};
           status = callCoreHostFunction(coreId, args, env, result);
+        }
+      } else {
+        const TargetHostFuncBinding* binding = findTargetHostFuncById(surface.hostFunctions, fnId);
+        if (binding != nullptr) {
+          status = binding->exec(binding->hostData, args, result);
         }
       }
       if (!status.isOk()) {
@@ -1359,11 +1405,15 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       if (state.stackDepth < argc) {
         return fault(ErrorCode::StackUnderflow);
       }
+      // Resolve the callee's rule from the caller before pushCallFrame, which
+      // can relocate the frame region and invalidate `frame`.
+      const uint32_t calleeRuleFuncId = resolveCalleeRuleFuncId(program, frame, ins.a);
       ErrorCode err = ErrorCode::ScriptError;
       if (!pushCallFrame(state, program, ins.a, argc, kNoCaptures, true, 0, false,
-                         ActionFrameBinding{0, 0, false}, err)) {
+                         ActionFrameBinding{0, 0, false}, false, err)) {
         return fault(err);
       }
+      state.frames[state.frameDepth - 1].ruleFuncId = calleeRuleFuncId;
       // The caller pc was advanced inside pushCallFrame; the callee runs next.
       break;
     }
@@ -1383,11 +1433,13 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       const uint32_t calleeId = funcRef.functionId();
       const uint32_t captures = funcRef.functionCaptures();
       const bool exactArity = ins.op == Op::CALL_INDIRECT;
+      const uint32_t calleeRuleFuncId = resolveCalleeRuleFuncId(program, frame, calleeId);
       ErrorCode err = ErrorCode::ScriptError;
       if (!pushCallFrame(state, program, calleeId, argc, captures, exactArity, 1, false,
-                         ActionFrameBinding{0, 0, false}, err)) {
+                         ActionFrameBinding{0, 0, false}, false, err)) {
         return fault(err);
       }
+      state.frames[state.frameDepth - 1].ruleFuncId = calleeRuleFuncId;
       break;
     }
 
@@ -1412,7 +1464,7 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       ErrorCode err = ErrorCode::ScriptError;
       const ActionFrameBinding binding{actionSlot, callSiteId, false};
       if (!pushCallFrame(state, program, action.entryFuncId, argc, kNoCaptures, true, 0, true,
-                         binding, err)) {
+                         binding, true, err)) {
         return fault(err);
       }
       state.frames[state.frameDepth - 1].ruleFuncId = inheritedRuleFuncId;

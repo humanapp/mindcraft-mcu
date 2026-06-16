@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstring>
 
+#include "core/platform/span.h"
 #include "core/runtime/program.h"
 #include "core/runtime/value.h"
 
@@ -18,6 +19,22 @@ using NativeStructFieldGetter = Value (*)(const Value& source, uint32_t fieldId)
 using NativeStructFieldSetter = bool (*)(const Value& source, uint32_t fieldId, const Value& value);
 
 /**
+ * One native struct type's field accessors, keyed by the typeId a native struct
+ * value of that type carries. The `getter` maps a source value and field id to
+ * the field value; the `setter` writes a field and reports accept/reject.
+ */
+struct NativeStructTypeBinding {
+  /** TypeId a native struct value of this type carries (its `Value::typeId`). */
+  uint32_t typeId;
+
+  /** Field reader. Must be non-null. */
+  NativeStructFieldGetter getter;
+
+  /** Field writer, or null when the type rejects all field writes. */
+  NativeStructFieldSetter setter;
+};
+
+/**
  * Resolves type identities against the decoded program image: program-local
  * struct field names and slot counts, the instantiated container types the core
  * builtins produce, and the optional native field getter/setter of a struct
@@ -29,10 +46,21 @@ using NativeStructFieldSetter = bool (*)(const Value& source, uint32_t fieldId, 
  */
 class TypeRegistry {
 public:
-  explicit TypeRegistry(const ProgramImage& program) : program_(&program) {}
+  explicit TypeRegistry(const ProgramImage& program,
+                        Span<const NativeStructTypeBinding> nativeStructs = {})
+      : program_(&program), nativeStructs_(nativeStructs) {}
 
   /** The decoded program image this registry resolves against. */
   const ProgramImage& program() const { return *program_; }
+
+  /**
+   * Installs the native struct field accessors read by {@link
+   * nativeStructGetter} and {@link nativeStructSetter}. `bindings` must outlive
+   * the registry.
+   */
+  void setNativeStructBindings(Span<const NativeStructTypeBinding> bindings) {
+    nativeStructs_ = bindings;
+  }
 
   /** Field storage slot count of struct `typeIdx`, or 0 when it is not a struct. */
   uint32_t structSlotCount(uint32_t typeIdx) const {
@@ -104,14 +132,32 @@ public:
     return kNoTypeIdx;
   }
 
-  /** The native field getter registered for struct `typeIdx`, or null for a managed-slot struct. */
-  NativeStructFieldGetter nativeStructGetter(uint32_t /*typeIdx*/) const { return nullptr; }
+  /** The native field getter for a struct value carrying `typeId`, or null for a managed-slot
+   * struct. */
+  NativeStructFieldGetter nativeStructGetter(uint32_t typeId) const {
+    const NativeStructTypeBinding* binding = findNativeStruct(typeId);
+    return binding != nullptr ? binding->getter : nullptr;
+  }
 
-  /** The native field setter registered for struct `typeIdx`, or null for a managed-slot struct. */
-  NativeStructFieldSetter nativeStructSetter(uint32_t /*typeIdx*/) const { return nullptr; }
+  /** The native field setter for a struct value carrying `typeId`, or null for a managed-slot
+   * struct. */
+  NativeStructFieldSetter nativeStructSetter(uint32_t typeId) const {
+    const NativeStructTypeBinding* binding = findNativeStruct(typeId);
+    return binding != nullptr ? binding->setter : nullptr;
+  }
 
 private:
+  const NativeStructTypeBinding* findNativeStruct(uint32_t typeId) const {
+    for (size_t i = 0; i < nativeStructs_.size(); i++) {
+      if (nativeStructs_[i].typeId == typeId) {
+        return &nativeStructs_[i];
+      }
+    }
+    return nullptr;
+  }
+
   const ProgramImage* program_;
+  Span<const NativeStructTypeBinding> nativeStructs_;
 };
 
 } // namespace mindcraft

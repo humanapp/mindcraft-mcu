@@ -7,6 +7,7 @@
 #include "core/runtime/execution-context.h"
 #include "core/runtime/execution-state.h"
 #include "core/runtime/host-action.h"
+#include "core/runtime/host-function.h"
 #include "core/runtime/program.h"
 #include "core/runtime/result.h"
 #include "core/runtime/value.h"
@@ -116,6 +117,14 @@ struct RuntimeSurface {
    * container results carry {@link kNoTypeIdx}.
    */
   const TypeRegistry* types = nullptr;
+
+  /**
+   * Registered target host functions, resolved by stable funcId for a
+   * `HOST_CALL` whose funcId is at or above {@link TARGET_FUNC_ID_BASE}. Empty
+   * when the host registers none; such a call then faults
+   * `ErrorCode::ScriptError`.
+   */
+  Span<const TargetHostFuncBinding> hostFunctions{};
 };
 
 /**
