@@ -1,4 +1,4 @@
-#include "core/codec/program-dump.h"
+#include "hostkit/program-dump.h"
 
 #include "core/runtime/bytecode.h"
 

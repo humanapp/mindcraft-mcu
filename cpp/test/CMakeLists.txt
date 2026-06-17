@@ -38,8 +38,9 @@ add_executable(mindcraft-tests
 )
 
 # mindcraft-codal links mindcraft-core PUBLIC, so the core library and its
-# include paths reach the tests transitively.
-target_link_libraries(mindcraft-tests PRIVATE mindcraft-codal)
+# include paths reach the tests transitively. mindcraft-hostkit supplies the
+# host-only trace and dump emitters the parity tests render against.
+target_link_libraries(mindcraft-tests PRIVATE mindcraft-codal mindcraft-hostkit)
 
 target_include_directories(mindcraft-tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(mindcraft-tests SYSTEM PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/vendor)

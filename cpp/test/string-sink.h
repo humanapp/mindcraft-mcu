@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/codec/text-render.h"
+#include "hostkit/text-render.h"
 
 #include <string>
 

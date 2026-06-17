@@ -1,11 +1,11 @@
 #include "doctest/doctest.h"
 
-#include "core/codec/observable-trace.h"
 #include "core/runtime/brain-runtime.h"
 #include "core/runtime/execution-context.h"
 #include "core/runtime/fiber-scheduler.h"
 #include "core/runtime/value.h"
 #include "core/runtime/vm.h"
+#include "hostkit/observable-trace.h"
 #include "string-sink.h"
 #include "vm-harness.h"
 

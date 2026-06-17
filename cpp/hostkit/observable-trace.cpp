@@ -1,4 +1,4 @@
-#include "core/codec/observable-trace.h"
+#include "hostkit/observable-trace.h"
 
 namespace mindcraft {
 

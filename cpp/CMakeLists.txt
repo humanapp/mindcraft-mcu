@@ -18,5 +18,6 @@ endif()
 enable_testing()
 
 add_subdirectory(core)
+add_subdirectory(hostkit)
 add_subdirectory(codal)
 add_subdirectory(test)

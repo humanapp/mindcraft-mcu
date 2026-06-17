@@ -141,10 +141,10 @@ run on device).
 | Phase 6f4: Native Device Surface (user-tile milestone) | **Accepted (2026-06-15, host-gated; hardware hex pending user flash)** | CALL-frame rule inheritance (`resolveCalleeRuleFuncId` on CALL paths) + native-struct rep `Struct(typeId, disc-in-handle)` (mixed key: ctx = program-table index, device = type-atom-id; disc = `MicroBitField` id) + registry native getters (`native-struct-bindings.h`) + target host-fn surface (core `host-function.h` + `RuntimeSurface.hostFunctions`; `isPressed`/`setPixelValue` over `DevicePorts`) + `ctx` injection at root+`ACTION_CALL` (`pushCallFrame` `injectCtx` flag) + dual-path setPixel trace parity. `user-tile-button-display` byte-matches golden, ends pixel (0,0)=255; C++ 234 x3, wodal 122. Hex built (region 0x44000). |
 | Phase 6f5: Core Sensor/Actuator Host Actions | **Accepted (2026-06-16, hardware-validated)** | All 8 core host actions (ids 0-7) ported as **core, target-agnostic** bodies (`cpp/core/runtime/host-actions/`; `makeCoreHostActionBindings`); firmware table = core 8 + microbit 2. Fixed the real on-device fault (op-44 core ids -> null -> ScriptError). BrainRuntime gained `requestPageRestart`/`requestPageChangeByPageId`/`get{Current,Previous}PageId`; `requestPageChange` mirrors TS (same-page = restart, real change cancels fibers). Timeout = per-callsite managed `List[fireTime,lastTick]` (GC-rooted). **Plus a general scheduler-interrupt fix** (`ExecutionState.cancelled` checked at each instruction boundary; mirrors TS mid-run state check) - touches the VM dispatch hot path, first exercised by in-rule page changes. Gate: 3 fixtures (timer/core-actions/restart-interrupt) byte-matched + unit tests; check.sh x3; wodal 125; **hardware-validated** (timer brain). |
 | Phase 6g: Cap Parameterization (topology parity with TS) | **Accepted (2026-06-16)** | New core `DeviceProfileCaps` (8 fields); `FiberScheduler` ctor takes it (`spawn`/`runActionHook`/`tick` read `caps_`). Host supplies `kMicroBitV2DeviceProfileCaps` (`targets/.../device-profile.h`); global `constexpr` caps deleted; ~40 ctor sites threaded via a test helper. `profileId` validated in the host (`main.cpp`, faithful to TS) -> new core `LoadError::UnsupportedDeviceProfile`=15 on mismatch. Cap-parity guard: wodal `device-profile-caps-vectors` fixture -> C++ `device-profile-caps-parity.test.cpp` asserts each cap == the host caps (replaces literal asserts; 7 caps, `maxHandles` joins in 6i); negative-control proven. Pure refactor: 237 C++ cases, goldens byte-match; wodal 126. |
-| Phase 6h: Async core | **Accepted (2026-06-16, host-gated + timer-brain hardware regression)** | Core `HandleTable` (`{id,state,result,error,waiters,nextCompleted}`, Pool-backed/LD7, new GC root via `enumerateResults`); opcodes 41 `HOST_CALL_ASYNC` / 45 `HOST_ACTION_CALL_ASYNC` / 50 `AWAIT` mirror vm.ts; **43 `ACTION_CALL_ASYNC` deferred** (still faults; pull forward when a consumer needs it - 6i scroll is a host-action async). `AWAIT` parks `WAITING` (flips 3c's Waiting->HostError): resolved->push, rejected/cancelled->throw via the 6e handler path (shared `throwError` + `pendingInjectedThrow`); `assertCanSuspend` still faults await in a sync action frame. **Settle = enqueue; `drainCompletedHandles()` (in `think()`, after tick before sweep) resumes waiters next round** - accepts a settle made from outside the single-entry loop (the path 6i's CODAL listener needs). **Fixed the 6f2 fiber-id divergence** (C++ hook fibers now a descending inline id space, mirrors TS negatives). Gate: `async-handles.test.cpp` (9 cases, test caps `maxHandles=16`; microbit-v2 stays 0); 247 C++ cases x3, wodal 126. Blessed deviation: async bodies get the ephemeral stack view, not an owned snapshot (no consumer retains). (The open cross-VM async-goldens item was closed at 6i - the real `BrainRuntime` drives the golden.) |
+| Phase 6h: Async core | **Accepted (2026-06-16, host-gated + timer-brain hardware regression)** | Core `HandleTable` (`{id,state,result,error,waiters,nextCompleted}`, Pool-backed/LD7, new GC root via `enumerateResults`); opcodes 41 `HOST_CALL_ASYNC` / 45 `HOST_ACTION_CALL_ASYNC` / 50 `AWAIT` mirror vm.ts; **43 `ACTION_CALL_ASYNC` left to 6j** (still faults via `default:`; not a host-action async like 6i scroll - it needs a child-fiber spawn from inside dispatch, and no shipping fixture exercised it yet; 6j implements it - no opcode stays deferred). `AWAIT` parks `WAITING` (flips 3c's Waiting->HostError): resolved->push, rejected/cancelled->throw via the 6e handler path (shared `throwError` + `pendingInjectedThrow`); `assertCanSuspend` still faults await in a sync action frame. **Settle = enqueue; `drainCompletedHandles()` (in `think()`, after tick before sweep) resumes waiters next round** - accepts a settle made from outside the single-entry loop (the path 6i's CODAL listener needs). **Fixed the 6f2 fiber-id divergence** (C++ hook fibers now a descending inline id space, mirrors TS negatives). Gate: `async-handles.test.cpp` (9 cases, test caps `maxHandles=16`; microbit-v2 stays 0); 247 C++ cases x3, wodal 126. Blessed deviation: async bodies get the ephemeral stack view, not an owned snapshot (no consumer retains). (The open cross-VM async-goldens item was closed at 6i - the real `BrainRuntime` drives the golden.) |
 | Phase 6i: Display Scroll-Text (first async capability) | **Accepted (2026-06-17, hardware-validated)** | Async `display.scroll(text)` action (`DisplayScroll` id 1026, fnId 1035, op 45; optional String arg default `"hello"`). Completion-time formula `start + 6*(charCount+1)*delay` pinned in the target layer (wodal `display-scroll.ts` + C++ `display-scroll.h`). **Core async reshape** (`external/mindcraft-lang`): bound resolver `AsyncHandle{resolve/reject/cancel}` passed as the 3rd async-body arg both VMs (host-binding API only, no bytecode change). `maxHandles` 0->8 (6g seam, 8th cap in the parity guard). Additive target trace lines (`...async` + `port display scroll`), format v1 unchanged. CODAL `pendolino3` font ported to wodal sim only (device renders natively). **Deviations from the original design:** device resolution = **formula poll**, not the `ANIMATION_COMPLETE` bus event (listener didn't fire on hardware); concurrent scrolls **reject**, not serialize (LD9 removed the fixed queue); the real `BrainRuntime` generates the golden, so **6h's cross-VM-oracle item is closed** (no separate harness). Gate: wodal 139, C++ 252 cases x3 (scroll golden byte-matches), core 913, hardware-validated. Open: managed-string scroll test (impl-complete). |
-| Phase 6j: Conformance + Parity Suite | Planned | Full golden parity set through both VMs; instruction-level trace mode; opcode-completeness check (no fault-on-unimplemented); shared input-script file format; the port-typing-seam resolution. Needs all. |
-| Phase 7: microbit-v2 Device-Surface Completeness | Placeholder - refine after Phase 6 | The **full** onboard sensor/actuator surface on both TS + C++ (accelerometer/gesture/temperature/magnetometer/compass/GPIO/... - today only display+buttons+touch exist). Front-loaded by a two-stage process the user owns: (1) CODAL capability inventory, (2) tile-language design deciding how to surface it (the `Context` surface is the **design output**, not predetermined). Then downstream build reuses 6f4's mechanism (append ABI ids, `Struct(typeId,disc)` rep, both-side impl, per-peripheral fixtures). Key new harness: deterministic injectable sensor inputs for parity. Needs 6f4/6f5. Under-specified + un-split until Phase 6 is done. |
+| Phase 6j: Conformance + Parity Suite | Planned | Implement the **last opcode `ACTION_CALL_ASYNC` (43)** (async non-host/bytecode action; child-fiber spawn from inside dispatch) - after it, zero `default:`-fault opcodes; op-43 golden = a device-free brain in wodal `__fixtures__/` via the existing harness (no new machinery). Full golden parity set through both VMs + opcode-coverage measurement; instruction-level trace mode; opcode-completeness check (absolute, no allow-list) + the two-surface carve-out gate; shared input-script file format; fold in the managed-string scroll golden; **port-typing seam resolved as option B (pinned conversion)**. Needs all. |
+| Phase 7: microbit-v2 Device-Surface Completeness | Placeholder - refine after Phase 6 | The **full** onboard sensor/actuator surface on both TS + C++ (accelerometer/gesture/temperature/magnetometer/compass/GPIO/... - today only display+buttons+touch exist). Front-loaded by a two-stage process the user owns: (1) CODAL capability inventory, (2) tile-language design deciding how to surface it (the `Context` surface is the **design output**, not predetermined). Then downstream build reuses 6f4's mechanism (append ABI ids, `Struct(typeId,disc)` rep, both-side impl, per-peripheral fixtures). Key new harness: deterministic injectable sensor inputs for parity. **Prerequisite (pull-forward-able, independent of 6j): reorganize the monolithic cpp target binding files** (`host-action-bindings.h`/`host-func-bindings.h`/`native-struct-bindings.h`) into per-concern files mirroring wodal `mindcraft/actions/` + core `{actuators,sensors}/` (the 6f5 core layout) - pure refactor, goldens byte-unchanged - before any peripheral lands. Needs 6f4/6f5. Under-specified + un-split until Phase 6 is done. |
 
 ## Workflow Convention
 
@@ -1056,8 +1056,16 @@ tests** - no live TS<->C++ process bridge, no JSON parser in C++:
 - **Ownership:** the TS-side generators (dump, trace, script runner) are
   TS work, living beside the existing fixture-generation specs (core
   `__fixtures__` / wodal goldens pattern: write-if-missing + byte-stable). The
-  C++-side dump/trace emitters live in `cpp/core/` behind a passive observer
-  hook (no VM-semantics coupling). Goldens are regenerated by the build path,
+  C++-side dump/trace emitters (and the 6j input-script parser) tap a passive
+  observer hook (no VM-semantics coupling) but are **host-test-only and MUST NOT
+  be in the firmware build** - flash is a premium and the device never emits a
+  trace/dump nor reads a script file. The firmware recursively globs
+  `cpp/core/**/*.cpp` (`targets/microbit-v2/CMakeLists.txt`), so these
+  host-only `.cpp` live **outside the firmware's `core/` glob** (a host-only
+  source set only the host CMake compiles), leaving only the device-needed decode
+  path (`program-reader`) and the header-only `VmObserver` interface in `core/`.
+  Exclusion is **by construction (a directory boundary), not by `--gc-sections`
+  dead-stripping**. Goldens are regenerated by the build path,
   never hand-edited. **Plumbing:** the C++ test tree locates the fixture roots
   (core `__fixtures__/`, wodal `__fixtures__/`) via stable relative paths wired
   in Phase 1a's CMake; one documented command runs the
@@ -1760,11 +1768,13 @@ but no opcode is left orphaned. "Done" = live in the Phase 1-3 slice (`vm.cpp`).
 | 6c | `HOST_CALL`40 (the opcode dispatch + the ~96 `CoreFuncId` bodies) |
 | 6e | `YIELD`51 `TRY`60 `END_TRY`61 `THROW`62 |
 | 6f2 | `ACTION_CALL`42 `LOAD_CALLSITE_VAR`140 `STORE_CALLSITE_VAR`141 |
-| 6h | `HOST_CALL_ASYNC`41 `ACTION_CALL_ASYNC`43 `HOST_ACTION_CALL_ASYNC`45 `AWAIT`50 |
+| 6h | `HOST_CALL_ASYNC`41 `HOST_ACTION_CALL_ASYNC`45 `AWAIT`50 |
+| 6j | `ACTION_CALL_ASYNC`43 (the last opcode - async non-host/bytecode action) |
 | Reserved | `RESERVED_111`111 `RESERVED_112`112 - decode but permanently fault; **no handler, ever** |
 
-6d / 6i / 6j add no new opcodes (6d swaps host-fn *implementations*; 6i is a
-host-action capability over `HOST_ACTION_CALL_ASYNC`45; 6j verifies completeness).
+6d / 6i add no new opcodes (6d swaps host-fn *implementations*; 6i is a host-action
+capability over `HOST_ACTION_CALL_ASYNC`45). 6j implements the last opcode
+`ACTION_CALL_ASYNC`43 and then verifies opcode completeness.
 
 ### Phase 6a: Managed Heap + Value Containers - ACCEPTED 2026-06-14 (host build)
 
@@ -2320,11 +2330,12 @@ As-built:
   `pendingInjectedThrow` check); `Pending` -> record an `AwaitSite` on `ExecutionState` and
   return `RunResult::waiting()`. `assertCanSuspend` honored (await / async-dispatch inside
   a sync action frame faults `ScriptError`).
-- **43 `ACTION_CALL_ASYNC` deferred** - still faults `ScriptError` (covered by the
-  unimplemented-opcode test). Not gate-exercised: 6i's scroll is a host-*action* async, not
-  a bytecode-action async; 43 needs threading the scheduler into the `runExecution` hot path
-  (child-fiber spawn from inside dispatch) for an untested branch. Pull it forward only when
-  a consumer/test needs it; the contract marks 43 deferred, not implemented.
+- **43 `ACTION_CALL_ASYNC` left to 6j** - at 6h it still faults via the dispatch
+  `default:`. It is the async, non-host (bytecode) action path (the brain compiler emits it
+  for a rule awaiting an async non-host action; 6i's scroll is a host-*action* async, op
+  45). Implementing it needs threading the scheduler into the `runExecution` hot path (a
+  child-fiber spawn from inside dispatch), and no shipping fixture exercised it at 6h. **6j
+  implements it** (the conformance phase requires every opcode - none stays deferred).
 - **3c guard flipped.** The scheduler's `Waiting` arm now **parks** the fiber
   (`FiberState::Waiting` + `addWaiter`) instead of faulting `HostError`.
 - **Settle = enqueue -> drain (out-of-loop-settle capable).** Settling only flips state +
@@ -2445,49 +2456,101 @@ entry; the template for future tile specs).
 
 ### Phase 6j: Conformance + Parity Suite
 
+The capstone: the C++ VM becomes a **fully conforming VM** - every contract opcode
+implemented (no `default:`-fault paths), parity holding across the whole accumulated
+golden set, with the divergence-localizing tooling and the durable anti-gap gates in
+place.
+
 Scope:
 
-- The full parity suite: the two committed wodal fixtures plus the golden
-  `.mcprogram` set accumulated across 6a-6i, run through both VMs with the Parity
-  Transport script/trace artifacts; the **instruction-level trace mode** (the
-  divergence-localizing escalation: per-instruction pc/op/stack-depth, emitted by
-  the TS VM via a trace observer and the C++ VM via the passive hook) lands here.
-- A conformance check: every contract opcode is implemented; no
-  fault-on-unimplemented paths remain - the C++ VM is now a conforming VM.
-  (The name-keyed struct ops `GET_FIELD` / `SET_FIELD` / `STRUCT_COPY_EXCEPT` reached
-  full contract conformance in **6f1** - the re-string landed, so they no longer conform
-  only to a degraded oracle.)
-- **Carve-out gate (covers the `HOST_CALL` fan-out, where opcode-completeness alone is
-  blind):** a generated test asserts that the set of user-reachable lowering targets
-  that fall to `default -> unsupported()` equals an explicit **allow-list**. The
-  allow-list is empty once 6f3 lands ids 48-51; any new carve-out then fails the build
-  until it is either implemented or consciously allow-listed (a reviewer sees the edit).
-  This is the durable guard for the class of gap that shipped silently in 6c (the
-  context-variable ids were carved out as "not core bodies" and no fixture caught it).
-  **The gate must cover TWO dispatch surfaces, not one:** (a) `HOST_CALL` `CoreFuncId`
-  bodies (the original), and (b) **`HOST_ACTION_CALL` binding coverage** - every core
-  host-action id a program can dispatch must have a registered binding in the firmware's
-  action table. The 6c census checked only (a) and recorded the sensor/actuator ids as
-  "action-dispatched," but never verified their bindings existed - which is exactly the
-  6f5 fault (core action ids 0-7 declared in the ABI, bound nowhere, faulting on device).
-  So the allow-list spans both surfaces, and "registered" means *a body exists*, not
-  *an id is declared*.
-  (The scheduling/resource-cap parity guard moved to Phase 6g, where the caps become
-  profile-sourced.)
+- **Implement the last opcode: `ACTION_CALL_ASYNC` (43)** - mirror vm.ts (`case
+  Op.ACTION_CALL_ASYNC`, `spawnBytecodeActionFiber`). It dispatches an **async,
+  non-host (bytecode) action**: the brain compiler emits it (+ a following `AWAIT`) for a
+  rule calling an async action whose binding is not host
+  (`rule-compiler.ts emitActionDispatch`; the host sibling is op 45, the sync sibling op
+  42). The body spawns a child fiber for the action (isAsync), allocates a handle, and the
+  caller AWAITs it. This needs the **scheduler reachable from inside `runExecution`** (a
+  child-fiber spawn mid-dispatch) - the one structural addition 6h flagged when it deferred
+  43. It is op 43 that falls to the dispatch `default:` today (62 of 63 opcodes have
+  `case` arms); after this, zero remain. **No opcode is deferred** - every contract opcode
+  is implemented (vm.instructions.md: every conforming VM implements every opcode).
+  Golden (follows the existing pattern, no new machinery): a **device-free brain** - a rule
+  awaiting an async **bytecode** action, no microbit host actions, so the trace has no
+  `port` lines - generated through the **existing wodal harness** and committed in wodal
+  `__fixtures__/` (`.mcprogram.bin` + `.ticks.trace`) beside the other behavioral goldens.
+  Built via the brain compiler (generated, never hand-assembled). **No core-side trace
+  emitter and no new core<->wodal test-plane dependency** - the opcode is core but its
+  behavioral golden rides the same wodal emitter that proves every other opcode (decided
+  2026-06-17). The brain being device-free is what honors "op 43 is core": nothing
+  mcu-specific touches it.
+- **Opcode-completeness conformance check (absolute - NO allow-list).** A generated test
+  asserts every contract opcode has an implemented dispatch arm and zero opcodes fault as
+  unimplemented. This is distinct from the carve-out gate below (which guards the
+  `HOST_CALL`/`HOST_ACTION_CALL` *binding* fan-out, not opcodes). The name-keyed struct ops
+  `GET_FIELD`/`SET_FIELD`/`STRUCT_COPY_EXCEPT` reached full conformance in **6f1** (the
+  re-string landed).
+- **Carve-out gate (the `HOST_CALL`/`HOST_ACTION_CALL` fan-out, where opcode-completeness
+  alone is blind):** a generated test asserts that the set of user-reachable lowering
+  targets that fall to `default -> unsupported()` equals an explicit **allow-list**. The
+  allow-list is empty (6f3 landed ids 48-51); any new carve-out then fails the build until
+  it is either implemented or consciously allow-listed (a reviewer sees the edit). This is
+  the durable guard for the class of gap that shipped silently in 6c. **It must cover TWO
+  dispatch surfaces:** (a) `HOST_CALL` `CoreFuncId` bodies, and (b) **`HOST_ACTION_CALL`
+  binding coverage** - every core host-action id a program can dispatch must have a
+  registered binding in the firmware's action table (the gap behind the 6f5 on-device
+  fault: ids 0-7 declared in the ABI, bound nowhere). "Registered" means *a body/binding
+  exists*, not *an id is declared*. (The scheduling/resource-cap parity guard moved to
+  Phase 6g.)
+- **Full parity suite + coverage.** The accumulated 6a-6i golden `.mcprogram` set plus the
+  two committed wodal fixtures, run through both VMs via the Parity Transport script/trace
+  artifacts. Add an **opcode-coverage measurement** - every contract opcode is executed at
+  least once across the suite - and author conformance-targeted brains to fill any gaps
+  (op-43 above is one such). **Fold in the managed/computed-string scroll golden** (the 6i
+  follow-up: scroll a computed String; the body's byte-read already handles managed strings,
+  only the golden is missing).
+- **Shared input-script FILE format + C++ parser** - generalizing Phase 3's mirrored
+  in-code schedules (a deterministic tick schedule with device-input events + `time`/`dt`
+  stamps). Phase 6j is where the golden suite (many programs x many scripts) gives it real
+  consumers and hand-mirroring stops scaling (per Parity Transport). The parser is
+  **host-test-only** (see the build-hygiene item below).
+- **Build hygiene: keep host-test-only parity machinery out of the firmware (flash is a
+  premium).** The firmware recursively globs `cpp/core/**/*.cpp`
+  (`targets/microbit-v2/CMakeLists.txt`), so anything under `core/` ships. The new
+  input-script parser, and the existing `core/codec/observable-trace.cpp` +
+  `program-dump.cpp` emitters, are host-only - the device never emits a trace/dump nor
+  reads a script file (`main.cpp` references `program-reader` only). Relocate these
+  host-only `.cpp` to a source set **outside the firmware's `core/` glob** (only the host
+  CMake compiles them), leaving the device-needed decode path (`program-reader`) and the
+  header-only `VmObserver` interface in `core/`. Exclusion is **by construction (the
+  directory boundary), not by `--gc-sections` dead-stripping** (today the emitters are
+  globbed in and only the linker drops them - the weak guarantee this replaces). The two
+  existing emitters can move ahead of 6j as a standalone cleanup; the parser lands
+  host-only from day one.
+- **Instruction-level trace mode** - the divergence-localizing escalation: per-instruction
+  pc/op/stack-depth, emitted by the TS VM via a trace observer and the C++ VM via the
+  passive hook.
+- **Resolve the port-crossing numeric-typing seam** (open since 3c) - **decided: option B,
+  pinned conversion** (2026-06-17). Keep the u8 `PixelDisplayPort`; pin the exact f32->u8
+  conversion (the wodal discard/clamp) as a contract rule both VMs apply identically, and
+  define the target observable-trace to record the **post-conversion** value. In-range
+  integer coordinates convert as the identity, so every existing golden stays byte-
+  identical; only a (currently unexercised) fractional/out-of-range coordinate would differ,
+  and now both sides produce the same converted value. Pin the conversion (truncate/clamp
+  rule) in the target observable-trace contract; not a core `vm-contract.md` change.
 
-Decisions to lock (before coding): the instruction-trace line format; the
-**shared input-script FILE format** (generalizing Phase 3's mirrored in-code
-schedules - this is where it gains real consumers, per Parity Transport); the
-**port-crossing numeric-typing seam** (float-typed port vs pinned conversion
-semantics - see Deferred Work; must resolve before goldens exercise
-fractional/out-of-range port args); the
-final golden program set and how it is generated and committed (build path,
-never hand-assembled).
+Decided (2026-06-17): the **port-crossing numeric-typing seam** = option B, pinned
+conversion (above); the **op-43 golden** = a device-free brain in wodal `__fixtures__/` via
+the existing harness, no new machinery (above).
+
+Decisions to lock (before coding): the `ACTION_CALL_ASYNC` child-fiber-spawn shape (how the
+scheduler is reached from `runExecution`); the instruction-trace line format; the
+**shared input-script FILE format**; the final golden program set and how it is generated
+and committed (build path, never hand-assembled).
 
 Invariants (whole Phase 6):
 
-- Opcode completeness: the C++ VM implements every opcode in the contract; it is
-  now a conforming VM.
+- Opcode completeness: the C++ VM implements **every** opcode in the contract - none
+  deferred, none faulting as unimplemented; it is now a conforming VM.
 - Parity holds across the golden set; any divergence is a tracked bug fixed before
   acceptance.
 - Async host obligation honored; the device caps gate overflow to `StackOverflow`.
@@ -2497,7 +2560,8 @@ debugging tooling (would re-add `ruleIndex`/function names to the serialized
 payload - Deferred Work).
 
 Gate (whole Phase 6): the parity suite is green across the golden program set on
-the host build; the conformance check passes; the user-tile fixture runs on
+the host build (including the op-43 and managed-string-scroll goldens); the opcode-
+completeness and carve-out conformance checks pass; the user-tile fixture runs on
 hardware.
 
 ---
@@ -2533,6 +2597,8 @@ the wodal module with **appended** ABI ids (`MicroBitField`/`MicroBitV2HostFuncI
 discriminator)` native rep (e.g. a pin carries its pin number); implement both sides
 mirroring; and gate with per-peripheral fixtures exercising every I/O, **no I/O
 registered-but-untested** (the 6f5 binding-coverage lesson).
+
+**Prerequisite refactor - reorganize the microbit-v2 target binding layer FIRST (pull-forward-able; do before any peripheral lands).** The cpp **target** binding layer is monolithic and does not mirror the reference: `targets/microbit-v2/abi/host-action-bindings.h` (~231 lines, all host actions lumped), `host-func-bindings.h` (~106, all target host functions), `native-struct-bindings.h` (~87, all native getters). The references are well-organized one-per-concern: wodal `targets/microbit-v2/mindcraft/actions/{button-a,display-set-pixel,display-scroll}.ts`, core `runtime/{actuators,sensors}/*.ts`, and the **cpp core** host actions already got this treatment in 6f5 (`core/runtime/host-actions/{actuators,sensors}/<one-per-action>.h` + a thin aggregator). Only the cpp target layer was left monolithic. Split it to match - per-action / per-function / per-getter files under a directory layout mirroring wodal's `actions/` + core's `{actuators,sensors}/`, with thin aggregator headers (like `core-host-action-bindings.h`) assembling the binding tables. This is a **pure refactor** (no behavior change): every golden stays byte-identical and host + firmware builds stay green - that is its gate. It is **independent of 6j** (target layer, not core conformance), so it can run now / in parallel; it **must precede** Phase 7's peripheral build, since dropping a dozen new peripherals into the monolith is the cost this avoids. Keep `native-struct-bindings.h` as a single small registry only if it stays small (wodal's analog is one `context.ts`); split it if it grows.
 
 Carry-forward notes for the refinement:
 - **The key new harness piece** is deterministic, injectable **sensor inputs** on both
@@ -2579,9 +2645,10 @@ carry the contracts each produced.
   (`handle-table.h`, Pool-backed/LD7; `createPending` faults at `maxHandles`;
   resolve/reject/cancel legal only from `Pending`, each enqueues onto an intrusive completed
   queue; new GC root via `enumerateResults`). Opcodes 41 `HOST_CALL_ASYNC` / 45
-  `HOST_ACTION_CALL_ASYNC` / 50 `AWAIT` implemented; **43 `ACTION_CALL_ASYNC` deferred**
-  (still faults; needs the scheduler in the `runExecution` hot path for an untested branch -
-  pull forward on demand). `AWAIT`: resolved->push, rejected/cancelled->throw via the 6e
+  `HOST_ACTION_CALL_ASYNC` / 50 `AWAIT` implemented; **43 `ACTION_CALL_ASYNC` left to 6j**
+  (still faults via `default:`; the async non-host/bytecode action path, needs a child-fiber
+  spawn from inside dispatch, no shipping fixture exercised it yet - 6j implements it, no
+  opcode stays deferred). `AWAIT`: resolved->push, rejected/cancelled->throw via the 6e
   path (shared `throwError` + top-of-loop `pendingInjectedThrow`), pending->`AwaitSite` +
   `RunResult::waiting()`; `assertCanSuspend` faults await in a sync action frame. 3c guard
   flipped: `Waiting` now parks the fiber. **Settle = enqueue; `drainCompletedHandles()` in
@@ -2796,26 +2863,15 @@ carry the contracts each produced.
   This is **not** a deferral with a future trigger; do not look for it here, and do
   not re-introduce it under any guise. See **Locked Decision 8** for the
   prohibition and its review gate.
-- **`ACTION_CALL_ASYNC` (op 43) - deferred at Phase 6h, pull forward on demand.**
-  The opcode still faults `ScriptError` (covered by the unimplemented-opcode test).
-  Implementing it needs threading the scheduler into the `runExecution` hot path
-  (a child-fiber spawn from inside dispatch) for a branch no fixture exercises - 6i's
-  scroll is a host-*action* async (op 45), not a bytecode-action async. Build it when a
-  consumer or conformance test requires it (likely 6j or a brain that awaits a bytecode
-  action). The contract marks 43 deferred, not implemented.
-- **Managed/computed-string scroll test (deferred at Phase 6i).** `display.scroll` is
-  gated only for borrowed/literal strings. The body's byte-read (`extractStringValue` /
-  C++ `heap->stringContent`) already handles managed strings, so the feature is
-  implementation-complete; only a golden/test scrolling a *computed* string is missing.
-  Add it when the conformance suite (6j) or a real brain exercises a computed scroll arg.
-- **The port-crossing numeric-typing seam** (found at Phase 3c, ratified):
-  trace format v1 records port lines "as passed to the port, before the device
-  clamps", but the accepted `PixelDisplayPort` is u8-typed, so the f32->u8
-  conversion (wodal-mirroring discard/clamp) lives in the C++ action body. For
-  fractional or out-of-range COORDINATE args the TS trace emits a port line
-  the C++ side cannot - unexercised by the current golden. **Phase 6j must
-  resolve it** before the golden suite exercises such args: either a
-  float-typed port crossing or conversion semantics pinned in the contract.
+- **The port-crossing numeric-typing seam** (found at Phase 3c; **decided 2026-06-17,
+  resolution lands in 6j**): port lines crossed a u8-typed `PixelDisplayPort` while the
+  trace was defined "as passed to the port, before the device clamps", so for fractional /
+  out-of-range coordinate args the C++ (already-narrowed) side could not reproduce the TS
+  pre-clamp line. **Resolution = option B (pinned conversion):** keep the u8 port; pin the
+  exact f32->u8 conversion both VMs apply identically and record the **post-conversion**
+  value in the target observable-trace. In-range integers are the identity (existing
+  goldens byte-unchanged). Implemented in 6j (see the 6j section); listed here only as the
+  origin of the seam.
 - Hosted CI (GitHub Actions) for this repo: deferred. "CI" today is the
   scripted local check suites (the TS packages' `check` convention + the C++
   check entry point from Phase 1a); when hosted CI is stood up, it runs the

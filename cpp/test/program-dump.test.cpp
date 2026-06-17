@@ -1,11 +1,11 @@
 #include "doctest/doctest.h"
 
-#include "core/codec/program-dump.h"
 #include "core/codec/program-reader.h"
 #include "core/runtime/load-error.h"
 #include "core/runtime/program.h"
 #include "core/runtime/region-arena.h"
 #include "fixture-paths.h"
+#include "hostkit/program-dump.h"
 #include "string-sink.h"
 #include "targets/microbit-v2/abi/type-atom-id.h"
 

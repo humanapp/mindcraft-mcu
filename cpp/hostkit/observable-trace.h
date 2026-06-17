@@ -2,12 +2,12 @@
 
 #include <cstdint>
 
-#include "core/codec/text-render.h"
 #include "core/platform/span.h"
 #include "core/runtime/error-code.h"
 #include "core/runtime/mc-number.h"
 #include "core/runtime/program.h"
 #include "core/runtime/value.h"
+#include "hostkit/text-render.h"
 
 namespace mindcraft {
 

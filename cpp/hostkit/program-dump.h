@@ -2,8 +2,8 @@
 
 #include <cstdint>
 
-#include "core/codec/text-render.h"
 #include "core/runtime/program.h"
+#include "hostkit/text-render.h"
 
 namespace mindcraft {
 

@@ -32,8 +32,14 @@ everything here mirrors its observable semantics.
   enums plus the host-action bodies bound to those ports. The build emits the
   region's offset/size (plus the on-flash magic and format version) as
   `MICROBIT.metadata.json` (`tools/emit-metadata.py`) for the patcher.
+- `hostkit/` - host-only tooling (the `mindcraft-hostkit` library) that renders
+  a decoded program (`program-dump.{h,cpp}`) or a VM run (`observable-trace.{h,cpp}`)
+  as canonical text for the parity tests, sharing the `text-render.h` writer. The
+  device firmware never reads these emitters, so they live outside `core/` (whose
+  tree the firmware build globs whole) and are compiled only by the host CMake and
+  the test suite. Depends on `core/`.
 - `test/` - the desktop host test harness (doctest, vendored under
-  `test/vendor/`). Depends on `core/`.
+  `test/vendor/`). Depends on `core/` and `hostkit/`.
 - `tools/` - host-side tooling (see `tools/README.md`).
 
 ## Prerequisites (macOS)

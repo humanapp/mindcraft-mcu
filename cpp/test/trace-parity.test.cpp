@@ -2,7 +2,6 @@
 
 #include "codal/device-port.h"
 #include "codal/host-loop.h"
-#include "core/codec/observable-trace.h"
 #include "core/codec/program-reader.h"
 #include "core/runtime/brain-runtime.h"
 #include "core/runtime/core-host-functions.h"
@@ -17,6 +16,7 @@
 #include "core/runtime/vm.h"
 #include "device-profile-caps.h"
 #include "fixture-paths.h"
+#include "hostkit/observable-trace.h"
 #include "string-sink.h"
 #include "targets/microbit-v2/abi/display-scroll.h"
 #include "targets/microbit-v2/abi/host-action-bindings.h"
