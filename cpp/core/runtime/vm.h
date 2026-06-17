@@ -20,6 +20,7 @@ class GcRoots;
 class TypeRegistry;
 class HandleTable;
 struct VmRng;
+struct AsyncActionSpawner;
 
 /**
  * Outcome of one dispatch-loop slice. Mirrors `VmStatus` in
@@ -139,6 +140,13 @@ struct RuntimeSurface {
    * (`maxHandles == 0`); the async opcodes then fault `ErrorCode::HostError`.
    */
   HandleTable* handles = nullptr;
+
+  /**
+   * Spawns child fibers for `ACTION_CALL_ASYNC` (async bytecode actions). Null
+   * when the dispatch loop runs outside a scheduler; `ACTION_CALL_ASYNC` then
+   * faults `ErrorCode::HostError`.
+   */
+  AsyncActionSpawner* spawner = nullptr;
 };
 
 /**

@@ -13,6 +13,7 @@ import {
 import { getMicroBitContextDevice } from "../context";
 import { Param } from "../parameters";
 import { MicroBitV2HostActions } from "../tile-ids";
+import { brightnessToPort, pixelCoordToPort } from "./display-pixel-conversion";
 
 const DEFAULT_X = 0;
 const DEFAULT_Y = 0;
@@ -32,7 +33,7 @@ function execDisplaySetPixel(ctx: ExecutionContext, args: ReadonlyList<Value>): 
   const x = extractNumberValue(args.get(kXSlotId)) ?? DEFAULT_X;
   const y = extractNumberValue(args.get(kYSlotId)) ?? DEFAULT_Y;
   const brightness = extractNumberValue(args.get(kBrightnessSlotId)) ?? DEFAULT_BRIGHTNESS;
-  microbit.display.setPixelValue(x, y, brightness);
+  microbit.display.setPixelValue(pixelCoordToPort(x), pixelCoordToPort(y), brightnessToPort(brightness));
   return VOID_VALUE;
 }
 

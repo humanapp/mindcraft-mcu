@@ -472,6 +472,92 @@ TEST_CASE("HOST_ACTION_CALL_ASYNC dispatches an async host action and AWAIT resu
   CHECK(fx.observer.faultedFibers.empty());
 }
 
+TEST_CASE("spawnAsyncActionChild runs a bytecode action child and resolves its result handle") {
+  // The scheduler half of ACTION_CALL_ASYNC: a child fiber runs an action body
+  // to completion and its return value settles the result handle the dispatch
+  // arm pushed for the awaiting parent.
+  AsyncFixture fx;
+  ProgramBuilder& b = fx.builder;
+  b.poolString("page-id");
+  b.number(99); // const 0: the action body's return value
+  b.valueNil(); // value const 0
+  // func 0: page root (unused here). func 1: action body pushing 99 then RET.
+  b.beginFunction().instr(Op::PUSH_CONST_VAL, 0).instr(Op::RET);
+  b.beginFunction().instr(Op::PUSH_CONST_NUM, 0).instr(Op::RET);
+  b.beginPage(0).pageRoot(0);
+  const ProgramImage image = b.build(fx.storage);
+
+  RuntimeSurface surface{&fx.ctx, {}, &fx.observer};
+  FiberScheduler scheduler(image, surface, fx.pools.arena, kAsyncDeviceProfileCaps);
+
+  ErrorCode err = ErrorCode::HostError;
+  const uint32_t hid = scheduler.spawnAsyncActionChild(1, 0, 0, mindcraft::kNoFuncId, {}, err);
+  REQUIRE(hid != mindcraft::kNoHandleId);
+  Handle* pending = scheduler.handles().get(hid);
+  REQUIRE(pending != nullptr);
+  CHECK(pending->state == HandleState::Pending);
+
+  // One round runs the child to Done, resolving the handle to the returned value.
+  scheduler.tick();
+  Handle* settled = scheduler.handles().get(hid);
+  REQUIRE(settled != nullptr);
+  CHECK(settled->state == HandleState::Resolved);
+  CHECK(settled->result.asNumber() == 99.0f);
+}
+
+TEST_CASE("a faulting bytecode action child rejects its result handle") {
+  AsyncFixture fx;
+  ProgramBuilder& b = fx.builder;
+  b.poolString("page-id");
+  b.valueNil();
+  // func 0: page root. func 1: a RET with an empty operand stack faults.
+  b.beginFunction().instr(Op::PUSH_CONST_VAL, 0).instr(Op::RET);
+  b.beginFunction().instr(Op::RET);
+  b.beginPage(0).pageRoot(0);
+  const ProgramImage image = b.build(fx.storage);
+
+  RuntimeSurface surface{&fx.ctx, {}, &fx.observer};
+  FiberScheduler scheduler(image, surface, fx.pools.arena, kAsyncDeviceProfileCaps);
+
+  ErrorCode err = ErrorCode::HostError;
+  const uint32_t hid = scheduler.spawnAsyncActionChild(1, 0, 0, mindcraft::kNoFuncId, {}, err);
+  REQUIRE(hid != mindcraft::kNoHandleId);
+
+  scheduler.tick();
+  Handle* settled = scheduler.handles().get(hid);
+  REQUIRE(settled != nullptr);
+  CHECK(settled->state == HandleState::Rejected);
+  CHECK_FALSE(fx.observer.faultedFibers.empty());
+}
+
+TEST_CASE("cancelling an async-action child cancels its pending result handle") {
+  // Without this, a cancelled child would leave its handle pending forever and an
+  // awaiting parent would never resume. The child is spawned but not run, so its
+  // handle is still pending when it is cancelled.
+  AsyncFixture fx;
+  ProgramBuilder& b = fx.builder;
+  b.poolString("page-id");
+  b.valueNil();
+  b.beginFunction().instr(Op::PUSH_CONST_VAL, 0).instr(Op::RET);
+  b.beginFunction().instr(Op::PUSH_CONST_VAL, 0).instr(Op::RET);
+  b.beginPage(0).pageRoot(0);
+  const ProgramImage image = b.build(fx.storage);
+
+  RuntimeSurface surface{&fx.ctx, {}, &fx.observer};
+  FiberScheduler scheduler(image, surface, fx.pools.arena, kAsyncDeviceProfileCaps);
+
+  ErrorCode err = ErrorCode::HostError;
+  const uint32_t hid = scheduler.spawnAsyncActionChild(1, 0, 0, mindcraft::kNoFuncId, {}, err);
+  REQUIRE(hid != mindcraft::kNoHandleId);
+  REQUIRE(scheduler.handles().get(hid)->state == HandleState::Pending);
+
+  // The first child draws the top of the descending inline fiber id space.
+  scheduler.cancel(0xffffffffu);
+  Handle* settled = scheduler.handles().get(hid);
+  REQUIRE(settled != nullptr);
+  CHECK(settled->state == HandleState::Cancelled);
+}
+
 TEST_CASE("the handle table guards its cap and settles only from pending") {
   std::array<uint8_t, 4096> bytes{};
   RegionArena arena(Span<uint8_t>(bytes.data(), bytes.size()));

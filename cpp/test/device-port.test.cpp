@@ -9,13 +9,13 @@ namespace {
 
 struct RecordingDisplay : mindcraft::PixelDisplayPort {
   struct Call {
-    uint8_t x;
-    uint8_t y;
+    int16_t x;
+    int16_t y;
     uint8_t brightness;
   };
   std::vector<Call> calls;
 
-  void setPixel(uint8_t x, uint8_t y, uint8_t brightness) override {
+  void setPixel(int16_t x, int16_t y, uint8_t brightness) override {
     calls.push_back({x, y, brightness});
   }
 

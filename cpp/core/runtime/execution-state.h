@@ -174,6 +174,16 @@ struct ExecutionState {
 
   /** The error injected on resume; meaningful only while {@link pendingInjectedThrow}. */
   ErrorCode injectedError = ErrorCode::ScriptError;
+
+  /**
+   * Handle id of the pending async-action result handle when this state backs a
+   * child fiber spawned by `ACTION_CALL_ASYNC`; `0` (the {@link kNoHandleId}
+   * sentinel) otherwise. The scheduler settles it when the child completes
+   * (resolve on `Done`, reject on `Fault`, cancel on cancellation). Mirrors
+   * `Fiber.asyncResultHandleId` in
+   * external/mindcraft-lang/packages/core/src/runtime/vm-types.ts.
+   */
+  uint32_t asyncResultHandleId = 0;
 };
 
 static_assert(std::is_trivially_copyable_v<Frame>, "execution state stays trivially copyable");

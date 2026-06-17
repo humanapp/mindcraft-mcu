@@ -30,9 +30,10 @@ inline constexpr mc_number_t kDisplaySetPixelDefaultBrightness = 255;
 
 /**
  * Host actuator body: set one LED pixel brightness. Optional x/y/brightness
- * arguments default to 0/0/255; the write crosses the display device port
- * unless a coordinate cannot cross its u8 width. `hostData` is the bound
- * {@link DevicePorts}. Mirrors wodal `actions/display-set-pixel.ts`.
+ * arguments default to 0/0/255 and are narrowed to the port's int16 coordinate
+ * and uint8 brightness parameters; the device drops a write whose coordinate is
+ * outside the matrix. `hostData` is the bound {@link DevicePorts}. Mirrors wodal
+ * `actions/display-set-pixel.ts`.
  */
 inline Value execDisplaySetPixel(void *hostData, ExecutionContext &ctx, Span<const Value> args)
 {
@@ -44,12 +45,8 @@ inline Value execDisplaySetPixel(void *hostData, ExecutionContext &ctx, Span<con
         detail::numberArgOr(args, kDisplaySetPixelYArgSlot, kDisplaySetPixelDefaultY);
     const mc_number_t brightness = detail::numberArgOr(args, kDisplaySetPixelBrightnessArgSlot,
                                                        kDisplaySetPixelDefaultBrightness);
-    uint8_t portX = 0;
-    uint8_t portY = 0;
-    if (detail::pixelCoordToPort(x, portX) && detail::pixelCoordToPort(y, portY))
-    {
-        ports.display->setPixel(portX, portY, detail::brightnessToPort(brightness));
-    }
+    ports.display->setPixel(detail::pixelCoordToPort(x), detail::pixelCoordToPort(y),
+                            detail::brightnessToPort(brightness));
     return kVoidValue;
 }
 

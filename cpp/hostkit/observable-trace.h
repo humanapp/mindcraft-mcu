@@ -11,6 +11,8 @@
 
 namespace mindcraft {
 
+class ManagedHeap;
+
 /** Observable trace format version this emitter renders. */
 inline constexpr uint32_t kObservableTraceFormatVersion = 1;
 
@@ -32,6 +34,13 @@ class ObservableTraceWriter {
 public:
   /** A writer rendering `program`'s run into `sink`; emits the header. */
   ObservableTraceWriter(TextSink& sink, const ProgramImage& program);
+
+  /**
+   * Binds the managed heap that resolves managed (heap-allocated) string values
+   * when rendering string-valued tokens. Without it only borrowed program-table
+   * strings render; a managed string token then reports an undefined value kind.
+   */
+  void setHeap(const ManagedHeap* heap) { heap_ = heap; }
 
   /**
    * Records one scheduled think boundary.
@@ -84,6 +93,7 @@ private:
 
   TextWriter w_;
   const ProgramImage& program_;
+  const ManagedHeap* heap_ = nullptr;
 };
 
 } // namespace mindcraft

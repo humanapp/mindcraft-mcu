@@ -74,6 +74,7 @@ bool isImplementedOp(Op op) {
   case Op::LOAD_VAR_SLOT:
   case Op::STORE_VAR_SLOT:
   case Op::CALL:
+  case Op::HOST_CALL:
   case Op::ACTION_CALL:
   case Op::HOST_ACTION_CALL:
   case Op::LOAD_CALLSITE_VAR:
@@ -112,6 +113,7 @@ bool isImplementedOp(Op op) {
   case Op::THROW:
   case Op::HOST_CALL_ASYNC:
   case Op::HOST_ACTION_CALL_ASYNC:
+  case Op::ACTION_CALL_ASYNC:
   case Op::AWAIT:
     return true;
   default:
@@ -734,9 +736,27 @@ TEST_CASE("running with no live frame faults ScriptError") {
   CHECK(reentered.error == ErrorCode::ScriptError);
 }
 
-TEST_CASE("every unimplemented opcode faults ScriptError deterministically") {
+// The two reserved opcode numbers carry no VM handler; every other declared
+// opcode is a contract opcode the dispatch loop must implement.
+bool isReservedOp(Op op) { return op == Op::RESERVED_111 || op == Op::RESERVED_112; }
+
+TEST_CASE("every contract opcode has an implemented dispatch arm") {
+  // Conformance: with ACTION_CALL_ASYNC landed, the only declared opcodes the
+  // dispatch loop does not implement are the reserved (handler-free) numbers.
+  // Every other opcode must have a dispatch arm - none faults as unimplemented.
   for (const OpOperandSchema& row : kOperandSchema) {
-    if (isImplementedOp(row.op)) {
+    CAPTURE(static_cast<int>(row.op));
+    if (isReservedOp(row.op)) {
+      CHECK_FALSE(isImplementedOp(row.op));
+    } else {
+      CHECK(isImplementedOp(row.op));
+    }
+  }
+}
+
+TEST_CASE("the reserved opcodes fault ScriptError deterministically") {
+  for (const OpOperandSchema& row : kOperandSchema) {
+    if (!isReservedOp(row.op)) {
       continue;
     }
     CAPTURE(static_cast<int>(row.op));

@@ -1,0 +1,8 @@
+mctrace 1
+profile 1
+precision f32
+tick 1 time 44160000 dt 00000000
+tick 2 time 44960000 dt 44160000
+tick 3 time 44e10000 dt 44160000
+action 6 site 1 args 0 result string "async-action-page"
+tick 4 time 45160000 dt 44160000

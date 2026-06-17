@@ -13,6 +13,8 @@ FiberScheduler::FiberScheduler(const ProgramImage& program, const RuntimeSurface
   surface_.roots = this;
   // The async opcodes reach the handle table through the same surface.
   surface_.handles = &handles_;
+  // ACTION_CALL_ASYNC spawns its child fiber through the same surface.
+  surface_.spawner = this;
 }
 
 void FiberScheduler::enumerateRoots(GcMarker& marker) {
@@ -47,7 +49,8 @@ void FiberScheduler::enumerateRoots(GcMarker& marker) {
   handles_.enumerateResults(marker);
 }
 
-FiberRecord* FiberScheduler::allocFiber(uint32_t funcId, bool inlineId, ErrorCode& err) {
+FiberRecord* FiberScheduler::allocFiber(uint32_t funcId, bool inlineId, Span<const Value> args,
+                                        ErrorCode& err) {
   if (records_.liveCount() >= caps_.maxFibers) {
     err = ErrorCode::StackOverflow;
     return nullptr;
@@ -87,7 +90,7 @@ FiberRecord* FiberScheduler::allocFiber(uint32_t funcId, bool inlineId, ErrorCod
     return nullptr;
   }
 
-  const Status started = startExecution(exec, program_, funcId, {});
+  const Status started = startExecution(exec, program_, funcId, args);
   if (!started.isOk()) {
     records_.free(record);
     releaseRegions(exec);
@@ -103,7 +106,7 @@ FiberRecord* FiberScheduler::allocFiber(uint32_t funcId, bool inlineId, ErrorCod
 
 Result<uint32_t> FiberScheduler::spawn(uint32_t funcId) {
   ErrorCode err = ErrorCode::StackOverflow;
-  FiberRecord* record = allocFiber(funcId, false, err);
+  FiberRecord* record = allocFiber(funcId, false, {}, err);
   if (record == nullptr) {
     return Result<uint32_t>::fail(err);
   }
@@ -111,9 +114,36 @@ Result<uint32_t> FiberScheduler::spawn(uint32_t funcId) {
   return Result<uint32_t>::ok(record->id);
 }
 
+uint32_t FiberScheduler::spawnAsyncActionChild(uint32_t entryFuncId, uint32_t actionId,
+                                               uint32_t callSiteId, uint32_t ruleFuncId,
+                                               Span<const Value> args, ErrorCode& err) {
+  // Create the result handle, then spawn the child and link the handle to it;
+  // the child's completion settles the handle. On a spawn failure the handle is
+  // deleted. Mirrors the handle wiring in execActionCallAsync (vm.ts).
+  const uint32_t handleId = handles_.createPending();
+  if (handleId == kNoHandleId) {
+    err = ErrorCode::StackOverflow;
+    return kNoHandleId;
+  }
+  // Child async-action fibers share the descending inline id space with hook
+  // fibers, mirroring TS `nextInternalFiberId`.
+  FiberRecord* record = allocFiber(entryFuncId, true, args, err);
+  if (record == nullptr) {
+    handles_.deleteHandle(handleId);
+    return kNoHandleId;
+  }
+  Frame& entry = record->exec.frames[0];
+  entry.ruleFuncId = ruleFuncId;
+  entry.hasActionBinding = true;
+  entry.actionBinding = ActionFrameBinding{actionId, callSiteId, true};
+  record->exec.asyncResultHandleId = handleId;
+  enqueue(record);
+  return handleId;
+}
+
 Status FiberScheduler::runActionHook(uint32_t funcId, uint32_t actionId, uint32_t callSiteId) {
   ErrorCode err = ErrorCode::StackOverflow;
-  FiberRecord* record = allocFiber(funcId, true, err);
+  FiberRecord* record = allocFiber(funcId, true, {}, err);
   if (record == nullptr) {
     return Status::fail(err);
   }
@@ -168,6 +198,13 @@ void FiberScheduler::cancel(uint32_t fiberId) {
     record->exec.awaiting = false;
   }
   record->state = FiberState::Cancelled;
+  // A cancelled async-action child cancels its pending result handle; the
+  // awaiting parent resumes on the next drain with a Cancelled throw. Mirrors
+  // cancelAsyncActionHandle in vm.ts.
+  if (record->exec.asyncResultHandleId != kNoHandleId) {
+    handles_.cancel(record->exec.asyncResultHandleId);
+    record->exec.asyncResultHandleId = kNoHandleId;
+  }
   // Signal an in-flight dispatch slice (a self-cancel from a host body) to stop
   // at its next instruction boundary.
   record->exec.cancelled = true;
@@ -244,9 +281,21 @@ uint32_t FiberScheduler::tick() {
       break;
     case RunStatus::Done:
       record->state = FiberState::Done;
+      // An async-action child resolves its result handle on completion so the
+      // awaiting parent resumes. Mirrors resolveAsyncActionHandle in vm.ts.
+      if (record->exec.asyncResultHandleId != kNoHandleId) {
+        handles_.resolve(record->exec.asyncResultHandleId, result.result);
+        record->exec.asyncResultHandleId = kNoHandleId;
+      }
       break;
     case RunStatus::Fault:
       record->state = FiberState::Fault;
+      // A faulted async-action child rejects its result handle so the awaiting
+      // parent throws at its AWAIT. Mirrors rejectAsyncActionHandle in vm.ts.
+      if (record->exec.asyncResultHandleId != kNoHandleId) {
+        handles_.reject(record->exec.asyncResultHandleId, result.error);
+        record->exec.asyncResultHandleId = kNoHandleId;
+      }
       if (surface_.observer != nullptr) {
         surface_.observer->onFiberFault(record->id, result.error);
       }

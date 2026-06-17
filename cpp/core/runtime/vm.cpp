@@ -2,6 +2,7 @@
 
 #include <cstring>
 
+#include "core/runtime/async-action-spawner.h"
 #include "core/runtime/core-func-id.h"
 #include "core/runtime/core-host-functions.h"
 #include "core/runtime/handle-table.h"
@@ -1667,6 +1668,49 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
         return fault(err);
       }
       state.frames[state.frameDepth - 1].ruleFuncId = inheritedRuleFuncId;
+      break;
+    }
+
+    case Op::ACTION_CALL_ASYNC: {
+      // Operand layout: a = action slot, b = argc, c = call-site id. Spawns a
+      // child fiber running the async bytecode action, allocates its result
+      // handle, and pushes that handle for the following AWAIT. An
+      // ACTION_CALL_ASYNC inside a sync action frame cannot suspend and faults.
+      // Mirrors the bytecode-action branch of execActionCallAsync in vm.ts; host
+      // async actions dispatch via HOST_ACTION_CALL_ASYNC (op 45), so op 43 only
+      // takes the bytecode path (program.actions holds bytecode actions).
+      const ActionFrameBinding* suspendBinding = currentActionBinding(state);
+      if (suspendBinding != nullptr && !suspendBinding->isAsync) {
+        return fault(ErrorCode::ScriptError);
+      }
+      if (surface.spawner == nullptr || surface.handles == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      const uint32_t actionSlot = ins.a;
+      const uint32_t argc = ins.b;
+      const uint32_t callSiteId = ins.c;
+      if (!program.hasActions || actionSlot >= program.actions.size()) {
+        return fault(ErrorCode::ScriptError);
+      }
+      if (argc > state.stackDepth) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      const BytecodeAction& action = program.actions[actionSlot];
+      // Resolve the inherited rule from the caller before spawning; the spawned
+      // child takes the args off the top of the operand stack as its locals.
+      const uint32_t inheritedRuleFuncId = resolveFrameRuleFuncId(program, frame);
+      const Span<const Value> args(state.stack + (state.stackDepth - argc), argc);
+      ErrorCode err = ErrorCode::HostError;
+      const uint32_t handleId = surface.spawner->spawnAsyncActionChild(
+          action.entryFuncId, actionSlot, callSiteId, inheritedRuleFuncId, args, err);
+      if (handleId == kNoHandleId) {
+        return fault(err);
+      }
+      state.stackDepth -= argc;
+      if (!pushValue(state, Value::handle(handleId))) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      frame.pc++;
       break;
     }
 

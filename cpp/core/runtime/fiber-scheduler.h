@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "core/platform/span.h"
+#include "core/runtime/async-action-spawner.h"
 #include "core/runtime/device-profile-caps.h"
 #include "core/runtime/execution-state.h"
 #include "core/runtime/handle-table.h"
@@ -84,7 +85,7 @@ struct FiberRecord {
  * fibers' operand stacks and locals plus the bound execution context's brain
  * variables and per-callsite state.
  */
-class FiberScheduler : public GcRoots {
+class FiberScheduler : public GcRoots, public AsyncActionSpawner {
 public:
   /**
    * A scheduler executing `program` against `surface` under `caps`. The caps
@@ -120,6 +121,15 @@ public:
    * external/mindcraft-lang/packages/core/src/runtime/brain-runtime.ts.
    */
   Status runActionHook(uint32_t funcId, uint32_t actionId, uint32_t callSiteId);
+
+  /**
+   * Spawns a child fiber for an async bytecode action and returns its pending
+   * result handle id. Implements {@link AsyncActionSpawner}; the dispatch loop
+   * calls it through {@link RuntimeSurface::spawner} for `ACTION_CALL_ASYNC`.
+   */
+  uint32_t spawnAsyncActionChild(uint32_t entryFuncId, uint32_t actionId, uint32_t callSiteId,
+                                 uint32_t ruleFuncId, Span<const Value> args,
+                                 ErrorCode& err) override;
 
   /** Cancels the fiber holding `fiberId`; a no-op when it is not live. */
   void cancel(uint32_t fiberId);
@@ -183,8 +193,8 @@ private:
   // with `err` set on a cap, region-exhaustion, or entry-frame failure. Shared
   // by spawn (which then enqueues) and the synchronous hook runner. When
   // `inlineId` is true the record takes its id from the descending inline space
-  // (hook fibers).
-  FiberRecord* allocFiber(uint32_t funcId, bool inlineId, ErrorCode& err);
+  // (hook and async-action child fibers). `args` seed the entry frame's locals.
+  FiberRecord* allocFiber(uint32_t funcId, bool inlineId, Span<const Value> args, ErrorCode& err);
 
   FiberRecord* findFiber(uint32_t fiberId);
   void enqueue(FiberRecord* record);

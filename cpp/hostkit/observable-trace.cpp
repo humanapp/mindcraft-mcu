@@ -1,5 +1,7 @@
 #include "hostkit/observable-trace.h"
 
+#include "core/runtime/managed-heap.h"
+
 namespace mindcraft {
 
 ObservableTraceWriter::ObservableTraceWriter(TextSink& sink, const ProgramImage& program)
@@ -106,6 +108,15 @@ bool ObservableTraceWriter::valueToken(const Value& value) {
     return true;
   case ValueTag::String:
     w_.text("string ");
+    if (value.isManagedString()) {
+      const char* bytes = nullptr;
+      uint32_t length = 0;
+      if (heap_ == nullptr || !heap_->stringContent(value, bytes, length)) {
+        return false;
+      }
+      quoteBytes(w_, reinterpret_cast<const uint8_t*>(bytes), length);
+      return true;
+    }
     return quoteStringTableEntry(w_, program_, value.borrowedStringIndex());
   default:
     // No other value kind has a rendering in trace format version 1.

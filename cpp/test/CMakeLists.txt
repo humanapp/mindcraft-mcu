@@ -6,6 +6,7 @@ add_executable(mindcraft-tests
   brain-runtime.test.cpp
   byte-cursor.test.cpp
   bytecode.test.cpp
+  conformance.test.cpp
   context-field.test.cpp
   control-flow.test.cpp
   core-func-id.test.cpp

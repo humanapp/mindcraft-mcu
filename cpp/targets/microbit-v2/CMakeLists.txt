@@ -257,7 +257,7 @@ set_source_files_properties(${MINDCRAFT_APP_CPP_FILES} ${MINDCRAFT_CORE_SOURCES}
 list(APPEND SOURCE_FILES ${MINDCRAFT_CORE_SOURCES} ${MINDCRAFT_CODAL_SOURCES})
 include_directories("${MINDCRAFT_CPP_ROOT}")
 
-# mindcraft: reserve the on-flash .mcprogram region (Phase 5a). The supplemental
+# mindcraft: reserve the on-flash .mcprogram region. The supplemental
 # linker script defines no SECTIONS, so it augments the CODAL nRF52833 script
 # (set in PARENT_SCOPE by the codal-microbit-v2 subproject above) with the
 # region's boot-readable symbols without disturbing the firmware layout. The

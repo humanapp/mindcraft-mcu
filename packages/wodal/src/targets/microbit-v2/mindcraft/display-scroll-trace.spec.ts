@@ -17,6 +17,7 @@ import { fileURLToPath } from "node:url";
 import type { MindcraftEnvironment } from "@mindcraft-lang/core/app";
 import {
   BrainRuntime,
+  CoreFuncId,
   CoreHostActions,
   type LinkedBrainProgramJson,
   linkedBrainProgramFromJson,
@@ -38,6 +39,8 @@ const DISPLAY_SET_PIXEL = MicroBitV2HostActions.DisplaySetPixel.actionId;
 
 const BIN_PATH = fileURLToPath(new URL("./__fixtures__/display-scroll.mcprogram.bin", import.meta.url));
 const TRACE_PATH = fileURLToPath(new URL("./__fixtures__/display-scroll.ticks.trace", import.meta.url));
+const MANAGED_BIN_PATH = fileURLToPath(new URL("./__fixtures__/managed-string-scroll.mcprogram.bin", import.meta.url));
+const MANAGED_TRACE_PATH = fileURLToPath(new URL("./__fixtures__/managed-string-scroll.ticks.trace", import.meta.url));
 
 /** Text scrolled by the fixture brain. */
 const SCROLL_TEXT = "hi";
@@ -237,4 +240,92 @@ test("the committed display-scroll binary and observable trace golden are byte-s
     writeFileSync(TRACE_PATH, first.trace);
   }
   assert.equal(readFileSync(TRACE_PATH, "utf8"), first.trace, "display-scroll.ticks.trace is not byte-stable");
+});
+
+/**
+ * A scrolling brain whose text is a computed managed string: "h" and "i"
+ * concatenated through the string-concat host function. The scroll body reads
+ * the managed string's bytes, so the scrolled text is "hi" and the trace matches
+ * the borrowed-string scroll.
+ */
+function buildManagedScrollBrainJson(): LinkedBrainProgramJson {
+  const rule = [
+    { op: Op.HOST_ACTION_CALL, a: ON_PAGE_ENTERED, b: 0, c: 0 },
+    { op: Op.JMP_IF_FALSE, a: 12 }, // skip to the trailing nil when not entered
+    { op: Op.PUSH_CONST_STR, a: 0 }, // "h"
+    { op: Op.PUSH_CONST_STR, a: 1 }, // "i"
+    { op: Op.HOST_CALL, a: CoreFuncId.OpAddString, b: 2, c: 0 }, // "hi" (managed)
+    { op: Op.HOST_ACTION_CALL_ASYNC, a: DISPLAY_SCROLL, b: 1, c: 1 },
+    { op: Op.AWAIT },
+    { op: Op.POP }, // discard the resolved void
+    { op: Op.PUSH_CONST_NUM, a: 0 }, // x = 0
+    { op: Op.PUSH_CONST_NUM, a: 0 }, // y = 0
+    { op: Op.PUSH_CONST_NUM, a: 1 }, // brightness = 255
+    { op: Op.HOST_ACTION_CALL, a: DISPLAY_SET_PIXEL, b: 3, c: 2 },
+    { op: Op.POP },
+    { op: Op.PUSH_CONST_VAL, a: 0 },
+    { op: Op.RET },
+  ];
+
+  return {
+    program: {
+      version: 1,
+      functions: [{ code: rule, numParams: 0, numLocals: 0 }],
+      constantPools: { numbers: [0, 255], strings: ["h", "i"], values: [{ t: 1 }] },
+      types: [],
+      variableNames: [],
+      entryPoint: 0,
+      actions: [],
+      ruleFuncIds: [0],
+      ruleAncestors: [],
+    },
+    pages: [
+      {
+        pageIndex: 0,
+        pageId: "scroll-page-0",
+        pageName: "Scroll Page 0",
+        rootRuleFuncIds: [0],
+        actionCallSites: [
+          { binding: "host", callSiteId: 0, actionId: ON_PAGE_ENTERED },
+          { binding: "host", callSiteId: 1, actionId: DISPLAY_SCROLL },
+          { binding: "host", callSiteId: 2, actionId: DISPLAY_SET_PIXEL },
+        ],
+      },
+    ],
+  };
+}
+
+test("the committed managed-string-scroll binary and observable trace golden are byte-stable", () => {
+  if (!existsSync(MANAGED_BIN_PATH)) {
+    writeFileSync(MANAGED_BIN_PATH, serializeBrainBytes(buildManagedScrollBrainJson()));
+  }
+  const bin = new Uint8Array(readFileSync(MANAGED_BIN_PATH));
+  assert.deepEqual(
+    bin,
+    serializeBrainBytes(buildManagedScrollBrainJson()),
+    "managed-string-scroll.mcprogram.bin is not byte-stable"
+  );
+
+  const completionTime = scrollCompletionTimeMs(TICK_ADVANCE_MS, SCROLL_TEXT.length, 120);
+  const resumeTick = Math.floor(completionTime / TICK_ADVANCE_MS) + 2;
+
+  const first = runScrollTrace(bin, resumeTick);
+  const second = runScrollTrace(bin, resumeTick);
+  assert.equal(second.trace, first.trace, "two fresh runs must render byte-identical traces");
+
+  const lines = first.trace.split("\n");
+  // The computed managed string scrolls the same "hi" the borrowed string does.
+  assert.equal(lines.filter((line) => line === `port display scroll "${SCROLL_TEXT}"`).length, 1);
+  assert.equal(lines.filter((line) => line.startsWith("port display set-pixel ")).length, 1);
+  assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
+  assert.equal(first.microbit.display.getPixelValue(0, 0), 255);
+
+  if (!existsSync(MANAGED_TRACE_PATH)) {
+    writeFileSync(MANAGED_TRACE_PATH, first.trace);
+  }
+  assert.equal(
+    readFileSync(MANAGED_TRACE_PATH, "utf8"),
+    first.trace,
+    "managed-string-scroll.ticks.trace is not byte-stable"
+  );
 });

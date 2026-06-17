@@ -47,7 +47,7 @@ function buildButtonDisplayBrainDef(env: MindcraftEnvironment): BrainDef {
   return brainDef;
 }
 
-/** Serializes a built (live) program image to a `.mcprogram` JSON string (subphase 5.2). */
+/** Serializes a built (live) program image to a `.mcprogram` JSON string. */
 function serializeBuiltImage(image: WodalProgramImage<LinkedBrainProgram>): string {
   return serializeWodalProgramImageJson({ ...image, program: linkedBrainProgramToJson(image.program) });
 }

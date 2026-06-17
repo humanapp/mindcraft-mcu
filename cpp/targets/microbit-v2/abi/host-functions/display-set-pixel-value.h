@@ -17,9 +17,10 @@ namespace mindcraft
 /**
  * Host function `MicroBitDisplay.setPixelValue`: writes one LED pixel through
  * the display port. Arg 0 is the display receiver; args 1..3 are x, y, and
- * brightness, defaulting to 0 when absent or non-numeric. The write crosses the
- * port unless a coordinate cannot cross its u8 width; an unrecognized receiver
- * is a no-op. `hostData` is the bound {@link DevicePorts}. Mirrors the
+ * brightness, defaulting to 0 when absent or non-numeric, narrowed to the port's
+ * int16 coordinate and uint8 brightness parameters; the device drops a write
+ * whose coordinate is outside the matrix, and an unrecognized receiver is a
+ * no-op. `hostData` is the bound {@link DevicePorts}. Mirrors the
  * `MicroBitDisplay.setPixelValue` body in
  * packages/wodal/src/targets/microbit-v2/mindcraft/module.ts.
  */
@@ -31,12 +32,8 @@ inline Status execDisplaySetPixelValue(void *hostData, Span<const Value> args, V
         const mc_number_t x = detail::numberArgOr(args, 1, 0);
         const mc_number_t y = detail::numberArgOr(args, 2, 0);
         const mc_number_t brightness = detail::numberArgOr(args, 3, 0);
-        uint8_t portX = 0;
-        uint8_t portY = 0;
-        if (detail::pixelCoordToPort(x, portX) && detail::pixelCoordToPort(y, portY))
-        {
-            ports.display->setPixel(portX, portY, detail::brightnessToPort(brightness));
-        }
+        ports.display->setPixel(detail::pixelCoordToPort(x), detail::pixelCoordToPort(y),
+                                detail::brightnessToPort(brightness));
     }
     result = kVoidValue;
     return Status::ok();

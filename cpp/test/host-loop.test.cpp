@@ -61,7 +61,7 @@ struct RecordingFaultDisplay : mindcraft::FaultDisplayPort {
 
 /** No-op display: the fault tests never reach the brain's display port. */
 struct NullDisplay : mindcraft::PixelDisplayPort {
-  void setPixel(uint8_t, uint8_t, uint8_t) override {}
+  void setPixel(int16_t, int16_t, uint8_t) override {}
   void scrollText(const uint8_t*, uint32_t, uint32_t, mindcraft::mc_number_t,
                   mindcraft::AsyncHandle) override {}
 };

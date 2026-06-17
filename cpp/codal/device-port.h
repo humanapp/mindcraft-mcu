@@ -15,8 +15,12 @@ class PixelDisplayPort {
 public:
   virtual ~PixelDisplayPort() = default;
 
-  /** Set one pixel's brightness: 0 is off, 255 is full brightness. */
-  virtual void setPixel(uint8_t x, uint8_t y, uint8_t brightness) = 0;
+  /**
+   * Set one pixel's brightness: 0 is off, 255 is full brightness. Coordinates
+   * are signed (int16, the CODAL `Image::setPixelValue` parameter type); a write
+   * whose coordinate falls outside the board's matrix is dropped by the device.
+   */
+  virtual void setPixel(int16_t x, int16_t y, uint8_t brightness) = 0;
 
   /**
    * Begin scrolling `length` ASCII bytes across the display at `delayMs` per

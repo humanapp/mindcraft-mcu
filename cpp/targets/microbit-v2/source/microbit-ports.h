@@ -24,13 +24,12 @@ namespace mindcraft
  */
 class MicroBitPixelDisplayPort : public PixelDisplayPort
 {
-  public:
+public:
     explicit MicroBitPixelDisplayPort(MicroBit &uBit) : uBit_(uBit) {}
 
-    void setPixel(uint8_t x, uint8_t y, uint8_t brightness) override
+    void setPixel(int16_t x, int16_t y, uint8_t brightness) override
     {
-        uBit_.display.image.setPixelValue(static_cast<int16_t>(x), static_cast<int16_t>(y),
-                                          brightness);
+        uBit_.display.image.setPixelValue(x, y, brightness);
     }
 
     void scrollText(const uint8_t *bytes, uint32_t length, uint32_t delayMs, mc_number_t,
@@ -65,7 +64,7 @@ class MicroBitPixelDisplayPort : public PixelDisplayPort
         done.resolve(kVoidValue);
     }
 
-  private:
+private:
     MicroBit &uBit_;
     bool animating_ = false;
     uint32_t completionTime_ = 0;
@@ -75,7 +74,7 @@ class MicroBitPixelDisplayPort : public PixelDisplayPort
 /** Reads debounced button levels: index 0 is button A, 1 is button B. */
 class MicroBitButtonInputPort : public ButtonInputPort
 {
-  public:
+public:
     explicit MicroBitButtonInputPort(MicroBit &uBit) : uBit_(uBit) {}
 
     bool isPressed(uint8_t buttonIndex) override
@@ -91,18 +90,15 @@ class MicroBitButtonInputPort : public ButtonInputPort
         }
     }
 
-  private:
+private:
     MicroBit &uBit_;
 };
 
 /** Monotonic millisecond clock backed by the CODAL system timer. */
 class MicroBitMonotonicClockPort : public MonotonicClockPort
 {
-  public:
-    uint32_t uptimeMillis() override
-    {
-        return static_cast<uint32_t>(system_timer_current_time());
-    }
+public:
+    uint32_t uptimeMillis() override { return static_cast<uint32_t>(system_timer_current_time()); }
 };
 
 /**
@@ -112,7 +108,7 @@ class MicroBitMonotonicClockPort : public MonotonicClockPort
  */
 class MicroBitFaultDisplayPort : public FaultDisplayPort
 {
-  public:
+public:
     explicit MicroBitFaultDisplayPort(MicroBit &uBit) : uBit_(uBit) {}
 
     void showFaultFace() override
@@ -136,7 +132,7 @@ class MicroBitFaultDisplayPort : public FaultDisplayPort
         uBit_.sleep(kFaultBlankMs);
     }
 
-  private:
+private:
     /** Display brightness for fault rendering (0-255). */
     static constexpr int kFaultBrightness = 170;
 

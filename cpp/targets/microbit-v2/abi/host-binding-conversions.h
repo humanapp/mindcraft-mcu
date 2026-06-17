@@ -29,29 +29,24 @@ inline mc_number_t numberArgOr(Span<const Value> args, uint32_t slotId, mc_numbe
 }
 
 /**
- * Converts a pixel coordinate to the display port's u8 width. False when the
- * value is not an exact integer in 0..255: the simulated device discards such
- * writes, so they must not reach the port.
+ * Converts a pixel coordinate to the display port's int16 parameter: non-finite
+ * values become 0; finite values truncate toward zero and narrow to int16. The
+ * device applies the matrix-bounds check (CODAL `Image::setPixelValue` drops a
+ * coordinate outside 0..dimension).
  */
-inline bool pixelCoordToPort(mc_number_t value, uint8_t &out)
+inline int16_t pixelCoordToPort(mc_number_t value)
 {
-    if (!(value >= 0.0f && value <= 255.0f))
+    if (value != value || value - value != 0.0f) // NaN or infinity
     {
-        return false;
+        return 0;
     }
-    const uint8_t truncated = static_cast<uint8_t>(value);
-    if (static_cast<mc_number_t>(truncated) != value)
-    {
-        return false;
-    }
-    out = truncated;
-    return true;
+    return static_cast<int16_t>(static_cast<int32_t>(value));
 }
 
 /**
- * Converts a brightness to the port's u8 range, mirroring the wodal device's
- * clamp: non-finite values become 0; finite values truncate toward zero and
- * clamp to 0..255.
+ * Converts a brightness to the port's uint8 parameter: non-finite values become
+ * 0; finite values truncate toward zero and narrow to uint8 (CODAL
+ * `Image::setPixelValue` stores the uint8 value with no clamp).
  */
 inline uint8_t brightnessToPort(mc_number_t value)
 {
@@ -59,15 +54,7 @@ inline uint8_t brightnessToPort(mc_number_t value)
     {
         return 0;
     }
-    if (value <= 0.0f)
-    {
-        return 0;
-    }
-    if (value >= 255.0f)
-    {
-        return 255;
-    }
-    return static_cast<uint8_t>(value);
+    return static_cast<uint8_t>(static_cast<int32_t>(value));
 }
 
 } // namespace detail
