@@ -4,6 +4,7 @@
 
 #include "core/platform/span.h"
 #include "core/runtime/execution-context.h"
+#include "core/runtime/handle-table.h"
 #include "core/runtime/result.h"
 #include "core/runtime/value.h"
 
@@ -21,13 +22,13 @@ using HostActionExecSync = Value (*)(void* hostData, ExecutionContext& ctx, Span
 /**
  * Asynchronous host-action body, serviced by `HOST_ACTION_CALL_ASYNC`. `args`
  * is an owned snapshot of the positional arg buffer valid only for the duration
- * of the call; the bound call site is `ctx.currentCallSiteId`; `handleId` is the
- * pending handle the call owns. The body must arrange for that handle to
+ * of the call; the bound call site is `ctx.currentCallSiteId`; `handle` is the
+ * bound settle handle the call owns. The body must arrange for that handle to
  * eventually resolve, reject, or cancel. A non-ok status faults the dispatching
  * call (the opcode frees the handle first).
  */
 using HostActionExecAsync = Status (*)(void* hostData, ExecutionContext& ctx,
-                                       Span<const Value> args, uint32_t handleId);
+                                       Span<const Value> args, AsyncHandle handle);
 
 /**
  * Page-lifecycle hook of a host action. Invoked with the hook's call site

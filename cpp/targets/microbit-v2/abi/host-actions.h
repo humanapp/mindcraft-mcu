@@ -25,6 +25,10 @@ inline constexpr HostActionIds ButtonA{1024,
 /** Actuator: set a single LED pixel brightness on the 5x5 display. */
 inline constexpr HostActionIds DisplaySetPixel{
     1025, static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorDisplaySetPixel)};
+
+/** Actuator: scroll text across the 5x5 display, awaiting the animation. */
+inline constexpr HostActionIds DisplayScroll{
+    1026, static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorDisplayScroll)};
 } // namespace MicroBitV2HostActions
 
 /**
@@ -34,6 +38,7 @@ inline constexpr HostActionIds DisplaySetPixel{
 inline constexpr HostActionIds kMicroBitV2HostActions[] = {
     MicroBitV2HostActions::ButtonA,
     MicroBitV2HostActions::DisplaySetPixel,
+    MicroBitV2HostActions::DisplayScroll,
 };
 
 } // namespace mindcraft

@@ -76,6 +76,9 @@ int64_t capValue(const std::string& name) {
   if (name == "maxHandlers") {
     return kMicroBitV2DeviceProfileCaps.maxHandlers;
   }
+  if (name == "maxHandles") {
+    return kMicroBitV2DeviceProfileCaps.maxHandles;
+  }
   return -1;
 }
 
@@ -93,7 +96,7 @@ TEST_CASE("microbit-v2 caps equal the wodal device profile") {
   REQUIRE(cursor.u8() == 0x31); // '1'
 
   const uint32_t count = cursor.varuint();
-  CHECK(count == 7u);
+  CHECK(count == 8u);
   for (uint32_t i = 0; i < count; i++) {
     const std::string name = cursor.str();
     const uint32_t value = cursor.varuint();

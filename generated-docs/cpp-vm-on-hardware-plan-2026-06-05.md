@@ -29,7 +29,7 @@ and accepted, and each phase's decisions are locked.
 
 ## Status
 
-Last updated: 2026-06-13
+Last updated: 2026-06-16
 
 **Memory model (read before touching any allocation):** the runtime is
 **dynamic-first** - one `RegionArena` + one `Pool<T>`, everything allocated on
@@ -57,21 +57,24 @@ is out of scope **by default** and needs a concrete, possible-today failure mode
 governing default that 7 and 8 are instances of; over-build has been the recurring
 failure, and a subtraction pass precedes every gate. When unsure, leave it out.
 
-Current focus: **Phase 6h (async core - the generic `HandleTable`/`AWAIT`/WAITING-resume
-machinery + the three async opcodes; on the microbit-v2 critical path because scroll, 6i,
-is a real async action).** Phases 6a (heap + containers), 6b (structs + closures), 6c
-(core host-function library f32 + dynamic/managed strings), 6d (pinned numerics), 6e
-(exceptions, yield, and the grow-on-demand stack arena), 6f1 (struct re-string v3 +
-type-registry foundation), 6f2 (bytecode-action execution model), 6f3 (context-variable
-host functions 48-51), 6f4 (native device surface - user-tile milestone, host-gated), 6f5
-(core sensor/actuator host actions, hardware-validated), and 6g (cap parameterization -
-profile-sourced scheduler caps + parity guard, 2026-06-16) are accepted; the GC,
-containers, structs, closures, the ~96 core `CoreFuncId` bodies, the RNG, managed strings,
-the 12 bit-exact pinned numeric components, exceptions/yield, the grow-on-demand stack
-arena (the last LD7 worst-case reservation removed), dynamic-key struct access (format
-v3), the type registry, the bytecode-action/page execution model, brain+rule context
-variables, the native microbit device surface, the core sensor/actuator host actions
-(timer/page-switch brains run on hardware), and profile-sourced scheduler caps all run. **The deploy arc is COMPLETE and hardware-proven** (2026-06-14):
+Current focus: **Phase 6j (conformance + parity suite).** Phases 6a (heap + containers),
+6b (structs + closures), 6c (core host-function library f32 + dynamic/managed strings), 6d
+(pinned numerics), 6e (exceptions, yield, and the grow-on-demand stack arena), 6f1 (struct
+re-string v3 + type-registry foundation), 6f2 (bytecode-action execution model), 6f3
+(context-variable host functions 48-51), 6f4 (native device surface - user-tile milestone,
+host-gated), 6f5 (core sensor/actuator host actions, hardware-validated), 6g (cap
+parameterization - profile-sourced scheduler caps + parity guard), 6h (async core -
+`HandleTable` + opcodes 41/45/50 + AWAIT/WAITING-resume + enqueue->drain, host-gated +
+timer-brain hardware regression, 2026-06-16), and 6i (display scroll-text - the first
+shipped async capability, hardware-validated 2026-06-17) are accepted; the GC, containers,
+structs, closures, the ~96 core `CoreFuncId` bodies, the RNG, managed strings, the 12
+bit-exact pinned numeric components, exceptions/yield, the grow-on-demand stack arena (the
+last LD7 worst-case reservation removed), dynamic-key struct access (format v3), the type
+registry, the bytecode-action/page execution model, brain+rule context variables, the
+native microbit device surface, the core sensor/actuator host actions (timer/page-switch
+brains run on hardware), profile-sourced scheduler caps, the async core (handles + await +
+out-of-loop settle), and async `display.scroll` (resolves on real hardware) all run.
+**The deploy arc is COMPLETE and hardware-proven** (2026-06-14):
 5a firmware + 5b patcher + 5c browser delivery - a brain authored in microbit-sim
 reaches a real micro:bit v2 by **download** (Blob -> drag-drop) or **WebUSB flash**
 (paired device), and `button-display` toggles the pixel both ways. With Phases 1-5
@@ -138,8 +141,8 @@ run on device).
 | Phase 6f4: Native Device Surface (user-tile milestone) | **Accepted (2026-06-15, host-gated; hardware hex pending user flash)** | CALL-frame rule inheritance (`resolveCalleeRuleFuncId` on CALL paths) + native-struct rep `Struct(typeId, disc-in-handle)` (mixed key: ctx = program-table index, device = type-atom-id; disc = `MicroBitField` id) + registry native getters (`native-struct-bindings.h`) + target host-fn surface (core `host-function.h` + `RuntimeSurface.hostFunctions`; `isPressed`/`setPixelValue` over `DevicePorts`) + `ctx` injection at root+`ACTION_CALL` (`pushCallFrame` `injectCtx` flag) + dual-path setPixel trace parity. `user-tile-button-display` byte-matches golden, ends pixel (0,0)=255; C++ 234 x3, wodal 122. Hex built (region 0x44000). |
 | Phase 6f5: Core Sensor/Actuator Host Actions | **Accepted (2026-06-16, hardware-validated)** | All 8 core host actions (ids 0-7) ported as **core, target-agnostic** bodies (`cpp/core/runtime/host-actions/`; `makeCoreHostActionBindings`); firmware table = core 8 + microbit 2. Fixed the real on-device fault (op-44 core ids -> null -> ScriptError). BrainRuntime gained `requestPageRestart`/`requestPageChangeByPageId`/`get{Current,Previous}PageId`; `requestPageChange` mirrors TS (same-page = restart, real change cancels fibers). Timeout = per-callsite managed `List[fireTime,lastTick]` (GC-rooted). **Plus a general scheduler-interrupt fix** (`ExecutionState.cancelled` checked at each instruction boundary; mirrors TS mid-run state check) - touches the VM dispatch hot path, first exercised by in-rule page changes. Gate: 3 fixtures (timer/core-actions/restart-interrupt) byte-matched + unit tests; check.sh x3; wodal 125; **hardware-validated** (timer brain). |
 | Phase 6g: Cap Parameterization (topology parity with TS) | **Accepted (2026-06-16)** | New core `DeviceProfileCaps` (8 fields); `FiberScheduler` ctor takes it (`spawn`/`runActionHook`/`tick` read `caps_`). Host supplies `kMicroBitV2DeviceProfileCaps` (`targets/.../device-profile.h`); global `constexpr` caps deleted; ~40 ctor sites threaded via a test helper. `profileId` validated in the host (`main.cpp`, faithful to TS) -> new core `LoadError::UnsupportedDeviceProfile`=15 on mismatch. Cap-parity guard: wodal `device-profile-caps-vectors` fixture -> C++ `device-profile-caps-parity.test.cpp` asserts each cap == the host caps (replaces literal asserts; 7 caps, `maxHandles` joins in 6i); negative-control proven. Pure refactor: 237 C++ cases, goldens byte-match; wodal 126. |
-| Phase 6h: Async core | Planned (current focus) | The 4 async opcodes (41/43/45/50) + `HandleTable` (`{state,waiters,result}`, Pool-backed/LD7, new GC root), mirroring vm.ts. `AWAIT` parks `WAITING` (flips 3c's Waiting->HostError) - resolved->push/rejected->throw/cancelled; `assertCanSuspend` still faults await in a sync action frame. **Resolution is enqueue->drain, callable from outside the think loop** (so 6i's CODAL callback fits; resumes join the next round in Parity-Surface order). Gate uses a **test caps with `maxHandles>0`** (microbit-v2 profile stays 0 until 6i) + a deterministic tick-scheduled test capability on both sides. **Fix the 6f2 fiber-id divergence first.** Needs 6e/6f2. |
-| Phase 6i: Display Scroll-Text (first async capability) | Planned | An **async** `display.scroll(text)` mirroring CODAL's cooperative blocking scroll: device resolution via the CODAL `ANIMATION_COMPLETE` bus event marshaled to a next-round handle resume; CODAL-matching scroll animation in C++ + wodal; **completion-time pinned in the microbit-v2 target layer** (wodal oracle + C++ mirror, not core `vm-contract.md`) so the resume round matches for parity. microbit-v2 raises `kMaxHandles>0` as a guard (dynamic `HandleTable`, LD7 - never a pool size). The async core's on-hardware gate. Needs 6h (+6c for computed strings). |
+| Phase 6h: Async core | **Accepted (2026-06-16, host-gated + timer-brain hardware regression)** | Core `HandleTable` (`{id,state,result,error,waiters,nextCompleted}`, Pool-backed/LD7, new GC root via `enumerateResults`); opcodes 41 `HOST_CALL_ASYNC` / 45 `HOST_ACTION_CALL_ASYNC` / 50 `AWAIT` mirror vm.ts; **43 `ACTION_CALL_ASYNC` deferred** (still faults; pull forward when a consumer needs it - 6i scroll is a host-action async). `AWAIT` parks `WAITING` (flips 3c's Waiting->HostError): resolved->push, rejected/cancelled->throw via the 6e handler path (shared `throwError` + `pendingInjectedThrow`); `assertCanSuspend` still faults await in a sync action frame. **Settle = enqueue; `drainCompletedHandles()` (in `think()`, after tick before sweep) resumes waiters next round** - accepts a settle made from outside the single-entry loop (the path 6i's CODAL listener needs). **Fixed the 6f2 fiber-id divergence** (C++ hook fibers now a descending inline id space, mirrors TS negatives). Gate: `async-handles.test.cpp` (9 cases, test caps `maxHandles=16`; microbit-v2 stays 0); 247 C++ cases x3, wodal 126. Blessed deviation: async bodies get the ephemeral stack view, not an owned snapshot (no consumer retains). (The open cross-VM async-goldens item was closed at 6i - the real `BrainRuntime` drives the golden.) |
+| Phase 6i: Display Scroll-Text (first async capability) | **Accepted (2026-06-17, hardware-validated)** | Async `display.scroll(text)` action (`DisplayScroll` id 1026, fnId 1035, op 45; optional String arg default `"hello"`). Completion-time formula `start + 6*(charCount+1)*delay` pinned in the target layer (wodal `display-scroll.ts` + C++ `display-scroll.h`). **Core async reshape** (`external/mindcraft-lang`): bound resolver `AsyncHandle{resolve/reject/cancel}` passed as the 3rd async-body arg both VMs (host-binding API only, no bytecode change). `maxHandles` 0->8 (6g seam, 8th cap in the parity guard). Additive target trace lines (`...async` + `port display scroll`), format v1 unchanged. CODAL `pendolino3` font ported to wodal sim only (device renders natively). **Deviations from the original design:** device resolution = **formula poll**, not the `ANIMATION_COMPLETE` bus event (listener didn't fire on hardware); concurrent scrolls **reject**, not serialize (LD9 removed the fixed queue); the real `BrainRuntime` generates the golden, so **6h's cross-VM-oracle item is closed** (no separate harness). Gate: wodal 139, C++ 252 cases x3 (scroll golden byte-matches), core 913, hardware-validated. Open: managed-string scroll test (impl-complete). |
 | Phase 6j: Conformance + Parity Suite | Planned | Full golden parity set through both VMs; instruction-level trace mode; opcode-completeness check (no fault-on-unimplemented); shared input-script file format; the port-typing-seam resolution. Needs all. |
 | Phase 7: microbit-v2 Device-Surface Completeness | Placeholder - refine after Phase 6 | The **full** onboard sensor/actuator surface on both TS + C++ (accelerometer/gesture/temperature/magnetometer/compass/GPIO/... - today only display+buttons+touch exist). Front-loaded by a two-stage process the user owns: (1) CODAL capability inventory, (2) tile-language design deciding how to surface it (the `Context` surface is the **design output**, not predetermined). Then downstream build reuses 6f4's mechanism (append ABI ids, `Struct(typeId,disc)` rep, both-side impl, per-peripheral fixtures). Key new harness: deterministic injectable sensor inputs for parity. Needs 6f4/6f5. Under-specified + un-split until Phase 6 is done. |
 
@@ -2294,158 +2297,151 @@ Gate (green): 237 C++ cases (goldens byte-match through the parameterized schedu
 profile + the cap-parity fixture/guard - the `DeviceProfileCaps` field and the C++ value are
 already in place.
 
-### Phase 6h: Async Core
+### Phase 6h: Async Core - ACCEPTED 2026-06-16 (host-gated + timer-brain hardware regression)
 
-The generic async machinery (`HOST_CALL_ASYNC`=41 / `ACTION_CALL_ASYNC`=43 /
-`HOST_ACTION_CALL_ASYNC`=45 / `AWAIT`=50 + the `HandleTable`). The semantics are
-**already core contract** (`vm-contract.md` + the Prep C "handle resumes join the next
-round" rule) - 6h implements them in C++, mirroring vm.ts; it invents no new contract.
-Needs 6e's grow-on-demand stack arena (long-lived suspensions are its first real load)
-and 6f2's action machinery (the `ACTION_CALL_ASYNC` branch). C++-only mirror + a shared
-test capability for the gate.
+The generic async machinery, a C++-only mirror of vm.ts (semantics were already core
+contract: `vm-contract.md` + the Prep C "handle resumes join the next round" rule - 6h
+invents no new contract). Hardware proof is the regression check (timer-brain re-flashed,
+confirms the 6h core edits didn't break non-async execution); no async path runs on device
+until 6i.
 
-Scope:
+As-built:
 
-- **`HandleTable`** (mirror the TS shape): a handle = `{state, waiters, result}` with
-  `state` in `PENDING`/`RESOLVED`/`REJECTED`/`CANCELLED`; `resolve(id, value)`/
-  `reject(id, err)`/`cancel(id)` legal **only from `PENDING`**; resolve/reject/cancel
-  add the waiters to the next round. **`Pool<T>`-backed / carve-on-demand (LD7)** -
-  `kMaxHandles` is a runtime upper-bound guard (fault on exceed), **never** a
-  `Handle[kMaxHandles]` array (same discipline as `kMaxFibers`/`kMaxHandlers`). **New GC
-  root source:** a handle holds its `result` `Value` until the waiter consumes it, so
-  `enumerateRoots` must trace pending/resolved handle results.
-- **The four opcodes** (mirror vm.ts): `HOST_CALL_ASYNC`/`HOST_ACTION_CALL_ASYNC`/
-  `ACTION_CALL_ASYNC` allocate a handle, dispatch the async call (the host/action owns
-  the handle), and push the handle; `AWAIT` pops a handle and, if `PENDING`, adds the
-  fiber to the handle's waiters and suspends it **`WAITING`**; if already settled it
-  resumes inline - `RESOLVED` -> push `result`, `REJECTED` -> throw the error (the 6e
-  handler path), `CANCELLED` -> per vm.ts. `ACTION_CALL_ASYNC` enters a 6f2 action frame
-  with `isAsync=true`.
-- **Flip the 3c guard.** 3c made `RunStatus::Waiting` fault `HostError` ("no async
-  capability"); 6h makes `WAITING` legal - the fiber parks on its handle and the tick
-  loop leaves it until its handle settles. `AWAIT`/await **inside a sync action frame
-  still faults** via 6f2's `assertCanSuspend` (`actionBinding.isAsync == false`); legal
-  in async frames and rule bodies.
-- **Resolution is enqueue -> drain, callable from outside the think loop.** Settling a
-  handle enqueues its resolution; the think loop drains settled handles and re-enqueues
-  the waiters for the **next round** (the Prep C rule), in the Parity-Surface resume
-  order. Build this enqueue->drain path **so an external callback can settle a handle
-  from outside the single-entry loop** - 6h's own test capability settles in-loop, but
-  6i's CODAL `ANIMATION_COMPLETE` listener settles out-of-loop (enqueue-only, per the
-  single-entry rule). Designing it enqueue->drain now is what lets 6i fit without rework.
-- **`kMaxHandles` for the gate.** microbit-v2's profile keeps `maxHandles = 0` until 6i,
-  so 6h's async tests run under a **test `DeviceProfileCaps` with `maxHandles > 0`**
-  (the 6g `kDeviceProfileCaps` helper stays the microbit-v2 0; add a test variant). 6h
-  does **not** touch the microbit-v2 profile.
-- **Fix the fiber-id space divergence first (6f2 follow-up).** C++ hook fibers consume
-  the shared positive `nextFiberId_`; TS uses a separate **negative** inline id space
-  (`nextInlineFiberId`). Invisible to current gates, but an async fixture mixing hooks
-  and a fault would diverge - give C++ hook fibers their own id space before such
-  goldens land.
-- **On the microbit-v2 critical path, not conformance-only:** scroll (6i) is a real
-  async host action, so async is a *shipped* microbit-v2 feature. 6h is the generic
-  mechanism; 6i is its first shipped consumer + on-hardware proof, and 6i raises
-  microbit-v2's `kMaxHandles` above 0.
+- **Core `HandleTable`** (`cpp/core/runtime/handle-table.h`, `Pool<T>`-backed/LD7):
+  `Handle{id, state, result, error, waitersHead, nextCompleted}`; `state` in
+  `Pending`/`Resolved`/`Rejected`/`Cancelled`; `createPending` faults (`kNoHandleId`) at
+  `maxHandles` (a runtime guard, never an array size); `resolve`/`reject`/`cancel` legal
+  **only from `Pending`**, each **enqueues** the handle onto an intrusive completed queue.
+  **New GC root:** `enumerateResults` marks each `Resolved` handle's `result`;
+  `FiberScheduler::enumerateRoots` calls it.
+- **Opcodes 41 `HOST_CALL_ASYNC` / 45 `HOST_ACTION_CALL_ASYNC` / 50 `AWAIT`** implemented.
+  `AWAIT` settle map: `Resolved` -> push result; `Rejected`/`Cancelled` -> throw via the
+  6e handler path (shared `throwError`, now used by THROW + AWAIT-reject + a top-of-loop
+  `pendingInjectedThrow` check); `Pending` -> record an `AwaitSite` on `ExecutionState` and
+  return `RunResult::waiting()`. `assertCanSuspend` honored (await / async-dispatch inside
+  a sync action frame faults `ScriptError`).
+- **43 `ACTION_CALL_ASYNC` deferred** - still faults `ScriptError` (covered by the
+  unimplemented-opcode test). Not gate-exercised: 6i's scroll is a host-*action* async, not
+  a bytecode-action async; 43 needs threading the scheduler into the `runExecution` hot path
+  (child-fiber spawn from inside dispatch) for an untested branch. Pull it forward only when
+  a consumer/test needs it; the contract marks 43 deferred, not implemented.
+- **3c guard flipped.** The scheduler's `Waiting` arm now **parks** the fiber
+  (`FiberState::Waiting` + `addWaiter`) instead of faulting `HostError`.
+- **Settle = enqueue -> drain (out-of-loop-settle capable).** Settling only flips state +
+  enqueues; `FiberScheduler::drainCompletedHandles()` resumes waiters (restore await site,
+  push value or set `pendingInjectedThrow`, mark Runnable, enqueue) and frees the handle;
+  `BrainRuntime::think()` calls it **after `tick()`, before `sweep()`**, so resumes join the
+  next round (Prep C order). The path accepts a settle made **outside** the single-entry
+  loop - exactly what 6i's CODAL listener needs.
+- **Fiber-id-space fix (6f2 carry-forward).** C++ hook fibers (`runActionHook`) now draw
+  from a **descending** inline id space (`nextInlineFiberId_ = 0xffffffff`, counting down),
+  mirroring TS `nextInlineFiberId = -1`; unsigned-hex trace rendering matches TS negatives
+  byte-for-byte. `spawn` keeps the ascending space.
 
-Gate (host): async goldens driven by a **deterministic test async capability** - a host
-function that resolves / rejects / cancels its handle on a **fixed tick schedule** (not
-wall-clock), built on **both** sides for parity - covering await-resolve, reject, cancel,
-and multi-waiter resume order; trace parity on the host build, `check.sh` x3. (The real
-on-hardware async proof is 6i's scroll.)
+Blessed deviation: async bodies get the **ephemeral stack view, not an owned snapshot**
+(the contract says async = owned snapshot; no current consumer retains args, and a true
+snapshot needs an LD7 buffer/pool - documented at the call sites, pull in when a consumer
+retains). Over-build pass cut three C++-only items (`Handle::inCompletedQueue`,
+`HandleTable::size()`, `RunResult::handleId`).
 
-### Phase 6i: Display Scroll-Text - the First Async Capability (microbit-v2)
+Gate (host): `async-handles.test.cpp` - 9 cases under a test
+`kAsyncDeviceProfileCaps = withMaxHandles(kMicroBitV2DeviceProfileCaps, 16)` (microbit-v2
+profile untouched at 0): await-resolve (resumes next round), reject (throws->faults),
+cancel, multi-waiter resume order, inline-resolved, `HOST_ACTION_CALL_ASYNC`,
+await-in-sync-action fault, no-capability fault, table-cap/settle guard. 247 C++ cases /
+12191 assertions x3 (debug/release/sanitize incl ASan+UBSan), no golden regressed; wodal
+126 (no TS files changed). Timer-brain re-flashed + verified (regression only).
 
-**The first shipped async capability on microbit-v2, and the async core's
-on-hardware parity gate.** Built on 6h; this is where microbit-v2 first registers a
-handle budget (`kMaxHandles > 0` in `execution-state.h`, replacing the Phase-3
-slice's 0). A real flagship micro:bit feature *and* the proof that async resolves
-correctly on device.
+**Open item carried to 6i: cross-VM wodal<->C++ async trace goldens - CLOSED at 6i.** At
+6h, settling a handle on the TS oracle needed `VM.handles` (behind private `BrainRuntime.vm`
+behind private `WodalMicroBitRuntime.loadedBrain`); the candidate routes were (a) an
+accessor on the external-reference `BrainRuntime`, or (b) a wodal-local
+`VM + FiberScheduler + injected HandleTable` harness. **6i made both unnecessary:** its
+bound-resolver reshape lets the async body settle its own handle and the device drives
+completion, so the real `BrainRuntime` generates the async golden (like button-display).
 
-Goal: an **async** `display.scroll(text)` host action - the calling fiber AWAITs a
-handle and resumes when the scroll animation completes, mirroring CODAL's
-cooperative blocking scroll (`AnimatedDisplay::scroll()` = `scrollAsync()` +
-`fiber_wait_for_event(DEVICE_ID_DISPLAY, DISPLAY_EVT_ANIMATION_COMPLETE)`). Async,
-not fire-and-forget: CODAL's `scroll()` *yields* the calling fiber and resumes it on
-completion while other fibers + the animation run; the faithful VM mirror is AWAIT a
-handle, so a brain can sequence after the scroll and concurrent scrolls serialize. A
-sync action could not reproduce that.
+### Phase 6i: Display Scroll-Text - the First Async Capability (microbit-v2) - ACCEPTED 2026-06-17 (hardware-validated)
 
-Scope:
+The first shipped async capability on microbit-v2 and the async core's on-hardware
+proof: an **async** `display.scroll(text)` host action - the calling fiber AWAITs a
+handle and resumes when the scroll completes. Built on 6h. C++ scroll golden byte-matches
+the wodal golden; validated on real hardware (single scroll AND a repeating
+`DO [scroll text]`).
 
-- **The async scroll host action** (`display-scroll-text`, dispatched async via
-  `HOST_ACTION_CALL_ASYNC`): allocate a handle, start the scroll, return the handle;
-  the fiber AWAITs -> WAITING -> resumes on completion (per 6h). A new
-  `MicroBitV2HostActions` entry (append-only id, Locked Decision 2), C++ binding +
-  body, and the microbit-sim tile so a brain authors `display.scroll("...")`.
-- **Device resolution = the CODAL bus event** (confirmed in vendored source,
-  `codal-core/.../AnimatedDisplay.cpp`): the body calls `scrollAsync(bytes, delay)`
-  and registers a one-shot listener on `(DEVICE_ID_DISPLAY = 7,
-  DISPLAY_EVT_ANIMATION_COMPLETE = 1)`. That event fires on CODAL's scheduler
-  (outside the VM's single-entry think loop), so the listener **marshals** it in -
-  enqueue "handle resolved" -> the think loop drains resolved handles and resumes the
-  fiber on the **next round** (the existing "handle resumes join the next round"
-  rule). A new display port method (`scrollText(bytes, delay)`) on
-  `cpp/codal/device-port.h` over `scrollAsync`, with a host stub.
-- **The scroll animation logic, matching CODAL, in BOTH the device port and the
-  wodal sim**: the column/char stepping (`updateScrollText`: shift the image left one
-  column per step; `BITMAP_FONT_WIDTH = 5`, `DISPLAY_SPACING = 1`, display width 5),
-  one step per `animationDelay` (default `DISPLAY_DEFAULT_SCROLL_SPEED = 120` ms),
-  completion when the last char clears. wodal replicates it to drive its simulated
-  display *and* the handle-resolution timing, and the **same fiber-stacking** - a
-  second scroll serializes behind the first (CODAL's `waitForFreeDisplay` /
-  `DISPLAY_EVT_FREE`).
-- **Completion-time pinning (the parity crux) - a TARGET spec, not core.** The
-  scroll's completion time is a deterministic function of (text, delay, font/display
-  geometry); the awaiting fiber resumes at the first think >= that time. Because the
-  display animates on CODAL's 6 ms tick independent of the 16 ms think loop, parity
-  rides on the *formula*, not a frame-by-frame replay. Pin the formula in the
-  **microbit-v2 target layer** - the **wodal microbit module is the oracle**, the
-  **C++ microbit-v2 port mirrors it**, goldens enforce the match - **NOT in core
-  `vm-contract.md`** (scroll is a target capability; its timing is target-specific).
-  The generic async-resume semantics it relies on *are* core and already in
-  `vm-contract.md` (Prep C).
-- **A new observable trace line** for the scroll (the async action line + a
-  `port display scroll "<bytes>"` port line) - a change to the **target**
-  observable-trace contract (the format lives in the wodal microbit module's
-  `observable-trace.ts`, where `port display set-pixel` is defined) + the C++ target
-  emitter + goldens. Not a core `vm-contract.md` change.
-- **microbit-v2 raises its handle ceiling.** `maxHandles` now lives in the 6g
-  `DeviceProfileCaps` (the field + the C++ value are already in place at 0) - **6g left
-  this seam ready**, so raising it means: set `kMicroBitV2DeviceProfileCaps.maxHandles`,
-  add `maxHandles` to the wodal device profile, and add it to the cap-parity
-  fixture/guard (the 8th cap). It is a **runtime upper-bound guard** (Locked Decision
-  7) - exceeding it faults, it is **never a pool size**; the `HandleTable` is
-  `Pool<T>`-backed / carve-on-demand. Set the ceiling against the device budget, not
-  "sized to" anything.
+As-built:
 
-Strings: scroll a **borrowed/literal** string first (no managed-string machinery -
-the borrowed path exists since 3b). Scrolling a **computed/managed** string layers
-6c's managed strings onto the async path (the body's byte-read extends to the managed
-case) - the managed-string-on-async end-to-end.
+- **Authoring surface.** Async host **action** `DisplayScroll` (id **1026**, key
+  `microbit-v2.display-scroll`, fnId `ActuatorDisplayScroll` **1035**), dispatched via
+  `HOST_ACTION_CALL_ASYNC` (op 45); tile label "scroll text". One optional anonymous
+  String text arg (`WodalMicroBitV2ParameterId.Text` = `microbit-v2.text`), default
+  `"hello"`. Port signature `PixelDisplayPort::scrollText(const uint8_t* bytes, uint32_t
+  length, uint32_t delayMs, mc_number_t requestTimeMs, AsyncHandle handle)`, default step
+  delay 120 ms. Confirms the precedent: awaited effects = actions.
+- **Pinned completion-time formula (target layer, NOT core `vm-contract.md`):**
+  `completionTimeMs = startTime + (displayWidth + spacing) * (charCount + 1) * delayMs`
+  = `startTime + 6 * (charCount + 1) * delay` (`charCount` = `ManagedString::length` /
+  UTF-16 length, ASCII). Pinned in wodal `display-scroll.ts` + C++ `display-scroll.h`,
+  each cross-checked against an independent `updateScrollText` stepping simulation. The
+  awaiting fiber resumes at the first think `>=` that time; logical completion is the
+  formula against VM tick `time`, never rAF/wall-clock.
+- **Core async reshape (`external/mindcraft-lang`) - the load-bearing change.** The async
+  host-call path could not settle a handle from the body (only tests resolved, via a
+  closed-over `HandleTable`). Reshaped to a **bound resolver** `AsyncHandle { id;
+  resolve(value); reject(code, message?); cancel(message?) }` (`runtime/value.ts`), passed
+  as the 3rd arg to both async paths (`HostAsyncFn` / `AsyncHostActionFn` /
+  `HostActionBinding.execAsync`), built in VM dispatch from `this.handles` (tolerant -
+  no-op when not pending). C++ mirror: `AsyncHandle` in `handle-table.h` + both typedefs +
+  both dispatch sites. **No bytecode / `vm-contract.md` change** (host-binding API only).
+  Record: `generated-docs/async-host-resolver-reshape-2026-06-16.md`.
+- **maxHandles raised 0 -> 8** in the microbit-v2 profile (TS `device-profile.ts` + C++
+  `device-profile.h`) via the 6g seam; 8th cap added to the wodal
+  `device-profile-caps-vectors` fixture (.bin regenerated) + the C++ parity test. Runtime
+  guard (LD7), never a pool size.
+- **Trace contract (target `observable-trace`, format v1 - ADDITIVE, no version bump):**
+  `action <id> site <cs> args <argc> <vals> async` + `port display scroll "<bytes>"`;
+  `VmObserver.onHostActionCallAsync` added (non-pure, default-empty). Existing goldens
+  byte-unchanged (additive-under-v1 avoids cross-stage golden regen). Action ids render
+  lowercase hex (1026 -> `402`).
+- **Visual parity (sim only).** Ported CODAL `pendolino3` 5x5 font byte-for-byte to
+  `packages/wodal/src/core/bitmap-font.ts` (a generic codal-core primitive, beside
+  `led-matrix.ts`); `MicroBitDisplay` renders `updateScrollText` (shift + paste glyph
+  columns). On device CODAL renders glyphs natively - **no C++ font port**.
 
-Decisions to lock (before coding):
+Blessed deviations from the original 6i design (the prior plan text is superseded):
 
-- **Confirm the TS sim's scroll model matches CODAL's** (cooperative-blocking ->
-  async-handle; completion on the same deterministic schedule). This is the
-  load-bearing assumption; the completion-time formula must be agreed before goldens.
-- **The completion clock is the VM's logical tick `time`, NOT `requestAnimationFrame`
-  / wall-clock.** Handle completion = the completion-time formula evaluated against
-  the observed tick `time` (the `time`/`dt` the trace records); in the parity oracle
-  that time is the scheduled input-script time, so completion is deterministic and
-  byte-matches the device (which replays the same schedule). rAF is non-deterministic
-  (refresh-rate / throttling dependent) and must never drive completion. Keep the two
-  separate: **logical completion = formula against VM time** (the contract);
-  **visual scrolling = cosmetic rendering** (rAF may paint frames in the live sim and
-  even drive its tick cadence, but never decides when the handle resolves - no
-  rAF-frame-counting).
-- The action key + id; the `scrollText` port signature; the completion-time formula;
-  the trace line format; the `kMaxHandles` value.
+1. **Device resolution = formula poll, NOT the CODAL `ANIMATION_COMPLETE` bus event.** On
+   hardware the queued message-bus listener did not fire (rule stuck after one scroll).
+   Replaced with a formula poll: the device port records `completionTime = now +
+   scrollDurationMs`, and `pollScroll()` (each main-loop tick before `think()`, mirroring
+   the host gate's `advanceScroll`) settles the handle. Event-independent; the same model
+   the host trace golden proves.
+2. **Concurrent scrolls = REJECT, not serialize.** The LD9 pass removed the serialization
+   queue (a pre-sized fixed buffer of arbitrary size 8 - an LD7 violation, untested on
+   C++). A scroll requested while one is active settles its handle immediately (the `AWAIT`
+   sees it resolved and the rule continues without parking). Single active scroll; this
+   also fixed a sim brain-reload bug (no absolute-time busy clock to go stale).
+3. **No separate cross-VM oracle harness needed (closes 6h's open item).** Because the
+   bound-resolver reshape lets the body settle its own handle and the device drives
+   completion, the **real `BrainRuntime`** generates the golden (like button-display).
+   6h's deferred cross-VM async-oracle item is closed - route (b) was not needed.
 
-Gate: a golden brain that `await`s `display.scroll(<literal>)` passes trace parity on
-host (the await suspends; the handle resolves on the pinned completion round; the
-fiber resumes - the **same round** in both VMs) AND scrolls on real hardware with the
-fiber resuming after the animation; two concurrent scrolls serialize matching CODAL.
-This is the async core's first on-hardware validation.
+Over-build pass removed (do not re-add): the fixed scroll queue (both VMs);
+`SCROLL_BITMAP_FONT_WIDTH` / `kScrollBitmapFontWidth` (dead); C++ `scrollCompletionTimeMs`
+(unused in prod); a duplicate `kDisplayScrollDelayMs` (deduped to `kScrollDefaultDelayMs`);
+a defensive `env.heap != nullptr` guard.
+
+Gate (green): wodal 139/139; C++ `check.sh` x3 (debug/release/sanitize incl ASan+UBSan) -
+252 cases / ~12,232 assertions, clang-format + check-deps clean, C++ scroll golden
+byte-matches the wodal golden (`display-scroll.mcprogram.bin` + `.ticks.trace`), pixel
+(0,0) lit; core 913/913; **hardware-validated** (single + repeating scroll).
+
+Open follow-up (deferred): a **managed/computed-string scroll golden/test**. Borrowed/
+literal strings are gated; the body's byte-read (`extractStringValue` / C++
+`heap->stringContent`) already handles managed strings, so support is
+implementation-complete - only the test is missing.
+
+New durable artifact: `docs/specs/tiles/display-scroll.md` (first `docs/specs/tiles/`
+entry; the template for future tile specs).
 
 ### Phase 6j: Conformance + Parity Suite
 
@@ -2557,6 +2553,45 @@ Condensed dated ledger of accepted phases (newest first). Full per-phase as-buil
 detail lives in the session memory and git history; the accepted phase sections above
 carry the contracts each produced.
 
+- **2026-06-17 - Phase 6i accepted** (hardware-validated): async `display.scroll(text)` -
+  the first shipped microbit-v2 async capability and the async core's on-hardware proof.
+  Action `DisplayScroll` (id 1026, fnId 1035, op 45; optional String arg default
+  `"hello"`). Completion-time formula `start + 6*(charCount+1)*delay` pinned in the target
+  layer (wodal `display-scroll.ts` + C++ `display-scroll.h`), cross-checked against an
+  `updateScrollText` stepping sim; resume = first think `>=` completion, against VM tick
+  `time` (never rAF). **Core async reshape** (`external/mindcraft-lang`): a **bound resolver**
+  `AsyncHandle{id, resolve, reject, cancel}` is now the 3rd arg to both async-body paths
+  (built from `this.handles`; C++ mirror in `handle-table.h`) - host-binding API only, no
+  bytecode/`vm-contract.md` change. `maxHandles` 0->8 (6g seam; 8th cap in the parity
+  guard). Additive target trace lines (`...async`, `port display scroll`) under format v1
+  (existing goldens byte-unchanged); `VmObserver.onHostActionCallAsync` added. CODAL
+  `pendolino3` font ported to the wodal sim only (`src/core/bitmap-font.ts`; device renders
+  natively). Deviations from the original design: device resolution = **formula poll**, not
+  the `ANIMATION_COMPLETE` bus event (listener didn't fire on hardware - rule stuck after
+  one scroll); concurrent scrolls **reject** rather than serialize (LD9 cut the fixed
+  queue); the real `BrainRuntime` drives the golden, **closing 6h's cross-VM-oracle item**
+  (no separate harness). LD9 pass also removed dead font/delay constants + a defensive heap
+  guard. Gate: wodal 139, C++ 252 cases x3 (scroll golden byte-matches, pixel (0,0) lit),
+  core 913; hardware-validated (single + repeating scroll). Open follow-up: a managed-string
+  scroll test (implementation-complete). New artifact: `docs/specs/tiles/display-scroll.md`.
+- **2026-06-16 - Phase 6h accepted** (host-gated + timer-brain hardware regression): the
+  async core, a C++ mirror of vm.ts (semantics already core contract). Core `HandleTable`
+  (`handle-table.h`, Pool-backed/LD7; `createPending` faults at `maxHandles`;
+  resolve/reject/cancel legal only from `Pending`, each enqueues onto an intrusive completed
+  queue; new GC root via `enumerateResults`). Opcodes 41 `HOST_CALL_ASYNC` / 45
+  `HOST_ACTION_CALL_ASYNC` / 50 `AWAIT` implemented; **43 `ACTION_CALL_ASYNC` deferred**
+  (still faults; needs the scheduler in the `runExecution` hot path for an untested branch -
+  pull forward on demand). `AWAIT`: resolved->push, rejected/cancelled->throw via the 6e
+  path (shared `throwError` + top-of-loop `pendingInjectedThrow`), pending->`AwaitSite` +
+  `RunResult::waiting()`; `assertCanSuspend` faults await in a sync action frame. 3c guard
+  flipped: `Waiting` now parks the fiber. **Settle = enqueue; `drainCompletedHandles()` in
+  `think()` (after tick, before sweep) resumes waiters next round** - accepts an out-of-loop
+  settle (the path 6i's CODAL listener needs). Fixed the 6f2 fiber-id divergence (C++ hook
+  fibers now a descending inline id space, mirrors TS negatives). Blessed deviation: async
+  bodies get the ephemeral stack view, not an owned snapshot (no consumer retains).
+  Over-build pass cut 3 dead items. Gate: `async-handles.test.cpp` (9 cases, test caps
+  `maxHandles=16`; microbit-v2 stays 0); 247 C++ cases x3, wodal 126; timer-brain reflashed
+  (regression). Open: cross-VM async goldens -> folded into 6i.
 - **2026-06-16 - Phase 6g accepted** (host build; pure refactor, no reflash): cap
   parameterization - the scheduling/resource caps now come from the device profile, not
   global `constexpr`. New core `DeviceProfileCaps` (8 fields); `FiberScheduler` ctor takes it
@@ -2761,6 +2796,18 @@ carry the contracts each produced.
   This is **not** a deferral with a future trigger; do not look for it here, and do
   not re-introduce it under any guise. See **Locked Decision 8** for the
   prohibition and its review gate.
+- **`ACTION_CALL_ASYNC` (op 43) - deferred at Phase 6h, pull forward on demand.**
+  The opcode still faults `ScriptError` (covered by the unimplemented-opcode test).
+  Implementing it needs threading the scheduler into the `runExecution` hot path
+  (a child-fiber spawn from inside dispatch) for a branch no fixture exercises - 6i's
+  scroll is a host-*action* async (op 45), not a bytecode-action async. Build it when a
+  consumer or conformance test requires it (likely 6j or a brain that awaits a bytecode
+  action). The contract marks 43 deferred, not implemented.
+- **Managed/computed-string scroll test (deferred at Phase 6i).** `display.scroll` is
+  gated only for borrowed/literal strings. The body's byte-read (`extractStringValue` /
+  C++ `heap->stringContent`) already handles managed strings, so the feature is
+  implementation-complete; only a golden/test scrolling a *computed* string is missing.
+  Add it when the conformance suite (6j) or a real brain exercises a computed scroll arg.
 - **The port-crossing numeric-typing seam** (found at Phase 3c, ratified):
   trace format v1 records port lines "as passed to the port, before the device
   clamps", but the accepted `PixelDisplayPort` is u8-typed, so the f32->u8

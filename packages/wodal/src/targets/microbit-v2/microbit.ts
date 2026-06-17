@@ -111,7 +111,7 @@ export class MicroBit {
   clear(): void {
     this.timer.reset();
     this.messageBus.clear();
-    this.display.clear();
+    this.display.reset();
     this.serial.clear();
     this.buttonA.reset();
     this.buttonB.reset();

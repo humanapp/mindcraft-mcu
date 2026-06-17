@@ -72,21 +72,13 @@ private:
 };
 
 /**
- * Emits a string-table entry double-quoted: bytes 0x20..0x7e literal except
- * `"` and `\` (backslash-escaped); every other byte as `\xNN`. Returns false
- * when the index or its byte range is outside the image's pools.
+ * Emits `length` bytes double-quoted: bytes 0x20..0x7e literal except `"` and
+ * `\` (backslash-escaped); every other byte as `\xNN`.
  */
-inline bool quoteStringTableEntry(TextWriter& w, const ProgramImage& image, uint32_t stringIdx) {
-  if (stringIdx >= image.strings.size()) {
-    return false;
-  }
-  const StringRef ref = image.strings[stringIdx];
-  if (ref.offset > image.stringData.size() || ref.length > image.stringData.size() - ref.offset) {
-    return false;
-  }
+inline void quoteBytes(TextWriter& w, const uint8_t* bytes, uint32_t length) {
   w.ch('"');
-  for (uint32_t i = 0; i < ref.length; i++) {
-    const uint8_t b = image.stringData[ref.offset + i];
+  for (uint32_t i = 0; i < length; i++) {
+    const uint8_t b = bytes[i];
     if (b == 0x22) {
       w.text("\\\"");
     } else if (b == 0x5c) {
@@ -100,6 +92,21 @@ inline bool quoteStringTableEntry(TextWriter& w, const ProgramImage& image, uint
     }
   }
   w.ch('"');
+}
+
+/**
+ * Emits a string-table entry double-quoted via {@link quoteBytes}. Returns
+ * false when the index or its byte range is outside the image's pools.
+ */
+inline bool quoteStringTableEntry(TextWriter& w, const ProgramImage& image, uint32_t stringIdx) {
+  if (stringIdx >= image.strings.size()) {
+    return false;
+  }
+  const StringRef ref = image.strings[stringIdx];
+  if (ref.offset > image.stringData.size() || ref.length > image.stringData.size() - ref.offset) {
+    return false;
+  }
+  quoteBytes(w, image.stringData.data() + ref.offset, ref.length);
   return true;
 }
 

@@ -39,7 +39,9 @@
  * precision f32|f64
  * tick <ordinal> time <bits> dt <bits>
  * action <actionId> site <callSiteId> args <argc> <value>... result <value>
+ * action <actionId> site <callSiteId> args <argc> <value>... async
  * port display set-pixel <xBits> <yBits> <brightnessBits>
+ * port display scroll "<bytes>"
  * fault <fiberId> <errorCode>
  * ```
  *
@@ -49,16 +51,23 @@
  *   scheduled time, and `dt` is 0 when the previous think time is 0 and the
  *   difference from the previous think time otherwise. Schedule times must
  *   be exactly representable at the profile precision.
- * - `action`: one synchronous host-action dispatch, emitted when the call
- *   returns. `<actionId>` is the stable registry id, `<callSiteId>` keys the
- *   per-callsite host state, the `<argc>` argument values are the positional
- *   arg buffer exactly as the binding receives it (a missing optional slot
- *   is `nil`), and `result` is the value the call pushes back. Device-port
- *   lines raised while the action body runs are emitted at the moment of
- *   the port call, before the action's own line.
+ * - `action ... result`: one synchronous host-action dispatch, emitted when
+ *   the call returns. `<actionId>` is the stable registry id, `<callSiteId>`
+ *   keys the per-callsite host state, the `<argc>` argument values are the
+ *   positional arg buffer exactly as the binding receives it (a missing
+ *   optional slot is `nil`), and `result` is the value the call pushes back.
+ *   Device-port lines raised while the action body runs are emitted at the
+ *   moment of the port call, before the action's own line.
+ * - `action ... async`: one asynchronous host-action dispatch, emitted when
+ *   the body is invoked. The leading tokens match the synchronous form; the
+ *   trailing `async` marks that the call returns a pending handle rather than
+ *   a value. Device-port lines raised by the body precede this line.
  * - `port display set-pixel`: one pixel write crossing the display device
  *   port, with the x/y/brightness arguments as passed to the port (before
  *   the device clamps or discards them).
+ * - `port display scroll`: one scroll-text request crossing the display
+ *   device port, with the scrolled text as the quoted byte sequence passed
+ *   to the port.
  * - `fault`: one fiber fault. `<errorCode>` is the numeric wire-stable
  *   `ErrorCode`. Fault messages are implementation-defined and never render.
  */
@@ -172,11 +181,18 @@ export class ObservableTraceWriter {
    * @param result - Value the call returned.
    */
   hostActionCall(actionId: number, callSiteId: number, args: ReadonlyList<Value>, result: Value): void {
-    let text = `action ${hexU32(actionId)} site ${hexU32(callSiteId)} args ${hexU32(args.size())}`;
-    for (let i = 0; i < args.size(); i++) {
-      text += ` ${valueToken(args.get(i), this.precision)}`;
-    }
-    this.line(`${text} result ${valueToken(result, this.precision)}`);
+    this.line(`${this.actionPrefix(actionId, callSiteId, args)} result ${valueToken(result, this.precision)}`);
+  }
+
+  /**
+   * Records one asynchronous host-action dispatch.
+   *
+   * @param actionId - Stable registry id of the dispatched action.
+   * @param callSiteId - Call-site id the dispatch was bound to.
+   * @param args - Positional arg buffer as received by the binding.
+   */
+  hostActionCallAsync(actionId: number, callSiteId: number, args: ReadonlyList<Value>): void {
+    this.line(`${this.actionPrefix(actionId, callSiteId, args)} async`);
   }
 
   /**
@@ -193,6 +209,15 @@ export class ObservableTraceWriter {
   }
 
   /**
+   * Records one scroll-text request crossing the display device port.
+   *
+   * @param text - Text scrolled, as passed to the port.
+   */
+  displayScroll(text: string): void {
+    this.line(`port display scroll ${quoted(text)}`);
+  }
+
+  /**
    * Records one fiber fault.
    *
    * @param fiberId - Id of the faulted fiber.
@@ -205,6 +230,14 @@ export class ObservableTraceWriter {
   /** Returns the accumulated canonical trace text. */
   render(): string {
     return this.out;
+  }
+
+  private actionPrefix(actionId: number, callSiteId: number, args: ReadonlyList<Value>): string {
+    let text = `action ${hexU32(actionId)} site ${hexU32(callSiteId)} args ${hexU32(args.size())}`;
+    for (let i = 0; i < args.size(); i++) {
+      text += ` ${valueToken(args.get(i), this.precision)}`;
+    }
+    return text;
   }
 
   private line(text: string): void {

@@ -264,4 +264,30 @@ private:
   Handle* completedTail_ = nullptr;
 };
 
+/**
+ * Settle handle for one pending async operation, bound to a single {@link id} in
+ * a {@link HandleTable}. An async host function or action body retains this
+ * across the async boundary and calls exactly one of {@link resolve},
+ * {@link reject}, or {@link cancel} when the work completes. Settling a handle
+ * that is no longer pending -- already settled, cancelled with its fiber, or
+ * freed -- is a no-op. Mirrors `AsyncHandle` in
+ * external/mindcraft-lang/packages/core/src/runtime/value.ts.
+ */
+struct AsyncHandle {
+  /** The handle table the bound handle lives in. */
+  HandleTable* table;
+
+  /** The bound handle id, the value the dispatching opcode pushed for `AWAIT`. */
+  uint32_t id;
+
+  /** Settles the handle as resolved, carrying `value` to the awaiting fiber. */
+  void resolve(const Value& value) const { table->resolve(id, value); }
+
+  /** Settles the handle as rejected; the awaiting fiber throws an error of `error`. */
+  void reject(ErrorCode error) const { table->reject(id, error); }
+
+  /** Settles the handle as cancelled; the awaiting fiber throws `ErrorCode::Cancelled`. */
+  void cancel() const { table->cancel(id); }
+};
+
 } // namespace mindcraft

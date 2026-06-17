@@ -58,8 +58,12 @@ TEST_CASE("microbit-v2 host-action ids are wire-stable") {
   CHECK(MicroBitV2HostActions::DisplaySetPixel.fnId ==
         static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorDisplaySetPixel));
   CHECK(MicroBitV2HostActions::DisplaySetPixel.fnId == 1034);
+  CHECK(MicroBitV2HostActions::DisplayScroll.actionId == 1026);
+  CHECK(MicroBitV2HostActions::DisplayScroll.fnId ==
+        static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorDisplayScroll));
+  CHECK(MicroBitV2HostActions::DisplayScroll.fnId == 1035);
 
-  REQUIRE(std::size(kMicroBitV2HostActions) == 2);
+  REQUIRE(std::size(kMicroBitV2HostActions) == 3);
   for (uint32_t i = 0; i < std::size(kMicroBitV2HostActions); i++) {
     CHECK(kMicroBitV2HostActions[i].actionId == TARGET_ACTION_ID_BASE + i);
   }

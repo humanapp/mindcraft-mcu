@@ -48,6 +48,9 @@ export interface WodalDeviceProfile {
   /** Per-fiber try-handler depth cap. Mirrored as the C++ `kMaxHandlers` guard. */
   readonly maxHandlers: number;
 
+  /** Concurrent async-handle cap. Mirrored as the C++ `maxHandles` device-profile guard. */
+  readonly maxHandles: number;
+
   /** Creates the Mindcraft module for this profile. */
   readonly createMindcraftModule: () => MindcraftModule;
 
@@ -70,6 +73,7 @@ export const WODAL_DEVICE_PROFILES = Object.freeze({
     maxLocalsSize: 256,
     maxFrameDepth: 64,
     maxHandlers: 16,
+    maxHandles: 8,
     createMindcraftModule: createMicroBitV2Module,
     createProgramImage: createMicroBitV2ProgramImage,
   } satisfies WodalDeviceProfile),

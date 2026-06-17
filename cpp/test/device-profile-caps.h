@@ -20,10 +20,8 @@ inline constexpr DeviceProfileCaps withMaxHandles(DeviceProfileCaps caps, uint32
 }
 
 /**
- * The microbit-v2 caps with a positive async-handle cap, for tests that exercise
- * `HOST_CALL_ASYNC` / `AWAIT`. The microbit-v2 profile itself keeps `maxHandles`
- * at 0 until its first async capability ships; this variant only lifts that one
- * guard so the async dispatch path can allocate handles.
+ * The microbit-v2 caps with `maxHandles` raised to 16, for the async-core tests
+ * that allocate several handles at once.
  */
 inline constexpr DeviceProfileCaps kAsyncDeviceProfileCaps =
     withMaxHandles(kMicroBitV2DeviceProfileCaps, 16);

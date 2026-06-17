@@ -18,6 +18,7 @@
 #include "device-profile-caps.h"
 #include "fixture-paths.h"
 #include "string-sink.h"
+#include "targets/microbit-v2/abi/display-scroll.h"
 #include "targets/microbit-v2/abi/host-action-bindings.h"
 #include "targets/microbit-v2/abi/host-func-bindings.h"
 #include "targets/microbit-v2/abi/native-struct-bindings.h"
@@ -71,6 +72,9 @@ struct HostMicroBit {
   struct TracingDisplay : mindcraft::PixelDisplayPort {
     ObservableTraceWriter* writer = nullptr;
     uint8_t pixels[5][5] = {};
+    bool scrolling = false;
+    float completionTime = 0;
+    mindcraft::AsyncHandle activeScroll{};
 
     void setPixel(uint8_t x, uint8_t y, uint8_t brightness) override {
       if (writer != nullptr) {
@@ -80,6 +84,33 @@ struct HostMicroBit {
       if (x < 5 && y < 5) {
         pixels[y][x] = brightness;
       }
+    }
+
+    // Host stub: completion is driven by the pinned formula against logical time
+    // (no glyph rendering), so the resume round matches the wodal oracle. A
+    // scroll requested while one is in progress is rejected (settled at once).
+    void scrollText(const uint8_t* bytes, uint32_t length, uint32_t delayMs, float requestTimeMs,
+                    mindcraft::AsyncHandle handle) override {
+      if (writer != nullptr) {
+        writer->displayScroll(bytes, length);
+      }
+      if (scrolling) {
+        handle.resolve(mindcraft::kVoidValue);
+        return;
+      }
+      scrolling = true;
+      completionTime =
+          requestTimeMs + static_cast<float>(mindcraft::scrollDurationMs(length, delayMs));
+      activeScroll = handle;
+    }
+
+    // Resolve the active scroll once due, mirroring the device's pollScroll.
+    void advanceScroll(float now) {
+      if (!scrolling || now < completionTime) {
+        return;
+      }
+      scrolling = false;
+      activeScroll.resolve(mindcraft::kVoidValue);
     }
   };
 
@@ -118,6 +149,11 @@ struct TraceTap : VmObserver {
   void onHostActionCall(uint32_t actionId, uint32_t callSiteId, Span<const Value> args,
                         const Value& result) override {
     renderable = writer.hostActionCall(actionId, callSiteId, args, result) && renderable;
+  }
+
+  void onHostActionCallAsync(uint32_t actionId, uint32_t callSiteId,
+                             Span<const Value> args) override {
+    renderable = writer.hostActionCallAsync(actionId, callSiteId, args) && renderable;
   }
 
   void onFiberFault(uint32_t fiberId, ErrorCode code) override { writer.fiberFault(fiberId, code); }
@@ -873,4 +909,71 @@ TEST_CASE("the core-host-actions fixture byte-matches the golden observable trac
 
   CHECK(tap.renderable);
   CHECK(sink.text() == golden);
+}
+
+TEST_CASE("the display-scroll fixture byte-matches the golden observable trace") {
+  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/display-scroll";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  TraceTap tap(writer);
+
+  // The rule's on-page-entered trigger is a core action; the async scroll and
+  // set-pixel are microbit actions. The scroll body reads its borrowed text
+  // string through the image-backed heap; the scroll env hands the body that
+  // heap and the display port.
+  mindcraft::CoreHostActionEnv coreEnv;
+  mindcraft::VmRng rng;
+  mindcraft::ManagedHeap heap(arena, &image);
+  mindcraft::MicroBitV2DisplayScrollEnv scrollEnv{&microbit.display, &heap};
+  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports, &scrollEnv);
+  auto actions = combineActionTable(coreBindings, mbBindings);
+  ExecutionContext ctx;
+  RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
+  surface.rng = &rng;
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+  coreEnv.brain = &brain;
+  coreEnv.rng = &rng;
+  coreEnv.heap = &heap;
+  coreEnv.roots = &scheduler;
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Four 1100ms thinks mirror the wodal display-scroll oracle schedule: the
+  // scroll dispatches async on tick 1, its handle resolves once the pinned
+  // completion time passes, and the rule resumes and lights pixel (0,0) on tick
+  // 4. The scroll completion settles the handle out of band before each think,
+  // as the CODAL animation-complete event does on device; the think then drains
+  // it and resumes the waiter on the next round.
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 4; i++) {
+    const float timeMs = lastThinkTimeMs + 1100;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    microbit.display.advanceScroll(timeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+  CHECK(microbit.display.pixels[0][0] == 255);
 }

@@ -20,9 +20,8 @@ inline constexpr uint32_t kMicroBitV2NumericProfileId = 1;
  * Scheduling and per-fiber resource caps for the microbit-v2 device profile.
  * Mirrors the cap fields of the `microbit-v2` entry of `WODAL_DEVICE_PROFILES`
  * in packages/wodal/src/mindcraft/device-profile.ts; the two sides are held
- * equal by the device-profile cap parity gate. `maxHandles` is zero until async
- * handles exist. The host threads these into the {@link FiberScheduler}
- * constructor.
+ * equal by the device-profile cap parity gate. The host threads these into the
+ * {@link FiberScheduler} constructor.
  */
 inline constexpr DeviceProfileCaps kMicroBitV2DeviceProfileCaps{
     1000,  // defaultBudget
@@ -32,7 +31,7 @@ inline constexpr DeviceProfileCaps kMicroBitV2DeviceProfileCaps{
     256,   // maxLocalsSize
     64,    // maxFrameDepth
     16,    // maxHandlers
-    0,     // maxHandles
+    8,     // maxHandles
 };
 
 } // namespace mindcraft

@@ -24,6 +24,18 @@ public:
   virtual void onHostActionCall(uint32_t actionId, uint32_t callSiteId, Span<const Value> args,
                                 const Value& result) = 0;
 
+  /**
+   * One asynchronous host-action dispatch. Raised when the body is invoked,
+   * before its handle settles; `args` is the positional arg buffer exactly as
+   * the binding received it and is valid only for the duration of this call.
+   */
+  virtual void onHostActionCallAsync(uint32_t actionId, uint32_t callSiteId,
+                                     Span<const Value> args) {
+    static_cast<void>(actionId);
+    static_cast<void>(callSiteId);
+    static_cast<void>(args);
+  }
+
   /** One fiber fault, raised when the fiber transitions to its fault state. */
   virtual void onFiberFault(uint32_t fiberId, ErrorCode code) = 0;
 

@@ -2,6 +2,9 @@
 
 #include <cstdint>
 
+#include "core/runtime/handle-table.h"
+#include "core/runtime/mc-number.h"
+
 namespace mindcraft {
 
 /**
@@ -14,6 +17,16 @@ public:
 
   /** Set one pixel's brightness: 0 is off, 255 is full brightness. */
   virtual void setPixel(uint8_t x, uint8_t y, uint8_t brightness) = 0;
+
+  /**
+   * Begin scrolling `length` ASCII bytes across the display at `delayMs` per
+   * animation step, requested at logical tick time `requestTimeMs`. The call
+   * returns immediately; the scroll runs asynchronously and settles `handle`
+   * (resolve) when the animation completes. Scrolls serialize: one requested
+   * while another is animating begins when the display next becomes free.
+   */
+  virtual void scrollText(const uint8_t* bytes, uint32_t length, uint32_t delayMs,
+                          mc_number_t requestTimeMs, AsyncHandle handle) = 0;
 };
 
 /**

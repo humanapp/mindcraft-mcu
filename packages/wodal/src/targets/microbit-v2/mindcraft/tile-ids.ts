@@ -30,6 +30,7 @@ export enum MicroBitV2HostFuncId {
   TouchButtonSetValue = 1032,
   SensorButtonA = 1033,
   ActuatorDisplaySetPixel = 1034,
+  ActuatorDisplayScroll = 1035,
 }
 
 /**
@@ -63,6 +64,13 @@ export const MicroBitV2HostActions = {
     actionId: 1025,
     fnId: MicroBitV2HostFuncId.ActuatorDisplaySetPixel,
   },
+
+  /** Actuator: scroll text across the 5x5 display, awaiting the animation. */
+  DisplayScroll: {
+    key: "microbit-v2.display-scroll",
+    actionId: 1026,
+    fnId: MicroBitV2HostFuncId.ActuatorDisplayScroll,
+  },
 } as const satisfies Record<string, HostActionIds>;
 
 /** Modifier tile ids that select which button A edge the sensor reports. */
@@ -84,4 +92,7 @@ export const WodalMicroBitV2ParameterId = {
 
   /** LED brightness, 0 to 255. */
   Brightness: "microbit-v2.brightness",
+
+  /** Text to scroll across the display. */
+  Text: "microbit-v2.text",
 } as const;

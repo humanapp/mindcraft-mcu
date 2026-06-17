@@ -13,6 +13,7 @@ export const Param = {
   x: param(WodalMicroBitV2ParameterId.X),
   y: param(WodalMicroBitV2ParameterId.Y),
   brightness: param(WodalMicroBitV2ParameterId.Brightness),
+  text: param(WodalMicroBitV2ParameterId.Text, { anonymous: true }),
 };
 
 /** Parameter tiles registered once with the module. */
@@ -20,4 +21,5 @@ export const MICROBIT_V2_PARAMETERS: readonly ParameterTileInput[] = [
   { id: WodalMicroBitV2ParameterId.X, dataType: CoreTypeIds.Number, label: "x" },
   { id: WodalMicroBitV2ParameterId.Y, dataType: CoreTypeIds.Number, label: "y" },
   { id: WodalMicroBitV2ParameterId.Brightness, dataType: CoreTypeIds.Number, label: "brightness" },
+  { id: WodalMicroBitV2ParameterId.Text, dataType: CoreTypeIds.String, label: "text" },
 ];

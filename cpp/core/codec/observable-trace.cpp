@@ -27,6 +27,29 @@ void ObservableTraceWriter::tick(uint32_t ordinal, mc_number_t time, mc_number_t
 
 bool ObservableTraceWriter::hostActionCall(uint32_t actionId, uint32_t callSiteId,
                                            Span<const Value> args, const Value& result) {
+  if (!actionPrefix(actionId, callSiteId, args)) {
+    return false;
+  }
+  w_.text(" result ");
+  if (!valueToken(result)) {
+    return false;
+  }
+  w_.nl();
+  return true;
+}
+
+bool ObservableTraceWriter::hostActionCallAsync(uint32_t actionId, uint32_t callSiteId,
+                                                Span<const Value> args) {
+  if (!actionPrefix(actionId, callSiteId, args)) {
+    return false;
+  }
+  w_.text(" async");
+  w_.nl();
+  return true;
+}
+
+bool ObservableTraceWriter::actionPrefix(uint32_t actionId, uint32_t callSiteId,
+                                         Span<const Value> args) {
   w_.text("action ");
   w_.hex(actionId);
   w_.text(" site ");
@@ -39,11 +62,6 @@ bool ObservableTraceWriter::hostActionCall(uint32_t actionId, uint32_t callSiteI
       return false;
     }
   }
-  w_.text(" result ");
-  if (!valueToken(result)) {
-    return false;
-  }
-  w_.nl();
   return true;
 }
 
@@ -54,6 +72,12 @@ void ObservableTraceWriter::displaySetPixel(mc_number_t x, mc_number_t y, mc_num
   w_.numberBits(y);
   w_.ch(' ');
   w_.numberBits(brightness);
+  w_.nl();
+}
+
+void ObservableTraceWriter::displayScroll(const uint8_t* bytes, uint32_t length) {
+  w_.text("port display scroll ");
+  quoteBytes(w_, bytes, length);
   w_.nl();
 }
 

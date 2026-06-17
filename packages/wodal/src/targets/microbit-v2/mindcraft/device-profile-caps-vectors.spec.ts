@@ -14,8 +14,8 @@ import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/
 // fails the gate. The encoding is:
 //   magic 'M' 'C' 'C' '1' | varuint count | count * (varuint nameLen, name
 //   bytes, varuint value)
-// maxHandles is omitted: it is zero until async handles exist and joins this
-// fixture when it enters the profile.
+// maxHandles is the eighth cap: the concurrent async-handle ceiling, mirrored
+// by the C++ maxHandles device-profile guard.
 
 const FIXTURE = fileURLToPath(new URL("./__fixtures__/device-profile-caps-vectors.bin", import.meta.url));
 
@@ -30,6 +30,7 @@ const CAPS: ReadonlyArray<readonly [string, number]> = [
   ["maxLocalsSize", profile.maxLocalsSize],
   ["maxFrameDepth", profile.maxFrameDepth],
   ["maxHandlers", profile.maxHandlers],
+  ["maxHandles", profile.maxHandles],
 ];
 
 class ByteWriter {

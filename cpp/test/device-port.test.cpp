@@ -18,6 +18,9 @@ struct RecordingDisplay : mindcraft::PixelDisplayPort {
   void setPixel(uint8_t x, uint8_t y, uint8_t brightness) override {
     calls.push_back({x, y, brightness});
   }
+
+  void scrollText(const uint8_t*, uint32_t, uint32_t, mindcraft::mc_number_t,
+                  mindcraft::AsyncHandle) override {}
 };
 
 struct FixedButtons : mindcraft::ButtonInputPort {

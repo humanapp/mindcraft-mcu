@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Dict } from "@mindcraft-lang/core";
 import {
+  type AsyncHandle,
   type ExecutionContext,
   getSlotId,
   List,
@@ -11,6 +12,7 @@ import {
   mkNumberValue,
   mkParameterTileId,
   mkSensorTileId,
+  mkStringValue,
   NIL_VALUE,
   type Value,
 } from "@mindcraft-lang/core/app";
@@ -106,6 +108,34 @@ test("set-pixel actuator applies parameter defaults when arguments are absent", 
   // An explicit brightness of 0 is preserved and turns the pixel off.
   setPixel(env, ctx, { x: 0, y: 0, brightness: 0 });
   assert.equal(microbit.display.getPixelValue(0, 0), 0);
+});
+
+test("scroll actuator is async with one optional text slot and defaults the omitted text to 'hello'", () => {
+  const env = createMicroBitV2Environment();
+  const microbit = new MicroBit();
+  const ctx = createExecutionContext(env, microbit);
+
+  const entry = env.brainServices.runtime.functions.getAsyncById(MicroBitV2HostActions.DisplayScroll.fnId);
+  assert.ok(entry, "scroll actuator should be registered as an async function");
+  assert.equal(entry.callDef.argSlots.size(), 1);
+
+  let scrolled: string | undefined;
+  const deviceScrollText = microbit.display.scrollText.bind(microbit.display);
+  microbit.display.scrollText = (text, durationMs, requestTime, onComplete) => {
+    scrolled = text;
+    deviceScrollText(text, durationMs, requestTime, onComplete);
+  };
+  const handle: AsyncHandle = { id: 1, resolve: () => {}, reject: () => {}, cancel: () => {} };
+
+  // No text argument: the scroll defaults to "hello".
+  entry.fn.exec(ctx, filledArgs(entry.callDef.argSlots.size()), handle);
+  assert.equal(scrolled, "hello");
+
+  // An explicit text is scrolled verbatim.
+  const args = filledArgs(entry.callDef.argSlots.size());
+  args.set(getSlotId(entry.callDef, mkParameterTileId(WodalMicroBitV2ParameterId.Text)), mkStringValue("yo"));
+  entry.fn.exec(ctx, args, handle);
+  assert.equal(scrolled, "yo");
 });
 
 test("default button-A sensor fires on the released-to-pressed edge and does not re-fire while held", () => {

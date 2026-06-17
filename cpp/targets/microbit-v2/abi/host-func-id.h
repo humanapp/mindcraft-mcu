@@ -28,6 +28,7 @@ enum class MicroBitV2HostFuncId : uint32_t
     TouchButtonSetValue = 1032,
     SensorButtonA = 1033,
     ActuatorDisplaySetPixel = 1034,
+    ActuatorDisplayScroll = 1035,
 };
 
 /**

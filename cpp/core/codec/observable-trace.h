@@ -54,15 +54,32 @@ public:
                       const Value& result);
 
   /**
+   * Records one asynchronous host-action dispatch: the stable action id, the
+   * bound call site, and the positional arg buffer as the binding received it.
+   * The dispatch returns a pending handle, so the line ends with `async` and
+   * renders no result. Returns false without completing the line when an
+   * argument carries a value kind the trace format does not define; bytes
+   * already rendered stay written.
+   */
+  bool hostActionCallAsync(uint32_t actionId, uint32_t callSiteId, Span<const Value> args);
+
+  /**
    * Records one pixel write crossing the display device port, with the
    * x/y/brightness arguments as passed to the port.
    */
   void displaySetPixel(mc_number_t x, mc_number_t y, mc_number_t brightness);
 
+  /**
+   * Records one scroll-text request crossing the display device port: the
+   * `length` scrolled bytes as a quoted byte sequence.
+   */
+  void displayScroll(const uint8_t* bytes, uint32_t length);
+
   /** Records one fiber fault: the fiber id and the numeric `ErrorCode`. */
   void fiberFault(uint32_t fiberId, ErrorCode code);
 
 private:
+  bool actionPrefix(uint32_t actionId, uint32_t callSiteId, Span<const Value> args);
   bool valueToken(const Value& value);
 
   TextWriter w_;

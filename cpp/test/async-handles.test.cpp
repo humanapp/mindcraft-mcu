@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <vector>
 
+using mindcraft::AsyncHandle;
 using mindcraft::BrainRuntime;
 using mindcraft::ErrorCode;
 using mindcraft::ExecutionContext;
@@ -59,7 +60,7 @@ enum class SettleMode : uint8_t { Resolve = 0, Reject = 1, Cancel = 2 };
  */
 struct AsyncSettleScheduler {
   struct Entry {
-    uint32_t handleId;
+    AsyncHandle handle;
     uint32_t targetTick;
     SettleMode mode;
     mc_number_t value;
@@ -67,12 +68,11 @@ struct AsyncSettleScheduler {
   };
 
   std::array<Entry, 16> entries{};
-  HandleTable* handles = nullptr;
 
-  void schedule(uint32_t handleId, uint32_t targetTick, SettleMode mode, mc_number_t value) {
+  void schedule(AsyncHandle handle, uint32_t targetTick, SettleMode mode, mc_number_t value) {
     for (Entry& e : entries) {
       if (!e.active) {
-        e = Entry{handleId, targetTick, mode, value, true};
+        e = Entry{handle, targetTick, mode, value, true};
         return;
       }
     }
@@ -85,13 +85,13 @@ struct AsyncSettleScheduler {
       }
       switch (e.mode) {
       case SettleMode::Resolve:
-        handles->resolve(e.handleId, Value::number(e.value));
+        e.handle.resolve(Value::number(e.value));
         break;
       case SettleMode::Reject:
-        handles->reject(e.handleId, ErrorCode::HostError);
+        e.handle.reject(ErrorCode::HostError);
         break;
       case SettleMode::Cancel:
-        handles->cancel(e.handleId);
+        e.handle.cancel();
         break;
       }
       e.active = false;
@@ -99,7 +99,7 @@ struct AsyncSettleScheduler {
   }
 };
 
-Status execAsyncSettle(void* hostData, Span<const Value> args, uint32_t handleId) {
+Status execAsyncSettle(void* hostData, Span<const Value> args, AsyncHandle handle) {
   AsyncSettleScheduler& s = *static_cast<AsyncSettleScheduler*>(hostData);
   const uint32_t targetTick =
       !args.empty() && args[0].isNumber() ? static_cast<uint32_t>(args[0].asNumber()) : 0;
@@ -107,7 +107,7 @@ Status execAsyncSettle(void* hostData, Span<const Value> args, uint32_t handleId
                               ? static_cast<SettleMode>(static_cast<uint8_t>(args[1].asNumber()))
                               : SettleMode::Resolve;
   const mc_number_t value = args.size() > 2 && args[2].isNumber() ? args[2].asNumber() : 0;
-  s.schedule(handleId, targetTick, mode, value);
+  s.schedule(handle, targetTick, mode, value);
   return Status::ok();
 }
 
@@ -115,21 +115,16 @@ Status execAsyncSettle(void* hostData, Span<const Value> args, uint32_t handleId
 // HOST_ACTION_CALL_ASYNC; it shares the settle scheduler with the host-function
 // form.
 Status execAsyncSettleAction(void* hostData, ExecutionContext&, Span<const Value> args,
-                             uint32_t handleId) {
-  return execAsyncSettle(hostData, args, handleId);
+                             AsyncHandle handle) {
+  return execAsyncSettle(hostData, args, handle);
 }
-
-/** Late-bound handle-table pointer, set after the scheduler that owns it exists. */
-struct HandleTableRef {
-  HandleTable* handles = nullptr;
-};
 
 // An async function that resolves its handle synchronously in its own body, so a
 // following AWAIT sees a settled handle and resumes inline in the same slice.
-Status execAsyncResolveNow(void* hostData, Span<const Value> args, uint32_t handleId) {
-  HandleTable& handles = *static_cast<HandleTableRef*>(hostData)->handles;
+Status execAsyncResolveNow(void* hostData, Span<const Value> args, AsyncHandle handle) {
+  static_cast<void>(hostData);
   const mc_number_t value = !args.empty() && args[0].isNumber() ? args[0].asNumber() : 0;
-  handles.resolve(handleId, Value::number(value));
+  handle.resolve(Value::number(value));
   return Status::ok();
 }
 
@@ -197,7 +192,7 @@ ProgramImage buildSingleAwaiterProgram(ProgramBuilder& b, std::vector<uint8_t>& 
   return b.build(storage);
 }
 
-/** A standard async surface over `actions`/`hostFns`; the caller wires handles after. */
+/** A standard async surface over `actions`/`hostFns`. */
 struct AsyncFixture {
   ProgramBuilder builder;
   std::vector<uint8_t> storage = std::vector<uint8_t>(16 * 1024);
@@ -220,7 +215,6 @@ TEST_CASE("AWAIT on a pending handle parks the fiber and resumes on the round af
   surface.hostFunctions = {hostFns, 1};
 
   FiberScheduler scheduler(image, surface, fx.pools.arena, kAsyncDeviceProfileCaps);
-  fx.asyncSched.handles = &scheduler.handles();
   BrainRuntime brain(image, scheduler, surface);
   REQUIRE(brain.startup().isOk());
 
@@ -247,7 +241,6 @@ TEST_CASE("a rejected handle throws into the awaiting fiber and faults it") {
   surface.hostFunctions = {hostFns, 1};
 
   FiberScheduler scheduler(image, surface, fx.pools.arena, kAsyncDeviceProfileCaps);
-  fx.asyncSched.handles = &scheduler.handles();
   BrainRuntime brain(image, scheduler, surface);
   REQUIRE(brain.startup().isOk());
 
@@ -271,7 +264,6 @@ TEST_CASE("a cancelled handle faults the awaiting fiber with Cancelled") {
   surface.hostFunctions = {hostFns, 1};
 
   FiberScheduler scheduler(image, surface, fx.pools.arena, kAsyncDeviceProfileCaps);
-  fx.asyncSched.handles = &scheduler.handles();
   BrainRuntime brain(image, scheduler, surface);
   REQUIRE(brain.startup().isOk());
 
@@ -349,7 +341,6 @@ TEST_CASE("multiple fibers awaiting one handle resume in the order they began wa
   surface.hostFunctions = {hostFns, 1};
 
   FiberScheduler scheduler(image, surface, fx.pools.arena, kAsyncDeviceProfileCaps);
-  fx.asyncSched.handles = &scheduler.handles();
   BrainRuntime brain(image, scheduler, surface);
   REQUIRE(brain.startup().isOk());
 
@@ -382,13 +373,12 @@ TEST_CASE("AWAIT on an already-resolved handle resumes inline in the same slice"
   b.beginPage(0).pageRoot(0);
   const ProgramImage image = b.build(fx.storage);
 
-  HandleTableRef ref;
-  const TargetHostFuncBinding hostFns[1] = {{kResolveNowFnId, nullptr, &ref, &execAsyncResolveNow}};
+  const TargetHostFuncBinding hostFns[1] = {
+      {kResolveNowFnId, nullptr, nullptr, &execAsyncResolveNow}};
   RuntimeSurface surface{&fx.ctx, {}, &fx.observer};
   surface.hostFunctions = {hostFns, 1};
 
   FiberScheduler scheduler(image, surface, fx.pools.arena, kAsyncDeviceProfileCaps);
-  ref.handles = &scheduler.handles();
   BrainRuntime brain(image, scheduler, surface);
   REQUIRE(brain.startup().isOk());
 
@@ -469,7 +459,6 @@ TEST_CASE("HOST_ACTION_CALL_ASYNC dispatches an async host action and AWAIT resu
   RuntimeSurface surface{&fx.ctx, {actions, 2}, &fx.observer};
 
   FiberScheduler scheduler(image, surface, fx.pools.arena, kAsyncDeviceProfileCaps);
-  fx.asyncSched.handles = &scheduler.handles();
   BrainRuntime brain(image, scheduler, surface);
   REQUIRE(brain.startup().isOk());
 

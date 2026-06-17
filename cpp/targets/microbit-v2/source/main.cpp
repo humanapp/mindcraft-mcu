@@ -114,8 +114,11 @@ int main()
     // and brain exist.
     CoreHostActionEnv coreEnv;
     VmRng rng;
+    // The async scroll body reaches the display and the heap (to read its text
+    // string) through this env; its heap is filled once the heap exists.
+    MicroBitV2DisplayScrollEnv scrollEnv{&display, nullptr};
     auto coreBindings = makeCoreHostActionBindings(coreEnv);
-    auto mbBindings = makeMicroBitV2HostActionBindings(ports);
+    auto mbBindings = makeMicroBitV2HostActionBindings(ports, &scrollEnv);
     std::array<HostActionBinding, kCoreHostActionBindingCount + kMicroBitV2HostActionBindingCount>
         actions{};
     for (size_t i = 0; i < coreBindings.size(); i++)
@@ -127,7 +130,7 @@ int main()
         actions[coreBindings.size() + i] = mbBindings[i];
     }
     auto hostFuncs = makeMicroBitV2HostFuncBindings(ports);
-    ManagedHeap heap(arena);
+    ManagedHeap heap(arena, &image);
     TypeRegistry types(image);
     auto nativeStructs = makeMicroBitV2NativeStructBindings(types);
     types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
@@ -142,6 +145,7 @@ int main()
     coreEnv.rng = &rng;
     coreEnv.heap = &heap;
     coreEnv.roots = &scheduler;
+    scrollEnv.heap = &heap;
 
     HostLoop hostLoop(brain, ports);
     const mindcraft::Status startupStatus = hostLoop.startup();
@@ -156,6 +160,9 @@ int main()
 
     while (true)
     {
+        // Settle any completed scroll before the brain thinks, so its awaiting
+        // rule resumes on this round's drain.
+        display.pollScroll();
         hostLoop.tick();
         uBit.sleep(kTickIntervalMs);
     }

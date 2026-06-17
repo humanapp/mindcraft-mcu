@@ -1101,7 +1101,8 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       // The arg view is valid only for the call; the body copies what it
       // retains. A failing body rolls back the handle and faults.
       const Span<const Value> args(state.stack + (state.stackDepth - argc), argc);
-      const Status status = binding->execAsync(binding->hostData, args, handleId);
+      const Status status =
+          binding->execAsync(binding->hostData, args, AsyncHandle{surface.handles, handleId});
       if (!status.isOk()) {
         surface.handles->deleteHandle(handleId);
         return fault(status.error());
@@ -1145,11 +1146,15 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
         return fault(ErrorCode::StackOverflow);
       }
       const Span<const Value> args(state.stack + (state.stackDepth - argc), argc);
-      const Status status = action->execAsync(action->hostData, ctx, args, handleId);
+      const Status status =
+          action->execAsync(action->hostData, ctx, args, AsyncHandle{surface.handles, handleId});
       ctx.currentCallSiteId = kNoCallSiteId;
       if (!status.isOk()) {
         surface.handles->deleteHandle(handleId);
         return fault(status.error());
+      }
+      if (surface.observer != nullptr) {
+        surface.observer->onHostActionCallAsync(ins.a, ins.c, args);
       }
       state.stackDepth -= argc;
       if (!pushValue(state, Value::handle(handleId))) {

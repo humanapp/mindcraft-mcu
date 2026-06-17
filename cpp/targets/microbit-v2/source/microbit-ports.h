@@ -3,6 +3,7 @@
 #include "MicroBit.h"
 
 #include "codal/device-port.h"
+#include "targets/microbit-v2/abi/display-scroll.h"
 
 namespace mindcraft
 {
@@ -13,7 +14,14 @@ namespace mindcraft
  * instance, which must outlive every port.
  */
 
-/** Drives the 5x5 LED matrix through `MicroBitDisplay::image`. */
+/**
+ * Drives the 5x5 LED matrix through `MicroBitDisplay`: direct pixel writes and
+ * the asynchronous text scroll. A scroll starts CODAL's `scrollAsync` for the
+ * visible animation and resolves its async handle once the pinned scroll
+ * duration has elapsed, polled each host-loop tick by {@link pollScroll}. A
+ * scroll requested while one is in progress is rejected (its handle settles at
+ * once).
+ */
 class MicroBitPixelDisplayPort : public PixelDisplayPort
 {
   public:
@@ -25,8 +33,43 @@ class MicroBitPixelDisplayPort : public PixelDisplayPort
                                           brightness);
     }
 
+    void scrollText(const uint8_t *bytes, uint32_t length, uint32_t delayMs, mc_number_t,
+                    AsyncHandle handle) override
+    {
+        if (animating_)
+        {
+            handle.resolve(kVoidValue);
+            return;
+        }
+        ManagedString text(reinterpret_cast<const char *>(bytes), static_cast<int16_t>(length));
+        active_ = handle;
+        animating_ = true;
+        completionTime_ =
+            static_cast<uint32_t>(system_timer_current_time()) + scrollDurationMs(length, delayMs);
+        uBit_.display.scrollAsync(text, static_cast<int>(delayMs));
+    }
+
+    /**
+     * Settles the active scroll's handle once its duration has elapsed
+     * (enqueue-only; the think loop resumes the waiter). Call once per host-loop
+     * tick before the brain thinks.
+     */
+    void pollScroll()
+    {
+        if (!animating_ || static_cast<uint32_t>(system_timer_current_time()) < completionTime_)
+        {
+            return;
+        }
+        const AsyncHandle done = active_;
+        animating_ = false;
+        done.resolve(kVoidValue);
+    }
+
   private:
     MicroBit &uBit_;
+    bool animating_ = false;
+    uint32_t completionTime_ = 0;
+    AsyncHandle active_{};
 };
 
 /** Reads debounced button levels: index 0 is button A, 1 is button B. */
