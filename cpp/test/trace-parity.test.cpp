@@ -19,8 +19,8 @@
 #include "hostkit/observable-trace.h"
 #include "string-sink.h"
 #include "targets/microbit-v2/abi/display-scroll.h"
-#include "targets/microbit-v2/abi/host-action-bindings.h"
-#include "targets/microbit-v2/abi/host-func-bindings.h"
+#include "targets/microbit-v2/abi/host-actions/host-action-bindings.h"
+#include "targets/microbit-v2/abi/host-functions/host-func-bindings.h"
 #include "targets/microbit-v2/abi/native-struct-bindings.h"
 #include "targets/microbit-v2/abi/type-atom-id.h"
 

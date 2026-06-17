@@ -19,8 +19,8 @@
 #include "core/runtime/value.h"
 #include "core/runtime/vm.h"
 #include "targets/microbit-v2/abi/device-profile.h"
-#include "targets/microbit-v2/abi/host-action-bindings.h"
-#include "targets/microbit-v2/abi/host-func-bindings.h"
+#include "targets/microbit-v2/abi/host-actions/host-action-bindings.h"
+#include "targets/microbit-v2/abi/host-functions/host-func-bindings.h"
 #include "targets/microbit-v2/abi/native-struct-bindings.h"
 #include "targets/microbit-v2/abi/type-atom-id.h"
 

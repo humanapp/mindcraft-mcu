@@ -1,0 +1,69 @@
+#pragma once
+
+#include <cstdint>
+
+#include "codal/device-port.h"
+#include "core/platform/span.h"
+#include "core/runtime/execution-context.h"
+#include "core/runtime/handle-table.h"
+#include "core/runtime/managed-heap.h"
+#include "core/runtime/result.h"
+#include "core/runtime/value.h"
+#include "targets/microbit-v2/abi/display-scroll.h"
+
+namespace mindcraft
+{
+
+/**
+ * Positional arg slot of the display scroll actuator, mirroring the flattened
+ * call-definition arg slots of the wodal action source
+ * (packages/wodal/src/targets/microbit-v2/mindcraft/actions/display-scroll.ts).
+ * Slot order is the call spec's declaration order and is wire-stable with the
+ * compiler's emitted arg buffers.
+ */
+inline constexpr uint32_t kDisplayScrollTextArgSlot = 0;
+
+/** Text scrolled when the call omits the optional text argument. */
+inline constexpr char kDisplayScrollDefaultText[] = "hello";
+
+/**
+ * The display port and managed heap an async display-scroll body reaches: the
+ * display to start the animation, the heap to read the scrolled string's bytes.
+ * The caller fills both before the binding's first dispatch.
+ */
+struct MicroBitV2DisplayScrollEnv
+{
+    PixelDisplayPort *display;
+    ManagedHeap *heap;
+};
+
+/**
+ * Async host actuator body: scroll text across the display. Reads the optional
+ * text argument (defaulting to "hello" when absent), starts the scroll on the
+ * display port at the current think time, and leaves `handle` for the port to
+ * resolve when the animation completes; the calling fiber awaits it. `hostData`
+ * is the bound {@link MicroBitV2DisplayScrollEnv}. Mirrors wodal
+ * `actions/display-scroll.ts`.
+ */
+inline Status execScrollText(void *hostData, ExecutionContext &ctx, Span<const Value> args,
+                             AsyncHandle handle)
+{
+    MicroBitV2DisplayScrollEnv &env = *static_cast<MicroBitV2DisplayScrollEnv *>(hostData);
+    const char *bytes = kDisplayScrollDefaultText;
+    uint32_t length = sizeof(kDisplayScrollDefaultText) - 1;
+    if (kDisplayScrollTextArgSlot < args.size() && args[kDisplayScrollTextArgSlot].isString())
+    {
+        const char *argBytes = nullptr;
+        uint32_t argLength = 0;
+        if (env.heap->stringContent(args[kDisplayScrollTextArgSlot], argBytes, argLength))
+        {
+            bytes = argBytes;
+            length = argLength;
+        }
+    }
+    env.display->scrollText(reinterpret_cast<const uint8_t *>(bytes), length, kScrollDefaultDelayMs,
+                            ctx.time, handle);
+    return Status::ok();
+}
+
+} // namespace mindcraft
