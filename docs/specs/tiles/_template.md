@@ -11,7 +11,7 @@ underlying mechanism - what a brain author writes, how its arguments parse, what
 at runtime, which **stance bucket** it occupies, and how its behavior is verified
 byte-for-byte across the TypeScript and C++ VMs.
 
-The governing defaults (plan, Phase 7): **poll on sensors, await on actuators with a
+The governing defaults: **poll on sensors, await on actuators with a
 temporal quality.** Every spec states which bucket its tile is in and, if it deviates
 (e.g. a sensor that takes the event exception), justifies it.
 
@@ -25,7 +25,7 @@ One of: `draft` | `proposed` | `implemented (wodal)` | `implemented (both VMs)` 
 ## Identity
 
 (Guidance: one mechanism may back several tiles - render it as a **family table**; a
-single tile is a one-row table. Function/Action ids are appended per Locked Decision 2:
+single tile is a one-row table. Function/Action ids are append-only:
 once assigned, never renumbered or reused; write `TBD` while drafting.)
 
 Family table (omit if a single tile):
@@ -80,7 +80,8 @@ Summarize the resulting slots:
 State the **stance bucket** and why, then the runtime semantics:
 
 - **Sensor:** poll-derived (read the latest state each tick) or the event exception
-  (justify against the 6i bus-listener hazard). Edge vs level. Firing model (fires once
+  (justify against the bus-listener hazard - a hardware listener that may not fire). Edge vs
+  level. Firing model (fires once
   per occurrence vs evaluated continuously). If events are derived from polled state,
   describe the derivation.
 - **Actuator:** sync (instantaneous, returns immediately) or async (allocates a pending
@@ -111,13 +112,25 @@ never wall-clock or animation-frame time. Use one of:)
 - **Observable trace** (target contract, state the format version): the line(s) emitted
   when the tile crosses the port / fires.
 
+## Sim UI (apps/microbit-sim) - surface 3
+
+Every peripheral has a UI affordance in `apps/microbit-sim` representing its inputs and/or
+outputs (the third per-peripheral surface). Describe it:
+
+- **Sensor input:** an interactive control that injects the value/event - e.g. a gesture
+  dropdown + trigger button, a clickable/rotatable sphere with axes for x/y/z, a slider for
+  temperature, the on-screen buttons. It drives the **same wodal injectable-input path the
+  parity harness scripts** (UI = interactive front-end; harness = scripted).
+- **Actuator output:** how the effect is rendered (e.g. the LED matrix).
+- `apps/microbit-sim` owns the UI; `wodal` owns the underlying injectable mechanism it drives.
+
 ## Conformance
 
 - The wodal microbit module is the oracle; the C++ microbit-v2 port mirrors it.
 - Golden fixtures (name them): `<fixture>.mcprogram.bin` + `<fixture>.ticks.trace`,
   byte-compared by the C++ parity test.
 - For sensors, the scripted injectable-input schedule that drives the golden.
-- For async actuators, the `maxHandles` budget (a Locked Decision 7 runtime guard sized
+- For async actuators, the `maxHandles` budget (a runtime guard sized
   against the device budget, never a pool size).
 
 ## Open questions

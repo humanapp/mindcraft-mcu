@@ -21,7 +21,7 @@ byte-for-byte across the TypeScript and C++ VMs.
 | Label         | "scroll text"                            |
 
 Action and function ids are wire-stable: once assigned they are never changed or
-reused (Locked Decision 2).
+reused.
 
 ## Authoring
 
@@ -92,5 +92,5 @@ or animation-frame time.
   `display-scroll.mcprogram.bin` and `display-scroll.ticks.trace`. The C++ VM
   parity test loads the same binary and byte-compares the trace.
 - microbit-v2 registers a non-zero async-handle budget (`maxHandles`) sized
-  against the device budget, a runtime guard (Locked Decision 7), never a pool
+  against the device budget, a runtime guard, never a pool
   size.

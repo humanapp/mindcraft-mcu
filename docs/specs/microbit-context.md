@@ -1,8 +1,8 @@
 # Spec: micro:bit Context surface (TS user-code device API)
 
 Status: living registry. The authoritative definition of `ctx.microbit.*` - the lower-level
-device API exposed to TypeScript user code. This is **surface 2** of the Phase 7 two-surface
-model (surface 1 = the brain tile language, specs in `docs/specs/tiles/`). It is **one
+device API exposed to TypeScript user code. This is **surface 2** of the two-surface model
+(surface 1 = the brain tile language, specs in `docs/specs/tiles/`). It is **one
 cross-cutting interface** that grows incrementally: each peripheral added to the tile
 language appends its sub-interface here. It is not a tile spec and does not follow the tile
 template.
@@ -23,12 +23,12 @@ template.
 
 ## Conventions (per peripheral)
 
-- `ctx.microbit.<peripheral>` is a native-struct getter (the 6f4 `Struct(typeId,
+- `ctx.microbit.<peripheral>` is a native-struct getter (the `Struct(typeId,
   discriminator)` rep + `native-struct-bindings.h`); its methods are host-functions over a
   `DevicePort`, bound to `uBit` on device and to the wodal sim model.
 - Stance (same as the tiles): instantaneous reads/writes = **sync** host-functions; temporal
   effects = **awaited** (op 45).
-- ABI ids appended (Locked Decision 2). Each member is implemented + tested on **both VMs**
+- ABI ids are append-only. Each member is implemented + tested on **both VMs**
   and declared in the ambient `.d.ts`.
 
 ## Current surface (2026-06-17)
@@ -63,7 +63,30 @@ last, at the next free id.
 - `display.scroll` is tile-only; expose it here as an awaited `display.scroll()` only if a
   TS-user-code consumer wants it (no consumer today).
 
-## Roadmap (append as peripherals land in Phase 7)
+## Proposed: `accelerometer` (DRAFT 2026-06-17, not yet wired)
+
+Surface-2 reads for the accelerometer peripheral (surface 1 = the gesture sensor tile,
+`docs/specs/tiles/accelerometer-sensor.md`). Continuous values that are not rule triggers, so
+they live here, not as tiles:
+
+| `ctx.microbit.accelerometer.*` | Returns | Notes |
+| ------------------------------ | ------- | ----- |
+| `getX()` / `getY()` / `getZ()` | number (mg) | raw acceleration per axis |
+| `getPitch()` / `getRoll()`     | number (degrees; exact range per CODAL) | CODAL native `getPitch`/`getRoll`, polled like x/y/z (not derived); injected as scalars on the test-only path |
+| `getGesture()`                 | number (gesture code) | the current gesture enum; the same value the surface-1 `gesture` tile compares against |
+
+- New `AccelerometerInputPort` (`getX/getY/getZ`, `getGesture`, ...) on `DevicePorts`, bound
+  to `uBit.accelerometer`. The reads **share the same poll** the gesture sensor tile consumes
+  (one poll, both surfaces).
+- Sync reads (instantaneous), per the stance.
+- **Not 1:1 with the tile:** TS user-code gets the raw values + pitch/roll + the current
+  `getGesture()` code; the gesture *tile* (surface 1) adds the modifier-match + level
+  semantics on top of `getGesture()`. (`getGesture()` is exposed - resolved 2026-06-17.)
+- **Append `accelerometer` LAST** at the next free `MicroBitField` id, per the field-order
+  invariant above. ids/values pinned at implementation (append-only); coordinate space + units must
+  match the tile spec.
+
+## Roadmap (append as peripherals land)
 
 Each peripheral adds its sub-interface here when its tile is added; source of capability is
 the CODAL inventory (`generated-docs/codal-capability-inventory-2026-06-17.md`):
@@ -72,7 +95,7 @@ the CODAL inventory (`generated-docs/codal-capability-inventory-2026-06-17.md`):
   (heading), display light level, microphone sound level, `radio` (send/receive).
 - **edge-connector primitives** (surface-2 ONLY - no tile counterpart): GPIO (digital/analog/
   PWM/touch/pulse), I2C (read/write register), the native NEC IR-receive primitive. These are
-  the library plumbing the Phase 9 Cutebot consumes; they live on this surface even though
+  the library plumbing a Cutebot-style peripheral library consumes; they live on this surface even though
   they have no tile.
 
 ## Conformance

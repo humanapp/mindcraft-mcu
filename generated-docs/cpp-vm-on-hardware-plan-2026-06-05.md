@@ -59,14 +59,30 @@ failure, and a subtraction pass precedes every gate. When unsure, leave it out.
 
 Current focus: **Phase 7 (microbit-v2 device-surface completeness) - IN PROGRESS,
 incremental peripheral-by-peripheral (adopted stance: poll sensors, await temporal
-actuators). First peripheral = the BUTTON SENSOR: Stage-1 CODAL inventory done
-(`generated-docs/codal-capability-inventory-2026-06-17.md`); the button tile spec is
-RESOLVED (`docs/specs/tiles/button-sensor.md`, status proposed - 4 tiles
-`[A]`/`[B]`/`[A+B]`/`[logo]`, 6 mutually-exclusive modifiers, poll-derived, overwrites the
-old button-A sensor with `[A]` reusing its id); its implementation kickoff is being handed
-to a fresh agent now (2026-06-17). The target-binding reorg prerequisite is DONE (commit
-`921a5b2`); the tile-spec template lives at `docs/specs/tiles/_template.md`. Two further
-phases are queued: 8 (virtual radio sim-to-sim) and 9 (Cutebot via TS user-tiles).** **PHASE
+actuators). FIRST PERIPHERAL = BUTTONS: COMPLETE on both VMs + hardware-validated 2026-06-17.**
+Surface 1 (tile language): 4 sensor tiles `[A]`/`[B]`/`[A+B]`/`[logo]`, 6 mutually-exclusive
+modifiers (default `pressed`), poll-derived per-call-site state machine; the old button-A
+sensor was overwritten (`[A]` reused its id 1024/1033). Surface 2 (TS user-code):
+`ctx.microbit.buttonA/buttonB/logo.isPressed()` wired both VMs (no `buttonAB` - composable in
+user code). Specs current: `docs/specs/tiles/button-sensor.md` (status implemented) +
+`docs/specs/microbit-context.md`. The injectable sensor-input harness (scriptable down/up per
+tick, both VMs) is now established + reusable. Stage-1 CODAL inventory done
+(`generated-docs/codal-capability-inventory-2026-06-17.md`); tile-spec template at
+`docs/specs/tiles/_template.md`; target-binding reorg done (commit `921a5b2`). **Next peripheral = accelerometer+gesture**
+(chosen 2026-06-17): **specs RESOLVED both surfaces** (`docs/specs/tiles/accelerometer-sensor.md`
+status proposed + the `microbit-context.md` accelerometer entry), implementation-ready. Design:
+poll CODAL `getGesture()` (sync poll), inject the gesture enum for parity (CODAL owns
+x/y/z->gesture, not reimplemented); the `gesture` tile is a level signal, default `shake`,
+modifier set = shake + 4 tilt + 2 face + `freefall` + `impact` (impact unlocks conditional
+`[2g/3g/6g/8g]` g-force-level sub-modifiers); surface 2 exposes `getGesture()` + the value
+reads (x/y/z/pitch/roll), value reads surface-2-only. Sim UI = globe + spring-back g-force
+slider, no dropdown, faithful wodal detector (interactive only; parity stays enum-injection).
+**Implementation sub-phased A1-A5** (build plan:
+`generated-docs/accelerometer-impl-plan-2026-06-18.md`): A1 port+harness foundation -> A2
+surface-2 reads -> A3 gesture tile -> A4 impact+conditional -> A5 sim detector+globe; the
+parity track (A2-A4) is separable from the sim-UX track (A5), and A1+A3 alone give a working
+hardware-validated tile. Two further phases queued: 8 (virtual radio
+sim-to-sim) and 9 (Cutebot via TS user-tiles).** **PHASE
 6 IS COMPLETE
 (6a-6j, 2026-06-17): the C++ VM is a fully conforming VM - every contract opcode
 implemented, parity holding across the golden set.** Phases 6a (heap + containers), 6b
@@ -159,7 +175,7 @@ run on device).
 | Phase 6h: Async core | **Accepted (2026-06-16, host-gated + timer-brain hardware regression)** | Core `HandleTable` (`{id,state,result,error,waiters,nextCompleted}`, Pool-backed/LD7, new GC root via `enumerateResults`); opcodes 41 `HOST_CALL_ASYNC` / 45 `HOST_ACTION_CALL_ASYNC` / 50 `AWAIT` mirror vm.ts; **43 `ACTION_CALL_ASYNC` left to 6j** (still faults via `default:`; not a host-action async like 6i scroll - it needs a child-fiber spawn from inside dispatch, and no shipping fixture exercised it yet; 6j implements it - no opcode stays deferred). `AWAIT` parks `WAITING` (flips 3c's Waiting->HostError): resolved->push, rejected/cancelled->throw via the 6e handler path (shared `throwError` + `pendingInjectedThrow`); `assertCanSuspend` still faults await in a sync action frame. **Settle = enqueue; `drainCompletedHandles()` (in `think()`, after tick before sweep) resumes waiters next round** - accepts a settle made from outside the single-entry loop (the path 6i's CODAL listener needs). **Fixed the 6f2 fiber-id divergence** (C++ hook fibers now a descending inline id space, mirrors TS negatives). Gate: `async-handles.test.cpp` (9 cases, test caps `maxHandles=16`; microbit-v2 stays 0); 247 C++ cases x3, wodal 126. Blessed deviation: async bodies get the ephemeral stack view, not an owned snapshot (no consumer retains). (The open cross-VM async-goldens item was closed at 6i - the real `BrainRuntime` drives the golden.) |
 | Phase 6i: Display Scroll-Text (first async capability) | **Accepted (2026-06-17, hardware-validated)** | Async `display.scroll(text)` action (`DisplayScroll` id 1026, fnId 1035, op 45; optional String arg default `"hello"`). Completion-time formula `start + 6*(charCount+1)*delay` pinned in the target layer (wodal `display-scroll.ts` + C++ `display-scroll.h`). **Core async reshape** (`external/mindcraft-lang`): bound resolver `AsyncHandle{resolve/reject/cancel}` passed as the 3rd async-body arg both VMs (host-binding API only, no bytecode change). `maxHandles` 0->8 (6g seam, 8th cap in the parity guard). Additive target trace lines (`...async` + `port display scroll`), format v1 unchanged. CODAL `pendolino3` font ported to wodal sim only (device renders natively). **Deviations from the original design:** device resolution = **formula poll**, not the `ANIMATION_COMPLETE` bus event (listener didn't fire on hardware); concurrent scrolls **reject**, not serialize (LD9 removed the fixed queue); the real `BrainRuntime` generates the golden, so **6h's cross-VM-oracle item is closed** (no separate harness). Gate: wodal 139, C++ 252 cases x3 (scroll golden byte-matches), core 913, hardware-validated. Open: managed-string scroll test (impl-complete). |
 | Phase 6j: Conformance + Parity Suite | **Accepted (2026-06-17, host-gated; PHASE 6 COMPLETE)** | The C++ VM is now a **fully conforming VM** - every contract opcode implemented, zero `default:`-fault paths. **op 43 `ACTION_CALL_ASYNC`** landed (last opcode; new core `AsyncActionSpawner` on `RuntimeSurface`, impl by `FiberScheduler`; bytecode branch only; `tick()` settles the child result handle). Both conformance gates: **opcode-completeness manifest** + the **two-surface carve-out gate** (CoreFuncId classification + host-action binding coverage). **Opcode-coverage measurement** over the golden corpus + a new `opcode-coverage` brain for the 11 uncovered ops. New goldens: `async-action`, `opcode-coverage`, `pixel-conversion`, `managed-string-scroll`. **Port-seam resolution REVISED to match CODAL exactly** (int16 coords + device matrix early-out, u8 brightness no-clamp wrap - supersedes the recorded u8 option B; pinned in new `docs/specs/contracts/observable-trace.md`). Host-only emitters relocated to `cpp/hostkit`. Gate: 263 C++ cases x3, wodal 143, core 913. **Deferred** (not in gate): input-script file format (one consumer), instruction-trace mode (touches reference VM + dispatch hot path). |
-| Phase 7: microbit-v2 Device-Surface Completeness | Placeholder - refine after Phase 6 | The **full** onboard sensor/actuator surface on both TS + C++ (accelerometer/gesture/temperature/magnetometer/compass/GPIO/... - today only display+buttons+touch exist). Front-loaded by a two-stage process the user owns: (1) CODAL capability inventory, (2) tile-language design deciding how to surface it (the `Context` surface is the **design output**, not predetermined). Then downstream build reuses 6f4's mechanism (append ABI ids, `Struct(typeId,disc)` rep, both-side impl, per-peripheral fixtures). Key new harness: deterministic injectable sensor inputs for parity. **Prerequisite DONE (2026-06-17, commit `921a5b2`): the monolithic cpp target binding files were split into per-concern files** under `abi/host-actions/{actuators,sensors}/` + `abi/host-functions/` (mirroring the 6f5 core layout), so peripherals now land in the structure, not a monolith. Needs 6f4/6f5. Under-specified + un-split until Phase 6 is done. **Adopted stance: poll sensors, await temporal actuators; incremental peripheral-by-peripheral, buttons first (tile spec in progress).** Two tracks: end-user tiles + edge-connector primitives (GPIO + **I2C** + a **native NEC IR-receive** primitive, locked 2026-06-17, for user-tile libraries like Cutebot; IR is native C++ + pin-parameterized since the round-based VM can't do us pulse timing; SPI excluded - no consumer). |
+| Phase 7: microbit-v2 Device-Surface Completeness | Placeholder - refine after Phase 6 | The **full** onboard sensor/actuator surface on both TS + C++ (accelerometer/gesture/temperature/magnetometer/compass/GPIO/... - today only display+buttons+touch exist). Front-loaded by a two-stage process the user owns: (1) CODAL capability inventory, (2) tile-language design deciding how to surface it (the `Context` surface is the **design output**, not predetermined). Then downstream build reuses 6f4's mechanism (append ABI ids, `Struct(typeId,disc)` rep, both-side impl, per-peripheral fixtures). Key new harness: deterministic injectable sensor inputs for parity. **Prerequisite DONE (2026-06-17, commit `921a5b2`): the monolithic cpp target binding files were split into per-concern files** under `abi/host-actions/{actuators,sensors}/` + `abi/host-functions/` (mirroring the 6f5 core layout), so peripherals now land in the structure, not a monolith. Needs 6f4/6f5. Under-specified + un-split until Phase 6 is done. **Adopted stance: poll sensors, await temporal actuators; incremental peripheral-by-peripheral. BUTTONS DONE (both surfaces, hardware-validated 2026-06-17); next peripheral TBD (agent recommended accelerometer).** Two surfaces per peripheral: brain tile language + the TS user-code `ctx.microbit.*` API (`docs/specs/microbit-context.md`). Edge-connector primitives (GPIO + **I2C** + a **native NEC IR-receive** primitive, locked 2026-06-17, for user-tile libraries like Cutebot; IR is native C++ + pin-parameterized since the round-based VM can't do us pulse timing; SPI excluded - no consumer) live on the TS surface. |
 | Phase 8: Virtual Radio in microbit-sim (sim-to-sim) | Placeholder | Let multiple sims in `apps/microbit-sim` exchange **radio** messages by group (the sim transport counterpart of physical RF). Sim + wodal only, no VM/firmware change - radio `send`/`receive`/`setGroup` are Phase 7's radio-family contract; Phase 8 is the in-app bus that delivers packets (enqueue -> drain on a tick, single-entry rule; receive surfaces as a poll). Gate: two sims, same group, one sends -> other receives deterministically. Depends on Phase 7's radio family. |
 | Phase 9: ELECFREAKS Cutebot via TS user-tiles | Placeholder | A TypeScript **user-tile** library driving an ELECFREAKS Cutebot robot car, modeled on the `pxt-cutebot` MakeCode extension (reimplemented, not ported). Actuators over **I2C@0x10** (motors L/R -100..100, servos 0..180, RGB lamps), sensors over **GPIO** (ultrasonic P8/P12, line IR P13/P14, IR remote P16). **Pure TS library on Phase 7's GPIO + I2C + IR-receive primitives - no new native firmware code** (the IR NEC decoder generalized into Phase 7; Cutebot points it at P16 + maps command bytes to buttons). Stance: writes sync, `moveTime` awaits, reads poll. Gate: modeled Cutebot in the sim (host-call trace parity) + real-hardware smoke test. Independent of Phase 8. |
 
@@ -2593,28 +2609,44 @@ sync-vs-async) into a default, overridden only with cause:
 **Incremental - one peripheral at a time, NOT a big-bang.** Phase 7 proceeds
 peripheral-by-peripheral; for each, the user owns the tile design (Stage 2 for that
 peripheral), then it is implemented on both sides + gated, then the next. Each peripheral is
-effectively its own thin sub-phase. **First target: button input** - the user is developing
-the filled-out button tile spec now (2026-06-17); implement it, then move to the next.
+effectively its own thin sub-phase. **First peripheral: buttons - COMPLETE both VMs +
+hardware-validated 2026-06-17** (`docs/specs/tiles/button-sensor.md` surface 1 +
+`docs/specs/microbit-context.md` surface 2, both current). As-built notes worth carrying
+forward: the four tiles' ids (`[A]` reused 1024/1033, `[B]` 1027/1036, `[A+B]` 1028/1037,
+`[logo]` 1029/1038); the modifier default landed as **`pressed`** (changed from `click`
+mid-implementation by user direction, for UX + to keep the press-lights-pixel tests valid);
+thresholds long-click 1000 ms / double-click window 500 ms, no hold threshold; surface 2 omits
+`buttonAB` (composable in user code). **The injectable sensor-input harness (scriptable down/up
+per tick, both VMs) is now established and reusable by every later sensor.** A cross-cutting
+invariant surfaced (see the native-struct field-order note below). Next peripheral TBD.
 
-**Two consumer surfaces per peripheral - the tile language AND TS user-code (locked
-2026-06-17).** Each board capability is exposed on BOTH:
+**Three surfaces per peripheral (locked 2026-06-17).** Each board capability is delivered on
+ALL THREE:
 
 1. the **brain tile language** - high-level end-user tiles a brain author drags
    ("temperature", "on shake", the button sensor); the per-peripheral tile design.
 2. the **TS user-code surface** - a lower-level host-function API closer to the device
    `*Port` layer bound to CODAL `uBit` in `targets/microbit-v2/source/main.cpp` (the 6f4
    `ctx.microbit.*` pattern: `buttonA.isPressed()`, `display.setPixelValue()`), for
-   TypeScript user code, including user-tile *libraries*. It is **NOT 1:1 with the tiles** -
-   it tracks the device/port shape, not the tile semantics (e.g. the button *sensor* tile
+   TypeScript user code, including user-tile *libraries*. **NOT 1:1 with the tiles** - it
+   tracks the device/port shape, not the tile semantics (e.g. the button *sensor* tile
    poll-derives click/hold/double from polled state, while TS user-code just gets
    `isPressed()`).
+3. the **`apps/microbit-sim` UI affordance** - a way for a human to represent the
+   peripheral's **inputs and outputs** in the simulator: for a sensor, an interactive control
+   that injects the value/event (e.g. a gesture dropdown + a trigger button; a clickable/
+   rotatable sphere with visible axes for x/y/z; the on-screen A/B buttons); for an actuator,
+   a rendering of the effect (the LED matrix already renders display output). `apps/microbit-sim`
+   owns this UI; it drives the **same wodal injectable-input path** the parity harness scripts
+   - the UI is the interactive front-end to that injection, the harness the scripted one.
 
-**As each peripheral is added to the tile language, it must ALSO be exposed on the TS
-user-code surface** (extend the `*Port` API + the `ctx.microbit.*` host-functions). The two
-are designed together per peripheral, but shaped independently. Surface 2 is specified as a
-**single living registry** in `docs/specs/microbit-context.md` (the ambient
-`packages/wodal/ambient/mindcraft.microbit-v2.d.ts` is its type mirror) - it is one
-cross-cutting `MicroBit` interface, not per-tile.
+**As each peripheral is added, it must be delivered on all three surfaces** - extend the
+tile(s), the `*Port` + `ctx.microbit.*` host-functions, AND the microbit-sim UI; designed
+together per peripheral, shaped independently. Surface 2 is specified as a **single living
+registry** in `docs/specs/microbit-context.md` (the ambient
+`packages/wodal/ambient/mindcraft.microbit-v2.d.ts` is its type mirror) - one cross-cutting
+`MicroBit` interface, not per-tile. Surface 3 is per-peripheral and documented in each tile
+spec's **Sim UI** section.
 
 The **edge-connector primitives** live on surface 2 and may have **no tile-language
 counterpart at all** (they are library plumbing): **GPIO** (digital/analog/PWM/touch/pulse),
@@ -2652,11 +2684,18 @@ registered-but-untested** (the 6f5 binding-coverage lesson).
 **Prerequisite refactor - reorganize the microbit-v2 target binding layer - DONE (2026-06-17, commit `921a5b2` "refactor (cpp): split monolithic files").** The previously-monolithic target binding files were split one-per-concern to mirror the cpp-core 6f5 layout: `targets/microbit-v2/abi/host-actions/{actuators/display-scroll.h, actuators/display-set-pixel.h, sensors/button-a.h}` + a thin `host-actions/host-action-bindings.h` aggregator; `targets/microbit-v2/abi/host-functions/{button-is-pressed.h, display-set-pixel-value.h, native-receiver.h}` + a `host-functions/host-func-bindings.h` aggregator. `native-struct-bindings.h` stays a single small registry (the plan's small-registry allowance; split it later if it grows). Pure refactor - goldens byte-unchanged, builds green. So Phase 7's per-peripheral build now drops new sensors/actuators into the per-concern structure, not a monolith.
 
 Carry-forward notes for the refinement:
-- **The key new harness piece** is deterministic, injectable **sensor inputs** on both
-  sides (scriptable wodal-sim peripherals + matching C++ host stub ports) - without it a
-  sensor *read* cannot be trace-parity-checked. Host trace parity under injected values is
-  the rigorous gate; **hardware is a per-peripheral manual smoke test** (user-gated) -
-  sensors cannot be deterministically trace-matched on device.
+- **The injectable sensor-input harness exists** (built with buttons, 2026-06-17):
+  deterministic, scriptable sensor inputs on both sides (scriptable wodal-sim peripherals +
+  matching C++ host stub ports), down/up levels per tick - without it a sensor *read* cannot
+  be trace-parity-checked. Host trace parity under injected values is the rigorous gate;
+  **hardware is a per-peripheral manual smoke test** (user-gated). Reuse it for later sensors.
+- **Native-struct field-order invariant (discovered with buttons, applies to every
+  `ctx.microbit` field):** the compiler keys `STRUCT_GET_FIELD` by a native field's
+  *position* in the registered fields list, NOT its declared `fieldIndex`. The wodal
+  `MicroBit` field order must equal the cpp `MicroBitField` enum values (position == id) -
+  **append a new `ctx.microbit` field LAST, at the next free id**, or reads silently swap.
+  The ambient `.d.ts` is generated (`npm run generate:ambient`), never hand-edited. (Also in
+  `docs/specs/microbit-context.md`.)
 - GPIO analog/PWM crosses the **port numeric-typing seam**, now resolved (6j): follow the
   same CODAL-matching pattern - a port typed to the CODAL signature, pure f32 narrowing
   applied identically both VMs, the device doing any range/early-out, and the narrowed value
@@ -2726,6 +2765,18 @@ Condensed dated ledger of accepted phases (newest first). Full per-phase as-buil
 detail lives in the session memory and git history; the accepted phase sections above
 carry the contracts each produced.
 
+- **2026-06-17 - Phase 7: buttons complete** (first Phase 7 peripheral; both VMs +
+  hardware-validated). Surface 1: four sensor tiles `[A]`/`[B]`/`[A+B]`/`[logo]`, six
+  mutually-exclusive modifiers (default `pressed`), poll-derived per-call-site state machine
+  (long-click 1000 ms, double-click 500 ms, no hold threshold); the old button-A sensor
+  overwritten (`[A]` reused id 1024/1033, the blessed LD2 exception; `[B]` 1027/1036, `[A+B]`
+  1028/1037, `[logo]` 1029/1038). Surface 2: `ctx.microbit.buttonA/buttonB/logo.isPressed()`
+  wired both VMs (fixed a real cpp gap - `microBitFieldGetter` had resolved only
+  display/buttonA; no `buttonAB` - composable in user code). Established the reusable
+  injectable sensor-input harness (scriptable down/up per tick, both VMs) and surfaced the
+  native-struct field-order invariant (position == id; append fields last). Specs:
+  `docs/specs/tiles/button-sensor.md` + `docs/specs/microbit-context.md`. Gate: wodal 160,
+  cpp check.sh x3, microbit-sim 22, comment review pass, on-hardware smoke test pass.
 - **2026-06-17 - Phase 6j accepted** (host-gated; **PHASE 6 COMPLETE**): the C++ VM is now a
   fully conforming VM - every contract opcode implemented, zero `default:`-fault paths.
   **op 43 `ACTION_CALL_ASYNC`** (last opcode): new narrow core `AsyncActionSpawner` on
@@ -3015,6 +3066,23 @@ carry the contracts each produced.
   rebuilding the core dist, and adds a per-instruction hook to the **shipping dispatch hot
   path**, for a debugging aid the gate never named. Build it when a real cross-VM divergence
   needs localizing.
+- **Filters (WHEN-side signal modifiers) - core tile-language feature, spec'd not
+  scheduled** (`docs/specs/tiles/filters.md`, concept/draft 2026-06-17). A new tile category:
+  unary signal transforms on a rule's WHEN side (`invert`/`one-shot`/`latch`/`toggle`, eventually
+  more), implemented as **regular intrinsics with full language capability** (the normal
+  function machinery, not a closed native set). Core + target-agnostic; touches
+  `external/mindcraft-lang`. Does **not** block Phase 7 (sensors ship with their natural
+  signal; filters layer on later). Open: the call signature + latch-reset semantics. Revisit
+  after the current device-surface peripherals (it benefits from a few sensors landing first).
+- **`pause` - core async actuator, registered 2026-06-17, not yet scheduled**
+  (`docs/specs/tiles/pause.md`, status proposed). A core (target-agnostic) actuator that
+  **suspends the calling fiber for a duration**: async (op 45 + AWAIT), one optional anonymous
+  Number = seconds (default 1, fractional allowed); resumes at the first think with VM tick
+  `time` >= `start + duration*1000` ms. It is the **first async core host action** (all
+  existing core actions are sync) and the **first pure-time-based async resolution** - so it
+  needs a core "resume-at-time" handle-resolution path in `think()` (scroll's resolution was a
+  device-port poll; pause has no device). Requires `maxHandles > 0` on the profile (microbit-v2
+  has 8). Reuses the 6h/6i async machinery; no new opcode.
 - Hosted CI (GitHub Actions) for this repo: deferred. "CI" today is the
   scripted local check suites (the TS packages' `check` convention + the C++
   check entry point from Phase 1a); when hosted CI is stood up, it runs the

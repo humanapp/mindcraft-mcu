@@ -2,8 +2,7 @@
 
 Status: implemented (both VMs) - semantics resolved 2026-06-17; wodal oracle + C++ mirror
 landed and gated 2026-06-17 (ids, thresholds, state machine, and trace line format pinned
-below). This is the first Phase 7 peripheral and the first sensor tile, so it sets precedent
-for the poll-on-sensors stance.
+below). This is the first sensor tile, so it sets precedent for the poll-on-sensors stance.
 
 ## Identity
 
@@ -32,7 +31,7 @@ always 6 and a present modifier slot carries the number `1`.
 | Module        | microbit-v2 (`mindcraft.microbit-v2`) |
 | Labels        | `[A]` `[B]` `[A+B]` `[logo]` |
 
-Function/ABI ids are appended per Locked Decision 2 (assigned at implementation, never
+Function/ABI ids are append-only (assigned at implementation, never
 renumbered/reused). The four tiles share one derivation mechanism, parameterized by which
 input and which modifier.
 
@@ -93,8 +92,8 @@ parameterized tile (hence the standalone `[A+B]`).
 - **Poll-derived, not bus-driven** (per the adopted stance). The firmware polls the raw
   pressed state (`isPressed`) each tick via a sync host-function; a **target-layer per-input
   state machine** derives the events from that polled stream plus the VM's logical tick
-  time. CODAL's button/message-bus event engine is **not** used - this sidesteps the 6i
-  hazard (a hardware bus listener that did not fire) and keeps the sensor deterministic and
+  time. CODAL's button/message-bus event engine is **not** used - this sidesteps the
+  bus-listener hazard (a hardware listener that may not fire) and keeps the sensor deterministic and
   trace-parity-checkable. The CODAL event vocabulary is the naming reference, not the
   mechanism.
 - **The sensor is evaluated each tick and returns a boolean** (like `see`): true on the
@@ -185,6 +184,14 @@ from the first pressed tick). Tick granularity caps resolution (the think loop r
   the rest `nil`; a non-firing tick renders the same line ending `result bool 0`. No new trace
   line kind was added.
 
+## Sim UI (apps/microbit-sim) - surface 3
+
+The on-screen board's **A / B buttons** and a **logo-touch** affordance are the input UI -
+clicking/holding them injects the pressed state (driving the same wodal
+`setButtonPressed`/`setLogoTouched` path the parity harness scripts) that both the sensor
+tiles and `ctx.microbit.*.isPressed()` read. (A/B are present in the sim; confirm a logo-touch
+affordance exists or add one.)
+
 ## Replacement (no back-compat)
 
 These four tiles **overwrite the existing button-A sensor** outright - no back-compat, no
@@ -195,16 +202,16 @@ graceful deprecation (user directive 2026-06-17):
   plus its tile-id / ABI entries. It is replaced by the four-tile + six-modifier design
   above, not kept alongside.
 - **ABI ids:** `[A]` **reuses** the existing button-A sensor's id - a blessed, one-time
-  exception to Locked Decision 2 (user, 2026-06-17), safe only because no persisted program
-  references it in this single-build world. `[B]`, `[A+B]`, `[logo]` get **new appended**
-  ids (LD2). The exception is scoped to `[A]` here and does **not** loosen LD2 generally;
-  id reuse remains forbidden by default.
+  exception to the append-only-ids rule (user, 2026-06-17), safe only because no persisted
+  program references it in this single-build world. `[B]`, `[A+B]`, `[logo]` get **new
+  appended** ids. The exception is scoped to `[A]` here and does **not** loosen the
+  append-only rule generally; id reuse remains forbidden by default.
 - **Update/regenerate affected fixtures and tests**, in particular the `button-display`
-  brain and its `button-display.press-cycles.trace` golden (the Phase-3-era button-A-sensor
+  brain and its `button-display.press-cycles.trace` golden (the existing button-A-sensor
   parity fixture) - rewrite the brain to the new design and regenerate, and update the C++
   parity cases that consume it.
 - **Unaffected:** the user-tile `isPressed` host-function (`host-functions/button-is-pressed.h`,
-  the 6f4 `ctx.microbit.buttonA.isPressed()` surface) is a *different* surface - it is the
+  the `ctx.microbit.buttonA.isPressed()` surface) is a *different* surface - it is the
   underlying poll the new sensor's derivation reads, so it stays; the `user-tile-button-display`
   golden is untouched unless the implementation says otherwise.
 
