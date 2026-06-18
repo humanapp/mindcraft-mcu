@@ -31,6 +31,9 @@ export enum MicroBitV2HostFuncId {
   SensorButtonA = 1033,
   ActuatorDisplaySetPixel = 1034,
   ActuatorDisplayScroll = 1035,
+  SensorButtonB = 1036,
+  SensorButtonAB = 1037,
+  SensorButtonLogo = 1038,
 }
 
 /**
@@ -55,7 +58,7 @@ export enum MicroBitV2TypeAtomId {
  * never renumber or reuse one.
  */
 export const MicroBitV2HostActions = {
-  /** Sensor: edge-triggered button A press or release. */
+  /** Sensor: button A, deriving one button event from the polled press level. */
   ButtonA: { key: "microbit-v2.button-a", actionId: 1024, fnId: MicroBitV2HostFuncId.SensorButtonA },
 
   /** Actuator: set a single LED pixel brightness on the 5x5 display. */
@@ -71,15 +74,43 @@ export const MicroBitV2HostActions = {
     actionId: 1026,
     fnId: MicroBitV2HostFuncId.ActuatorDisplayScroll,
   },
+
+  /** Sensor: button B, deriving one button event from the polled press level. */
+  ButtonB: { key: "microbit-v2.button-b", actionId: 1027, fnId: MicroBitV2HostFuncId.SensorButtonB },
+
+  /** Sensor: buttons A and B together, pressed only while both are pressed. */
+  ButtonAB: { key: "microbit-v2.button-ab", actionId: 1028, fnId: MicroBitV2HostFuncId.SensorButtonAB },
+
+  /** Sensor: the capacitive touch logo, deriving events from the polled touch level. */
+  ButtonLogo: {
+    key: "microbit-v2.button-logo",
+    actionId: 1029,
+    fnId: MicroBitV2HostFuncId.SensorButtonLogo,
+  },
 } as const satisfies Record<string, HostActionIds>;
 
-/** Modifier tile ids that select which button A edge the sensor reports. */
+/**
+ * Modifier tile ids selecting which derived button event a button sensor
+ * reports. At most one is present on a tile; absent selects `click`.
+ */
 export const WodalMicroBitV2ModifierId = {
-  /** Report the released-to-pressed edge. Default when no modifier is present. */
+  /** Report the released-to-pressed edge. */
   Pressed: "microbit-v2.pressed",
 
   /** Report the pressed-to-released edge. */
   Released: "microbit-v2.released",
+
+  /** Report a release whose preceding press was shorter than the long-click threshold. */
+  Click: "microbit-v2.click",
+
+  /** Report a press beginning within the double-click window after a click. */
+  DoubleClick: "microbit-v2.double-click",
+
+  /** Report a release whose preceding press was at least the long-click threshold. */
+  LongClick: "microbit-v2.long-click",
+
+  /** Report every tick the button is currently pressed (a level, not an edge). */
+  Held: "microbit-v2.held",
 } as const;
 
 /** Parameter tile ids consumed by the actuators. */

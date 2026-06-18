@@ -7,11 +7,15 @@ numbers 0
 values 1
   value 0 nil
 functions 1
-  function 0 params 0 locals 0 ctx - code d
+  function 0 params 0 locals 0 ctx - code 11
     instr 46
     instr 0 0
     instr 0 0
-    instr 2c 400 2 0
+    instr 0 0
+    instr 0 0
+    instr 0 0
+    instr 0 0
+    instr 2c 400 6 0
     instr 47 7
     instr 48
     instr 0 0

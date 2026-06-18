@@ -2,7 +2,7 @@ import { useState, useSyncExternalStore } from "react";
 import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";
 import type { SimulatorInstance } from "@/services/simulator";
 
-/** Renders one simulated microbit: its live 5x5 display and the A / B buttons. */
+/** Renders one simulated microbit: its live 5x5 display and the A, B, A+B, and Logo input buttons. */
 export function MicrobitDevice({ instance }: { instance: SimulatorInstance }) {
   const store = useMicrobitSimEnvironment();
   // Re-render each frame so the display reflects the running program.
@@ -11,7 +11,10 @@ export function MicrobitDevice({ instance }: { instance: SimulatorInstance }) {
 
   return (
     <div className="flex items-center gap-2">
-      <DeviceButton label="A" onChange={(pressed) => instance.microbit.setButtonPressed("A", pressed)} />
+      <div className="flex flex-col gap-2">
+        <DeviceButton label="A" onChange={(pressed) => instance.microbit.setButtonPressed("A", pressed)} />
+        <DeviceButton label="Logo" onChange={(touched) => instance.microbit.setLogoTouched(touched)} />
+      </div>
       <div data-testid="display" className="grid grid-cols-5 gap-1 rounded bg-black/40 p-2">
         {display.pixels.map((brightness, i) => {
           const cellKey = `r${Math.trunc(i / display.width)}c${i % display.width}`;
@@ -26,7 +29,16 @@ export function MicrobitDevice({ instance }: { instance: SimulatorInstance }) {
           );
         })}
       </div>
-      <DeviceButton label="B" onChange={(pressed) => instance.microbit.setButtonPressed("B", pressed)} />
+      <div className="flex flex-col gap-2">
+        <DeviceButton label="B" onChange={(pressed) => instance.microbit.setButtonPressed("B", pressed)} />
+        <DeviceButton
+          label="A+B"
+          onChange={(pressed) => {
+            instance.microbit.setButtonPressed("A", pressed);
+            instance.microbit.setButtonPressed("B", pressed);
+          }}
+        />
+      </div>
     </div>
   );
 }

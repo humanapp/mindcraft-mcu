@@ -30,8 +30,9 @@ function microbitEnvironment(): MindcraftEnvironment {
 
 /**
  * Authors the button-A -> set-pixel brain through the tile API: the button-A sensor in the
- * rule's when() and the set-pixel actuator in its do(), with no parameter tiles so the
- * actuator runs with its defaults (x=0, y=0, brightness=255).
+ * rule's when() and the set-pixel actuator in its do(), with no modifier tile so the sensor
+ * reports its default `pressed` event, and no parameter tiles so the actuator runs with its
+ * defaults (x=0, y=0, brightness=255).
  */
 function buildButtonDisplayBrainDef(env: MindcraftEnvironment): BrainDef {
   const tiles = env.brainServices.edit.tiles;
@@ -70,7 +71,7 @@ function assertButtonLightsPixel(
   runtime.tick(16);
   assert.equal(microbit.display.getPixelValue(0, 0), 0);
 
-  // Released-to-pressed edge fires the rule and lights pixel (0,0) at full brightness.
+  // The press edge fires the default sensor and lights pixel (0,0) at full brightness.
   microbit.setButtonPressed("A", true);
   runtime.tick(32);
   assert.equal(microbit.display.getPixelValue(0, 0), 255);

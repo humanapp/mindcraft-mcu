@@ -36,7 +36,11 @@ TEST_CASE("MicroBitV2HostFuncId values are wire-stable") {
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::TouchButtonSetValue) == 1032);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::SensorButtonA) == 1033);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorDisplaySetPixel) == 1034);
-  CHECK(kMicroBitV2HostFuncIdCount == 11);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorDisplayScroll) == 1035);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::SensorButtonB) == 1036);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::SensorButtonAB) == 1037);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::SensorButtonLogo) == 1038);
+  CHECK(kMicroBitV2HostFuncIdCount == 15);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::DisplaySetPixelValue) == TARGET_FUNC_ID_BASE);
 }
 
@@ -62,8 +66,17 @@ TEST_CASE("microbit-v2 host-action ids are wire-stable") {
   CHECK(MicroBitV2HostActions::DisplayScroll.fnId ==
         static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorDisplayScroll));
   CHECK(MicroBitV2HostActions::DisplayScroll.fnId == 1035);
+  CHECK(MicroBitV2HostActions::ButtonB.actionId == 1027);
+  CHECK(MicroBitV2HostActions::ButtonB.fnId ==
+        static_cast<uint32_t>(MicroBitV2HostFuncId::SensorButtonB));
+  CHECK(MicroBitV2HostActions::ButtonAB.actionId == 1028);
+  CHECK(MicroBitV2HostActions::ButtonAB.fnId ==
+        static_cast<uint32_t>(MicroBitV2HostFuncId::SensorButtonAB));
+  CHECK(MicroBitV2HostActions::ButtonLogo.actionId == 1029);
+  CHECK(MicroBitV2HostActions::ButtonLogo.fnId ==
+        static_cast<uint32_t>(MicroBitV2HostFuncId::SensorButtonLogo));
 
-  REQUIRE(std::size(kMicroBitV2HostActions) == 3);
+  REQUIRE(std::size(kMicroBitV2HostActions) == 6);
   for (uint32_t i = 0; i < std::size(kMicroBitV2HostActions); i++) {
     CHECK(kMicroBitV2HostActions[i].actionId == TARGET_ACTION_ID_BASE + i);
   }

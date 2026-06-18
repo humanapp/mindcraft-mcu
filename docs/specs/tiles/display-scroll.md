@@ -2,21 +2,23 @@
 
 Status: implemented (wodal). C++ mirror pending.
 
-This is the seed document for brain tile specifications. A tile spec describes,
-for one authoring tile, what a brain author writes, how its arguments are
-parsed, what it does at runtime, and how its behavior is verified across the
-TypeScript and C++ VMs. Future tile specs follow the section structure below.
+An example tile spec following the canonical template at `_template.md` (this was the
+original seed for that template). It documents one async actuator: what a brain author
+writes, how its arguments parse, what it does at runtime, and how its behavior is verified
+byte-for-byte across the TypeScript and C++ VMs.
 
 ## Identity
 
-| Field        | Value                                    |
-| ------------ | ---------------------------------------- |
-| Kind         | actuator (async / awaited)               |
-| Tile key     | `microbit-v2.display-scroll`             |
-| Action id    | 1026                                     |
-| Function id  | 1035 (`ActuatorDisplayScroll`)           |
-| Module       | microbit-v2 (`mindcraft.microbit-v2`)    |
-| Label        | "scroll text"                            |
+| Field         | Value                                    |
+| ------------- | ---------------------------------------- |
+| Kind          | actuator                                 |
+| Stance        | async / awaited actuator (temporal)      |
+| Composability | n/a (a rule action, placed in `do`)      |
+| Tile key      | `microbit-v2.display-scroll`             |
+| Action id     | 1026                                     |
+| Function id   | 1035 (`ActuatorDisplayScroll`)           |
+| Module        | microbit-v2 (`mindcraft.microbit-v2`)    |
+| Label         | "scroll text"                            |
 
 Action and function ids are wire-stable: once assigned they are never changed or
 reused (Locked Decision 2).

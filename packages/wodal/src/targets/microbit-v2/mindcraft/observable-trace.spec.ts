@@ -32,10 +32,10 @@ interface ScheduleStep {
 
 /**
  * Scripted button-A input for the committed trace golden, one entry per
- * scheduled think. The schedule exercises the button sensor's callsite-state
- * lifecycle: baseline seeding on the first evaluation, the
- * released-to-pressed edge, a hold with no re-trigger, the release, and a
- * second press after the release.
+ * scheduled think. The sensor reports its default `pressed` event (the
+ * released-to-pressed edge). The schedule exercises the callsite-state
+ * lifecycle: baseline seeding, a press edge that fires, a hold with no
+ * re-trigger, the release (not reported), then a second press edge that fires.
  *
  * The C++ VM parity test (cpp/test/trace-parity.test.cpp) embeds this same
  * schedule in code; the two copies are kept in sync by hand, and a
@@ -44,7 +44,7 @@ interface ScheduleStep {
 const PRESS_CYCLES_SCHEDULE: readonly ScheduleStep[] = [
   { advanceMs: 16 }, // first eval seeds callsite state, no edge
   { advanceMs: 16 }, // steady released
-  { advanceMs: 32, buttonA: true }, // released-to-pressed edge fires the rule
+  { advanceMs: 32, buttonA: true }, // press edge fires the rule
   { advanceMs: 16 }, // held: edge detection does not re-trigger
   { advanceMs: 16 }, // still held
   { advanceMs: 48, buttonA: false }, // release: not reported by the default modifier

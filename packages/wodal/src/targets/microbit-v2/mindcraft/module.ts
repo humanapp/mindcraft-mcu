@@ -23,7 +23,7 @@ import { Button } from "../../../core/button";
 import { TouchButton } from "../../../core/touch-button";
 import { MicroBit } from "../microbit";
 import { MicroBitDisplay } from "../microbit-display";
-import buttonASensor from "./actions/button-a";
+import { buttonABSensor, buttonASensor, buttonBSensor, buttonLogoSensor } from "./actions/button-sensor";
 import displayScrollActuator from "./actions/display-scroll";
 import displaySetPixelActuator from "./actions/display-set-pixel";
 import { getMicroBitContextDevice } from "./context";
@@ -316,6 +316,9 @@ function registerButtonFunctions(api: MindcraftModuleApi): void {
 
 function registerBrainTiles(api: MindcraftModuleApi): void {
   api.registerHostSensor(createHostSensor(buttonASensor));
+  api.registerHostSensor(createHostSensor(buttonBSensor));
+  api.registerHostSensor(createHostSensor(buttonABSensor));
+  api.registerHostSensor(createHostSensor(buttonLogoSensor));
   api.registerHostActuator(createHostActuator(displaySetPixelActuator));
   api.registerHostActuator(createHostActuator(displayScrollActuator));
   api.registerModifiers(MICROBIT_V2_MODIFIERS);

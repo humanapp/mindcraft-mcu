@@ -18,7 +18,7 @@ namespace mindcraft
  */
 namespace MicroBitV2HostActions
 {
-/** Sensor: edge-triggered button A press or release. */
+/** Sensor: button A, deriving one button event from the polled press level. */
 inline constexpr HostActionIds ButtonA{1024,
                                        static_cast<uint32_t>(MicroBitV2HostFuncId::SensorButtonA)};
 
@@ -29,6 +29,18 @@ inline constexpr HostActionIds DisplaySetPixel{
 /** Actuator: scroll text across the 5x5 display, awaiting the animation. */
 inline constexpr HostActionIds DisplayScroll{
     1026, static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorDisplayScroll)};
+
+/** Sensor: button B, deriving one button event from the polled press level. */
+inline constexpr HostActionIds ButtonB{1027,
+                                       static_cast<uint32_t>(MicroBitV2HostFuncId::SensorButtonB)};
+
+/** Sensor: buttons A and B together, pressed only while both are pressed. */
+inline constexpr HostActionIds ButtonAB{
+    1028, static_cast<uint32_t>(MicroBitV2HostFuncId::SensorButtonAB)};
+
+/** Sensor: the capacitive touch logo, deriving events from the polled touch level. */
+inline constexpr HostActionIds ButtonLogo{
+    1029, static_cast<uint32_t>(MicroBitV2HostFuncId::SensorButtonLogo)};
 } // namespace MicroBitV2HostActions
 
 /**
@@ -36,9 +48,9 @@ inline constexpr HostActionIds DisplayScroll{
  * from 1024.
  */
 inline constexpr HostActionIds kMicroBitV2HostActions[] = {
-    MicroBitV2HostActions::ButtonA,
-    MicroBitV2HostActions::DisplaySetPixel,
-    MicroBitV2HostActions::DisplayScroll,
+    MicroBitV2HostActions::ButtonA,       MicroBitV2HostActions::DisplaySetPixel,
+    MicroBitV2HostActions::DisplayScroll, MicroBitV2HostActions::ButtonB,
+    MicroBitV2HostActions::ButtonAB,      MicroBitV2HostActions::ButtonLogo,
 };
 
 } // namespace mindcraft

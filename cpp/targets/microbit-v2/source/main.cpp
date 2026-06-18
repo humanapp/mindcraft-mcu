@@ -117,8 +117,11 @@ int main()
     // The async scroll body reaches the display and the heap (to read its text
     // string) through this env; its heap is filled once the heap exists.
     MicroBitV2DisplayScrollEnv scrollEnv{&display, nullptr};
+    // The button sensors poll the button port and back their per-callsite state
+    // on the heap; the heap and roots are filled once the scheduler exists.
+    MicroBitV2ButtonSensorEnv buttonEnv{&buttons, nullptr, nullptr};
     auto coreBindings = makeCoreHostActionBindings(coreEnv);
-    auto mbBindings = makeMicroBitV2HostActionBindings(ports, &scrollEnv);
+    auto mbBindings = makeMicroBitV2HostActionBindings(ports, &scrollEnv, &buttonEnv);
     std::array<HostActionBinding, kCoreHostActionBindingCount + kMicroBitV2HostActionBindingCount>
         actions{};
     for (size_t i = 0; i < coreBindings.size(); i++)
@@ -146,6 +149,8 @@ int main()
     coreEnv.heap = &heap;
     coreEnv.roots = &scheduler;
     scrollEnv.heap = &heap;
+    buttonEnv.heap = &heap;
+    buttonEnv.roots = &scheduler;
 
     HostLoop hostLoop(brain, ports);
     const mindcraft::Status startupStatus = hostLoop.startup();

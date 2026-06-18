@@ -29,7 +29,7 @@ and accepted, and each phase's decisions are locked.
 
 ## Status
 
-Last updated: 2026-06-16
+Last updated: 2026-06-17
 
 **Memory model (read before touching any allocation):** the runtime is
 **dynamic-first** - one `RegionArena` + one `Pool<T>`, everything allocated on
@@ -57,23 +57,38 @@ is out of scope **by default** and needs a concrete, possible-today failure mode
 governing default that 7 and 8 are instances of; over-build has been the recurring
 failure, and a subtraction pass precedes every gate. When unsure, leave it out.
 
-Current focus: **Phase 6j (conformance + parity suite).** Phases 6a (heap + containers),
-6b (structs + closures), 6c (core host-function library f32 + dynamic/managed strings), 6d
+Current focus: **Phase 7 (microbit-v2 device-surface completeness) - IN PROGRESS,
+incremental peripheral-by-peripheral (adopted stance: poll sensors, await temporal
+actuators). First peripheral = the BUTTON SENSOR: Stage-1 CODAL inventory done
+(`generated-docs/codal-capability-inventory-2026-06-17.md`); the button tile spec is
+RESOLVED (`docs/specs/tiles/button-sensor.md`, status proposed - 4 tiles
+`[A]`/`[B]`/`[A+B]`/`[logo]`, 6 mutually-exclusive modifiers, poll-derived, overwrites the
+old button-A sensor with `[A]` reusing its id); its implementation kickoff is being handed
+to a fresh agent now (2026-06-17). The target-binding reorg prerequisite is DONE (commit
+`921a5b2`); the tile-spec template lives at `docs/specs/tiles/_template.md`. Two further
+phases are queued: 8 (virtual radio sim-to-sim) and 9 (Cutebot via TS user-tiles).** **PHASE
+6 IS COMPLETE
+(6a-6j, 2026-06-17): the C++ VM is a fully conforming VM - every contract opcode
+implemented, parity holding across the golden set.** Phases 6a (heap + containers), 6b
+(structs + closures), 6c (core host-function library f32 + dynamic/managed strings), 6d
 (pinned numerics), 6e (exceptions, yield, and the grow-on-demand stack arena), 6f1 (struct
 re-string v3 + type-registry foundation), 6f2 (bytecode-action execution model), 6f3
 (context-variable host functions 48-51), 6f4 (native device surface - user-tile milestone,
 host-gated), 6f5 (core sensor/actuator host actions, hardware-validated), 6g (cap
 parameterization - profile-sourced scheduler caps + parity guard), 6h (async core -
 `HandleTable` + opcodes 41/45/50 + AWAIT/WAITING-resume + enqueue->drain, host-gated +
-timer-brain hardware regression, 2026-06-16), and 6i (display scroll-text - the first
-shipped async capability, hardware-validated 2026-06-17) are accepted; the GC, containers,
-structs, closures, the ~96 core `CoreFuncId` bodies, the RNG, managed strings, the 12
-bit-exact pinned numeric components, exceptions/yield, the grow-on-demand stack arena (the
-last LD7 worst-case reservation removed), dynamic-key struct access (format v3), the type
-registry, the bytecode-action/page execution model, brain+rule context variables, the
-native microbit device surface, the core sensor/actuator host actions (timer/page-switch
-brains run on hardware), profile-sourced scheduler caps, the async core (handles + await +
-out-of-loop settle), and async `display.scroll` (resolves on real hardware) all run.
+timer-brain hardware regression, 2026-06-16), 6i (display scroll-text - the first shipped
+async capability, hardware-validated 2026-06-17), and 6j (conformance + parity suite - op 43
+`ACTION_CALL_ASYNC` lands as the last opcode, both conformance gates + opcode coverage,
+host-gated 2026-06-17) are accepted; the GC, containers, structs, closures, the ~96 core
+`CoreFuncId` bodies, the RNG, managed strings, the 12 bit-exact pinned numeric components,
+exceptions/yield, the grow-on-demand stack arena (the last LD7 worst-case reservation
+removed), dynamic-key struct access (format v3), the type registry, the bytecode-action/page
+execution model, brain+rule context variables, the native microbit device surface, the core
+sensor/actuator host actions (timer/page-switch brains run on hardware), profile-sourced
+scheduler caps, the async core (handles + await + out-of-loop settle), async
+`display.scroll` (resolves on real hardware), and **every contract opcode (op 43 included)**
+all run.
 **The deploy arc is COMPLETE and hardware-proven** (2026-06-14):
 5a firmware + 5b patcher + 5c browser delivery - a brain authored in microbit-sim
 reaches a real micro:bit v2 by **download** (Blob -> drag-drop) or **WebUSB flash**
@@ -143,8 +158,10 @@ run on device).
 | Phase 6g: Cap Parameterization (topology parity with TS) | **Accepted (2026-06-16)** | New core `DeviceProfileCaps` (8 fields); `FiberScheduler` ctor takes it (`spawn`/`runActionHook`/`tick` read `caps_`). Host supplies `kMicroBitV2DeviceProfileCaps` (`targets/.../device-profile.h`); global `constexpr` caps deleted; ~40 ctor sites threaded via a test helper. `profileId` validated in the host (`main.cpp`, faithful to TS) -> new core `LoadError::UnsupportedDeviceProfile`=15 on mismatch. Cap-parity guard: wodal `device-profile-caps-vectors` fixture -> C++ `device-profile-caps-parity.test.cpp` asserts each cap == the host caps (replaces literal asserts; 7 caps, `maxHandles` joins in 6i); negative-control proven. Pure refactor: 237 C++ cases, goldens byte-match; wodal 126. |
 | Phase 6h: Async core | **Accepted (2026-06-16, host-gated + timer-brain hardware regression)** | Core `HandleTable` (`{id,state,result,error,waiters,nextCompleted}`, Pool-backed/LD7, new GC root via `enumerateResults`); opcodes 41 `HOST_CALL_ASYNC` / 45 `HOST_ACTION_CALL_ASYNC` / 50 `AWAIT` mirror vm.ts; **43 `ACTION_CALL_ASYNC` left to 6j** (still faults via `default:`; not a host-action async like 6i scroll - it needs a child-fiber spawn from inside dispatch, and no shipping fixture exercised it yet; 6j implements it - no opcode stays deferred). `AWAIT` parks `WAITING` (flips 3c's Waiting->HostError): resolved->push, rejected/cancelled->throw via the 6e handler path (shared `throwError` + `pendingInjectedThrow`); `assertCanSuspend` still faults await in a sync action frame. **Settle = enqueue; `drainCompletedHandles()` (in `think()`, after tick before sweep) resumes waiters next round** - accepts a settle made from outside the single-entry loop (the path 6i's CODAL listener needs). **Fixed the 6f2 fiber-id divergence** (C++ hook fibers now a descending inline id space, mirrors TS negatives). Gate: `async-handles.test.cpp` (9 cases, test caps `maxHandles=16`; microbit-v2 stays 0); 247 C++ cases x3, wodal 126. Blessed deviation: async bodies get the ephemeral stack view, not an owned snapshot (no consumer retains). (The open cross-VM async-goldens item was closed at 6i - the real `BrainRuntime` drives the golden.) |
 | Phase 6i: Display Scroll-Text (first async capability) | **Accepted (2026-06-17, hardware-validated)** | Async `display.scroll(text)` action (`DisplayScroll` id 1026, fnId 1035, op 45; optional String arg default `"hello"`). Completion-time formula `start + 6*(charCount+1)*delay` pinned in the target layer (wodal `display-scroll.ts` + C++ `display-scroll.h`). **Core async reshape** (`external/mindcraft-lang`): bound resolver `AsyncHandle{resolve/reject/cancel}` passed as the 3rd async-body arg both VMs (host-binding API only, no bytecode change). `maxHandles` 0->8 (6g seam, 8th cap in the parity guard). Additive target trace lines (`...async` + `port display scroll`), format v1 unchanged. CODAL `pendolino3` font ported to wodal sim only (device renders natively). **Deviations from the original design:** device resolution = **formula poll**, not the `ANIMATION_COMPLETE` bus event (listener didn't fire on hardware); concurrent scrolls **reject**, not serialize (LD9 removed the fixed queue); the real `BrainRuntime` generates the golden, so **6h's cross-VM-oracle item is closed** (no separate harness). Gate: wodal 139, C++ 252 cases x3 (scroll golden byte-matches), core 913, hardware-validated. Open: managed-string scroll test (impl-complete). |
-| Phase 6j: Conformance + Parity Suite | **In progress** | Implement the **last opcode `ACTION_CALL_ASYNC` (43)** (async non-host/bytecode action; child-fiber spawn from inside dispatch) - after it, zero `default:`-fault opcodes; op-43 golden = a device-free brain in wodal `__fixtures__/` via the existing harness (no new machinery). Full golden parity set through both VMs + opcode-coverage measurement; instruction-level trace mode; opcode-completeness check (absolute, no allow-list) + the two-surface carve-out gate; shared input-script file format; fold in the managed-string scroll golden; **port-typing seam resolved as option B (pinned conversion)**. Needs all. |
-| Phase 7: microbit-v2 Device-Surface Completeness | Placeholder - refine after Phase 6 | The **full** onboard sensor/actuator surface on both TS + C++ (accelerometer/gesture/temperature/magnetometer/compass/GPIO/... - today only display+buttons+touch exist). Front-loaded by a two-stage process the user owns: (1) CODAL capability inventory, (2) tile-language design deciding how to surface it (the `Context` surface is the **design output**, not predetermined). Then downstream build reuses 6f4's mechanism (append ABI ids, `Struct(typeId,disc)` rep, both-side impl, per-peripheral fixtures). Key new harness: deterministic injectable sensor inputs for parity. **Prerequisite (pull-forward-able, independent of 6j): reorganize the monolithic cpp target binding files** (`host-action-bindings.h`/`host-func-bindings.h`/`native-struct-bindings.h`) into per-concern files mirroring wodal `mindcraft/actions/` + core `{actuators,sensors}/` (the 6f5 core layout) - pure refactor, goldens byte-unchanged - before any peripheral lands. Needs 6f4/6f5. Under-specified + un-split until Phase 6 is done. |
+| Phase 6j: Conformance + Parity Suite | **Accepted (2026-06-17, host-gated; PHASE 6 COMPLETE)** | The C++ VM is now a **fully conforming VM** - every contract opcode implemented, zero `default:`-fault paths. **op 43 `ACTION_CALL_ASYNC`** landed (last opcode; new core `AsyncActionSpawner` on `RuntimeSurface`, impl by `FiberScheduler`; bytecode branch only; `tick()` settles the child result handle). Both conformance gates: **opcode-completeness manifest** + the **two-surface carve-out gate** (CoreFuncId classification + host-action binding coverage). **Opcode-coverage measurement** over the golden corpus + a new `opcode-coverage` brain for the 11 uncovered ops. New goldens: `async-action`, `opcode-coverage`, `pixel-conversion`, `managed-string-scroll`. **Port-seam resolution REVISED to match CODAL exactly** (int16 coords + device matrix early-out, u8 brightness no-clamp wrap - supersedes the recorded u8 option B; pinned in new `docs/specs/contracts/observable-trace.md`). Host-only emitters relocated to `cpp/hostkit`. Gate: 263 C++ cases x3, wodal 143, core 913. **Deferred** (not in gate): input-script file format (one consumer), instruction-trace mode (touches reference VM + dispatch hot path). |
+| Phase 7: microbit-v2 Device-Surface Completeness | Placeholder - refine after Phase 6 | The **full** onboard sensor/actuator surface on both TS + C++ (accelerometer/gesture/temperature/magnetometer/compass/GPIO/... - today only display+buttons+touch exist). Front-loaded by a two-stage process the user owns: (1) CODAL capability inventory, (2) tile-language design deciding how to surface it (the `Context` surface is the **design output**, not predetermined). Then downstream build reuses 6f4's mechanism (append ABI ids, `Struct(typeId,disc)` rep, both-side impl, per-peripheral fixtures). Key new harness: deterministic injectable sensor inputs for parity. **Prerequisite DONE (2026-06-17, commit `921a5b2`): the monolithic cpp target binding files were split into per-concern files** under `abi/host-actions/{actuators,sensors}/` + `abi/host-functions/` (mirroring the 6f5 core layout), so peripherals now land in the structure, not a monolith. Needs 6f4/6f5. Under-specified + un-split until Phase 6 is done. **Adopted stance: poll sensors, await temporal actuators; incremental peripheral-by-peripheral, buttons first (tile spec in progress).** Two tracks: end-user tiles + edge-connector primitives (GPIO + **I2C** + a **native NEC IR-receive** primitive, locked 2026-06-17, for user-tile libraries like Cutebot; IR is native C++ + pin-parameterized since the round-based VM can't do us pulse timing; SPI excluded - no consumer). |
+| Phase 8: Virtual Radio in microbit-sim (sim-to-sim) | Placeholder | Let multiple sims in `apps/microbit-sim` exchange **radio** messages by group (the sim transport counterpart of physical RF). Sim + wodal only, no VM/firmware change - radio `send`/`receive`/`setGroup` are Phase 7's radio-family contract; Phase 8 is the in-app bus that delivers packets (enqueue -> drain on a tick, single-entry rule; receive surfaces as a poll). Gate: two sims, same group, one sends -> other receives deterministically. Depends on Phase 7's radio family. |
+| Phase 9: ELECFREAKS Cutebot via TS user-tiles | Placeholder | A TypeScript **user-tile** library driving an ELECFREAKS Cutebot robot car, modeled on the `pxt-cutebot` MakeCode extension (reimplemented, not ported). Actuators over **I2C@0x10** (motors L/R -100..100, servos 0..180, RGB lamps), sensors over **GPIO** (ultrasonic P8/P12, line IR P13/P14, IR remote P16). **Pure TS library on Phase 7's GPIO + I2C + IR-receive primitives - no new native firmware code** (the IR NEC decoder generalized into Phase 7; Cutebot points it at P16 + maps command bytes to buttons). Stance: writes sync, `moveTime` awaits, reads poll. Gate: modeled Cutebot in the sim (host-call trace parity) + real-hardware smoke test. Independent of Phase 8. |
 
 ## Workflow Convention
 
@@ -1602,8 +1619,9 @@ Prep C.
   lookup; unregistered ids fault the existence-check path); the action bodies are exact
   wodal ports in `targets/microbit-v2/abi/host-action-bindings.h`.
 - Ratified seams, do not re-raise: flag-bit string reservation; typeId = direct TYPS
-  index; the f32->u8 display-port conversion lives in the C++ action body (the
-  port-typing seam, resolved in 6j - see Deferred Work); `RunStatus::Waiting` faults
+  index; the f32 display-port narrowing lives in the C++ action body (the
+  port-typing seam, resolved in 6j to match CODAL - i16 coords, u8 brightness, device
+  early-out; see Deferred Work); `RunStatus::Waiting` faults
   `HostError` through the observer (unproduced until async, 6h); `sweep()` LIFO reclaim
   is parity-invisible. Caps (`kMaxStackSize`/`LocalsSize`/`FrameDepth`/`Handlers`/
   `Handles`) are runtime guards, never pre-sizing (LD7).
@@ -1704,7 +1722,7 @@ until 6f.
 
 ---
 
-## Phase 6: Full Conformance (split: 6a-6j)
+## Phase 6: Full Conformance (split: 6a-6j) - ACCEPTED 2026-06-17 (PHASE 6 COMPLETE; fully conforming C++ VM)
 
 Goal: Bring the C++ VM to full VM-contract conformance (every opcode), implement
 bytecode (user-tile) action execution, and stand up a golden parity suite that runs
@@ -2454,115 +2472,76 @@ implementation-complete - only the test is missing.
 New durable artifact: `docs/specs/tiles/display-scroll.md` (first `docs/specs/tiles/`
 entry; the template for future tile specs).
 
-### Phase 6j: Conformance + Parity Suite - IN PROGRESS
+### Phase 6j: Conformance + Parity Suite - ACCEPTED 2026-06-17 (host-gated; PHASE 6 COMPLETE)
 
-The capstone: the C++ VM becomes a **fully conforming VM** - every contract opcode
-implemented (no `default:`-fault paths), parity holding across the whole accumulated
-golden set, with the divergence-localizing tooling and the durable anti-gap gates in
-place.
+The capstone: the C++ VM is now a **fully conforming VM** - every contract opcode
+implemented, zero `default:`-fault paths. Host-gated (no reflash; the core changes are
+standard C++17 the firmware picks up via the auto-wired spawner, and op 43 is unreachable on
+current microbit-v2 brains). With 6a-6j accepted, **Phase 6 is COMPLETE**.
 
-Scope:
+As-built:
 
-- **Implement the last opcode: `ACTION_CALL_ASYNC` (43)** - mirror vm.ts (`case
-  Op.ACTION_CALL_ASYNC`, `spawnBytecodeActionFiber`). It dispatches an **async,
-  non-host (bytecode) action**: the brain compiler emits it (+ a following `AWAIT`) for a
-  rule calling an async action whose binding is not host
-  (`rule-compiler.ts emitActionDispatch`; the host sibling is op 45, the sync sibling op
-  42). The body spawns a child fiber for the action (isAsync), allocates a handle, and the
-  caller AWAITs it. This needs the **scheduler reachable from inside `runExecution`** (a
-  child-fiber spawn mid-dispatch) - the one structural addition 6h flagged when it deferred
-  43. It is op 43 that falls to the dispatch `default:` today (62 of 63 opcodes have
-  `case` arms); after this, zero remain. **No opcode is deferred** - every contract opcode
-  is implemented (vm.instructions.md: every conforming VM implements every opcode).
-  Golden (follows the existing pattern, no new machinery): a **device-free brain** - a rule
-  awaiting an async **bytecode** action, no microbit host actions, so the trace has no
-  `port` lines - generated through the **existing wodal harness** and committed in wodal
-  `__fixtures__/` (`.mcprogram.bin` + `.ticks.trace`) beside the other behavioral goldens.
-  Built via the brain compiler (generated, never hand-assembled). **No core-side trace
-  emitter and no new core<->wodal test-plane dependency** - the opcode is core but its
-  behavioral golden rides the same wodal emitter that proves every other opcode (decided
-  2026-06-17). The brain being device-free is what honors "op 43 is core": nothing
-  mcu-specific touches it.
-- **Opcode-completeness conformance check (absolute - NO allow-list).** A generated test
-  asserts every contract opcode has an implemented dispatch arm and zero opcodes fault as
-  unimplemented. This is distinct from the carve-out gate below (which guards the
-  `HOST_CALL`/`HOST_ACTION_CALL` *binding* fan-out, not opcodes). The name-keyed struct ops
-  `GET_FIELD`/`SET_FIELD`/`STRUCT_COPY_EXCEPT` reached full conformance in **6f1** (the
-  re-string landed).
-- **Carve-out gate (the `HOST_CALL`/`HOST_ACTION_CALL` fan-out, where opcode-completeness
-  alone is blind):** a generated test asserts that the set of user-reachable lowering
-  targets that fall to `default -> unsupported()` equals an explicit **allow-list**. The
-  allow-list is empty (6f3 landed ids 48-51); any new carve-out then fails the build until
-  it is either implemented or consciously allow-listed (a reviewer sees the edit). This is
-  the durable guard for the class of gap that shipped silently in 6c. **It must cover TWO
-  dispatch surfaces:** (a) `HOST_CALL` `CoreFuncId` bodies, and (b) **`HOST_ACTION_CALL`
-  binding coverage** - every core host-action id a program can dispatch must have a
-  registered binding in the firmware's action table (the gap behind the 6f5 on-device
-  fault: ids 0-7 declared in the ABI, bound nowhere). "Registered" means *a body/binding
-  exists*, not *an id is declared*. (The scheduling/resource-cap parity guard moved to
-  Phase 6g.)
-- **Full parity suite + coverage.** The accumulated 6a-6i golden `.mcprogram` set plus the
-  two committed wodal fixtures, run through both VMs via the Parity Transport script/trace
-  artifacts. Add an **opcode-coverage measurement** - every contract opcode is executed at
-  least once across the suite - and author conformance-targeted brains to fill any gaps
-  (op-43 above is one such). **Fold in the managed/computed-string scroll golden** (the 6i
-  follow-up: scroll a computed String; the body's byte-read already handles managed strings,
-  only the golden is missing).
-- **Shared input-script FILE format + C++ parser** - generalizing Phase 3's mirrored
-  in-code schedules (a deterministic tick schedule with device-input events + `time`/`dt`
-  stamps). Phase 6j is where the golden suite (many programs x many scripts) gives it real
-  consumers and hand-mirroring stops scaling (per Parity Transport). The parser is
-  **host-test-only** (see the build-hygiene item below).
-- **Build hygiene: keep host-test-only parity machinery out of the firmware (flash is a
-  premium).** The firmware recursively globs `cpp/core/**/*.cpp`
-  (`targets/microbit-v2/CMakeLists.txt`), so anything under `core/` ships. The new
-  input-script parser, and the existing `core/codec/observable-trace.cpp` +
-  `program-dump.cpp` emitters, are host-only - the device never emits a trace/dump nor
-  reads a script file (`main.cpp` references `program-reader` only). Relocate these
-  host-only `.cpp` to a source set **outside the firmware's `core/` glob** (only the host
-  CMake compiles them), leaving the device-needed decode path (`program-reader`) and the
-  header-only `VmObserver` interface in `core/`. Exclusion is **by construction (the
-  directory boundary), not by `--gc-sections` dead-stripping** (today the emitters are
-  globbed in and only the linker drops them - the weak guarantee this replaces). The two
-  existing emitters can move ahead of 6j as a standalone cleanup; the parser lands
-  host-only from day one.
-- **Instruction-level trace mode** - the divergence-localizing escalation: per-instruction
-  pc/op/stack-depth, emitted by the TS VM via a trace observer and the C++ VM via the
-  passive hook.
-- **Resolve the port-crossing numeric-typing seam** (open since 3c) - **decided: option B,
-  pinned conversion** (2026-06-17). Keep the u8 `PixelDisplayPort`; pin the exact f32->u8
-  conversion (the wodal discard/clamp) as a contract rule both VMs apply identically, and
-  define the target observable-trace to record the **post-conversion** value. In-range
-  integer coordinates convert as the identity, so every existing golden stays byte-
-  identical; only a (currently unexercised) fractional/out-of-range coordinate would differ,
-  and now both sides produce the same converted value. Pin the conversion (truncate/clamp
-  rule) in the target observable-trace contract; not a core `vm-contract.md` change.
+- **op 43 `ACTION_CALL_ASYNC` (the last opcode).** New narrow core interface
+  `AsyncActionSpawner` (one method) on `RuntimeSurface::spawner`, implemented by
+  `FiberScheduler` (breaks the dispatch<->scheduler include cycle; mirrors TS
+  `Scheduler.addFiber`). The vm.cpp arm mirrors `vm.ts execActionCallAsync` **bytecode
+  branch only** (no host branch - `program.actions` are bytecode-only; host-async is op 45).
+  New `ExecutionState.asyncResultHandleId`; child fibers draw the descending inline id space;
+  `tick()` settles the child's result handle (resolve on Done, reject on Fault), `cancel()`
+  cancels it; `allocFiber` gained an args param. Zero `default:`-fault opcodes remain.
+- **Opcode-completeness check** (`vm.test.cpp`): an `isImplementedOp` manifest asserted over
+  `kOperandSchema` minus the two RESERVED numbers (the work also surfaced + closed a latent
+  `HOST_CALL` gap).
+- **Carve-out gate** (new `conformance.test.cpp`), both surfaces: (a) every `CoreFuncId`
+  classified HostCall/ContextVariable/HostAction - unclassified -> `Unsupported` fails the
+  gate (allow-list empty); (b) every core host-action id 0-7 has a registered binding with a
+  body (closes the 6f5-class gap).
+- **Opcode-coverage measurement** (`conformance.test.cpp`): unions opcodes across the wodal
+  golden corpus and asserts every non-reserved opcode is covered. Authored one
+  `opcode-coverage` conformance brain for the 11 ops no other golden reached
+  (DUP/SWAP/STACK_SET_REL/JMP/JMP_IF_TRUE/END_TRY/LIST_SET/SHIFT/REMOVE/INSERT).
+  `HOST_CALL_ASYNC` (41) is golden-unreachable on microbit-v2 (no async host *function*) ->
+  explicitly annotated unit-test-covered (async-handles).
+- **New goldens** (wodal `__fixtures__/`, via the existing harness, each with a C++
+  trace-parity case): `async-action` (device-free op-43), `opcode-coverage`,
+  `pixel-conversion`, `managed-string-scroll` (the 6i follow-up).
+- **Managed-string trace-writer fix** (surfaced by `managed-string-scroll`): the C++
+  `ObservableTraceWriter` renders managed string args via `heap->stringContent` (optional
+  `setHeap`); borrowed strings unchanged.
+- **Build hygiene confirmed by construction:** the host-only emitters now live in
+  **`cpp/hostkit`** (outside the firmware's `cpp/core` glob); `AsyncActionSpawner` is
+  legitimate VM core. (The standalone emitter-relocation cleanup is thus done.)
 
-Decided (2026-06-17): the **port-crossing numeric-typing seam** = option B, pinned
-conversion (above); the **op-43 golden** = a device-free brain in wodal `__fixtures__/` via
-the existing harness, no new machinery (above).
+**Port-crossing numeric-typing seam - resolution REVISED (supersedes the recorded option
+B).** The recorded option B ("keep the u8 `PixelDisplayPort`; pin an f32->u8 discard/clamp")
+was found ungrounded - 255 was the u8 width, not the device coordinate space. The as-built
+resolution **matches CODAL exactly:** the display is
+`Image::setPixelValue(int16_t x, int16_t y, uint8_t value)`, which **early-outs (no write)
+for coords outside 0..dimension (5x5)** and **does not clamp brightness**. So
+`PixelDisplayPort::setPixel` coords change **u8 -> int16**; the conversion is **pure
+narrowing** (coord f32->i16 truncate; brightness f32->u8 truncate+wrap, no clamp, no
+discard) applied identically on both VMs; **every** call crosses the port and emits a
+`port display set-pixel` line with the narrowed args; the **device** performs the matrix
+early-out for the store. In-matrix integer coords narrow as the identity, so all goldens
+except `pixel-conversion` are byte-unchanged. Pinned in the new
+**`docs/specs/contracts/observable-trace.md`** (the repo's first local contract doc).
 
-Decisions to lock (before coding): the `ACTION_CALL_ASYNC` child-fiber-spawn shape (how the
-scheduler is reached from `runExecution`); the instruction-trace line format; the
-**shared input-script FILE format**; the final golden program set and how it is generated
-and committed (build path, never hand-assembled).
+Blessed deviations: op-43 host branch omitted (no C++ analog); the result handle is
+`createPending`'d before `allocFiber` (no orphaned child on a handle-cap failure; the ids
+are independent counters); no `BytecodeAction.isAsync` assertion (the opcode determines
+async).
 
-Invariants (whole Phase 6):
+Gate (green): `cpp/check.sh` x3 (debug/release/sanitize incl ASan+UBSan) + clang-format +
+check-deps clean - **263 C++ cases / 12547 assertions**; wodal typecheck + biome clean +
+**143** tests; core **913** (untouched). Host-gated (no reflash).
 
-- Opcode completeness: the C++ VM implements **every** opcode in the contract - none
-  deferred, none faulting as unimplemented; it is now a conforming VM.
-- Parity holds across the golden set; any divergence is a tracked bug fixed before
-  acceptance.
-- Async host obligation honored; the device caps gate overflow to `StackOverflow`.
+**Deferred from 6j (NOT in the gate; designs locked, pending a scheduling decision - see
+Deferred Work):** the shared input-script file format + parsers (one consumer today), and
+the instruction-level trace mode (touches the reference VM + the shipping dispatch hot path).
 
-Out of scope (whole Phase 6): new host actions or device profiles; on-device
-debugging tooling (would re-add `ruleIndex`/function names to the serialized
-payload - Deferred Work).
-
-Gate (whole Phase 6): the parity suite is green across the golden program set on
-the host build (including the op-43 and managed-string-scroll goldens); the opcode-
-completeness and carve-out conformance checks pass; the user-tile fixture runs on
-hardware.
+**Phase 6 invariants - now satisfied:** opcode completeness (every opcode implemented, none
+faulting); parity holds across the golden set; the async host obligation is honored.
+**PHASE 6 IS COMPLETE** (6a-6j; 6j host-gated, the surface hardware-validated through 6i).
 
 ---
 
@@ -2584,11 +2563,83 @@ user owns -
 
 1. **CODAL capability inventory** - catalog what the CODAL `MicroBit` API actually offers
    (`uBit.accelerometer`/`thermometer`/`compass`/`io.pinN`/gesture/... and the rest).
+   **DONE 2026-06-17:** `generated-docs/codal-capability-inventory-2026-06-17.md` (sourced
+   from the vendored CODAL headers; per-capability R/E + value-shape + sync/async +
+   event/poll + injectable-input, grouped by family, with cross-cutting design
+   observations). Stage 2 (the tile-language design) is the next step and is yours.
 2. **Tile-language design** - decide *how* to surface that capability as sensors and
    actuators in the language. The exposed `Context` surface is the **output of this
    design**, not a given; the peripherals named above are CODAL inputs to it, not a
    committed scope list. Only after the design are the `Context` types/fields/methods and
    the ABI ids knowable.
+
+**Adopted default stance (2026-06-17): poll on sensors, await on actuators with a temporal
+quality.** This resolves the inventory's two load-bearing axes (event-vs-poll,
+sync-vs-async) into a default, overridden only with cause:
+- **Sensors -> poll.** A sensor surfaces as a value the rule reads each tick (a sync
+  host-function read of the latest sample), NOT an event-tile by default. This sidesteps
+  the 6i hazard (a CODAL message-bus listener that did not fire on hardware) and keeps every
+  sensor deterministically trace-parity-checkable via the injected-input harness.
+  Event-rich capabilities (gesture, button click/hold, claps, radio packets, pin edges) are
+  derived from polled state unless a tile genuinely needs true event semantics - then a
+  deliberate, separately-validated exception (the 6h out-of-loop-settle path is the
+  mechanism, with its own on-hardware proof).
+- **Actuators with a temporal quality -> await.** An effect that takes observable time
+  (scroll, print, animate, sound-play, a timed move) surfaces as an async host-action (op
+  45, the 6i scroll pattern: completion-time formula against VM tick, awaited).
+  Instantaneous effects (set-pixel, brightness, a one-shot speed set) stay sync
+  host-functions.
+
+**Incremental - one peripheral at a time, NOT a big-bang.** Phase 7 proceeds
+peripheral-by-peripheral; for each, the user owns the tile design (Stage 2 for that
+peripheral), then it is implemented on both sides + gated, then the next. Each peripheral is
+effectively its own thin sub-phase. **First target: button input** - the user is developing
+the filled-out button tile spec now (2026-06-17); implement it, then move to the next.
+
+**Two consumer surfaces per peripheral - the tile language AND TS user-code (locked
+2026-06-17).** Each board capability is exposed on BOTH:
+
+1. the **brain tile language** - high-level end-user tiles a brain author drags
+   ("temperature", "on shake", the button sensor); the per-peripheral tile design.
+2. the **TS user-code surface** - a lower-level host-function API closer to the device
+   `*Port` layer bound to CODAL `uBit` in `targets/microbit-v2/source/main.cpp` (the 6f4
+   `ctx.microbit.*` pattern: `buttonA.isPressed()`, `display.setPixelValue()`), for
+   TypeScript user code, including user-tile *libraries*. It is **NOT 1:1 with the tiles** -
+   it tracks the device/port shape, not the tile semantics (e.g. the button *sensor* tile
+   poll-derives click/hold/double from polled state, while TS user-code just gets
+   `isPressed()`).
+
+**As each peripheral is added to the tile language, it must ALSO be exposed on the TS
+user-code surface** (extend the `*Port` API + the `ctx.microbit.*` host-functions). The two
+are designed together per peripheral, but shaped independently. Surface 2 is specified as a
+**single living registry** in `docs/specs/microbit-context.md` (the ambient
+`packages/wodal/ambient/mindcraft.microbit-v2.d.ts` is its type mirror) - it is one
+cross-cutting `MicroBit` interface, not per-tile.
+
+The **edge-connector primitives** live on surface 2 and may have **no tile-language
+counterpart at all** (they are library plumbing): **GPIO** (digital/analog/PWM/touch/pulse),
+**I2C** (read/write a device register), and the native **IR receive** primitive (below).
+**I2C is in Phase 7 scope (locked 2026-06-17):** committed consumer Cutebot (motors/servos/
+LEDs are I2C@`0x10` writes), so it is not speculative - build the **minimal** write/read-
+register primitive that consumer needs, not a general I2C abstraction. **SPI stays out** (no
+committed consumer); pull it in only when something needs it.
+
+**Native IR receive (NEC) is also a Phase 7 edge-connector primitive** (locked 2026-06-17 -
+generalized out of Cutebot). The IR remote protocol (NEC: a 9ms lead + a 32-bit
+address/command frame, 560us/1.7ms bit timing) needs microsecond pulse decoding the
+round-based, budget-limited VM **cannot** do in bytecode (a ~70ms blocking tight-loop would
+also stall the single-entry loop) - the same wall MakeCode hit, which is why the reference
+`IR.cpp` is native C++. So it is a **native C++ host-function** in the firmware (a
+port/adaptation of `IR.cpp`, ideally background/interrupt-driven so the read is non-blocking,
+holding a "last decoded code" register like the onboard sensors), **polled** by the tile.
+Shape it as a **general, pin-parameterized "read last NEC code on pin N"** primitive, not a
+Cutebot-fixed one: NEC is the dominant consumer-IR protocol (TVs, the ubiquitous hobby
+IR-receiver+remote modules, other micro:bit robot kits, a standalone "IR remote" education
+tile), so one decoder backs both a future end-user IR tile and the Phase 9 Cutebot library.
+**Hold the line at NEC only** - no RC5/RC6/Sony/other protocols (no consumer). This is the
+one primitive that is a protocol *decoder*, not a raw bus/pin op; its committed consumer
+(Cutebot) makes it non-speculative, and pin-parameterizing it is near-zero extra cost over a
+Cutebot-private version.
 
 Once the surface is designed, the build is downstream and reuses established machinery:
 extend `DevicePorts`/`microbit-ports.h` per peripheral; expose in the ambient `.d.ts` +
@@ -2598,7 +2649,7 @@ discriminator)` native rep (e.g. a pin carries its pin number); implement both s
 mirroring; and gate with per-peripheral fixtures exercising every I/O, **no I/O
 registered-but-untested** (the 6f5 binding-coverage lesson).
 
-**Prerequisite refactor - reorganize the microbit-v2 target binding layer FIRST (pull-forward-able; do before any peripheral lands).** The cpp **target** binding layer is monolithic and does not mirror the reference: `targets/microbit-v2/abi/host-action-bindings.h` (~231 lines, all host actions lumped), `host-func-bindings.h` (~106, all target host functions), `native-struct-bindings.h` (~87, all native getters). The references are well-organized one-per-concern: wodal `targets/microbit-v2/mindcraft/actions/{button-a,display-set-pixel,display-scroll}.ts`, core `runtime/{actuators,sensors}/*.ts`, and the **cpp core** host actions already got this treatment in 6f5 (`core/runtime/host-actions/{actuators,sensors}/<one-per-action>.h` + a thin aggregator). Only the cpp target layer was left monolithic. Split it to match - per-action / per-function / per-getter files under a directory layout mirroring wodal's `actions/` + core's `{actuators,sensors}/`, with thin aggregator headers (like `core-host-action-bindings.h`) assembling the binding tables. This is a **pure refactor** (no behavior change): every golden stays byte-identical and host + firmware builds stay green - that is its gate. It is **independent of 6j** (target layer, not core conformance), so it can run now / in parallel; it **must precede** Phase 7's peripheral build, since dropping a dozen new peripherals into the monolith is the cost this avoids. Keep `native-struct-bindings.h` as a single small registry only if it stays small (wodal's analog is one `context.ts`); split it if it grows.
+**Prerequisite refactor - reorganize the microbit-v2 target binding layer - DONE (2026-06-17, commit `921a5b2` "refactor (cpp): split monolithic files").** The previously-monolithic target binding files were split one-per-concern to mirror the cpp-core 6f5 layout: `targets/microbit-v2/abi/host-actions/{actuators/display-scroll.h, actuators/display-set-pixel.h, sensors/button-a.h}` + a thin `host-actions/host-action-bindings.h` aggregator; `targets/microbit-v2/abi/host-functions/{button-is-pressed.h, display-set-pixel-value.h, native-receiver.h}` + a `host-functions/host-func-bindings.h` aggregator. `native-struct-bindings.h` stays a single small registry (the plan's small-registry allowance; split it later if it grows). Pure refactor - goldens byte-unchanged, builds green. So Phase 7's per-peripheral build now drops new sensors/actuators into the per-concern structure, not a monolith.
 
 Carry-forward notes for the refinement:
 - **The key new harness piece** is deterministic, injectable **sensor inputs** on both
@@ -2606,10 +2657,66 @@ Carry-forward notes for the refinement:
   sensor *read* cannot be trace-parity-checked. Host trace parity under injected values is
   the rigorous gate; **hardware is a per-peripheral manual smoke test** (user-gated) -
   sensors cannot be deterministically trace-matched on device.
-- GPIO analog/PWM intersects the **port-crossing numeric-typing seam** (Deferred Work),
-  which must resolve before fractional/out-of-range pin args are gated.
-- Dependencies: 6f4 + 6f5; mostly sync (no async needed); the async display slice
-  (`scroll`) is 6i.
+- GPIO analog/PWM crosses the **port numeric-typing seam**, now resolved (6j): follow the
+  same CODAL-matching pattern - a port typed to the CODAL signature, pure f32 narrowing
+  applied identically both VMs, the device doing any range/early-out, and the narrowed value
+  in the trace (`docs/specs/contracts/observable-trace.md`).
+- Dependencies: 6f4 + 6f5. Per the adopted stance: sensor reads are sync host-functions;
+  temporal actuators await (op 45, the 6i scroll pattern).
+
+---
+
+## Phase 8: Virtual Radio in microbit-sim (sim-to-sim messaging) (placeholder)
+
+Let multiple sims instantiated in `apps/microbit-sim` exchange **radio** messages, so a
+brain running `radio.send(...)` on one sim is received by the others in the same group -
+the sim counterpart of physical RF between real micro:bits.
+
+- **Layer: sim + wodal, no VM/firmware change.** Radio `send`/`receive`/`setGroup` are
+  surfaced as host functions/actions by Phase 7's **radio family** (the contract); Phase 8
+  is the sim's *transport*: a shared in-app radio bus that delivers packets by group
+  (respecting group match, payload, and RSSI semantics from the CODAL inventory). Real
+  hardware already messages over real RF; this gives the sim the same observable behavior.
+- **Single-entry-rule discipline:** an inbound packet is **enqueued** by the bus and
+  **drained** into the receiving brain on a tick boundary (the 6h out-of-loop-settle path);
+  no callback re-enters `think()`. Per the adopted default stance, receive surfaces as a
+  **poll** (the brain reads the latest received message each tick) unless the button-style
+  event exception is taken deliberately.
+- **Gate:** two sims in the app, same group - one sends, the other receives the message
+  deterministically; matches the Phase 7 radio host-fn contract. Sim-only (no
+  hardware-parity gate beyond that contract; the transport is sim-specific).
+- **Depends on** Phase 7's radio family (the radio surface must exist first).
+
+## Phase 9: ELECFREAKS Cutebot Control via TypeScript User-Tiles (placeholder)
+
+A TypeScript **user-tile** library to drive an ELECFREAKS Cutebot (a micro:bit robot car),
+modeled on the `pxt-cutebot` MakeCode extension
+(`github.com/elecfreaks/pxt-cutebot`, `cutebot.ts`) - reimplemented against Mindcraft's
+user-tile + host-function APIs, not ported. Authored in the TS user-tile path (ts-compiler),
+runs on the C++ VM on device + in the sim.
+
+- **Cutebot surface (from the extension):**
+  - **Actuators over I2C (addr `0x10`):** motors (independent L/R, -100..100), servos
+    (S1/S2, 0..180 deg), RGB headlamp LEDs (L/R/both, RGB 0..255), convenience moves
+    (forward/back/turn/stop; `moveTime(dir, speed, ms)`).
+  - **Sensors over GPIO:** ultrasonic distance (P8 trig / P12 echo, cm or inch, up to
+    ~500cm), line-tracking IR (P13/P14, on/off-line), IR remote receiver (P16, button
+    codes).
+- **All primitives come from Phase 7 (GPIO + I2C + IR-receive) - Phase 9 adds NO native
+  firmware code.** Motors/servos/LEDs are I2C@`0x10` register writes; ultrasonic (P8 trig /
+  P12 echo pulse) and line-tracking (P13/P14 digital read) ride Phase 7's GPIO; and the IR
+  remote rides Phase 7's **native NEC IR-receive primitive** (generalized out of Cutebot -
+  see Phase 7; the decode is native because the round-based VM can't do us pulse timing).
+  Cutebot points the IR primitive at P16 and maps NEC command bytes to its button labels.
+  So Phase 9 is a **pure TS user-tile library** on Phase 7 primitives + the existing
+  user-tile path.
+- **Stance mapping:** motor/servo/LED writes are instantaneous -> **sync** host-functions;
+  `moveTime` (a timed move) is temporal -> **await** (op 45); ultrasonic/line/IR reads ->
+  **poll** (IR polls the primitive's last NEC code).
+- **Gate:** a user-tile brain drives a **modeled Cutebot in the sim** (trace-parity on the
+  I2C/GPIO/IR host-call surface) + a **real-Cutebot hardware smoke test** (user-gated).
+- **Depends on** Phase 7 (GPIO + I2C + IR-receive primitives); a pure TS user-tile library,
+  no new native firmware code; independent of Phase 8.
 
 ---
 
@@ -2619,6 +2726,27 @@ Condensed dated ledger of accepted phases (newest first). Full per-phase as-buil
 detail lives in the session memory and git history; the accepted phase sections above
 carry the contracts each produced.
 
+- **2026-06-17 - Phase 6j accepted** (host-gated; **PHASE 6 COMPLETE**): the C++ VM is now a
+  fully conforming VM - every contract opcode implemented, zero `default:`-fault paths.
+  **op 43 `ACTION_CALL_ASYNC`** (last opcode): new narrow core `AsyncActionSpawner` on
+  `RuntimeSurface` (impl by `FiberScheduler`, breaks the dispatch<->scheduler cycle, mirrors
+  TS `Scheduler.addFiber`); vm.cpp mirrors `execActionCallAsync` bytecode branch only (host
+  branch omitted - actions are bytecode-only); new `ExecutionState.asyncResultHandleId`,
+  child fiber on the descending inline id space, `tick()` settles the result handle
+  (resolve/reject), `cancel()` cancels it. Conformance gates: opcode-completeness manifest
+  (`vm.test.cpp`, also closed a latent `HOST_CALL` gap) + the two-surface carve-out gate
+  (`conformance.test.cpp`: CoreFuncId classification + host-action binding coverage,
+  allow-list empty). Opcode-coverage measurement over the golden corpus + a new
+  `opcode-coverage` brain (11 uncovered ops); `HOST_CALL_ASYNC` annotated unit-test-covered.
+  New goldens: `async-action`, `opcode-coverage`, `pixel-conversion`, `managed-string-scroll`
+  (+ a C++ managed-string trace-writer fix). **Port-seam resolution REVISED to match CODAL
+  exactly** (supersedes the recorded u8 option B): `setPixelValue(int16,int16,uint8)` -
+  coords narrow f32->i16, brightness f32->u8 truncate+wrap (no clamp), the device does the
+  5x5 matrix early-out, every call emits a narrowed `port display set-pixel` line; pinned in
+  the new `docs/specs/contracts/observable-trace.md`. Host-only emitters relocated to
+  `cpp/hostkit`. Gate: 263 C++ cases / 12547 assertions x3, wodal 143, core 913. Deferred
+  (not in gate): input-script file format (one consumer), instruction-trace mode (touches
+  the reference VM + dispatch hot path).
 - **2026-06-17 - Phase 6i accepted** (hardware-validated): async `display.scroll(text)` -
   the first shipped microbit-v2 async capability and the async core's on-hardware proof.
   Action `DisplayScroll` (id 1026, fnId 1035, op 45; optional String arg default
@@ -2863,15 +2991,30 @@ carry the contracts each produced.
   This is **not** a deferral with a future trigger; do not look for it here, and do
   not re-introduce it under any guise. See **Locked Decision 8** for the
   prohibition and its review gate.
-- **The port-crossing numeric-typing seam** (found at Phase 3c; **decided 2026-06-17,
-  resolution lands in 6j**): port lines crossed a u8-typed `PixelDisplayPort` while the
-  trace was defined "as passed to the port, before the device clamps", so for fractional /
-  out-of-range coordinate args the C++ (already-narrowed) side could not reproduce the TS
-  pre-clamp line. **Resolution = option B (pinned conversion):** keep the u8 port; pin the
-  exact f32->u8 conversion both VMs apply identically and record the **post-conversion**
-  value in the target observable-trace. In-range integers are the identity (existing
-  goldens byte-unchanged). Implemented in 6j (see the 6j section); listed here only as the
-  origin of the seam.
+- **The port-crossing numeric-typing seam (found at Phase 3c; RESOLVED in 6j, 2026-06-17).**
+  Origin: port lines crossed a u8-typed `PixelDisplayPort` while the trace was defined "as
+  passed to the port, before the device clamps", so fractional / out-of-range coordinate
+  args diverged. The 6j as-built resolution **matches CODAL** rather than the earlier u8
+  "option B" framing (which was ungrounded): `setPixelValue(int16_t, int16_t, uint8_t)` -
+  coords narrow f32->i16, brightness f32->u8 truncate+wrap (no clamp), the **device** does
+  the 5x5 matrix early-out, and every call emits a narrowed `port display set-pixel` line.
+  In-matrix integers narrow as the identity (existing goldens byte-unchanged). Pinned in
+  `docs/specs/contracts/observable-trace.md`. Closed - kept here as the seam's history.
+- **Shared input-script file format + parsers (deferred from 6j, 2026-06-17; design
+  locked).** A line-oriented `mcscript 1` / `tick <ms> [button <name> down|up]` file with a
+  host-only C++ parser in `cpp/hostkit` + a TS reader, replacing the hand-mirrored
+  press-cycles schedules. Deferred because 6j added no new input-event consumers (its new
+  goldens use fixed ticks / page-entered), so `button-display` remains the **sole** consumer
+  - the "format for one fixture" Parity Transport itself flagged as over-build, and the dual
+  schedule's drift is already self-policed by the byte gate. Build it when a **second**
+  input-driven consumer appears.
+- **Instruction-level trace mode (deferred from 6j, 2026-06-17; design locked).** Per-
+  instruction pc/op/stack-depth via a TS-VM `onInstruction` event + a C++ passive
+  `VmObserver::onInstruction` hook + one small golden - the divergence-localizing escalation.
+  Deferred because it requires modifying `external/mindcraft-lang` (the reference VM) +
+  rebuilding the core dist, and adds a per-instruction hook to the **shipping dispatch hot
+  path**, for a debugging aid the gate never named. Build it when a real cross-VM divergence
+  needs localizing.
 - Hosted CI (GitHub Actions) for this repo: deferred. "CI" today is the
   scripted local check suites (the TS packages' `check` convention + the C++
   check entry point from Phase 1a); when hosted CI is stood up, it runs the

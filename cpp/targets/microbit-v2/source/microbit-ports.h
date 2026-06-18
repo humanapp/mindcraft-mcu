@@ -3,6 +3,7 @@
 #include "MicroBit.h"
 
 #include "codal/device-port.h"
+#include "targets/microbit-v2/abi/button-index.h"
 #include "targets/microbit-v2/abi/display-scroll.h"
 
 namespace mindcraft
@@ -71,7 +72,7 @@ private:
     AsyncHandle active_{};
 };
 
-/** Reads debounced button levels: index 0 is button A, 1 is button B. */
+/** Reads button levels: index 0 is button A, 1 is button B, 2 is the touch logo. */
 class MicroBitButtonInputPort : public ButtonInputPort
 {
 public:
@@ -79,12 +80,14 @@ public:
 
     bool isPressed(uint8_t buttonIndex) override
     {
-        switch (buttonIndex)
+        switch (static_cast<MicroBitButtonIndex>(buttonIndex))
         {
-        case 0:
+        case MicroBitButtonIndex::A:
             return uBit_.buttonA.isPressed() != 0;
-        case 1:
+        case MicroBitButtonIndex::B:
             return uBit_.buttonB.isPressed() != 0;
+        case MicroBitButtonIndex::Logo:
+            return uBit_.logo.isPressed() != 0;
         default:
             return false;
         }

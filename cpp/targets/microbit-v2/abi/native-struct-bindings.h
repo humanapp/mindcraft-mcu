@@ -45,9 +45,10 @@ inline Value microBitContextFieldGetter(const Value & /*source*/, uint32_t field
 
 /**
  * Field getter of the `MicroBit` device struct. Resolves `display` to the
- * singleton display struct and `buttonA` to a button struct discriminated by
- * its field id; any other field reads nil. Mirrors the MicroBit field getter
- * installed by the microbit-v2 module.
+ * singleton display struct, `buttonA`/`buttonB` to a `Button` struct and `logo`
+ * to a `TouchButton` struct, each discriminated by its field id; any other field
+ * reads nil. Mirrors the MicroBit field getter installed by the microbit-v2
+ * module.
  */
 inline Value microBitFieldGetter(const Value & /*source*/, uint32_t fieldId)
 {
@@ -57,7 +58,11 @@ inline Value microBitFieldGetter(const Value & /*source*/, uint32_t fieldId)
         return Value::structValue(static_cast<uint32_t>(MicroBitV2TypeAtomId::MicroBitDisplay),
                                   kNativeStructSingleton);
     case MicroBitField::ButtonA:
+    case MicroBitField::ButtonB:
         return Value::structValue(static_cast<uint32_t>(MicroBitV2TypeAtomId::Button), fieldId);
+    case MicroBitField::Logo:
+        return Value::structValue(static_cast<uint32_t>(MicroBitV2TypeAtomId::TouchButton),
+                                  fieldId);
     default:
         return kNilValue;
     }

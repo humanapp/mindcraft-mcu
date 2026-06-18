@@ -35,8 +35,8 @@ public:
 
 /**
  * Momentary button input. Buttons are addressed by a zero-based index whose
- * mapping to physical buttons is board-defined (0 is button A and 1 is
- * button B on a micro:bit v2).
+ * mapping to physical inputs is board-defined (0 is button A, 1 is button B,
+ * and 2 is the capacitive touch logo on a micro:bit v2).
  */
 class ButtonInputPort {
 public:

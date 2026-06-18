@@ -9,10 +9,14 @@ export function App() {
   return (
     <div className="min-h-screen">
       <ProjectHeader />
-      <main className="space-y-8 p-6">
-        <BridgePanel />
-        <BrainList />
-        <Simulator />
+      <main className="p-6">
+        <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-2">
+          <div className="space-y-8">
+            <BridgePanel />
+            <BrainList />
+          </div>
+          <Simulator />
+        </div>
       </main>
       <Toaster />
     </div>

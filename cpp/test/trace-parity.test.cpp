@@ -116,9 +116,12 @@ struct HostMicroBit {
   };
 
   struct SettableButtons : mindcraft::ButtonInputPort {
-    bool pressed[2] = {false, false};
+    // Index 0 is button A, 1 is button B, 2 is the touch logo.
+    bool pressed[3] = {false, false, false};
 
-    bool isPressed(uint8_t buttonIndex) override { return pressed[buttonIndex]; }
+    bool isPressed(uint8_t buttonIndex) override {
+      return buttonIndex < 3 ? pressed[buttonIndex] : false;
+    }
   };
 
   struct NullFaultDisplay : mindcraft::FaultDisplayPort {
@@ -176,7 +179,7 @@ struct ScheduleStep {
 constexpr ScheduleStep kPressCyclesSchedule[10] = {
     {16, -1}, // first eval seeds callsite state, no edge
     {16, -1}, // steady released
-    {32, 1},  // released-to-pressed edge fires the rule
+    {32, 1},  // press edge fires the rule
     {16, -1}, // held: edge detection does not re-trigger
     {16, -1}, // still held
     {48, 0},  // release: not reported by the default modifier
@@ -185,6 +188,85 @@ constexpr ScheduleStep kPressCyclesSchedule[10] = {
     {16, 0},  // release again
     {16, -1}, // steady released
 };
+
+/**
+ * One scheduled think for a button-sensor fixture: button/logo levels applied
+ * before the time advance (1 pressed, 0 released, -1 unchanged). Mirrors the
+ * ScheduleStep of wodal
+ * packages/wodal/src/targets/microbit-v2/mindcraft/button-sensor-trace.spec.ts.
+ */
+struct ButtonScheduleStep {
+  float advanceMs;
+  int a;
+  int b;
+  int logo;
+};
+
+/**
+ * Loads a button-sensor fixture binary, replays its scripted button schedule
+ * through the host loop, and byte-compares the rendered trace against the
+ * committed golden.
+ */
+void runButtonSensorParity(const std::string& name, const ButtonScheduleStep* schedule, int steps) {
+  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/" + name;
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  TraceTap tap(writer);
+
+  // The button sensor backs its per-callsite derivation state on a managed
+  // heap; the env hands the body the button port, heap, and roots.
+  mindcraft::ManagedHeap heap(arena);
+  mindcraft::MicroBitV2ButtonSensorEnv buttonEnv{&microbit.buttons, &heap, nullptr};
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports, nullptr, &buttonEnv);
+  ExecutionContext ctx;
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  buttonEnv.roots = &scheduler;
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < steps; i++) {
+    const ButtonScheduleStep& step = schedule[i];
+    if (step.a >= 0) {
+      microbit.buttons.pressed[0] = step.a == 1;
+    }
+    if (step.b >= 0) {
+      microbit.buttons.pressed[1] = step.b == 1;
+    }
+    if (step.logo >= 0) {
+      microbit.buttons.pressed[2] = step.logo == 1;
+    }
+    const float timeMs = lastThinkTimeMs + step.advanceMs;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+  // Every button-sensor fixture's schedule fires the rule, lighting pixel (0,0).
+  CHECK(microbit.display.pixels[0][0] == 255);
+}
 
 } // namespace
 
@@ -209,11 +291,16 @@ TEST_CASE("the button-display fixture byte-matches the golden observable trace")
   microbit.display.writer = &writer;
   TraceTap tap(writer);
 
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  // The button sensor backs its per-callsite derivation state on a managed
+  // heap; the env hands the body the button port, heap, and roots.
+  mindcraft::ManagedHeap heap(arena);
+  mindcraft::MicroBitV2ButtonSensorEnv buttonEnv{&microbit.buttons, &heap, nullptr};
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports, nullptr, &buttonEnv);
   ExecutionContext ctx;
-  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap};
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
 
   FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  buttonEnv.roots = &scheduler;
   BrainRuntime brain(image, scheduler, surface);
 
   // Drive the cpp/codal host loop: it sources time through the clock port and
@@ -241,6 +328,50 @@ TEST_CASE("the button-display fixture byte-matches the golden observable trace")
   CHECK(sink.text() == golden);
   // The end state mirrors the TS spec's device assertion: pixel (0,0) lit.
   CHECK(microbit.display.pixels[0][0] == 255);
+}
+
+TEST_CASE("the button-pressed fixture byte-matches the golden observable trace") {
+  const ButtonScheduleStep schedule[4] = {
+      {16, -1, -1, -1}, {16, 1, -1, -1}, {16, -1, -1, -1}, {16, 0, -1, -1}};
+  runButtonSensorParity("button-pressed", schedule, 4);
+}
+
+TEST_CASE("the button-released fixture byte-matches the golden observable trace") {
+  const ButtonScheduleStep schedule[3] = {{16, -1, -1, -1}, {16, 1, -1, -1}, {16, 0, -1, -1}};
+  runButtonSensorParity("button-released", schedule, 3);
+}
+
+TEST_CASE("the button-long-click fixture byte-matches the golden observable trace") {
+  const ButtonScheduleStep schedule[4] = {
+      {16, -1, -1, -1}, {16, 1, -1, -1}, {1016, -1, -1, -1}, {16, 0, -1, -1}};
+  runButtonSensorParity("button-long-click", schedule, 4);
+}
+
+TEST_CASE("the button-double-click fixture byte-matches the golden observable trace") {
+  const ButtonScheduleStep schedule[4] = {
+      {16, -1, -1, -1}, {16, 1, -1, -1}, {16, 0, -1, -1}, {16, 1, -1, -1}};
+  runButtonSensorParity("button-double-click", schedule, 4);
+}
+
+TEST_CASE("the button-held fixture byte-matches the golden observable trace") {
+  const ButtonScheduleStep schedule[4] = {
+      {16, -1, -1, -1}, {16, 1, -1, -1}, {16, -1, -1, -1}, {16, 0, -1, -1}};
+  runButtonSensorParity("button-held", schedule, 4);
+}
+
+TEST_CASE("the button-b fixture byte-matches the golden observable trace") {
+  const ButtonScheduleStep schedule[3] = {{16, -1, -1, -1}, {16, -1, 1, -1}, {16, -1, 0, -1}};
+  runButtonSensorParity("button-b", schedule, 3);
+}
+
+TEST_CASE("the button-ab fixture byte-matches the golden observable trace") {
+  const ButtonScheduleStep schedule[3] = {{16, -1, -1, -1}, {16, 1, -1, -1}, {16, -1, 1, -1}};
+  runButtonSensorParity("button-ab", schedule, 3);
+}
+
+TEST_CASE("the button-logo fixture byte-matches the golden observable trace") {
+  const ButtonScheduleStep schedule[3] = {{16, -1, -1, -1}, {16, -1, -1, 1}, {16, -1, -1, 0}};
+  runButtonSensorParity("button-logo", schedule, 3);
 }
 
 TEST_CASE("the exceptions-yield fixture byte-matches the golden observable trace") {
@@ -707,6 +838,81 @@ TEST_CASE("the user-tile button-display fixture byte-matches the golden observab
   CHECK(sink.text() == golden);
   // The device ends with pixel (0,0) lit, mirroring the TS oracle assertion.
   CHECK(microbit.display.pixels[0][0] == 255);
+}
+
+TEST_CASE("the user-tile button-states fixture byte-matches the golden observable trace") {
+  const std::string base =
+      std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-button-states";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  TraceTap tap(writer);
+
+  // The actuator reads buttonA/buttonB/logo through native struct field getters
+  // and writes each level to a pixel; the three reads dispatch through the target
+  // host-function table (Button.isPressed and TouchButton.isPressed share one
+  // body, keyed by the receiver discriminator).
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  ExecutionContext ctx;
+  mindcraft::ManagedHeap heap(arena);
+  mindcraft::TypeRegistry types(image);
+  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+  surface.types = &types;
+  surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Mirrors SCHEDULE in wodal
+  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-button-states.spec.ts:
+  // released, A only, A+B, then logo only. Index 0 is A, 1 is B, 2 is the logo;
+  // -1 leaves a level unchanged before the think.
+  const ButtonScheduleStep schedule[4] = {
+      {16, -1, -1, -1}, {16, 1, -1, -1}, {16, -1, 1, -1}, {16, 0, 0, 1}};
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 4; i++) {
+    const ButtonScheduleStep& step = schedule[i];
+    if (step.a >= 0) {
+      microbit.buttons.pressed[0] = step.a == 1;
+    }
+    if (step.b >= 0) {
+      microbit.buttons.pressed[1] = step.b == 1;
+    }
+    if (step.logo >= 0) {
+      microbit.buttons.pressed[2] = step.logo == 1;
+    }
+    const float timeMs = lastThinkTimeMs + step.advanceMs;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+  // The final think touches only the logo, so pixel (2,0) ends lit and (0,0) dark.
+  CHECK(microbit.display.pixels[0][2] == 1);
+  CHECK(microbit.display.pixels[0][0] == 0);
 }
 
 namespace {

@@ -2,26 +2,26 @@ mctrace 1
 profile 1
 precision f32
 tick 1 time 41800000 dt 00000000
-action 400 site 0 args 2 nil nil result bool 0
+action 400 site 0 args 6 nil nil nil nil nil nil result bool 0
 tick 2 time 42000000 dt 41800000
-action 400 site 0 args 2 nil nil result bool 0
+action 400 site 0 args 6 nil nil nil nil nil nil result bool 0
 tick 3 time 42800000 dt 42000000
-action 400 site 0 args 2 nil nil result bool 1
+action 400 site 0 args 6 nil nil nil nil nil nil result bool 1
 port display set-pixel 00000000 00000000 437f0000
 action 401 site 1 args 3 nil nil nil result void
 tick 4 time 42a00000 dt 41800000
-action 400 site 0 args 2 nil nil result bool 0
+action 400 site 0 args 6 nil nil nil nil nil nil result bool 0
 tick 5 time 42c00000 dt 41800000
-action 400 site 0 args 2 nil nil result bool 0
+action 400 site 0 args 6 nil nil nil nil nil nil result bool 0
 tick 6 time 43100000 dt 42400000
-action 400 site 0 args 2 nil nil result bool 0
+action 400 site 0 args 6 nil nil nil nil nil nil result bool 0
 tick 7 time 43200000 dt 41800000
-action 400 site 0 args 2 nil nil result bool 0
+action 400 site 0 args 6 nil nil nil nil nil nil result bool 0
 tick 8 time 43400000 dt 42000000
-action 400 site 0 args 2 nil nil result bool 1
+action 400 site 0 args 6 nil nil nil nil nil nil result bool 1
 port display set-pixel 00000000 00000000 437f0000
 action 401 site 1 args 3 nil nil nil result void
 tick 9 time 43500000 dt 41800000
-action 400 site 0 args 2 nil nil result bool 0
+action 400 site 0 args 6 nil nil nil nil nil nil result bool 0
 tick a time 43600000 dt 41800000
-action 400 site 0 args 2 nil nil result bool 0
+action 400 site 0 args 6 nil nil nil nil nil nil result bool 0

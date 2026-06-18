@@ -29,12 +29,15 @@ enum class MicroBitV2HostFuncId : uint32_t
     SensorButtonA = 1033,
     ActuatorDisplaySetPixel = 1034,
     ActuatorDisplayScroll = 1035,
+    SensorButtonB = 1036,
+    SensorButtonAB = 1037,
+    SensorButtonLogo = 1038,
 };
 
 /**
  * Number of declared {@link MicroBitV2HostFuncId} members; ids are dense
  * from 1024.
  */
-inline constexpr uint32_t kMicroBitV2HostFuncIdCount = 11;
+inline constexpr uint32_t kMicroBitV2HostFuncIdCount = 15;
 
 } // namespace mindcraft

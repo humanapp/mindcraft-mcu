@@ -7,29 +7,39 @@
 #include "targets/microbit-v2/abi/host-actions.h"
 #include "targets/microbit-v2/abi/host-actions/actuators/display-scroll.h"
 #include "targets/microbit-v2/abi/host-actions/actuators/display-set-pixel.h"
-#include "targets/microbit-v2/abi/host-actions/sensors/button-a.h"
+#include "targets/microbit-v2/abi/host-actions/sensors/button-sensor.h"
 
 namespace mindcraft
 {
 
 /** Number of microbit-v2 host-action bindings the slice registers. */
-inline constexpr uint32_t kMicroBitV2HostActionBindingCount = 3;
+inline constexpr uint32_t kMicroBitV2HostActionBindingCount = 6;
 
 /**
  * Builds the microbit-v2 host-action binding table over `ports`, one entry per
  * action body. The async scroll body uses `scrollEnv` (its display port and
- * heap); pass null when the table will never dispatch a scroll. `ports` and
- * `scrollEnv` must outlive every dispatch through the table.
+ * heap); the four button sensors use `buttonEnv` (the button port plus the heap
+ * and roots backing their per-callsite state). Pass null for an env when the
+ * table will never dispatch its actions. `ports` and any supplied env must
+ * outlive every dispatch through the table.
  */
 inline std::array<HostActionBinding, kMicroBitV2HostActionBindingCount>
 makeMicroBitV2HostActionBindings(DevicePorts &ports,
-                                 MicroBitV2DisplayScrollEnv *scrollEnv = nullptr)
+                                 MicroBitV2DisplayScrollEnv *scrollEnv = nullptr,
+                                 MicroBitV2ButtonSensorEnv *buttonEnv = nullptr)
 {
     return {{
-        {MicroBitV2HostActions::ButtonA.actionId, &execButtonA, &buttonAPageEntered, &ports},
+        {MicroBitV2HostActions::ButtonA.actionId, &execButtonA, &buttonSensorPageEntered,
+         buttonEnv},
         {MicroBitV2HostActions::DisplaySetPixel.actionId, &execDisplaySetPixel, nullptr, &ports},
         {MicroBitV2HostActions::DisplayScroll.actionId, nullptr, nullptr, scrollEnv,
          &execScrollText},
+        {MicroBitV2HostActions::ButtonB.actionId, &execButtonB, &buttonSensorPageEntered,
+         buttonEnv},
+        {MicroBitV2HostActions::ButtonAB.actionId, &execButtonAB, &buttonSensorPageEntered,
+         buttonEnv},
+        {MicroBitV2HostActions::ButtonLogo.actionId, &execButtonLogo, &buttonSensorPageEntered,
+         buttonEnv},
     }};
 }
 
