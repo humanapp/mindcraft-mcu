@@ -190,16 +190,22 @@ detector, the way the real device works:
   gesture (slider range reaches ~8G so the higher g-levels are attainable). Magnitude is
   non-negative (direction is the globe's job).
 - **Faithful wodal gesture detector** - a TS port of CODAL's thresholds (tilt/face, shake
-  zero-crossing + damping, freefall, impact) turns globe + slider into the gesture the brain
-  reads, so the sim matches the device (WYSIWYG). This is the **sim's interactive gesture
-  model only** - **NOT** the parity path: goldens still inject the gesture enum via the
-  harness (not the globe), so cpp and the golden path are unchanged. The detector gets its own
-  wodal unit tests.
+  zero-crossing + damping, freefall) turns globe motion into the gesture the brain reads, so the
+  sim matches the device (WYSIWYG). This is the **sim's interactive gesture model only** -
+  **NOT** the parity path: goldens still inject the gesture enum via the harness (not the globe),
+  so cpp and the golden path are unchanged. The detector gets its own wodal unit tests. (Impact
+  detection is not part of the detector while `[impact]` is deferred - CODAL delivers impacts as
+  events, not via the polled gesture the detector models.)
+- **Detector feed cadence:** the detector counts its time constants in samples (faithful to
+  CODAL's fixed sample period), so the sim must feed it at the **device sample period (~20 ms),
+  decoupled from the brain tick** (run zero-or-more detector steps as elapsed time crosses the
+  period) - this is what makes the sim's recognized gesture durations match the device.
 - `apps/microbit-sim` owns the UI; `wodal` owns the detector + the injectable input it drives.
 
 Open (sim UI): shake-via-globe-movement ergonomics (a fallback "nudge" affordance if wiggling
-is too fiddly); the per-gesture hard-coded recognized durations (shake ~momentary; freefall /
-impact windows).
+is too fiddly); the g-force slider's role while `[impact]` is deferred (ship globe-only first, or
+gate on the impact revival). (Recognized durations are resolved by the sample-period feed cadence
+above.)
 
 ## Conformance
 

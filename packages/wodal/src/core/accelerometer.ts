@@ -1,3 +1,4 @@
+import { GestureDetector, recalculatePitchRoll } from "./gesture-detector";
 import { clampInt16, clampInt32, toInt32 } from "./numeric";
 
 /** Three-axis accelerometer sample measured in milli-g. */
@@ -58,6 +59,7 @@ export class Accelerometer {
   private gesture = ACCELEROMETER_EVT_NONE;
   private pitchRadians = 0;
   private rollRadians = 0;
+  private readonly detector = new GestureDetector();
 
   /**
    * Sets the requested sample period.
@@ -123,6 +125,23 @@ export class Accelerometer {
       y: this.normalizeAxis(sample.y),
       z: this.normalizeAxis(sample.z),
     };
+  }
+
+  /**
+   * Drives the model from a simulated motion sample: normalizes and stores the
+   * sample, advances the faithful gesture detector, and updates the gesture and
+   * the pitch/roll radians from it. After this call {@link getGesture}, {@link
+   * getX}/{@link getY}/{@link getZ}, and {@link getPitchRadians}/{@link
+   * getRollRadians} reflect the detector's reading of the sample.
+   *
+   * @param sample - Three-axis acceleration sample in milli-g.
+   */
+  feedSample(sample: Sample3D): void {
+    this.setSample(sample);
+    const { pitchRadians, rollRadians } = recalculatePitchRoll(this.sample);
+    this.setPitchRadians(pitchRadians);
+    this.setRollRadians(rollRadians);
+    this.setGesture(this.detector.update(this.sample));
   }
 
   /**
@@ -207,6 +226,7 @@ export class Accelerometer {
     this.gesture = ACCELEROMETER_EVT_NONE;
     this.pitchRadians = 0;
     this.rollRadians = 0;
+    this.detector.reset();
   }
 
   private normalizeAxis(value: number): number {
