@@ -95,8 +95,16 @@ Shaking the board fires the tile on device - the FIRST accelerometer behavioral 
 validation (A1+A3 = a working hardware-validated gesture tile). Step 0 fixed the wodal
 `setPixelValue` host-function narrowing (one-line wrap + regression golden; retires the A2 trace
 bug). A device-only CODAL bug was root-caused + fixed (`getGesture()` needs `requestUpdate()` to
-start the accelerometer's sampling/detection - see Phase Log; standing caution recorded). Next:
-A4 (impact + conditional g-force).** Two further phases queued: 8 (virtual radio
+start the accelerometer's sampling/detection - see Phase Log; standing caution recorded).** **A4
+(impact + g-force) DEFERRED 2026-06-18 - attempted, hit a hardware wall, cleanly reverted to the
+A3 state** (tile = the 8 core gestures; firmware byte-identical to the hardware-validated A3
+build). Root finding: CODAL raises impacts as `DEVICE_ID_GESTURE` **events only** and never
+writes them to `lastGesture`, so impact **cannot be polled** via `getGesture()` like the core
+gestures; a `+/-2G` range also saturates below the 2G threshold, and on-device event delivery to
+a listener has never been exercised in this firmware. See Deferred Work (impact revival) for the
+full CODAL findings + the recommended poll-`instantaneousAccelerationSquared()` revival path.
+Net: **A1-A3 complete + hardware-validated; A4 deferred; A5 (sim detector/UI) open.** Next: A5,
+or revive A4 once the impact-delivery approach is chosen.** Two further phases queued: 8 (virtual radio
 sim-to-sim) and 9 (Cutebot via TS user-tiles).** **PHASE
 6 IS COMPLETE
 (6a-6j, 2026-06-17): the C++ VM is a fully conforming VM - every contract opcode
@@ -2614,7 +2622,13 @@ sync-vs-async) into a default, overridden only with cause:
   Event-rich capabilities (gesture, button click/hold, claps, radio packets, pin edges) are
   derived from polled state unless a tile genuinely needs true event semantics - then a
   deliberate, separately-validated exception (the 6h out-of-loop-settle path is the
-  mechanism, with its own on-hardware proof).
+  mechanism, with its own on-hardware proof). **First concrete test of this (A4, 2026-06-18):**
+  accelerometer **impact** turns out to be CODAL-event-only (never written to the pollable
+  `lastGesture`), so it cannot be polled via `getGesture()`. The stance still holds - the
+  recommended fix keeps polling (derive impact from `instantaneousAccelerationSquared()`
+  ourselves, like buttons derive click/hold) rather than consume CODAL's `DEVICE_ID_GESTURE`
+  events; consuming events would be the deliberate exception and would be the firmware's first
+  on-device event consumer. See Deferred Work (impact revival).
 - **Actuators with a temporal quality -> await.** An effect that takes observable time
   (scroll, print, animate, sound-play, a timed move) surfaces as an async host-action (op
   45, the 6i scroll pattern: completion-time formula against VM tick, awaited).
@@ -2637,8 +2651,9 @@ invariant surfaced (see the native-struct field-order note below).
 
 **Second peripheral: accelerometer/gesture - core gestures COMPLETE both VMs +
 hardware-validated 2026-06-18** (sub-phased; A1 port+harness, A2 surface-2 reads, A3 the
-`gesture` tile for shake/4 tilt/2 face/freefall - all accepted; A4 impact+conditional g-force
-and A5 sim detector/UI remain). See the Phase Log A1/A2/A3 entries and
+`gesture` tile for shake/4 tilt/2 face/freefall - all accepted. A4 (impact + conditional
+g-force) was attempted and DEFERRED (impacts are CODAL events, not pollable - see the Phase Log
++ Deferred Work); A5 (sim detector/UI) remains. See the Phase Log A1/A2/A3/A4 entries and
 `docs/specs/tiles/accelerometer-sensor.md` + `docs/specs/microbit-context.md`.
 
 **STANDING CAUTION for every CODAL-bound read (learned at A3, 2026-06-18).** Enum/value
@@ -2795,6 +2810,22 @@ Condensed dated ledger of accepted phases (newest first). Full per-phase as-buil
 detail lives in the session memory and git history; the accepted phase sections above
 carry the contracts each produced.
 
+- **2026-06-18 - Phase 7 accelerometer A4 (impact + g-force) ATTEMPTED, DEFERRED, reverted.**
+  Not an accepted phase - logged because the hardware findings are load-bearing for revival. The
+  `gesture` tile is back to the accepted A3 state (8 core gestures, equality compare); the revert
+  is clean and the firmware is byte-identical to the hardware-validated A3 build. **Why it could
+  not ship:** impacts are **event-only** in CODAL - `updateGesture()` raises
+  `Event(DEVICE_ID_GESTURE, ACCELEROMETER_EVT_*G)` but never writes `lastGesture` (only shake +
+  posture changes do), so a polled `getGesture()` can never see an impact; and `+/-2G` range
+  saturates each axis near 2000 mg (below the 2G = 2048^2 mg^2 threshold), so a range bump is
+  necessary-but-not-sufficient; and impact would be the firmware's FIRST on-device event-delivery
+  consumer (buttons/display/postures are all polled/fiber-based), an unproven path in the
+  single-entry host loop. At `+/-8G` a hard hit still did not fire - unresolved between (a) the
+  impulse falling between 50 Hz samples vs (b) `DEVICE_ID_GESTURE` events not reaching the
+  listener. KEPT across the revert: the A1 `AccelerometerGesture` enum (all 13 CODAL codes incl.
+  the impact codes, still in A1's fixtures) and the A3 `requestUpdate()` fix; func/action ids
+  unchanged (1047/1030). Full findings + revival options in Deferred Work. Gate after revert: cpp
+  check.sh x3 (285 cases), wodal 173, firmware Docker exit 0 (cached = byte-identical to A3).
 - **2026-06-18 - Phase 7 accelerometer A3 complete + HARDWARE-VALIDATED** (gesture tile, core
   gestures; first accelerometer behavioral hardware validation - A1+A3 = a working
   hardware-validated gesture tile). One host **sensor** tile `gesture` (key `microbit-v2.gesture`,
@@ -3215,6 +3246,34 @@ carry the contracts each produced.
   the port boundary (`microbit-display.ts` + cpp `PixelDisplayPort`) so no caller can reintroduce
   it. Does NOT block A3 (the gesture tile is a host-action). Do it before any user-tile golden
   needs to display a non-integer or negative read.
+- **Accelerometer `[impact]` modifier + g-force sub-modifiers (deferred from A4, 2026-06-18).**
+  The gesture tile's design (`docs/specs/tiles/accelerometer-sensor.md`) includes `[impact]` and
+  the conditional `[2g]/[3g]/[6g]/[8g]` g-force levels; A4 attempted them, could not make impact
+  fire on hardware, and reverted to the core-gesture A3 state. Revival is mostly re-wiring the
+  tile (the `AccelerometerGesture` impact codes are kept and already parity-tested), but it must
+  resolve a delivery question first. **Established CODAL facts (do not re-derive):**
+  (1) impacts are **event-only** - `updateGesture()` raises `Event(DEVICE_ID_GESTURE,
+  ACCELEROMETER_EVT_2G/3G/6G/8G)` but never writes `lastGesture`, so `getGesture()` polling
+  cannot see them (the poll-and-compare design that works for postures/shake does NOT work for
+  impact); (2) `Event` default launch is `CREATE_AND_FIRE` (synchronous at construction);
+  (3) impact thresholds use `instantaneousAccelerationSquared()` (sum of squares of the mg
+  sample) vs `2G=2048^2, 3G=3072^2, 6G=6144^2, 8G=8192^2` mg^2; (4) the default `+/-2G` range
+  saturates ~2000 mg, below the 2G threshold, so the range must be raised (a bump is necessary
+  but, per hardware testing, not sufficient alone); (5) range bump + detection both gate on the
+  first `requestUpdate()` (already done by the A3 fix). **Recommended revival path (keeps the
+  poll stance, sidesteps both the event-delivery question and the `lastGesture` limitation):
+  derive impact ourselves from polling `instantaneousAccelerationSquared()` each tick** and
+  threshold it against the mg^2 levels - the same "derive from polled state" pattern buttons use
+  for click/hold, rather than consuming CODAL's `DEVICE_ID_GESTURE` events. Open risk: a hard
+  impulse can fall between samples at 50 Hz - address with a sample-rate config and/or a
+  short peak-hold. The alternative (consume CODAL's gesture events) would make impact the
+  firmware's first on-device event consumer in the single-entry host loop - a bigger,
+  separately-validated step (the deliberate "true events" exception the poll-sensor stance
+  anticipates). **Decisions for the user when reviving** (explored during A4, NOT locked): the
+  active range (8G chosen during the attempt for precision, which makes `[8g]` unreachable ->
+  `[8g]` was dropped) vs a higher range; the impact signal's lifetime (impact is a momentary
+  event, not a sustained posture - the explored option was a one-tick latch cleared by the host
+  loop so an impact never sticks or masks a later gesture). Does not block A5.
 - **`degreesFromRadians` duplicated across C++ test files (minor, found at A2).** The f32
   radians->degrees helper is now copied in `device-port.test.cpp`,
   `accelerometer-read-parity.test.cpp`, and `trace-parity.test.cpp`. Fold into one shared cpp

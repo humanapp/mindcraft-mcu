@@ -5,8 +5,9 @@
 
 Status: core gestures (shake / 4 tilt / 2 face / freefall) implemented + hardware-validated
 2026-06-18 (both VMs); the `[impact]` modifier + its g-force sub-modifiers are designed below
-but not yet implemented. Pairs with the filters direction
-(`docs/specs/tiles/filters.md`) for edge/toggle behavior.
+but DEFERRED - on hardware impacts are CODAL events, not pollable via `getGesture()`, so the
+poll-and-compare path does not work for impact (see the delivery note under Behavior). Pairs
+with the filters direction (`docs/specs/tiles/filters.md`) for edge/toggle behavior.
 
 ## Identity
 
@@ -51,9 +52,19 @@ fires a `[6g]`, a `[3g]`, a `[2g]`, and a bare `[impact]` rule, but not an `[8g]
 CODAL enum **codes are not numerically ordered** (2G is the highest code value, not the
 lowest), so the body needs an explicit code->rank map; it must not compare raw code values. On
 the parity
-path the injected impact code is the level reached, so the `>=` is exercised directly; how a
-real CODAL multi-threshold hit reports through `getGesture()` is device behavior covered by
-the hardware smoke test, not the goldens.
+path the injected impact code is the level reached, so the `>=` is exercised directly.
+
+**Delivery note (impact is DEFERRED).** On real hardware impacts do NOT flow through
+`getGesture()` at all: CODAL raises them as `DEVICE_ID_GESTURE` events and never writes them to
+the pollable `lastGesture` (only postures + shake set that). So the poll-`getGesture()`-and-
+compare model above - correct for the core gestures - cannot deliver impact, and the default
+`+/-2G` range saturates below the 2G threshold. A revival derives impact by **polling
+`instantaneousAccelerationSquared()`** each tick and thresholding it directly (the "derive from
+polled state" pattern, like buttons' click/hold), or - as a deliberate exception - consumes
+CODAL's gesture events. Impact is a momentary event, not a sustained posture, so a revived
+design also needs a defined signal lifetime (e.g. a one-tick latch) so it never sticks or masks
+a later gesture. The `>=` rank matching + the conditional grammar above remain the intended
+design; only the delivery mechanism is open.
 
 **Every modifier emits a LEVEL signal: true on every tick the gesture is recognized**, false
 otherwise - uniform across all gestures. Edge / one-shot / toggle behavior is obtained by
