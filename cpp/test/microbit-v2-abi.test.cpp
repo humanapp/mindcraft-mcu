@@ -40,7 +40,15 @@ TEST_CASE("MicroBitV2HostFuncId values are wire-stable") {
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::SensorButtonB) == 1036);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::SensorButtonAB) == 1037);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::SensorButtonLogo) == 1038);
-  CHECK(kMicroBitV2HostFuncIdCount == 15);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::AccelerometerGetX) == 1039);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::AccelerometerGetY) == 1040);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::AccelerometerGetZ) == 1041);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::AccelerometerGetPitchRadians) == 1042);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::AccelerometerGetRollRadians) == 1043);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::AccelerometerGetPitch) == 1044);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::AccelerometerGetRoll) == 1045);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::AccelerometerGetGesture) == 1046);
+  CHECK(kMicroBitV2HostFuncIdCount == 23);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::DisplaySetPixelValue) == TARGET_FUNC_ID_BASE);
 }
 
@@ -49,7 +57,8 @@ TEST_CASE("MicroBitV2TypeAtomId values are wire-stable") {
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::Button) == 1025);
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::TouchButton) == 1026);
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::MicroBit) == 1027);
-  CHECK(kMicroBitV2TypeAtomIdCount == 4);
+  CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::Accelerometer) == 1028);
+  CHECK(kMicroBitV2TypeAtomIdCount == 5);
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::MicroBitDisplay) == TARGET_TYPE_ATOM_BASE);
 }
 
@@ -87,7 +96,8 @@ TEST_CASE("MicroBitField values are wire-stable") {
   CHECK(static_cast<uint8_t>(MicroBitField::ButtonA) == 1);
   CHECK(static_cast<uint8_t>(MicroBitField::ButtonB) == 2);
   CHECK(static_cast<uint8_t>(MicroBitField::Logo) == 3);
-  CHECK(kMicroBitFieldCount == 4);
+  CHECK(static_cast<uint8_t>(MicroBitField::Accelerometer) == 4);
+  CHECK(kMicroBitFieldCount == 5);
 }
 
 TEST_CASE("the Context.microbit extension id sits just above the core Context fields") {

@@ -83,7 +83,13 @@ surface-2 reads -> A3 gesture tile -> A4 impact+conditional -> A5 sim detector+g
 parity track (A2-A4) is separable from the sim-UX track (A5), and A1+A3 alone give a working
 hardware-validated tile. **A1 COMPLETE (2026-06-18, host/firmware-build-gated): `AccelerometerInputPort`
 (getGesture/getX-Y-Z/pitch-roll, radians-primary degrees-derived) + the CODAL gesture enum +
-the test-only injectable harness; read-back parity fixture byte-matches both VMs. Next: A2/A3.** Two further phases queued: 8 (virtual radio
+the test-only injectable harness; read-back parity fixture byte-matches both VMs.** **A2
+COMPLETE (2026-06-18, host/firmware-build-gated; hardware read pending user flash): surface-2
+`ctx.microbit.accelerometer.*` (8 sync host-fn reads, singleton struct no discriminator, ids
+1039-1046, `MicroBitField.Accelerometer=4` appended last) + regenerated ambient `.d.ts`;
+user-tile golden byte-matches both VMs. A2 found a cross-VM trace-parity bug on the user-tile
+`setPixelValue` host-function path (see Deferred Work), worked around by integer-clean values.
+Next: A3 (gesture tile).** Two further phases queued: 8 (virtual radio
 sim-to-sim) and 9 (Cutebot via TS user-tiles).** **PHASE
 6 IS COMPLETE
 (6a-6j, 2026-06-17): the C++ VM is a fully conforming VM - every contract opcode
@@ -2767,6 +2773,29 @@ Condensed dated ledger of accepted phases (newest first). Full per-phase as-buil
 detail lives in the session memory and git history; the accepted phase sections above
 carry the contracts each produced.
 
+- **2026-06-18 - Phase 7 accelerometer A2 complete** (surface-2 TS reads;
+  host/firmware-build-gated, hardware read smoke test pending user flash). 8 sync host-function
+  reads `ctx.microbit.accelerometer.{getX/Y/Z, getPitchRadians/RollRadians, getPitch/Roll,
+  getGesture}` over the A1 port, both VMs. New append-only ABI ids: `MicroBitField.Accelerometer=4`
+  (appended LAST, count 4->5), `MicroBitV2TypeAtomId.Accelerometer=1028` (4->5), host-fn ids
+  1039-1046 (count 15->23). **Singleton struct, NO discriminator** (unlike the buttons' shared
+  body): the `accelerometer` field resolves to one struct value and each of the 8 reads binds a
+  distinct body (cpp `accelerometer-read.h`, binding count 3->11; wodal
+  `registerAccelerometerFunctions` + `Accelerometer` struct in module.ts; `microBitFieldGetter`
+  resolves the new field, nil-receiver gap stays closed). Reads share the A1 port (one poll, both
+  surfaces); no derivation added (degrees still derive-from-radians in the port). Ambient
+  `mindcraft.microbit-v2.d.ts` regenerated (`Accelerometer` interface + `readonly accelerometer`),
+  ambient spec passes, not hand-edited. Golden `user-tile-accelerometer-reads` (+ `.mcprogram`/
+  `.bin`/`.ticks.trace`): 4-tick schedule injects gesture + x/y/z + pitch/roll-radians (tick 3
+  sets nothing -> proves held; ticks 2/4 partial -> rest hold); cpp parity TEST_CASE in
+  `trace-parity.test.cpp` (`SettableAccelerometer` with derived degrees). **A2 is a WIRING proof**
+  (distinct injected values catch a cross-wire); value precision stays A1's port-level
+  `accelerometer-read-vectors` (raw f32 bits, no display in the path). The split is forced by a
+  cross-VM trace-parity bug on the user-tile `setPixelValue` host-function path (see Deferred
+  Work). Gate: cpp check.sh x3 (275 cases, user-tile case 13 assertions), wodal typecheck+biome
+  clean + 163, firmware Docker build exit 0 (CODAL reads linked), comment review pass. One
+  unrelated `program-reader` invalid-atom probe bumped 1028->1029 (1028 is now the valid
+  Accelerometer atom). Spec current: `docs/specs/microbit-context.md` (accelerometer wired). Next: A3.
 - **2026-06-18 - Phase 7 accelerometer A1 complete** (port + injectable-input foundation;
   host/firmware-build-gated - no behavioral hardware test yet, the gesture tile lands in A3).
   Device port `AccelerometerInputPort` (`cpp/codal/device-port.h`, `accelerometer` appended LAST
@@ -3077,7 +3106,10 @@ carry the contracts each produced.
   coords narrow f32->i16, brightness f32->u8 truncate+wrap (no clamp), the **device** does
   the 5x5 matrix early-out, and every call emits a narrowed `port display set-pixel` line.
   In-matrix integers narrow as the identity (existing goldens byte-unchanged). Pinned in
-  `docs/specs/contracts/observable-trace.md`. Closed - kept here as the seam's history.
+  `docs/specs/contracts/observable-trace.md`. Closed for the **host-action** setPixel path -
+  kept here as the seam's history. NOTE: A2 (2026-06-18) found the **host-function** setPixel
+  path (user-tile `setPixelValue`) does not honor the same narrowed-trace contract across VMs -
+  separate follow-up item below.
 - **Shared input-script file format + parsers (deferred from 6j, 2026-06-17; design
   locked).** A line-oriented `mcscript 1` / `tick <ms> [button <name> down|up]` file with a
   host-only C++ parser in `cpp/hostkit` + a TS reader, replacing the hand-mirrored
@@ -3086,6 +3118,45 @@ carry the contracts each produced.
   - the "format for one fixture" Parity Transport itself flagged as over-build, and the dual
   schedule's drift is already self-policed by the byte gate. Build it when a **second**
   input-driven consumer appears.
+- **Vector-fixture filename convention cleanup (deferred at the user's request, 2026-06-18).**
+  The parity value-vector fixtures use a `-vectors.bin` suffix (`core-host-fn-vectors.bin`,
+  `pinned-numerics-vectors.bin`, `device-profile-caps-vectors.bin`,
+  `accelerometer-read-vectors.bin`) that overloads the single-word `.bin` against the program
+  fixtures' `.mcprogram.bin`. Proposed: a `.vectors.bin` double-extension (parallel to
+  `.mcprogram.bin`) applied across **all four** fixtures + their `*-vectors.spec.ts` writers +
+  the C++ parity-test decoders, in one cross-cutting rename. Low-risk and self-policing (the
+  byte gates fail loudly if a path is missed), but touches every vector family at once, so the
+  user wants it done as its own change, not folded into accelerometer A2+. No behavior change.
+- **User-tile `setPixelValue` host-function trace does not narrow consistently across VMs
+  (found at A2, 2026-06-18).** A real cross-VM parity bug, masked until A2. `observable-trace.md`
+  pins the `port display set-pixel` line to the **post-narrowing** value (f32->i16 coords,
+  f32->u8 brightness), and the brain **host-action** setPixel path honors it both VMs (the 6j
+  `pixel-conversion` golden byte-matches with fractional/out-of-range/negative values). But the
+  surface-2 user-tile path - `ctx.microbit.display.setPixelValue`, a host-**function**
+  (ts-compiler `HOST_CALL`, the two-compilers split) - diverges: per the A2 implementer wodal
+  records the **raw** pre-narrow value while cpp records the narrowed value, so the byte gate
+  only holds when `raw == narrowed` (whole, non-negative, 0..255). Invisible until now because
+  every prior user-tile setPixel golden used identity-safe values (0/255); A2's reads forced the
+  issue and were worked around by injecting integer-clean values (so A2 is a wiring proof, with
+  value precision covered by A1's display-free port vectors). **ROOT CAUSE PINPOINTED
+  (2026-06-18): wodal's host-function body omits the narrowing wrap.** In
+  `packages/wodal/src/targets/microbit-v2/mindcraft/module.ts` the `MicroBitDisplay.setPixelValue`
+  function passes `numberArg(args,1..3)` straight to `setPixelValue`, whereas the wodal
+  host-**action** (`actions/display-set-pixel.ts`) and the cpp host-function
+  (`display-set-pixel-value.h`) both wrap the args in `pixelCoordToPort`/`brightnessToPort`.
+  **Fix = wrap the three args** with those helpers (already exported from
+  `actions/display-pixel-conversion.ts`); cpp needs no change. **Byte-safe** for all existing
+  goldens (identity-safe values narrow to themselves). Add one regression golden pushing a
+  fractional/negative/out-of-range value through `ctx.microbit.display.setPixelValue`, byte-matched
+  both VMs (or relax A2's `user-tile-accelerometer-reads` to its real non-identity values).
+  Optional deeper cleanup (over-build vs. the one-liner, only 2 callers/VM): move narrowing into
+  the port boundary (`microbit-display.ts` + cpp `PixelDisplayPort`) so no caller can reintroduce
+  it. Does NOT block A3 (the gesture tile is a host-action). Do it before any user-tile golden
+  needs to display a non-integer or negative read.
+- **`degreesFromRadians` duplicated across C++ test files (minor, found at A2).** The f32
+  radians->degrees helper is now copied in `device-port.test.cpp`,
+  `accelerometer-read-parity.test.cpp`, and `trace-parity.test.cpp`. Fold into one shared cpp
+  test helper when convenient; test-only, no behavior impact.
 - **Instruction-level trace mode (deferred from 6j, 2026-06-17; design locked).** Per-
   instruction pc/op/stack-depth via a TS-VM `onInstruction` event + a C++ passive
   `VmObserver::onInstruction` hook + one small golden - the divergence-localizing escalation.

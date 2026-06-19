@@ -41,6 +41,7 @@ From the ambient `.d.ts` + the `*Port` layer:
 | `buttonA`        | `isPressed()`                                                       | `ButtonInputPort` (index 0) | |
 | `buttonB`        | `isPressed()`                                                       | `ButtonInputPort` (index 1) | |
 | `logo`           | `isPressed()`, `getThreshold()`/`setThreshold()`, `getValue()`/`setValue()` | `ButtonInputPort` (index 2) for `isPressed`; touch config separate | the `[logo]` tile hard-codes capacitance; surface 2 exposes the raw touch config (deliberate not-1:1) |
+| `accelerometer`  | `getX/Y/Z()`, `getPitchRadians/RollRadians()`, `getPitch/Roll()`, `getGesture()` | `AccelerometerInputPort` | singleton struct, no discriminator; 8 sync reads; pitch/roll degrees derive-from-radians in the port (full detail in the section below) |
 
 **Wired both VMs (2026-06-17):** `buttonA`/`buttonB`/`logo` `isPressed()`. The C++
 `microBitFieldGetter` previously resolved only `display`/`buttonA`, so `buttonB`/`logo` produced
@@ -63,7 +64,7 @@ last, at the next free id.
 - `display.scroll` is tile-only; expose it here as an awaited `display.scroll()` only if a
   TS-user-code consumer wants it (no consumer today).
 
-## Proposed: `accelerometer` (DRAFT 2026-06-17, not yet wired)
+## `accelerometer` (wired both VMs 2026-06-18)
 
 Surface-2 reads for the accelerometer peripheral (surface 1 = the gesture sensor tile,
 `docs/specs/tiles/accelerometer-sensor.md`). Continuous values that are not rule triggers, so
@@ -76,16 +77,20 @@ they live here, not as tiles:
 | `getPitch()` / `getRoll()`     | number (whole degrees) | DERIVED from radians via CODAL's exact f32 formula `(int)(360*rad/(2*PI))`, both VMs (not derived from x/y/z, not independently polled) |
 | `getGesture()`                 | number (gesture code) | the current gesture enum (CODAL `ACCELEROMETER_EVT_*` codes verbatim); the same value the surface-1 `gesture` tile compares against |
 
-- New `AccelerometerInputPort` (`getX/getY/getZ`, `getGesture`, ...) on `DevicePorts`, bound
-  to `uBit.accelerometer`. The reads **share the same poll** the gesture sensor tile consumes
-  (one poll, both surfaces).
+- `AccelerometerInputPort` (`getGesture`, `getX/getY/getZ`, `getPitch/Roll` +
+  `getPitchRadians/RollRadians`) on `DevicePorts`, bound to `uBit.accelerometer`. The reads
+  **share the same poll** the gesture sensor tile consumes (one poll, both surfaces).
 - Sync reads (instantaneous), per the stance.
+- **Singleton struct - no discriminator** (unlike the buttons, which key one shared
+  `isPressed` body by receiver): the `accelerometer` field resolves to one struct value and
+  each of the 8 reads binds a distinct host-function body.
 - **Not 1:1 with the tile:** TS user-code gets the raw values + pitch/roll + the current
   `getGesture()` code; the gesture *tile* (surface 1) adds the modifier-match + level
-  semantics on top of `getGesture()`. (`getGesture()` is exposed - resolved 2026-06-17.)
-- **Append `accelerometer` LAST** at the next free `MicroBitField` id, per the field-order
-  invariant above. ids/values pinned at implementation (append-only); coordinate space + units must
-  match the tile spec.
+  semantics on top of `getGesture()`.
+- **As-built ABI ids (append-only):** `MicroBitField.Accelerometer = 4` (appended LAST per the
+  field-order invariant above), type-atom `1028`, host-function ids `1039-1046` (getX 1039,
+  getY 1040, getZ 1041, getPitchRadians 1042, getRollRadians 1043, getPitch 1044, getRoll 1045,
+  getGesture 1046).
 
 ## Roadmap (append as peripherals land)
 

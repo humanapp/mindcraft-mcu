@@ -1,0 +1,39 @@
+mctrace 1
+profile 1
+precision f32
+tick 1 time 41800000 dt 00000000
+port display set-pixel 00000000 00000000 41200000
+port display set-pixel 3f800000 00000000 41a00000
+port display set-pixel 40000000 00000000 41f00000
+port display set-pixel 40400000 00000000 42640000
+port display set-pixel 40800000 00000000 42e40000
+port display set-pixel 00000000 3f800000 3f800000
+port display set-pixel 3f800000 3f800000 40000000
+port display set-pixel 40000000 3f800000 41300000
+tick 2 time 42000000 dt 41800000
+port display set-pixel 00000000 00000000 42200000
+port display set-pixel 3f800000 00000000 41a00000
+port display set-pixel 40000000 00000000 41f00000
+port display set-pixel 40400000 00000000 432b0000
+port display set-pixel 40800000 00000000 42e40000
+port display set-pixel 00000000 3f800000 40400000
+port display set-pixel 3f800000 3f800000 40000000
+port display set-pixel 40000000 3f800000 40400000
+tick 3 time 42400000 dt 41800000
+port display set-pixel 00000000 00000000 42200000
+port display set-pixel 3f800000 00000000 41a00000
+port display set-pixel 40000000 00000000 41f00000
+port display set-pixel 40400000 00000000 432b0000
+port display set-pixel 40800000 00000000 42e40000
+port display set-pixel 00000000 3f800000 40400000
+port display set-pixel 3f800000 3f800000 40000000
+port display set-pixel 40000000 3f800000 40400000
+tick 4 time 42800000 dt 41800000
+port display set-pixel 00000000 00000000 42200000
+port display set-pixel 3f800000 00000000 41a00000
+port display set-pixel 40000000 00000000 42480000
+port display set-pixel 40400000 00000000 432b0000
+port display set-pixel 40800000 00000000 00000000
+port display set-pixel 00000000 3f800000 40400000
+port display set-pixel 3f800000 3f800000 00000000
+port display set-pixel 40000000 3f800000 00000000

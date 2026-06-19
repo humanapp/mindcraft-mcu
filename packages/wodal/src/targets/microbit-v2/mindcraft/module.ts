@@ -19,6 +19,7 @@ import {
   type Value,
   VOID_VALUE,
 } from "@mindcraft-lang/core/app";
+import { Accelerometer } from "../../../core/accelerometer";
 import { Button } from "../../../core/button";
 import { TouchButton } from "../../../core/touch-button";
 import { MicroBit } from "../microbit";
@@ -47,6 +48,9 @@ export const WODAL_MICROBIT_V2_TYPE_IDS = {
 
   /** Native-backed touch button facade for the simulated device. */
   TouchButton: mkTypeId(NativeType.Struct, "TouchButton"),
+
+  /** Native-backed accelerometer facade for the simulated device. */
+  Accelerometer: mkTypeId(NativeType.Struct, "Accelerometer"),
 } as const;
 
 /**
@@ -59,6 +63,7 @@ export enum MicroBitField {
   ButtonA = 1,
   ButtonB = 2,
   Logo = 3,
+  Accelerometer = 4,
 }
 
 /**
@@ -75,6 +80,7 @@ export function createMicroBitV2Module(): MindcraftModule {
       registerMicroBitTypes(api);
       registerMicroBitDisplayFunctions(api);
       registerButtonFunctions(api);
+      registerAccelerometerFunctions(api);
       registerBrainTiles(api);
     },
   };
@@ -159,6 +165,22 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
     ]),
   });
 
+  types.addStructType("Accelerometer", {
+    atomId: MicroBitV2TypeAtomId.Accelerometer,
+    fields: List.empty(),
+    fieldGetter: () => undefined,
+    methods: List.from([
+      { name: "getX", params: List.empty(), returnTypeId: CoreTypeIds.Number },
+      { name: "getY", params: List.empty(), returnTypeId: CoreTypeIds.Number },
+      { name: "getZ", params: List.empty(), returnTypeId: CoreTypeIds.Number },
+      { name: "getPitchRadians", params: List.empty(), returnTypeId: CoreTypeIds.Number },
+      { name: "getRollRadians", params: List.empty(), returnTypeId: CoreTypeIds.Number },
+      { name: "getPitch", params: List.empty(), returnTypeId: CoreTypeIds.Number },
+      { name: "getRoll", params: List.empty(), returnTypeId: CoreTypeIds.Number },
+      { name: "getGesture", params: List.empty(), returnTypeId: CoreTypeIds.Number },
+    ]),
+  });
+
   types.addStructType("MicroBit", {
     atomId: MicroBitV2TypeAtomId.MicroBit,
     fields: List.from([
@@ -166,6 +188,11 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
       { name: "buttonA", typeId: WODAL_MICROBIT_V2_TYPE_IDS.Button, fieldIndex: MicroBitField.ButtonA },
       { name: "buttonB", typeId: WODAL_MICROBIT_V2_TYPE_IDS.Button, fieldIndex: MicroBitField.ButtonB },
       { name: "logo", typeId: WODAL_MICROBIT_V2_TYPE_IDS.TouchButton, fieldIndex: MicroBitField.Logo },
+      {
+        name: "accelerometer",
+        typeId: WODAL_MICROBIT_V2_TYPE_IDS.Accelerometer,
+        fieldIndex: MicroBitField.Accelerometer,
+      },
     ]),
     fieldGetter: (source, fieldId) => {
       const microbit = getNativeMicroBit(source);
@@ -181,6 +208,8 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
           return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.Button, microbit.buttonB);
         case MicroBitField.Logo:
           return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.TouchButton, microbit.logo);
+        case MicroBitField.Accelerometer:
+          return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.Accelerometer, microbit.accelerometer);
         default:
           return undefined;
       }
@@ -314,6 +343,39 @@ function registerButtonFunctions(api: MindcraftModuleApi): void {
   });
 }
 
+function registerAccelerometerFunctions(api: MindcraftModuleApi): void {
+  const emptyCallDef = mkCallDef({ type: "bag", items: [] });
+
+  const reads: ReadonlyArray<{ name: string; id: MicroBitV2HostFuncId; read: (a: Accelerometer) => number }> = [
+    { name: "getX", id: MicroBitV2HostFuncId.AccelerometerGetX, read: (a) => a.getX() },
+    { name: "getY", id: MicroBitV2HostFuncId.AccelerometerGetY, read: (a) => a.getY() },
+    { name: "getZ", id: MicroBitV2HostFuncId.AccelerometerGetZ, read: (a) => a.getZ() },
+    {
+      name: "getPitchRadians",
+      id: MicroBitV2HostFuncId.AccelerometerGetPitchRadians,
+      read: (a) => a.getPitchRadians(),
+    },
+    { name: "getRollRadians", id: MicroBitV2HostFuncId.AccelerometerGetRollRadians, read: (a) => a.getRollRadians() },
+    { name: "getPitch", id: MicroBitV2HostFuncId.AccelerometerGetPitch, read: (a) => a.getPitch() },
+    { name: "getRoll", id: MicroBitV2HostFuncId.AccelerometerGetRoll, read: (a) => a.getRoll() },
+    { name: "getGesture", id: MicroBitV2HostFuncId.AccelerometerGetGesture, read: (a) => a.getGesture() },
+  ];
+  for (const { name, id, read } of reads) {
+    api.registerFunction({
+      id,
+      name: `Accelerometer.${name}`,
+      isAsync: false,
+      fn: {
+        exec: (_ctx: ExecutionContext, args: ReadonlyList<Value>) => {
+          const receiver = getAccelerometerReceiver(args);
+          return mkNumberValue(receiver ? read(receiver) : 0);
+        },
+      },
+      callDef: emptyCallDef,
+    });
+  }
+}
+
 function registerBrainTiles(api: MindcraftModuleApi): void {
   api.registerHostSensor(createHostSensor(buttonASensor));
   api.registerHostSensor(createHostSensor(buttonBSensor));
@@ -350,6 +412,14 @@ function getTouchButtonReceiver(args: ReadonlyList<Value>): TouchButton | undefi
     return undefined;
   }
   return receiver.native instanceof TouchButton ? receiver.native : undefined;
+}
+
+function getAccelerometerReceiver(args: ReadonlyList<Value>): Accelerometer | undefined {
+  const receiver = args.get(0);
+  if (!isStructNative(receiver, WODAL_MICROBIT_V2_TYPE_IDS.Accelerometer)) {
+    return undefined;
+  }
+  return receiver.native instanceof Accelerometer ? receiver.native : undefined;
 }
 
 function getNativeMicroBit(value: StructValue): MicroBit | undefined {

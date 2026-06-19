@@ -34,6 +34,14 @@ export enum MicroBitV2HostFuncId {
   SensorButtonB = 1036,
   SensorButtonAB = 1037,
   SensorButtonLogo = 1038,
+  AccelerometerGetX = 1039,
+  AccelerometerGetY = 1040,
+  AccelerometerGetZ = 1041,
+  AccelerometerGetPitchRadians = 1042,
+  AccelerometerGetRollRadians = 1043,
+  AccelerometerGetPitch = 1044,
+  AccelerometerGetRoll = 1045,
+  AccelerometerGetGesture = 1046,
 }
 
 /**
@@ -47,6 +55,7 @@ export enum MicroBitV2TypeAtomId {
   Button = 1025,
   TouchButton = 1026,
   MicroBit = 1027,
+  Accelerometer = 1028,
 }
 
 /**

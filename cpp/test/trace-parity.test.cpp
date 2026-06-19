@@ -63,6 +63,13 @@ std::string readTextFile(const std::string& path) {
   return std::string(std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>());
 }
 
+// Whole degrees for a radian orientation, matching CODAL's
+// int getPitch() { return (int)((360.0f*radians)/(2.0f*(float)PI)); }.
+int32_t degreesFromRadians(mindcraft::mc_number_t radians) {
+  const float twoPi = 2.0f * static_cast<float>(3.141592653589793);
+  return static_cast<int32_t>((360.0f * radians) / twoPi);
+}
+
 /**
  * Host MicroBit stub over the device ports: a 5x5 pixel grid, settable
  * button levels, and a display tap that records each pixel write into the
@@ -124,15 +131,25 @@ struct HostMicroBit {
     }
   };
 
-  struct NullAccelerometer : mindcraft::AccelerometerInputPort {
-    uint16_t getGesture() override { return 0; }
-    int32_t getX() override { return 0; }
-    int32_t getY() override { return 0; }
-    int32_t getZ() override { return 0; }
-    int32_t getPitch() override { return 0; }
-    int32_t getRoll() override { return 0; }
-    mindcraft::mc_number_t getPitchRadians() override { return 0; }
-    mindcraft::mc_number_t getRollRadians() override { return 0; }
+  // Injectable accelerometer: radians are the primary orientation reading and
+  // degrees derive from them, mirroring CODAL and the wodal Accelerometer model;
+  // the other reads return their held field. Resting defaults are zero.
+  struct SettableAccelerometer : mindcraft::AccelerometerInputPort {
+    int32_t gesture = 0;
+    int32_t x = 0;
+    int32_t y = 0;
+    int32_t z = 0;
+    mindcraft::mc_number_t pitchRadians = 0;
+    mindcraft::mc_number_t rollRadians = 0;
+
+    uint16_t getGesture() override { return static_cast<uint16_t>(gesture); }
+    int32_t getX() override { return x; }
+    int32_t getY() override { return y; }
+    int32_t getZ() override { return z; }
+    int32_t getPitch() override { return degreesFromRadians(pitchRadians); }
+    int32_t getRoll() override { return degreesFromRadians(rollRadians); }
+    mindcraft::mc_number_t getPitchRadians() override { return pitchRadians; }
+    mindcraft::mc_number_t getRollRadians() override { return rollRadians; }
   };
 
   struct NullFaultDisplay : mindcraft::FaultDisplayPort {
@@ -148,7 +165,7 @@ struct HostMicroBit {
 
   TracingDisplay display;
   SettableButtons buttons;
-  NullAccelerometer accelerometer;
+  SettableAccelerometer accelerometer;
   NullFaultDisplay faultDisplay;
   FixedClock clock;
 
@@ -925,6 +942,113 @@ TEST_CASE("the user-tile button-states fixture byte-matches the golden observabl
   // The final think touches only the logo, so pixel (2,0) ends lit and (0,0) dark.
   CHECK(microbit.display.pixels[0][2] == 1);
   CHECK(microbit.display.pixels[0][0] == 0);
+}
+
+namespace {
+
+/** One scheduled think for the accelerometer user-tile fixture: the inputs set
+ * before the time advance, each guarded by a present flag so an unset input
+ * holds its last value. Mirrors the ScheduleStep of wodal
+ * packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-accelerometer-reads.spec.ts. */
+struct AccelerometerScheduleStep {
+  float advanceMs;
+  bool setSample;
+  int x;
+  int y;
+  int z;
+  bool setGesture;
+  int gesture;
+  bool setPitchRadians;
+  float pitchRadians;
+  bool setRollRadians;
+  float rollRadians;
+};
+
+} // namespace
+
+TEST_CASE("the user-tile accelerometer-reads fixture byte-matches the golden observable trace") {
+  const std::string base =
+      std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-accelerometer-reads";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  TraceTap tap(writer);
+
+  // The actuator reads ctx.microbit.accelerometer.* through the native struct
+  // field getter and the eight accelerometer host-function bodies, then writes
+  // each value to a pixel; the reads reach the same accelerometer port the A1
+  // read-back vectors exercise.
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  ExecutionContext ctx;
+  mindcraft::ManagedHeap heap(arena);
+  mindcraft::TypeRegistry types(image);
+  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+  surface.types = &types;
+  surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Mirrors SCHEDULE in wodal
+  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-accelerometer-reads.spec.ts:
+  // tick 3 sets nothing (all reads hold), ticks 2 and 4 set only some inputs.
+  const AccelerometerScheduleStep schedule[4] = {
+      {16, true, 10, 20, 30, true, 11, true, 1.0f, true, 2.0f},
+      {16, true, 40, 20, 30, true, 3, true, 3.0f, false, 0.0f},
+      {16, false, 0, 0, 0, false, 0, false, 0.0f, false, 0.0f},
+      {16, true, 40, 20, 50, true, 0, false, 0.0f, true, 0.0f},
+  };
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 4; i++) {
+    const AccelerometerScheduleStep& step = schedule[i];
+    if (step.setSample) {
+      microbit.accelerometer.x = step.x;
+      microbit.accelerometer.y = step.y;
+      microbit.accelerometer.z = step.z;
+    }
+    if (step.setGesture) {
+      microbit.accelerometer.gesture = step.gesture;
+    }
+    if (step.setPitchRadians) {
+      microbit.accelerometer.pitchRadians = step.pitchRadians;
+    }
+    if (step.setRollRadians) {
+      microbit.accelerometer.rollRadians = step.rollRadians;
+    }
+    const float timeMs = lastThinkTimeMs + step.advanceMs;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+  // The final think holds x=40 at pixel (0,0) and derives pitch 171 from 3
+  // radians at pixel (3,0); the gesture cleared to 0 at pixel (2,1).
+  CHECK(microbit.display.pixels[0][0] == 40);
+  CHECK(microbit.display.pixels[0][3] == 171);
+  CHECK(microbit.display.pixels[1][2] == 0);
 }
 
 namespace {
