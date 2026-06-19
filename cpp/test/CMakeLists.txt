@@ -2,6 +2,7 @@
 # assertion machinery requires them) while linking the exception-free core.
 add_executable(mindcraft-tests
   main.cpp
+  accelerometer-read-parity.test.cpp
   async-handles.test.cpp
   brain-runtime.test.cpp
   byte-cursor.test.cpp

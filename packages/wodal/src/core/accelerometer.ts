@@ -15,8 +15,40 @@ export interface Sample3D {
 /** Coordinate systems accepted by accelerometer sample reads. */
 export type CoordinateSystem = "simple" | "raw";
 
+/**
+ * Accelerometer gesture codes, transcribed verbatim from CODAL's
+ * `driver-models/Accelerometer.h` (`ACCELEROMETER_EVT_*`). {@link
+ * Accelerometer.getGesture} returns one of these values. The four impact codes
+ * are not in magnitude order: 2G follows 8G in the CODAL numbering.
+ */
+export enum AccelerometerGesture {
+  None = 0,
+  TiltUp = 1,
+  TiltDown = 2,
+  TiltLeft = 3,
+  TiltRight = 4,
+  FaceUp = 5,
+  FaceDown = 6,
+  Freefall = 7,
+  Impact3G = 8,
+  Impact6G = 9,
+  Impact8G = 10,
+  Shake = 11,
+  Impact2G = 12,
+}
+
 /** Gesture value reported when no gesture has been recognized. */
-export const ACCELEROMETER_EVT_NONE = 0;
+export const ACCELEROMETER_EVT_NONE = AccelerometerGesture.None;
+
+/**
+ * Whole degrees for a radian orientation, matching CODAL's
+ * `int getPitch() { return (int)((360.0f*radians)/(2.0f*(float)PI)); }` at f32
+ * precision (truncated toward zero).
+ */
+function degreesFromRadians(radians: number): number {
+  const twoPi = Math.fround(2 * Math.fround(Math.PI));
+  return Math.trunc(Math.fround(Math.fround(360 * radians) / twoPi));
+}
 
 /** Software accelerometer model with injectable sample data. */
 export class Accelerometer {
@@ -24,6 +56,8 @@ export class Accelerometer {
   private range = 2;
   private sample: Sample3D = { x: 0, y: 0, z: -1000 };
   private gesture = ACCELEROMETER_EVT_NONE;
+  private pitchRadians = 0;
+  private rollRadians = 0;
 
   /**
    * Sets the requested sample period.
@@ -115,24 +149,42 @@ export class Accelerometer {
     return this.sample.z;
   }
 
-  /** Returns pitch in degrees. */
+  /** Returns the current rotation-compensated pitch in whole degrees, derived from the radian reading. */
   getPitch(): number {
-    return Math.round((this.getPitchRadians() * 180) / Math.PI);
+    return degreesFromRadians(this.pitchRadians);
   }
 
-  /** Returns pitch in radians. */
-  getPitchRadians(): number {
-    return Math.atan2(this.sample.x, Math.hypot(this.sample.y, this.sample.z));
-  }
-
-  /** Returns roll in degrees. */
+  /** Returns the current rotation-compensated roll in whole degrees, derived from the radian reading. */
   getRoll(): number {
-    return Math.round((this.getRollRadians() * 180) / Math.PI);
+    return degreesFromRadians(this.rollRadians);
   }
 
-  /** Returns roll in radians. */
+  /** Returns the current rotation-compensated pitch in radians. */
+  getPitchRadians(): number {
+    return this.pitchRadians;
+  }
+
+  /**
+   * Replaces the current pitch reading in radians.
+   *
+   * @param radians - Rotation-compensated pitch in radians, rounded to the device's f32 precision.
+   */
+  setPitchRadians(radians: number): void {
+    this.pitchRadians = Math.fround(radians);
+  }
+
+  /** Returns the current rotation-compensated roll in radians. */
   getRollRadians(): number {
-    return Math.atan2(this.sample.y, Math.hypot(this.sample.x, this.sample.z));
+    return this.rollRadians;
+  }
+
+  /**
+   * Replaces the current roll reading in radians.
+   *
+   * @param radians - Rotation-compensated roll in radians, rounded to the device's f32 precision.
+   */
+  setRollRadians(radians: number): void {
+    this.rollRadians = Math.fround(radians);
   }
 
   /** Returns the current simulated gesture value. */
@@ -149,10 +201,12 @@ export class Accelerometer {
     this.gesture = toInt32(gesture);
   }
 
-  /** Resets the transient sensor reading and gesture to their resting defaults. Period and range are configuration and are preserved. */
+  /** Resets the transient sensor reading, orientation, and gesture to their resting defaults. Period and range are configuration and are preserved. */
   reset(): void {
     this.sample = { x: 0, y: 0, z: -1000 };
     this.gesture = ACCELEROMETER_EVT_NONE;
+    this.pitchRadians = 0;
+    this.rollRadians = 0;
   }
 
   private normalizeAxis(value: number): number {

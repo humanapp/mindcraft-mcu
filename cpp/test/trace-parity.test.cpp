@@ -124,6 +124,17 @@ struct HostMicroBit {
     }
   };
 
+  struct NullAccelerometer : mindcraft::AccelerometerInputPort {
+    uint16_t getGesture() override { return 0; }
+    int32_t getX() override { return 0; }
+    int32_t getY() override { return 0; }
+    int32_t getZ() override { return 0; }
+    int32_t getPitch() override { return 0; }
+    int32_t getRoll() override { return 0; }
+    mindcraft::mc_number_t getPitchRadians() override { return 0; }
+    mindcraft::mc_number_t getRollRadians() override { return 0; }
+  };
+
   struct NullFaultDisplay : mindcraft::FaultDisplayPort {
     void showFaultFace() override {}
     void scrollFaultCode(const char*) override {}
@@ -137,10 +148,11 @@ struct HostMicroBit {
 
   TracingDisplay display;
   SettableButtons buttons;
+  NullAccelerometer accelerometer;
   NullFaultDisplay faultDisplay;
   FixedClock clock;
 
-  mindcraft::DevicePorts ports{&display, &buttons, &faultDisplay, &clock};
+  mindcraft::DevicePorts ports{&display, &buttons, &faultDisplay, &clock, &accelerometer};
 };
 
 /** Forwards the VM's host-binding events into the observable trace. */

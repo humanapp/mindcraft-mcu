@@ -1,5 +1,6 @@
 #include "doctest/doctest.h"
 
+#include "codal/accelerometer-gesture.h"
 #include "codal/device-port.h"
 
 #include <string>
@@ -29,6 +30,31 @@ struct FixedButtons : mindcraft::ButtonInputPort {
   bool isPressed(uint8_t buttonIndex) override { return pressed[buttonIndex]; }
 };
 
+// Whole degrees for a radian orientation, matching CODAL's
+// int getPitch() { return (int)((360.0f*radians)/(2.0f*(float)PI)); }.
+int32_t degreesFromRadians(mindcraft::mc_number_t radians) {
+  const float twoPi = 2.0f * static_cast<float>(3.141592653589793);
+  return static_cast<int32_t>((360.0f * radians) / twoPi);
+}
+
+struct SettableAccelerometer : mindcraft::AccelerometerInputPort {
+  uint16_t gesture = 0;
+  int32_t x = 0;
+  int32_t y = 0;
+  int32_t z = 0;
+  mindcraft::mc_number_t pitchRadians = 0;
+  mindcraft::mc_number_t rollRadians = 0;
+
+  uint16_t getGesture() override { return gesture; }
+  int32_t getX() override { return x; }
+  int32_t getY() override { return y; }
+  int32_t getZ() override { return z; }
+  int32_t getPitch() override { return degreesFromRadians(pitchRadians); }
+  int32_t getRoll() override { return degreesFromRadians(rollRadians); }
+  mindcraft::mc_number_t getPitchRadians() override { return pitchRadians; }
+  mindcraft::mc_number_t getRollRadians() override { return rollRadians; }
+};
+
 struct RecordingFaultDisplay : mindcraft::FaultDisplayPort {
   int faceShown = 0;
   std::vector<std::string> scrolled;
@@ -50,8 +76,9 @@ TEST_CASE("a host stub can implement every device port") {
   FixedButtons buttons;
   RecordingFaultDisplay faultDisplay;
   SteppingClock clock;
+  SettableAccelerometer accelerometer;
 
-  mindcraft::DevicePorts ports{&display, &buttons, &faultDisplay, &clock};
+  mindcraft::DevicePorts ports{&display, &buttons, &faultDisplay, &clock, &accelerometer};
 
   ports.display->setPixel(2, 3, 255);
   REQUIRE(display.calls.size() == 1);
@@ -71,4 +98,37 @@ TEST_CASE("a host stub can implement every device port") {
 
   clock.now = 1000;
   CHECK(ports.clock->uptimeMillis() == 1000);
+
+  accelerometer.gesture = static_cast<uint16_t>(mindcraft::AccelerometerGesture::Shake);
+  accelerometer.x = 1024;
+  accelerometer.y = -512;
+  accelerometer.z = -1000;
+  accelerometer.pitchRadians = 0.7853982f; // pi/4
+  accelerometer.rollRadians = -0.5235988f; // -pi/6
+  CHECK(ports.accelerometer->getGesture() == 11);
+  CHECK(ports.accelerometer->getX() == 1024);
+  CHECK(ports.accelerometer->getY() == -512);
+  CHECK(ports.accelerometer->getZ() == -1000);
+  CHECK(ports.accelerometer->getPitchRadians() == doctest::Approx(0.7853982f));
+  CHECK(ports.accelerometer->getRollRadians() == doctest::Approx(-0.5235988f));
+  // Degrees derive from the radian reading, matching CODAL's conversion.
+  CHECK(ports.accelerometer->getPitch() == 45);
+  CHECK(ports.accelerometer->getRoll() == -30);
+}
+
+TEST_CASE("AccelerometerGesture codes match the CODAL accelerometer gesture values") {
+  using mindcraft::AccelerometerGesture;
+  CHECK(static_cast<uint16_t>(AccelerometerGesture::None) == 0);
+  CHECK(static_cast<uint16_t>(AccelerometerGesture::TiltUp) == 1);
+  CHECK(static_cast<uint16_t>(AccelerometerGesture::TiltDown) == 2);
+  CHECK(static_cast<uint16_t>(AccelerometerGesture::TiltLeft) == 3);
+  CHECK(static_cast<uint16_t>(AccelerometerGesture::TiltRight) == 4);
+  CHECK(static_cast<uint16_t>(AccelerometerGesture::FaceUp) == 5);
+  CHECK(static_cast<uint16_t>(AccelerometerGesture::FaceDown) == 6);
+  CHECK(static_cast<uint16_t>(AccelerometerGesture::Freefall) == 7);
+  CHECK(static_cast<uint16_t>(AccelerometerGesture::Impact3G) == 8);
+  CHECK(static_cast<uint16_t>(AccelerometerGesture::Impact6G) == 9);
+  CHECK(static_cast<uint16_t>(AccelerometerGesture::Impact8G) == 10);
+  CHECK(static_cast<uint16_t>(AccelerometerGesture::Shake) == 11);
+  CHECK(static_cast<uint16_t>(AccelerometerGesture::Impact2G) == 12);
 }

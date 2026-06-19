@@ -47,6 +47,45 @@ public:
 };
 
 /**
+ * Three-axis accelerometer input. Exposes the last recognized gesture as a
+ * board-defined gesture code plus the current acceleration (milli-g) and
+ * rotation-compensated orientation (degrees or radians). All reads are polled
+ * levels: the gesture holds its last value until a new one is recognized.
+ */
+class AccelerometerInputPort {
+public:
+  virtual ~AccelerometerInputPort() = default;
+
+  /**
+   * The last recognized gesture as a board-defined gesture code (0 when none
+   * has been recognized). On a micro:bit v2 the codes are the CODAL
+   * accelerometer gesture values.
+   */
+  virtual uint16_t getGesture() = 0;
+
+  /** Acceleration along the X axis in milli-g; signed. */
+  virtual int32_t getX() = 0;
+
+  /** Acceleration along the Y axis in milli-g; signed. */
+  virtual int32_t getY() = 0;
+
+  /** Acceleration along the Z axis in milli-g; signed. */
+  virtual int32_t getZ() = 0;
+
+  /** Rotation-compensated pitch in whole degrees; signed. */
+  virtual int32_t getPitch() = 0;
+
+  /** Rotation-compensated roll in whole degrees; signed. */
+  virtual int32_t getRoll() = 0;
+
+  /** Rotation-compensated pitch in radians; signed. */
+  virtual mc_number_t getPitchRadians() = 0;
+
+  /** Rotation-compensated roll in radians; signed. */
+  virtual mc_number_t getRollRadians() = 0;
+};
+
+/**
  * Board-side rendering primitives for the device fault mode. The fault-mode
  * policy (stop ticking the brain, then show-the-error in a loop) lives with
  * the host loop; implementations only render. Both calls may block for the
@@ -82,6 +121,7 @@ struct DevicePorts {
   ButtonInputPort* buttons;
   FaultDisplayPort* faultDisplay;
   MonotonicClockPort* clock;
+  AccelerometerInputPort* accelerometer;
 };
 
 } // namespace mindcraft

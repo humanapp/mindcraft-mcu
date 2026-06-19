@@ -71,6 +71,18 @@ struct NullButtons : mindcraft::ButtonInputPort {
   bool isPressed(uint8_t) override { return false; }
 };
 
+/** No-op accelerometer: at rest, no gesture. */
+struct NullAccelerometer : mindcraft::AccelerometerInputPort {
+  uint16_t getGesture() override { return 0; }
+  int32_t getX() override { return 0; }
+  int32_t getY() override { return 0; }
+  int32_t getZ() override { return 0; }
+  int32_t getPitch() override { return 0; }
+  int32_t getRoll() override { return 0; }
+  mindcraft::mc_number_t getPitchRadians() override { return 0; }
+  mindcraft::mc_number_t getRollRadians() override { return 0; }
+};
+
 /** Clock returning a fixed reading. */
 struct FixedClock : mindcraft::MonotonicClockPort {
   uint32_t now = 0;
@@ -147,7 +159,8 @@ TEST_CASE("the host loop latches fault mode when startup fails") {
   NullButtons buttons;
   RecordingFaultDisplay faultDisplay;
   FixedClock clock;
-  mindcraft::DevicePorts ports{&display, &buttons, &faultDisplay, &clock};
+  NullAccelerometer accelerometer;
+  mindcraft::DevicePorts ports{&display, &buttons, &faultDisplay, &clock, &accelerometer};
 
   HostLoop hostLoop(brain, ports);
   const mindcraft::Status status = hostLoop.startup();

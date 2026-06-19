@@ -81,7 +81,9 @@ slider, no dropdown, faithful wodal detector (interactive only; parity stays enu
 `generated-docs/accelerometer-impl-plan-2026-06-18.md`): A1 port+harness foundation -> A2
 surface-2 reads -> A3 gesture tile -> A4 impact+conditional -> A5 sim detector+globe; the
 parity track (A2-A4) is separable from the sim-UX track (A5), and A1+A3 alone give a working
-hardware-validated tile. Two further phases queued: 8 (virtual radio
+hardware-validated tile. **A1 COMPLETE (2026-06-18, host/firmware-build-gated): `AccelerometerInputPort`
+(getGesture/getX-Y-Z/pitch-roll, radians-primary degrees-derived) + the CODAL gesture enum +
+the test-only injectable harness; read-back parity fixture byte-matches both VMs. Next: A2/A3.** Two further phases queued: 8 (virtual radio
 sim-to-sim) and 9 (Cutebot via TS user-tiles).** **PHASE
 6 IS COMPLETE
 (6a-6j, 2026-06-17): the C++ VM is a fully conforming VM - every contract opcode
@@ -2765,6 +2767,31 @@ Condensed dated ledger of accepted phases (newest first). Full per-phase as-buil
 detail lives in the session memory and git history; the accepted phase sections above
 carry the contracts each produced.
 
+- **2026-06-18 - Phase 7 accelerometer A1 complete** (port + injectable-input foundation;
+  host/firmware-build-gated - no behavioral hardware test yet, the gesture tile lands in A3).
+  Device port `AccelerometerInputPort` (`cpp/codal/device-port.h`, `accelerometer` appended LAST
+  on `DevicePorts`): `getGesture()`, `getX/Y/Z()` (mg signed), `getPitch/Roll()` (whole deg) +
+  `getPitchRadians/getRollRadians()`; CODAL binding `MicroBitAccelerometerInputPort` ->
+  `uBit.accelerometer.*`. **Gesture enum `AccelerometerGesture` = CODAL `ACCELEROMETER_EVT_*`
+  verbatim**, placed at the CODAL-common layer both sides (wodal `core/accelerometer.ts`, cpp
+  `codal/accelerometer-gesture.h`): None0 TiltUp1 TiltDown2 TiltLeft3 TiltRight4 FaceUp5
+  FaceDown6 Freefall7 Impact3G8 Impact6G9 Impact8G10 Shake11 **Impact2G12** - codes are NOT
+  magnitude-ordered (A4's `>=` must map code->rank, not compare raw codes). **Orientation
+  reshape (blessed deviation):** radians is the single internal primary, degrees DERIVED via
+  CODAL's exact f32 formula `(int)(360*rad/(2*PI))` in both VMs (bit-identical JS/C++); the
+  earlier duplicate degree fields + the wodal atan2 derivation were removed; injection setters
+  are `setPitchRadians`/`setRollRadians` only (fround). `degreesFromRadians` is a device-model
+  computation pinned f32, NOT a platform numerics API. A1 injects radians; emulating
+  `recalculatePitchRoll` (x/y/z->radians) is A5a. Test-only injectable harness (wodal
+  `Accelerometer` model + cpp host stubs); firmware exclusion structural (device links the
+  CODAL port, the stub lives only in `cpp/test`). Read-back parity fixture
+  `accelerometer-read-vectors.bin` (magic `MAV1`; per-tick setpoint mask + 8-field read-back,
+  orientation radians-only) + `accelerometer-read-vectors.spec.ts` + cpp
+  `accelerometer-read-parity.test.cpp`; gesture-enum pinning in `cpp/test/device-port.test.cpp`.
+  No `MicroBitField`/`ctx.microbit.accelerometer`/`.d.ts` yet (A2; host-fn id count still 15).
+  Specs current: `docs/specs/tiles/accelerometer-sensor.md` + `docs/specs/microbit-context.md`.
+  Gate: cpp check.sh x3 (274 cases, parity case 87 assertions), wodal typecheck+biome clean +
+  162 tests, firmware Docker build exit 0 (no injection hook).
 - **2026-06-17 - Phase 7: buttons complete** (first Phase 7 peripheral; both VMs +
   hardware-validated). Surface 1: four sensor tiles `[A]`/`[B]`/`[A+B]`/`[logo]`, six
   mutually-exclusive modifiers (default `pressed`), poll-derived per-call-site state machine

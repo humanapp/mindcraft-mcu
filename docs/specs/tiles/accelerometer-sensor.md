@@ -43,9 +43,12 @@ UI.)
 
 **Impact is the one modifier matched by magnitude, not equality.** Every other gesture fires
 on `getGesture() == modifier`; impact fires when `getGesture()` is *any* impact code (bare) or
-an impact code **of at least the selected level** (`[<N>g]`). The body therefore orders the
-four impact codes by magnitude (2G < 3G < 6G < 8G) and does a `>=` compare - so a 6G hit fires
-a `[6g]`, a `[3g]`, a `[2g]`, and a bare `[impact]` rule, but not an `[8g]`. On the parity
+an impact code **of at least the selected level** (`[<N>g]`). The body maps each impact code to
+its magnitude rank (2G < 3G < 6G < 8G) and does a `>=` compare on the *rank* - so a 6G hit
+fires a `[6g]`, a `[3g]`, a `[2g]`, and a bare `[impact]` rule, but not an `[8g]`. Note the
+CODAL enum **codes are not numerically ordered** (2G is the highest code value, not the
+lowest), so the body needs an explicit code->rank map; it must not compare raw code values. On
+the parity
 path the injected impact code is the level reached, so the `>=` is exercised directly; how a
 real CODAL multi-threshold hit reports through `getGesture()` is device behavior covered by
 the hardware smoke test, not the goldens.

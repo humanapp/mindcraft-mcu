@@ -72,8 +72,9 @@ they live here, not as tiles:
 | `ctx.microbit.accelerometer.*` | Returns | Notes |
 | ------------------------------ | ------- | ----- |
 | `getX()` / `getY()` / `getZ()` | number (mg) | raw acceleration per axis |
-| `getPitch()` / `getRoll()`     | number (degrees; exact range per CODAL) | CODAL native `getPitch`/`getRoll`, polled like x/y/z (not derived); injected as scalars on the test-only path |
-| `getGesture()`                 | number (gesture code) | the current gesture enum; the same value the surface-1 `gesture` tile compares against |
+| `getPitchRadians()` / `getRollRadians()` | number (radians) | the orientation primary; CODAL's on device, injected directly on the test-only path |
+| `getPitch()` / `getRoll()`     | number (whole degrees) | DERIVED from radians via CODAL's exact f32 formula `(int)(360*rad/(2*PI))`, both VMs (not derived from x/y/z, not independently polled) |
+| `getGesture()`                 | number (gesture code) | the current gesture enum (CODAL `ACCELEROMETER_EVT_*` codes verbatim); the same value the surface-1 `gesture` tile compares against |
 
 - New `AccelerometerInputPort` (`getX/getY/getZ`, `getGesture`, ...) on `DevicePorts`, bound
   to `uBit.accelerometer`. The reads **share the same poll** the gesture sensor tile consumes

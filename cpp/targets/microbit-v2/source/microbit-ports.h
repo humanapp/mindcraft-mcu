@@ -97,6 +97,36 @@ private:
     MicroBit &uBit_;
 };
 
+/**
+ * Reads the accelerometer through `MicroBitAccelerometer`: the last recognized
+ * gesture code plus the live acceleration (milli-g) and rotation-compensated
+ * orientation (degrees). Each read returns CODAL's current value.
+ */
+class MicroBitAccelerometerInputPort : public AccelerometerInputPort
+{
+public:
+    explicit MicroBitAccelerometerInputPort(MicroBit &uBit) : uBit_(uBit) {}
+
+    uint16_t getGesture() override { return uBit_.accelerometer.getGesture(); }
+
+    int32_t getX() override { return uBit_.accelerometer.getX(); }
+
+    int32_t getY() override { return uBit_.accelerometer.getY(); }
+
+    int32_t getZ() override { return uBit_.accelerometer.getZ(); }
+
+    int32_t getPitch() override { return uBit_.accelerometer.getPitch(); }
+
+    int32_t getRoll() override { return uBit_.accelerometer.getRoll(); }
+
+    mc_number_t getPitchRadians() override { return uBit_.accelerometer.getPitchRadians(); }
+
+    mc_number_t getRollRadians() override { return uBit_.accelerometer.getRollRadians(); }
+
+private:
+    MicroBit &uBit_;
+};
+
 /** Monotonic millisecond clock backed by the CODAL system timer. */
 class MicroBitMonotonicClockPort : public MonotonicClockPort
 {
