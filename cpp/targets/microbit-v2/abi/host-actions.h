@@ -41,6 +41,10 @@ inline constexpr HostActionIds ButtonAB{
 /** Sensor: the capacitive touch logo, deriving events from the polled touch level. */
 inline constexpr HostActionIds ButtonLogo{
     1029, static_cast<uint32_t>(MicroBitV2HostFuncId::SensorButtonLogo)};
+
+/** Sensor: an accelerometer gesture, true while the polled gesture matches the chosen modifier. */
+inline constexpr HostActionIds Gesture{1030,
+                                       static_cast<uint32_t>(MicroBitV2HostFuncId::SensorGesture)};
 } // namespace MicroBitV2HostActions
 
 /**
@@ -51,6 +55,7 @@ inline constexpr HostActionIds kMicroBitV2HostActions[] = {
     MicroBitV2HostActions::ButtonA,       MicroBitV2HostActions::DisplaySetPixel,
     MicroBitV2HostActions::DisplayScroll, MicroBitV2HostActions::ButtonB,
     MicroBitV2HostActions::ButtonAB,      MicroBitV2HostActions::ButtonLogo,
+    MicroBitV2HostActions::Gesture,
 };
 
 } // namespace mindcraft

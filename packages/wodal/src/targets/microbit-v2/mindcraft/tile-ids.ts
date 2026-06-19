@@ -42,6 +42,7 @@ export enum MicroBitV2HostFuncId {
   AccelerometerGetPitch = 1044,
   AccelerometerGetRoll = 1045,
   AccelerometerGetGesture = 1046,
+  SensorGesture = 1047,
 }
 
 /**
@@ -96,6 +97,9 @@ export const MicroBitV2HostActions = {
     actionId: 1029,
     fnId: MicroBitV2HostFuncId.SensorButtonLogo,
   },
+
+  /** Sensor: an accelerometer gesture, true while the polled gesture matches the chosen modifier. */
+  Gesture: { key: "microbit-v2.gesture", actionId: 1030, fnId: MicroBitV2HostFuncId.SensorGesture },
 } as const satisfies Record<string, HostActionIds>;
 
 /**
@@ -120,6 +124,30 @@ export const WodalMicroBitV2ModifierId = {
 
   /** Report every tick the button is currently pressed (a level, not an edge). */
   Held: "microbit-v2.held",
+
+  /** Match the shake gesture. */
+  Shake: "microbit-v2.shake",
+
+  /** Match the tilt-up gesture. */
+  TiltUp: "microbit-v2.tilt-up",
+
+  /** Match the tilt-down gesture. */
+  TiltDown: "microbit-v2.tilt-down",
+
+  /** Match the tilt-left gesture. */
+  TiltLeft: "microbit-v2.tilt-left",
+
+  /** Match the tilt-right gesture. */
+  TiltRight: "microbit-v2.tilt-right",
+
+  /** Match the face-up gesture. */
+  FaceUp: "microbit-v2.face-up",
+
+  /** Match the face-down gesture. */
+  FaceDown: "microbit-v2.face-down",
+
+  /** Match the freefall gesture. */
+  Freefall: "microbit-v2.freefall",
 } as const;
 
 /** Parameter tile ids consumed by the actuators. */

@@ -55,18 +55,19 @@ test("MicroBitDisplay host methods route through the native display receiver", (
   const ctx = createExecutionContext(env, microbit);
   const receiver = mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.MicroBitDisplay, microbit.display);
 
+  // 300 narrows to CODAL's uint8 brightness by wrapping (300 & 0xff = 44).
   getSyncFunction(env, "MicroBitDisplay.setPixelValue").exec(
     ctx,
     List.from([receiver, mkNumberValue(1), mkNumberValue(2), mkNumberValue(300)])
   );
 
-  assert.equal(microbit.display.getPixelValue(1, 2), 255);
+  assert.equal(microbit.display.getPixelValue(1, 2), 44);
 
   const brightness = getSyncFunction(env, "MicroBitDisplay.getPixelValue").exec(
     ctx,
     List.from([receiver, mkNumberValue(1), mkNumberValue(2)])
   );
-  assert.equal(extractNumberValue(brightness), 255);
+  assert.equal(extractNumberValue(brightness), 44);
 
   getSyncFunction(env, "MicroBitDisplay.clear").exec(ctx, List.from([receiver]));
 

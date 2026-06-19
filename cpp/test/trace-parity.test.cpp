@@ -1,5 +1,6 @@
 #include "doctest/doctest.h"
 
+#include "codal/accelerometer-gesture.h"
 #include "codal/device-port.h"
 #include "codal/host-loop.h"
 #include "core/codec/program-reader.h"
@@ -297,6 +298,70 @@ void runButtonSensorParity(const std::string& name, const ButtonScheduleStep* sc
   CHECK(microbit.display.pixels[0][0] == 255);
 }
 
+/** One scheduled think for a gesture fixture: the gesture code injected before the
+ * time advance. Mirrors the ScheduleStep of wodal
+ * packages/wodal/src/targets/microbit-v2/mindcraft/gesture-sensor-trace.spec.ts. */
+struct GestureScheduleStep {
+  float advanceMs;
+  mindcraft::AccelerometerGesture gesture;
+};
+
+/**
+ * Loads a gesture fixture binary, replays its scripted gesture schedule through
+ * the host loop, and byte-compares the rendered trace against the committed
+ * golden. The gesture sensor is stateless and reads the accelerometer port off
+ * the device ports.
+ */
+void runGestureSensorParity(const std::string& name, const GestureScheduleStep* schedule,
+                            int steps) {
+  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/" + name;
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  TraceTap tap(writer);
+
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  ExecutionContext ctx;
+  mindcraft::ManagedHeap heap(arena);
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < steps; i++) {
+    const GestureScheduleStep& step = schedule[i];
+    microbit.accelerometer.gesture = static_cast<int32_t>(step.gesture);
+    const float timeMs = lastThinkTimeMs + step.advanceMs;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+  // Each gesture fixture's matching gesture fires once, lighting pixel (0,0).
+  CHECK(microbit.display.pixels[0][0] == 255);
+}
+
 } // namespace
 
 TEST_CASE("the button-display fixture byte-matches the golden observable trace") {
@@ -401,6 +466,78 @@ TEST_CASE("the button-ab fixture byte-matches the golden observable trace") {
 TEST_CASE("the button-logo fixture byte-matches the golden observable trace") {
   const ButtonScheduleStep schedule[3] = {{16, -1, -1, -1}, {16, -1, -1, 1}, {16, -1, -1, 0}};
   runButtonSensorParity("button-logo", schedule, 3);
+}
+
+TEST_CASE("the gesture-shake fixture byte-matches the golden observable trace") {
+  using mindcraft::AccelerometerGesture;
+  const GestureScheduleStep schedule[3] = {{16, AccelerometerGesture::None},
+                                           {16, AccelerometerGesture::Shake},
+                                           {16, AccelerometerGesture::TiltUp}};
+  runGestureSensorParity("gesture-shake", schedule, 3);
+}
+
+TEST_CASE("the gesture-tilt-up fixture byte-matches the golden observable trace") {
+  using mindcraft::AccelerometerGesture;
+  const GestureScheduleStep schedule[3] = {{16, AccelerometerGesture::None},
+                                           {16, AccelerometerGesture::TiltUp},
+                                           {16, AccelerometerGesture::Shake}};
+  runGestureSensorParity("gesture-tilt-up", schedule, 3);
+}
+
+TEST_CASE("the gesture-tilt-down fixture byte-matches the golden observable trace") {
+  using mindcraft::AccelerometerGesture;
+  const GestureScheduleStep schedule[3] = {{16, AccelerometerGesture::None},
+                                           {16, AccelerometerGesture::TiltDown},
+                                           {16, AccelerometerGesture::TiltUp}};
+  runGestureSensorParity("gesture-tilt-down", schedule, 3);
+}
+
+TEST_CASE("the gesture-tilt-left fixture byte-matches the golden observable trace") {
+  using mindcraft::AccelerometerGesture;
+  const GestureScheduleStep schedule[3] = {{16, AccelerometerGesture::None},
+                                           {16, AccelerometerGesture::TiltLeft},
+                                           {16, AccelerometerGesture::TiltRight}};
+  runGestureSensorParity("gesture-tilt-left", schedule, 3);
+}
+
+TEST_CASE("the gesture-tilt-right fixture byte-matches the golden observable trace") {
+  using mindcraft::AccelerometerGesture;
+  const GestureScheduleStep schedule[3] = {{16, AccelerometerGesture::None},
+                                           {16, AccelerometerGesture::TiltRight},
+                                           {16, AccelerometerGesture::TiltLeft}};
+  runGestureSensorParity("gesture-tilt-right", schedule, 3);
+}
+
+TEST_CASE("the gesture-face-up fixture byte-matches the golden observable trace") {
+  using mindcraft::AccelerometerGesture;
+  const GestureScheduleStep schedule[3] = {{16, AccelerometerGesture::None},
+                                           {16, AccelerometerGesture::FaceUp},
+                                           {16, AccelerometerGesture::FaceDown}};
+  runGestureSensorParity("gesture-face-up", schedule, 3);
+}
+
+TEST_CASE("the gesture-face-down fixture byte-matches the golden observable trace") {
+  using mindcraft::AccelerometerGesture;
+  const GestureScheduleStep schedule[3] = {{16, AccelerometerGesture::None},
+                                           {16, AccelerometerGesture::FaceDown},
+                                           {16, AccelerometerGesture::FaceUp}};
+  runGestureSensorParity("gesture-face-down", schedule, 3);
+}
+
+TEST_CASE("the gesture-freefall fixture byte-matches the golden observable trace") {
+  using mindcraft::AccelerometerGesture;
+  const GestureScheduleStep schedule[3] = {{16, AccelerometerGesture::None},
+                                           {16, AccelerometerGesture::Freefall},
+                                           {16, AccelerometerGesture::Shake}};
+  runGestureSensorParity("gesture-freefall", schedule, 3);
+}
+
+TEST_CASE("the gesture-default fixture byte-matches the golden observable trace") {
+  using mindcraft::AccelerometerGesture;
+  const GestureScheduleStep schedule[3] = {{16, AccelerometerGesture::None},
+                                           {16, AccelerometerGesture::Shake},
+                                           {16, AccelerometerGesture::TiltUp}};
+  runGestureSensorParity("gesture-default", schedule, 3);
 }
 
 TEST_CASE("the exceptions-yield fixture byte-matches the golden observable trace") {
@@ -1049,6 +1186,63 @@ TEST_CASE("the user-tile accelerometer-reads fixture byte-matches the golden obs
   CHECK(microbit.display.pixels[0][0] == 40);
   CHECK(microbit.display.pixels[0][3] == 171);
   CHECK(microbit.display.pixels[1][2] == 0);
+}
+
+TEST_CASE("the user-tile pixel-conversion fixture byte-matches the golden observable trace") {
+  const std::string base =
+      std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-pixel-conversion";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  TraceTap tap(writer);
+
+  // The actuator writes fractional / negative / over-range / out-of-matrix values
+  // through the display setPixel host-function, which narrows each to the port's
+  // int16 coordinate / uint8 brightness before the write crosses the port.
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  ExecutionContext ctx;
+  mindcraft::ManagedHeap heap(arena);
+  mindcraft::TypeRegistry types(image);
+  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+  surface.types = &types;
+  surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // The brain ignores input and writes the same constants each tick; one 16ms
+  // think mirrors the TS oracle schedule.
+  microbit.clock.now = 16;
+  writer.tick(1, 16, 0);
+  hostLoop.tick();
+  REQUIRE_FALSE(hostLoop.faulted());
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+  // The stored pixels reflect the narrowing: 7.9 -> 7, 300 -> 44, -30 -> 226, and
+  // the fractional coordinate 1.9 -> column 1.
+  CHECK(microbit.display.pixels[0][1] == 7);
+  CHECK(microbit.display.pixels[0][2] == 44);
+  CHECK(microbit.display.pixels[0][3] == 226);
+  CHECK(microbit.display.pixels[1][1] == 5);
 }
 
 namespace {

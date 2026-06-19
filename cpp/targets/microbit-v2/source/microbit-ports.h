@@ -107,7 +107,14 @@ class MicroBitAccelerometerInputPort : public AccelerometerInputPort
 public:
     explicit MicroBitAccelerometerInputPort(MicroBit &uBit) : uBit_(uBit) {}
 
-    uint16_t getGesture() override { return uBit_.accelerometer.getGesture(); }
+    uint16_t getGesture() override
+    {
+        // The value getters call requestUpdate() internally, but CODAL's getGesture()
+        // does not; without a requestUpdate() the accelerometer never enables its idle
+        // sampling, so gesture detection never runs and getGesture() stays NONE.
+        uBit_.accelerometer.requestUpdate();
+        return uBit_.accelerometer.getGesture();
+    }
 
     int32_t getX() override { return uBit_.accelerometer.getX(); }
 

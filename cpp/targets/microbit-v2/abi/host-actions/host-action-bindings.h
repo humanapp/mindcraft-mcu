@@ -8,20 +8,22 @@
 #include "targets/microbit-v2/abi/host-actions/actuators/display-scroll.h"
 #include "targets/microbit-v2/abi/host-actions/actuators/display-set-pixel.h"
 #include "targets/microbit-v2/abi/host-actions/sensors/button-sensor.h"
+#include "targets/microbit-v2/abi/host-actions/sensors/gesture-sensor.h"
 
 namespace mindcraft
 {
 
 /** Number of microbit-v2 host-action bindings the slice registers. */
-inline constexpr uint32_t kMicroBitV2HostActionBindingCount = 6;
+inline constexpr uint32_t kMicroBitV2HostActionBindingCount = 7;
 
 /**
  * Builds the microbit-v2 host-action binding table over `ports`, one entry per
  * action body. The async scroll body uses `scrollEnv` (its display port and
  * heap); the four button sensors use `buttonEnv` (the button port plus the heap
- * and roots backing their per-callsite state). Pass null for an env when the
- * table will never dispatch its actions. `ports` and any supplied env must
- * outlive every dispatch through the table.
+ * and roots backing their per-callsite state); the gesture sensor is stateless
+ * and reads the accelerometer port straight off `ports`. Pass null for an env
+ * when the table will never dispatch its actions. `ports` and any supplied env
+ * must outlive every dispatch through the table.
  */
 inline std::array<HostActionBinding, kMicroBitV2HostActionBindingCount>
 makeMicroBitV2HostActionBindings(DevicePorts &ports,
@@ -40,6 +42,7 @@ makeMicroBitV2HostActionBindings(DevicePorts &ports,
          buttonEnv},
         {MicroBitV2HostActions::ButtonLogo.actionId, &execButtonLogo, &buttonSensorPageEntered,
          buttonEnv},
+        {MicroBitV2HostActions::Gesture.actionId, &execGestureSensor, nullptr, &ports},
     }};
 }
 

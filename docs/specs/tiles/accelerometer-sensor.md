@@ -3,8 +3,10 @@
 (The accelerometer's surface-1 tile. The continuous reads x/y/z/pitch/roll are surface 2,
 `microbit-context.md`.)
 
-Status: proposed - design resolved 2026-06-17; ABI ids + implementation pending. Pairs with
-the filters direction (`docs/specs/tiles/filters.md`) for edge/toggle behavior.
+Status: core gestures (shake / 4 tilt / 2 face / freefall) implemented + hardware-validated
+2026-06-18 (both VMs); the `[impact]` modifier + its g-force sub-modifiers are designed below
+but not yet implemented. Pairs with the filters direction
+(`docs/specs/tiles/filters.md`) for edge/toggle behavior.
 
 ## Identity
 
@@ -145,6 +147,11 @@ CODAL headers; it is not an independent mapping we are free to renumber.
   gesture code, for this tile) plus `getX()`/`getY()`/`getZ()` (mg) and `getPitch()`/
   `getRoll()` (for surface 2). Bound to `uBit.accelerometer` on device; a stub on the cpp
   host build + the wodal sim (the injection point), exactly like `ButtonInputPort`.
+- **Device activation (required):** on hardware the port's `getGesture()` must call CODAL's
+  `requestUpdate()` before reading. CODAL's gesture getter does not self-update (unlike the
+  value getters `getX/getPitch/...`), so the accelerometer's sampling and gesture detection only
+  start once an update is requested; a brain that polls only `getGesture()` otherwise reads
+  NONE forever. The host stub + wodal need no such call (they return injected values).
 - Injectable input (parity, **test-only**): for this tile, the **gesture enum**; for surface-2
   reads, **x/y/z + pitch/roll scalars** (pitch/roll are polled from CODAL, not derived). Both
   extend the button harness, and

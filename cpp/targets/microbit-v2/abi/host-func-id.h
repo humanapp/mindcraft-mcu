@@ -40,12 +40,13 @@ enum class MicroBitV2HostFuncId : uint32_t
     AccelerometerGetPitch = 1044,
     AccelerometerGetRoll = 1045,
     AccelerometerGetGesture = 1046,
+    SensorGesture = 1047,
 };
 
 /**
  * Number of declared {@link MicroBitV2HostFuncId} members; ids are dense
  * from 1024.
  */
-inline constexpr uint32_t kMicroBitV2HostFuncIdCount = 23;
+inline constexpr uint32_t kMicroBitV2HostFuncIdCount = 24;
 
 } // namespace mindcraft

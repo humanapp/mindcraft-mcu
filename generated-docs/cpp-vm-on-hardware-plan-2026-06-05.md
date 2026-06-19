@@ -87,9 +87,16 @@ the test-only injectable harness; read-back parity fixture byte-matches both VMs
 COMPLETE (2026-06-18, host/firmware-build-gated; hardware read pending user flash): surface-2
 `ctx.microbit.accelerometer.*` (8 sync host-fn reads, singleton struct no discriminator, ids
 1039-1046, `MicroBitField.Accelerometer=4` appended last) + regenerated ambient `.d.ts`;
-user-tile golden byte-matches both VMs. A2 found a cross-VM trace-parity bug on the user-tile
-`setPixelValue` host-function path (see Deferred Work), worked around by integer-clean values.
-Next: A3 (gesture tile).** Two further phases queued: 8 (virtual radio
+user-tile golden byte-matches both VMs. A2 surfaced a cross-VM trace-parity bug on the
+user-tile `setPixelValue` host-function path, FIXED in A3's Step 0.** **A3 COMPLETE +
+HARDWARE-VALIDATED (2026-06-18): the `gesture` sensor tile - 8 core gestures (shake / 4 tilt /
+2 face / freefall), stateless level compare, default shake; sensor fn id 1047, action 1030.
+Shaking the board fires the tile on device - the FIRST accelerometer behavioral hardware
+validation (A1+A3 = a working hardware-validated gesture tile). Step 0 fixed the wodal
+`setPixelValue` host-function narrowing (one-line wrap + regression golden; retires the A2 trace
+bug). A device-only CODAL bug was root-caused + fixed (`getGesture()` needs `requestUpdate()` to
+start the accelerometer's sampling/detection - see Phase Log; standing caution recorded). Next:
+A4 (impact + conditional g-force).** Two further phases queued: 8 (virtual radio
 sim-to-sim) and 9 (Cutebot via TS user-tiles).** **PHASE
 6 IS COMPLETE
 (6a-6j, 2026-06-17): the C++ VM is a fully conforming VM - every contract opcode
@@ -2626,7 +2633,22 @@ mid-implementation by user direction, for UX + to keep the press-lights-pixel te
 thresholds long-click 1000 ms / double-click window 500 ms, no hold threshold; surface 2 omits
 `buttonAB` (composable in user code). **The injectable sensor-input harness (scriptable down/up
 per tick, both VMs) is now established and reusable by every later sensor.** A cross-cutting
-invariant surfaced (see the native-struct field-order note below). Next peripheral TBD.
+invariant surfaced (see the native-struct field-order note below).
+
+**Second peripheral: accelerometer/gesture - core gestures COMPLETE both VMs +
+hardware-validated 2026-06-18** (sub-phased; A1 port+harness, A2 surface-2 reads, A3 the
+`gesture` tile for shake/4 tilt/2 face/freefall - all accepted; A4 impact+conditional g-force
+and A5 sim detector/UI remain). See the Phase Log A1/A2/A3 entries and
+`docs/specs/tiles/accelerometer-sensor.md` + `docs/specs/microbit-context.md`.
+
+**STANDING CAUTION for every CODAL-bound read (learned at A3, 2026-06-18).** Enum/value
+injection parity goldens run against the host stub + wodal and are **blind to device-only CODAL
+binding bugs**. A3 shipped goldens-green but did not fire on hardware: CODAL `getGesture()`
+(unlike the value getters) does not self-`requestUpdate()`, so the accelerometer's
+sampling/detection never started and `lastGesture` stayed NONE; the fix was to call
+`requestUpdate()` in the firmware port getter. So: **any new CODAL-bound read needs a hardware
+smoke test** - the parity gate alone cannot catch a missing activation/`requestUpdate`-style
+step on the device path.
 
 **Three surfaces per peripheral (locked 2026-06-17).** Each board capability is delivered on
 ALL THREE:
@@ -2773,6 +2795,41 @@ Condensed dated ledger of accepted phases (newest first). Full per-phase as-buil
 detail lives in the session memory and git history; the accepted phase sections above
 carry the contracts each produced.
 
+- **2026-06-18 - Phase 7 accelerometer A3 complete + HARDWARE-VALIDATED** (gesture tile, core
+  gestures; first accelerometer behavioral hardware validation - A1+A3 = a working
+  hardware-validated gesture tile). One host **sensor** tile `gesture` (key `microbit-v2.gesture`,
+  WHEN-side, non-inline, brain-compiler path) reading `AccelerometerInputPort.getGesture()`
+  directly (the A1 port, not A2's host-functions). **Stateless level compare** (true when
+  `getGesture()` equals the modifier's code; no per-call-site state, no debounce - simpler than
+  the buttons' click/hold state machine). New append-only ids: sensor fn `SensorGesture=1047`
+  (host-func count 23->24), host-action `Gesture`=1030 (host-action count 6->7, cpp binding
+  6->7), 8 wodal modifier ids `microbit-v2.{shake,tilt-up,tilt-down,tilt-left,tilt-right,
+  face-up,face-down,freefall}` (cpp mirrors arg-slot order 0..7). Grammar
+  `bag(optional(choice(8 mods)))`, **default `shake` resolved in the body**; modifier->
+  `AccelerometerGesture` member (shake->Shake(11), tilt-up->TiltUp(1), tilt-down->TiltDown(2),
+  tilt-left->TiltLeft(3), tilt-right->TiltRight(4), face-up->FaceUp(5), face-down->FaceDown(6),
+  freefall->Freefall(7)). cpp body reads `ports.accelerometer` off the bound `DevicePorts`
+  (hostData=`&ports`, no env/heap/roots); reuses the existing sensor-fire `action` trace line.
+  9 per-gesture goldens (8 + `gesture-default`), each a 3-tick inject None->own->different
+  (fire-on-match / no-fire-on-different / default-in-body), byte-matched both VMs
+  (`gesture-sensor-trace.spec.ts` + cpp `runGestureSensorParity` x9). **DEVICE-ONLY CODAL bug
+  root-caused on hardware + fixed:** CODAL `getGesture()` (unlike the value getters) does NOT
+  self-`requestUpdate()`, so the accelerometer's sampling/idle-tick/detection never started for a
+  brain that polls only `getGesture()` -> `lastGesture` stayed NONE -> the tile never fired on
+  device though goldens passed. Fix: `MicroBitAccelerometerInputPort::getGesture()` (firmware
+  `microbit-ports.h`) calls `requestUpdate()` before reading; device-only, host stub + wodal
+  unchanged, no golden churn. **STANDING CAUTION (general):** enum-injection parity goldens are
+  blind to device-only CODAL binding bugs; any new CODAL-bound read whose getter does not
+  self-`requestUpdate` needs a hardware smoke test. **Step 0 (folded in):** fixed the wodal
+  user-tile `setPixelValue` host-function narrowing (wrapped its args in `pixelCoordToPort`/
+  `brightnessToPort`, matching the host-action + cpp; one line, cpp unchanged), byte-safe for
+  existing goldens; new regression golden `user-tile-pixel-conversion` exercises fractional /
+  over-range (300->44) / negative (-30->226) / fractional-coord / out-of-matrix through
+  `ctx.microbit.display.setPixelValue`, byte-matched both VMs; updated one `module.spec.ts` unit
+  test (host-fn setPixel now wraps 300->44 per contract). Retires the A2 trace discrepancy. Gate:
+  cpp check.sh x3 (285 cases), wodal typecheck+biome clean + 173, firmware Docker exit 0, comment
+  review pass, **hardware smoke test PASSED** (shake fires `WHEN [gesture][shake]`; flat stops the
+  level fire). Specs current: `docs/specs/tiles/accelerometer-sensor.md`. Next: A4.
 - **2026-06-18 - Phase 7 accelerometer A2 complete** (surface-2 TS reads;
   host/firmware-build-gated, hardware read smoke test pending user flash). 8 sync host-function
   reads `ctx.microbit.accelerometer.{getX/Y/Z, getPitchRadians/RollRadians, getPitch/Roll,
@@ -3108,8 +3165,9 @@ carry the contracts each produced.
   In-matrix integers narrow as the identity (existing goldens byte-unchanged). Pinned in
   `docs/specs/contracts/observable-trace.md`. Closed for the **host-action** setPixel path -
   kept here as the seam's history. NOTE: A2 (2026-06-18) found the **host-function** setPixel
-  path (user-tile `setPixelValue`) does not honor the same narrowed-trace contract across VMs -
-  separate follow-up item below.
+  path (user-tile `setPixelValue`) did not honor the same narrowed-trace contract across VMs -
+  RESOLVED in A3 Step 0, 2026-06-18 (see the follow-up item below). Both setPixel paths now
+  conform.
 - **Shared input-script file format + parsers (deferred from 6j, 2026-06-17; design
   locked).** A line-oriented `mcscript 1` / `tick <ms> [button <name> down|up]` file with a
   host-only C++ parser in `cpp/hostkit` + a TS reader, replacing the hand-mirrored
@@ -3127,8 +3185,12 @@ carry the contracts each produced.
   the C++ parity-test decoders, in one cross-cutting rename. Low-risk and self-policing (the
   byte gates fail loudly if a path is missed), but touches every vector family at once, so the
   user wants it done as its own change, not folded into accelerometer A2+. No behavior change.
-- **User-tile `setPixelValue` host-function trace does not narrow consistently across VMs
-  (found at A2, 2026-06-18).** A real cross-VM parity bug, masked until A2. `observable-trace.md`
+- **User-tile `setPixelValue` host-function trace narrowing (found at A2, RESOLVED in A3 Step 0,
+  2026-06-18).** Fixed: the wodal host-function now wraps its args in `pixelCoordToPort`/
+  `brightnessToPort` (matching the host-action + cpp); regression golden `user-tile-pixel-conversion`
+  byte-matches both VMs across fractional/over-range/negative/out-of-matrix values; existing
+  goldens byte-unchanged. Kept here as history; original analysis follows. A real cross-VM parity
+  bug, masked until A2. `observable-trace.md`
   pins the `port display set-pixel` line to the **post-narrowing** value (f32->i16 coords,
   f32->u8 brightness), and the brain **host-action** setPixel path honors it both VMs (the 6j
   `pixel-conversion` golden byte-matches with fractional/out-of-range/negative values). But the

@@ -25,8 +25,10 @@ import { TouchButton } from "../../../core/touch-button";
 import { MicroBit } from "../microbit";
 import { MicroBitDisplay } from "../microbit-display";
 import { buttonABSensor, buttonASensor, buttonBSensor, buttonLogoSensor } from "./actions/button-sensor";
+import { brightnessToPort, pixelCoordToPort } from "./actions/display-pixel-conversion";
 import displayScrollActuator from "./actions/display-scroll";
 import displaySetPixelActuator from "./actions/display-set-pixel";
+import { gestureSensor } from "./actions/gesture-sensor";
 import { getMicroBitContextDevice } from "./context";
 import { MICROBIT_V2_MODIFIERS } from "./modifiers";
 import { MICROBIT_V2_PARAMETERS } from "./parameters";
@@ -240,7 +242,11 @@ function registerMicroBitDisplayFunctions(api: MindcraftModuleApi): void {
     isAsync: false,
     fn: {
       exec: (_ctx: ExecutionContext, args: ReadonlyList<Value>) => {
-        getDisplayReceiver(args)?.setPixelValue(numberArg(args, 1), numberArg(args, 2), numberArg(args, 3));
+        getDisplayReceiver(args)?.setPixelValue(
+          pixelCoordToPort(numberArg(args, 1)),
+          pixelCoordToPort(numberArg(args, 2)),
+          brightnessToPort(numberArg(args, 3))
+        );
         return VOID_VALUE;
       },
     },
@@ -381,6 +387,7 @@ function registerBrainTiles(api: MindcraftModuleApi): void {
   api.registerHostSensor(createHostSensor(buttonBSensor));
   api.registerHostSensor(createHostSensor(buttonABSensor));
   api.registerHostSensor(createHostSensor(buttonLogoSensor));
+  api.registerHostSensor(createHostSensor(gestureSensor));
   api.registerHostActuator(createHostActuator(displaySetPixelActuator));
   api.registerHostActuator(createHostActuator(displayScrollActuator));
   api.registerModifiers(MICROBIT_V2_MODIFIERS);
