@@ -1,3 +1,5 @@
+export { AccelerometerGesture, type Sample3D } from "../../core/accelerometer";
+export { GestureInjector, type GestureSampleTarget, IDLE_SAMPLE } from "../../core/gesture-injector";
 export {
   MICROBIT_ACCELEROMETER_EVT_NONE,
   MICROBIT_BUTTON_EVT_CLICK,

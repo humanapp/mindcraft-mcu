@@ -105,11 +105,16 @@ gestures; a `+/-2G` range also saturates below the 2G threshold, and on-device e
 a listener has never been exercised in this firmware. See Deferred Work (impact revival) for the
 full CODAL findings + the recommended poll-`instantaneousAccelerationSquared()` revival path.
 Net: **A1-A3 complete + hardware-validated; A4 deferred; A5a (faithful wodal detector) COMPLETE
-2026-06-19 (wodal-only, off the parity path, goldens byte-unchanged); A5b (globe/slider sim UI)
-remains and needs a design pass.** A5a surfaced a feed-cadence decision for A5b (drive the
-detector at the device sample period ~20ms, decoupled from the brain tick - see Phase Log / impl
-plan). Next: the A5b design pass (user-owned), or revive A4 once the impact-delivery approach is
-chosen.** Two further phases queued: 8 (virtual radio
+2026-06-19 (wodal-only, off the parity path, goldens byte-unchanged); A5b (sim UI) DESIGN
+RESOLVED 2026-06-19 = a gesture-picker dropdown (one per device, top of each card; `none` + the
+8 shipped gestures) that injects an animated x/y/z sequence into `Accelerometer.feedSample` ->
+the real detector (wodal owns the injection driver, microbit-sim owns the dropdown); the refined
+globe prototype is archived for a separate planned Mindcraft micro:bit webapp, the g-force slider
+dropped. A5b BUILT + browser-verified 2026-06-19 (`GestureInjector` in wodal + `GesturePicker`
+dropdown in microbit-sim).** **The accelerometer peripheral is now COMPLETE end-to-end (all
+three surfaces + sim UI) except the deferred A4 impact work** - the second Phase 7 peripheral
+done. Next: pick the next Phase 7 peripheral (user-owned), or revive A4 once the impact-delivery
+approach is chosen.** Two further phases queued: 8 (virtual radio
 sim-to-sim) and 9 (Cutebot via TS user-tiles).** **PHASE
 6 IS COMPLETE
 (6a-6j, 2026-06-17): the C++ VM is a fully conforming VM - every contract opcode
@@ -2815,6 +2820,47 @@ Condensed dated ledger of accepted phases (newest first). Full per-phase as-buil
 detail lives in the session memory and git history; the accepted phase sections above
 carry the contracts each produced.
 
+- **2026-06-19 - Phase 7 accelerometer A5b complete + browser-verified** (sim UI built; this
+  completes the accelerometer peripheral end-to-end except the deferred A4 impact work).
+  **Injection driver (wodal):** new `core/gesture-injector.ts` - `GestureInjector` (one per
+  device `Accelerometer`): `select(gesture)` / `advance(elapsedMs)` / `setCompletionListener`,
+  over a structural `GestureSampleTarget {getPeriod(); feedSample(sample)}` (which `Accelerometer`
+  satisfies - the structural type is what enforces the parity guardrail: the driver can only
+  reach `feedSample`, never the `setSample`/`setGesture` injection setters the goldens use).
+  Per-gesture sequences derived from the A5a detector thresholds (now exported `SHAKE_TOLERANCE`,
+  `SHAKE_COUNT_THRESHOLD`, `GESTURE_DAMPING`, `ONE_G` - no magic numbers): postures ramp to
+  `+/-ONE_G` then hold (sticky), shake = `SHAKE_COUNT_THRESHOLD+2` alternating swings (momentary),
+  freefall = `GESTURE_DAMPING*2` zero samples (momentary), none/completion ramp to
+  `IDLE_SAMPLE=(480,-600,-640)`. `advance(elapsedMs)` feeds one sample per `getPeriod()` (~20 ms),
+  zero-or-more per call, decoupled from the brain tick; completion listener fires for momentary
+  gestures only. **Dropdown (microbit-sim):** new `GesturePicker.tsx` - per-card `<select>`
+  (`none` + 8 gestures, impact excluded), at the top of `InstanceCard` above the 5x5 screen; on
+  change calls `instance.gestureInjector.select(code)`; a listener resets it to `none` on
+  momentary completion. `SimulatorInstance` owns the injector and advances it in `tick()` BEFORE
+  `runtime.tick()` (the fed gesture is visible to the same `getGesture()` poll). All goldens
+  byte-unchanged; no cpp/firmware/contract change. Gate: wodal 3-gate (typecheck+biome+211, 13
+  new injector tests), microbit-sim typecheck+biome+22, browser-verified (shake lit LED(0,0) +
+  auto-reset to none; tilt-right held sticky; freefall reset). Files: NEW gesture-injector.ts /
+  .spec.ts / GesturePicker.tsx; MODIFIED gesture-detector.ts, microbit-v2/index.ts, simulator.ts,
+  InstanceCard.tsx. MINOR FLAG: a posture *firing a rule* wasn't shown in-browser because the
+  brain editor's gesture-tile modifier isn't settable via a simple control (tile default = shake);
+  every gesture's recognition is covered by the wodal unit tests - the editor modifier-selection
+  affordance is a separate (non-accelerometer) authoring-UI gap.
+- **2026-06-19 - Phase 7 accelerometer A5b design resolved** (sim UI; design decision, build
+  pending). microbit-sim's surface-3 accelerometer input = a **gesture-picker dropdown**, one
+  per simulated device, at the top of each simulator card: `none` + the 8 shipped gestures
+  (impact excluded while deferred). Selecting injects an **animated x/y/z sample sequence** into
+  `Accelerometer.feedSample(...)` driving the real A5a detector (WYSIWYG) - never writes the
+  gesture enum directly. Postures sticky (ramp + hold until changed); shake/freefall momentary
+  (play once -> idle, reset to `none`); idle reading `(480,-600,-640)` mg (all axes under the
+  800 mg threshold so the detector reports None - `(0,0,-1000)` would register FaceUp). **wodal
+  owns the injection driver** (sample-sequence animation + scheduler; feeds at ~20 ms off
+  `getPeriod()`, decoupled from the brain tick - the A5a carry-in); microbit-sim owns the
+  dropdown UI. Parity unchanged (sim-only; goldens inject the enum; detector not on the parity
+  path). The refined **globe** control (liquid-glass orb, 3D drag, radial gesture menu, board
+  art, x/y/z axes) is reserved for a separate planned Mindcraft micro:bit webapp; its standalone
+  prototype is archived at `generated-docs/a5b-sim-ui-prototype-2026-06-19/`; the g-force slider
+  is dropped. Spec: `docs/specs/tiles/accelerometer-sensor.md` Sim UI.
 - **2026-06-19 - Phase 7 accelerometer A5a complete** (faithful wodal gesture detector;
   wodal-only, off the parity path). New `packages/wodal/src/core/gesture-detector.ts`:
   `GestureDetector` (`update(sample)->AccelerometerGesture` + `reset()`) + a pure
@@ -3314,6 +3360,14 @@ carry the contracts each produced.
   port reference when modeling impact in the sim, and CODAL's `impulseSigma` / `GESTURE_DAMPING`
   reset is its impact-latch lifetime. The A5a posture/`recalculatePitchRoll` paths will not need
   to change when impact is added.
+- **Separate planned Mindcraft micro:bit webapp (reserved consumer of the globe prototype,
+  noted 2026-06-19).** The high-fidelity accelerometer **globe** control (liquid-glass orb, 3D
+  drag-rotation, click-to-open radial gesture menu, micro:bit board art, x/y/z axes) prototyped
+  during the A5b design pass is reserved for this future app, not microbit-sim. Standalone
+  throwaway prototype archived at `generated-docs/a5b-sim-ui-prototype-2026-06-19/` (`index.html`
+  + `design-2026-06-19.md`) - do not move, simplify, or wire it into microbit-sim. The reusable
+  wodal `feedSample` injection driver (built for A5b's dropdown) is the shared seam this app
+  would also use. Scope this app when it is actually picked up.
 - **`degreesFromRadians` duplicated across C++ test files (minor, found at A2).** The f32
   radians->degrees helper is now copied in `device-port.test.cpp`,
   `accelerometer-read-parity.test.cpp`, and `trace-parity.test.cpp`. Fold into one shared cpp

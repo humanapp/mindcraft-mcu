@@ -14,7 +14,7 @@
 import { AccelerometerGesture, type Sample3D } from "./accelerometer";
 
 /** Per-axis acceleration, in milli-g, above which a zero crossing counts toward a shake (CODAL ACCELEROMETER_SHAKE_TOLERANCE). */
-const SHAKE_TOLERANCE = 400;
+export const SHAKE_TOLERANCE = 400;
 
 /** Distance, in milli-g, from a 1G axis reading within which the device counts as tilted on that axis (CODAL ACCELEROMETER_TILT_TOLERANCE). */
 const TILT_TOLERANCE = 200;
@@ -26,7 +26,7 @@ const FREEFALL_TOLERANCE = 400;
 const FREEFALL_THRESHOLD = FREEFALL_TOLERANCE * FREEFALL_TOLERANCE;
 
 /** Stable-sample count a posture must persist before it is promoted to the reported gesture (CODAL ACCELEROMETER_GESTURE_DAMPING). */
-const GESTURE_DAMPING = 5;
+export const GESTURE_DAMPING = 5;
 
 /** Sample count between decays of the accumulated zero-crossing count (CODAL ACCELEROMETER_SHAKE_DAMPING). */
 const SHAKE_DAMPING = 10;
@@ -35,10 +35,10 @@ const SHAKE_DAMPING = 10;
 const SHAKE_RTX = 30;
 
 /** Zero crossings required, across the three axes, to register a shake (CODAL ACCELEROMETER_SHAKE_COUNT_THRESHOLD). */
-const SHAKE_COUNT_THRESHOLD = 4;
+export const SHAKE_COUNT_THRESHOLD = 4;
 
 /** A 1G axis reading, in milli-g, the resting force on the axis aligned with gravity. */
-const ONE_G = 1000;
+export const ONE_G = 1000;
 
 /**
  * Rotation-compensated pitch and roll for a sample, in radians, each stored at

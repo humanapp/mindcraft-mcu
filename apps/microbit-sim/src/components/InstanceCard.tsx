@@ -2,6 +2,7 @@ import { Button } from "@mindcraft-lang/ui";
 import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";
 import type { BrainRecord } from "@/services/microbit-sim-environment-store";
 import type { SimulatorInstance } from "@/services/simulator";
+import { GesturePicker } from "./GesturePicker";
 import { MicrobitDevice } from "./MicrobitDevice";
 
 interface InstanceCardProps {
@@ -22,6 +23,8 @@ export function InstanceCard({ instance, label, brains }: InstanceCardProps) {
         <span className={`text-sm font-semibold ${title.className}`}>{title.text}</span>
         {title.detail && <span className="text-xs text-destructive">{title.detail}</span>}
       </div>
+
+      <GesturePicker instance={instance} />
 
       <MicrobitDevice instance={instance} />
 

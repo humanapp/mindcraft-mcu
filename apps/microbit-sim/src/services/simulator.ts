@@ -1,6 +1,11 @@
 import type { MindcraftEnvironment } from "@mindcraft-lang/core/app";
 import { buildWodalProgramImage, type WodalBuildInput } from "@mindcraft-lang/wodal";
-import { MicroBit, type MicroBitSnapshot, WodalMicroBitRuntime } from "@mindcraft-lang/wodal/targets/microbit-v2";
+import {
+  GestureInjector,
+  MicroBit,
+  type MicroBitSnapshot,
+  WodalMicroBitRuntime,
+} from "@mindcraft-lang/wodal/targets/microbit-v2";
 import { SharedMedium } from "./shared-medium";
 
 /** A classified flash diagnostic, carrying a stable WODAL code verbatim. */
@@ -29,6 +34,9 @@ export class SimulatorInstance {
   readonly microbit: MicroBit;
   readonly runtime: WodalMicroBitRuntime;
 
+  /** Drives this device's accelerometer from a selected gesture; advanced by {@link SimulatorInstance.tick}. */
+  readonly gestureInjector: GestureInjector;
+
   /** Current flash state; `empty` until a program is flashed. */
   flashState: FlashState = { status: "empty" };
 
@@ -36,6 +44,7 @@ export class SimulatorInstance {
     this.id = id;
     this.microbit = new MicroBit();
     this.runtime = new WodalMicroBitRuntime({ environment, microbit: this.microbit });
+    this.gestureInjector = new GestureInjector(this.microbit.accelerometer);
   }
 
   /** Id of the brain currently flashed onto this instance, or undefined when none is loaded. */
@@ -43,8 +52,9 @@ export class SimulatorInstance {
     return this.flashState.status === "loaded" ? this.flashState.brainId : undefined;
   }
 
-  /** Advances this instance by elapsed simulated time. A no-op until a program is loaded. */
+  /** Advances this instance by elapsed simulated time. Feeds any selected gesture, then runs the loaded brain. */
   tick(elapsedMs: number): void {
+    this.gestureInjector.advance(elapsedMs);
     this.runtime.tick(elapsedMs);
   }
 
