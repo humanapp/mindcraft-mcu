@@ -244,6 +244,9 @@ bool constValueToRuntime(const ConstValue& constant, Value& out) {
   case ConstValueKind::String:
     out = Value::borrowedString(constant.string.stringIdx);
     return true;
+  case ConstValueKind::Buffer:
+    out = Value::borrowedBuffer(constant.buffer.byteOffset, constant.buffer.byteCount);
+    return true;
   case ConstValueKind::Enum:
     out = Value::enumSymbol(constant.enumVal.typeIdx, constant.enumVal.ordinal);
     return true;
@@ -655,6 +658,8 @@ bool isTruthy(const Value& value, const ProgramImage& program, const ManagedHeap
   case ValueTag::Map:
     // A map is truthy when non-empty. Reachable only with a configured heap.
     return heap != nullptr && heap->map(value)->size > 0;
+  case ValueTag::Buffer:
+    return value.bufferLength() > 0;
   case ValueTag::Err:
     return false;
   }

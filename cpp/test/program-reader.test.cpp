@@ -467,8 +467,8 @@ TEST_CASE("a CVAL type index outside the table fails TypeIndexOutOfRange") {
 }
 
 TEST_CASE("an undeclared CVAL value tag fails InvalidValueTag") {
-  // 9 (Any) and 10 (Union) are type tags, never value tags; 12 is undeclared.
-  for (const uint8_t tag : {9, 10, 12, 200}) {
+  // 9 (Any) and 10 (Union) are type tags, never value tags; 13 is undeclared.
+  for (const uint8_t tag : {9, 10, 13, 200}) {
     WireBuilder w = programHeader();
     w.varUint(0).varUint(0); // CSTR
     w.varUint(0);            // TYPS
@@ -476,6 +476,16 @@ TEST_CASE("an undeclared CVAL value tag fails InvalidValueTag") {
     w.varUint(1).u8(tag);    // CVAL
     CHECK(decodeError(w) == LoadError::InvalidValueTag);
   }
+}
+
+TEST_CASE("a CVAL buffer whose byte count overruns the section fails Truncated") {
+  WireBuilder w = programHeader();
+  w.varUint(0).varUint(0); // CSTR
+  w.varUint(0);            // TYPS
+  w.varUint(0);            // CNUM
+  w.varUint(1);            // CVAL
+  w.u8(12).varUint(8);     // buffer claiming 8 bytes with none following
+  CHECK(decodeError(w) == LoadError::Truncated);
 }
 
 TEST_CASE("an undeclared CVAL map key tag fails InvalidValueTag") {

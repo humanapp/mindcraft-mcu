@@ -43,6 +43,7 @@ constexpr uint8_t kValueTagList = 6;
 constexpr uint8_t kValueTagMap = 7;
 constexpr uint8_t kValueTagStruct = 8;
 constexpr uint8_t kValueTagFunction = 11;
+constexpr uint8_t kValueTagBuffer = 12;
 
 /** Success/failure outcome of one decode step. */
 class [[nodiscard]] DecodeStatus {
@@ -469,6 +470,14 @@ DecodeStatus readValueNode(ByteCursor& cursor, const ProgramImage& image, uint32
         MC_CHECK(readValueNode(cursor, image, stringTotal, state, capturesOffset + i));
       }
     }
+    break;
+  }
+  case kValueTagBuffer: {
+    MC_READ(byteCount, cursor.readVarUint());
+    MC_CHECK(checkCountFits(byteCount, cursor));
+    MC_READ(bytes, cursor.readBytes(byteCount));
+    node.kind = ConstValueKind::Buffer;
+    node.buffer = {static_cast<uint32_t>(bytes.data() - image.stringData.data()), byteCount};
     break;
   }
   default:

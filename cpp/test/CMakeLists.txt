@@ -5,6 +5,7 @@ add_executable(mindcraft-tests
   accelerometer-read-parity.test.cpp
   async-handles.test.cpp
   brain-runtime.test.cpp
+  buffer-value.test.cpp
   byte-cursor.test.cpp
   bytecode.test.cpp
   conformance.test.cpp

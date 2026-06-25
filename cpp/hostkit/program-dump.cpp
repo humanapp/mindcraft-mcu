@@ -236,6 +236,24 @@ bool emitValueNode(TextWriter& w, const ProgramImage& image, uint32_t depth, boo
     }
     return true;
   }
+  case ConstValueKind::Buffer: {
+    if (value.buffer.byteOffset > image.stringData.size() ||
+        value.buffer.byteCount > image.stringData.size() - value.buffer.byteOffset) {
+      return false;
+    }
+    w.text("buffer ");
+    w.hex(value.buffer.byteCount);
+    if (value.buffer.byteCount > 0) {
+      w.ch(' ');
+      const uint8_t* bytes = image.stringData.data() + value.buffer.byteOffset;
+      for (uint32_t i = 0; i < value.buffer.byteCount; i++) {
+        w.hexDigit(bytes[i] >> 4);
+        w.hexDigit(bytes[i] & 0xf);
+      }
+    }
+    w.nl();
+    return true;
+  }
   }
   return false;
 }

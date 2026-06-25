@@ -2820,6 +2820,19 @@ Condensed dated ledger of accepted phases (newest first). Full per-phase as-buil
 detail lives in the session memory and git history; the accepted phase sections above
 carry the contracts each produced.
 
+- **2026-06-24 - `Buffer` value type added across both VMs (separate workstream, B1-B3 complete).**
+  A first-class immutable raw-byte container (0-255), a value-model addition peer to the 6a/6c
+  work, built as the foundation for display image pixels (and future binary assets). `NativeType`/
+  value-tag `Buffer = 12`; a raw-bytes program-constant codec (CVAL tag 12 + var-uint len + raw
+  bytes; binary v3 / dump v2 / trace v1 all UNCHANGED, append-only); borrowed-from-wire constants +
+  managed (`Pool`+slab+GC) host-built buffers (the borrowed/managed split mirroring managed
+  strings); 5 core host-fns (`CoreFuncId` 96-100: `Buffer.from`/`fromHex`/`fromString`/`length`/
+  `get`) + the ambient `Buffer` type + ts-compiler lowering; an additive `buffer <hex>` trace
+  token. Reference (TS) is the oracle; cpp mirrors; byte-matched via the core `buffer-vectors` +
+  the wodal `buffer-ops` goldens. Plan: `generated-docs/buffer-type-impl-plan-2026-06-24.md`;
+  contract: `external/mindcraft-lang/docs/specs/contracts/vm-contract.md`. Gates: core 923 /
+  ts-compiler 992 / cpp check.sh x3 / wodal 212. (Pre-existing reference `vm.ts` AsyncHandle rbx
+  breakage is unrelated and still open - the Buffer work added zero new rbx errors.)
 - **2026-06-19 - Phase 7 accelerometer A5b complete + browser-verified** (sim UI built; this
   completes the accelerometer peripheral end-to-end except the deferred A4 impact work).
   **Injection driver (wodal):** new `core/gesture-injector.ts` - `GestureInjector` (one per

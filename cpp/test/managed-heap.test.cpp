@@ -708,3 +708,112 @@ TEST_CASE("a pinned value survives collection through the pin and is reclaimed o
   heap.collect(roots);
   CHECK(heap.liveListCount() == 0u);
 }
+
+namespace {
+
+/** Content of a buffer value as a byte string, for test assertions. */
+std::string bufferContentOf(const ManagedHeap& heap, const Value& value) {
+  const uint8_t* bytes = nullptr;
+  uint32_t length = 0;
+  REQUIRE(heap.bufferContent(value, bytes, length));
+  return std::string(reinterpret_cast<const char*>(bytes), length);
+}
+
+} // namespace
+
+TEST_CASE("managed buffers hold their content and report a managed reference") {
+  std::vector<uint8_t> storage(8 * 1024);
+  RegionArena arena(Span<uint8_t>(storage.data(), storage.size()));
+  ManagedHeap heap(arena);
+  RootSet roots;
+
+  const uint8_t data[] = {0x00, 0x7f, 0x80, 0xff};
+  Value buf;
+  REQUIRE(heap.newBuffer(data, 4, &roots, buf));
+  CHECK(buf.isManagedBuffer());
+  CHECK(buf.bufferLength() == 4u);
+  CHECK(heap.liveBufferCount() == 1u);
+  CHECK(bufferContentOf(heap, buf) == std::string(reinterpret_cast<const char*>(data), 4));
+
+  Value empty;
+  REQUIRE(heap.newBuffer(nullptr, 0, &roots, empty));
+  CHECK(empty.isManagedBuffer());
+  CHECK(empty.bufferLength() == 0u);
+  CHECK(bufferContentOf(heap, empty).empty());
+  CHECK(heap.bufferObject(empty)->bytes == nullptr);
+}
+
+TEST_CASE("collection reclaims unreachable managed buffers and keeps reachable ones") {
+  std::vector<uint8_t> storage(16 * 1024);
+  RegionArena arena(Span<uint8_t>(storage.data(), storage.size()));
+  ManagedHeap heap(arena);
+  RootSet roots;
+
+  const uint8_t keptData[] = {1, 2, 3};
+  const uint8_t droppedData[] = {4, 5};
+  Value kept;
+  REQUIRE(heap.newBuffer(keptData, 3, &roots, kept));
+  Value dropped;
+  REQUIRE(heap.newBuffer(droppedData, 2, &roots, dropped));
+  CHECK(heap.liveBufferCount() == 2u);
+
+  // Root only `kept`; `dropped` is unreachable.
+  roots.roots.push_back(kept);
+  heap.collect(roots);
+
+  CHECK(heap.liveBufferCount() == 1u);
+  CHECK(bufferContentOf(heap, kept) == std::string(reinterpret_cast<const char*>(keptData), 3));
+}
+
+TEST_CASE("a managed buffer survives collection through a list element") {
+  std::vector<uint8_t> storage(16 * 1024);
+  RegionArena arena(Span<uint8_t>(storage.data(), storage.size()));
+  ManagedHeap heap(arena);
+  RootSet roots;
+
+  Value list;
+  REQUIRE(heap.newList(6, &roots, list));
+  roots.roots.push_back(list);
+  const uint8_t insideData[] = {7, 8, 9};
+  Value element;
+  REQUIRE(heap.newBuffer(insideData, 3, &roots, element));
+  REQUIRE(heap.listPush(heap.list(list), element, &roots));
+
+  // `element` is held only by the rooted list; an unreferenced sibling is not.
+  const uint8_t orphanData[] = {0xaa};
+  Value orphan;
+  REQUIRE(heap.newBuffer(orphanData, 1, &roots, orphan));
+  CHECK(heap.liveBufferCount() == 2u);
+
+  heap.collect(roots);
+
+  CHECK(heap.liveBufferCount() == 1u);
+  CHECK(bufferContentOf(heap, heap.listGet(heap.list(list), 0)) ==
+        std::string(reinterpret_cast<const char*>(insideData), 3));
+}
+
+TEST_CASE("buffer content-equality holds across borrowed and managed references") {
+  const uint8_t pool[] = {0x10, 0x20, 0x30};
+  ProgramImage program{};
+  program.stringData = mindcraft::ByteSpan(pool, 3);
+
+  std::vector<uint8_t> storage(16 * 1024);
+  RegionArena arena(Span<uint8_t>(storage.data(), storage.size()));
+  ManagedHeap heap(arena, &program);
+  RootSet roots;
+
+  const Value borrowed = Value::borrowedBuffer(0, 3);
+  CHECK_FALSE(borrowed.isManagedBuffer());
+  Value managed;
+  REQUIRE(heap.newBuffer(pool, 3, &roots, managed));
+  CHECK(managed.isManagedBuffer());
+
+  // Borrowed and managed buffers with equal content compare equal, both orders.
+  CHECK(heap.buffersEqual(borrowed, managed));
+  CHECK(heap.buffersEqual(managed, borrowed));
+
+  const uint8_t otherData[] = {0x10, 0x20, 0x31};
+  Value other;
+  REQUIRE(heap.newBuffer(otherData, 3, &roots, other));
+  CHECK_FALSE(heap.buffersEqual(borrowed, other));
+}

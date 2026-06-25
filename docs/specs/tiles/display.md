@@ -151,10 +151,10 @@ lease are silently dropped (each completes immediately with its paste discarded)
   primitive. It reuses the existing struct and literal machinery (both VMs already implement
   structs), so the runtime needs nothing new. The struct stores **opaque integer pixel values**
   plus the dimensions; pixel interpretation is the target's (Target parameterization).
-- `pixels` holds the per-pixel values in row-major order. The concrete representation (a packed
-  `String` of byte values vs a `List` of numbers) is pinned at implementation; a packed `String`
-  is the working choice for compactness. The values are target-interpreted (grayscale on
-  micro:bit).
+- `pixels` is a **`Buffer`** (the core raw-byte value type): one byte per pixel, row-major,
+  values 0-255 (the `codal::ImageData` layout, minus its ref-count header). The values are
+  target-interpreted (grayscale on micro:bit). This matches how both CODAL and MakeCode store
+  images - a byte buffer, not a list of values.
 - **Any dimensions.** The `Image` size is not constrained to the display; `draw image` clips an
   oversize image to the display (above). A target's built-in images are typically display-sized,
   but the type permits any width and height.

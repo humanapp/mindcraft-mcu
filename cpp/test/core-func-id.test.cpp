@@ -16,9 +16,9 @@ TEST_CASE("funcId partition constants match the TS declarations") {
 
 TEST_CASE("CoreFuncId extremes and count are wire-stable") {
   CHECK(static_cast<uint32_t>(CoreFuncId::OpAndBoolean) == 0);
-  CHECK(static_cast<uint32_t>(CoreFuncId::StrConcat) == 95);
-  CHECK(kCoreFuncIdCount == 96);
-  CHECK(static_cast<uint32_t>(CoreFuncId::StrConcat) == kCoreFuncIdCount - 1);
+  CHECK(static_cast<uint32_t>(CoreFuncId::BufferGet) == 100);
+  CHECK(kCoreFuncIdCount == 101);
+  CHECK(static_cast<uint32_t>(CoreFuncId::BufferGet) == kCoreFuncIdCount - 1);
   CHECK(kCoreFuncIdCount <= TARGET_FUNC_ID_BASE);
 }
 
@@ -40,4 +40,6 @@ TEST_CASE("CoreFuncId group boundaries are wire-stable") {
   CHECK(static_cast<uint32_t>(CoreFuncId::MathAbs) == 66);
   CHECK(static_cast<uint32_t>(CoreFuncId::MathTan) == 83);
   CHECK(static_cast<uint32_t>(CoreFuncId::StrLength) == 84);
+  CHECK(static_cast<uint32_t>(CoreFuncId::StrConcat) == 95);
+  CHECK(static_cast<uint32_t>(CoreFuncId::BufferFrom) == 96);
 }

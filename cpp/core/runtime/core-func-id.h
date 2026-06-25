@@ -125,9 +125,14 @@ enum class CoreFuncId : uint32_t {
   StrTrim = 93,
   StrSplit = 94,
   StrConcat = 95,
+  BufferFrom = 96,
+  BufferFromHex = 97,
+  BufferFromString = 98,
+  BufferLength = 99,
+  BufferGet = 100,
 };
 
 /** Number of declared {@link CoreFuncId} members; ids are dense from 0. */
-inline constexpr uint32_t kCoreFuncIdCount = 96;
+inline constexpr uint32_t kCoreFuncIdCount = 101;
 
 } // namespace mindcraft

@@ -1,5 +1,6 @@
 #include "hostkit/observable-trace.h"
 
+#include "core/runtime/buffer-value.h"
 #include "core/runtime/managed-heap.h"
 
 namespace mindcraft {
@@ -118,6 +119,25 @@ bool ObservableTraceWriter::valueToken(const Value& value) {
       return true;
     }
     return quoteStringTableEntry(w_, program_, value.borrowedStringIndex());
+  case ValueTag::Buffer: {
+    w_.text("buffer ");
+    const uint8_t* bytes = nullptr;
+    uint32_t length = 0;
+    if (value.isManagedBuffer()) {
+      if (heap_ == nullptr || !heap_->bufferContent(value, bytes, length)) {
+        return false;
+      }
+    } else {
+      const ByteSpan span = bufferBytes(program_, value);
+      bytes = span.data();
+      length = span.size();
+    }
+    for (uint32_t i = 0; i < length; i++) {
+      w_.hexDigit(static_cast<uint8_t>(bytes[i] >> 4));
+      w_.hexDigit(static_cast<uint8_t>(bytes[i] & 0xf));
+    }
+    return true;
+  }
   default:
     // No other value kind has a rendering in trace format version 1.
     return false;

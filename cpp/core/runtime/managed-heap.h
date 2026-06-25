@@ -67,6 +67,20 @@ struct StringObject {
 };
 
 /**
+ * A managed buffer: a contiguous raw-byte backing (each byte 0-255) drawn from
+ * a size-classed slab, plus its byte length. The backing is fixed at allocation
+ * and never grows; the bytes are immutable after construction. The collector
+ * frees the byte backing when the object is collected. A zero-length buffer has
+ * a null `bytes`. `mark` is the collector's reachability bit, clear between
+ * collections.
+ */
+struct BufferObject {
+  uint8_t* bytes;
+  uint32_t length;
+  bool mark;
+};
+
+/**
  * One ordered-map key: a number, a borrowed constant-pool string, or a managed
  * (heap) string. String keys compare by byte content across both
  * representations; a borrowed and a managed key with equal content are one key.
@@ -245,6 +259,33 @@ public:
   StringObject* stringObject(const Value& value) const;
 
   /**
+   * Allocates an immutable managed buffer of `length` bytes, returning a managed
+   * `Buffer` value in `out` and a writable pointer to the uninitialized backing
+   * in `bytesOut` (null when `length` is 0). The caller fills the backing
+   * directly; the result must be fully written before the next allocation that
+   * could collect. See {@link newStruct} for the exhaustion contract.
+   */
+  bool allocBuffer(uint32_t length, GcRoots* roots, Value& out, uint8_t*& bytesOut);
+
+  /** Allocates a managed buffer copied from `data[0, length)`. See {@link allocBuffer}. */
+  bool newBuffer(const uint8_t* data, uint32_t length, GcRoots* roots, Value& out);
+
+  /** Resolves a managed `Buffer` value to its object. Requires a live managed handle. */
+  BufferObject* bufferObject(const Value& value) const;
+
+  /**
+   * Yields the raw bytes of any `Buffer` value into `bytes`/`length`: managed
+   * buffers resolve through the heap, borrowed buffers through the configured
+   * program's borrowed bytes. Returns false for a non-buffer value or a borrowed
+   * buffer with no program configured or an out-of-range run.
+   */
+  bool bufferContent(const Value& value, const uint8_t*& bytes, uint32_t& length) const;
+
+  /** Whether two `Buffer` values hold byte-for-byte identical content, across borrowed and managed.
+   */
+  bool buffersEqual(const Value& a, const Value& b) const;
+
+  /**
    * Yields the UTF-8 content of any `String` value into `bytes`/`length`:
    * managed strings resolve through the heap, borrowed strings through the
    * configured program string table. Returns false for a non-string value or a
@@ -325,6 +366,9 @@ public:
   /** Number of live managed-string objects (for tests and stats). */
   uint32_t liveStringCount() const { return strings_.liveCount(); }
 
+  /** Number of live managed-buffer objects (for tests and stats). */
+  uint32_t liveBufferCount() const { return buffers_.liveCount(); }
+
   /**
    * Grows a list's backing to at least `capacity` slots without changing its
    * size, collecting over `roots` and retrying once on slab exhaustion. With a
@@ -398,6 +442,7 @@ private:
   Pool<StructObject> structs_;
   Pool<CapturesObject> captures_;
   Pool<StringObject> strings_;
+  Pool<BufferObject> buffers_;
   PinNode* pinHead_ = nullptr;
 };
 

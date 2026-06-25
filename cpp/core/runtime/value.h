@@ -29,6 +29,7 @@ enum class ValueTag : int8_t {
   Map = 7,
   Struct = 8,
   Function = 11,
+  Buffer = 12,
   Handle = 100,
   Err = 101,
 };
@@ -46,6 +47,17 @@ inline constexpr uint32_t kManagedStringRefBit = 0x80000000u;
 
 /** Mask selecting the pool index bits of a string reference. */
 inline constexpr uint32_t kStringRefIndexMask = 0x7fffffffu;
+
+/**
+ * Flag bit reserved in a buffer reference to distinguish a managed (host-
+ * constructed, collectable) buffer from a borrowed (constant-pool, never freed)
+ * buffer. A managed buffer sets it in its handle word; a borrowed buffer's byte
+ * offset leaves it clear.
+ */
+inline constexpr uint32_t kManagedBufferRefBit = 0x80000000u;
+
+/** Mask selecting the handle/offset bits of a buffer reference. */
+inline constexpr uint32_t kBufferRefIndexMask = 0x7fffffffu;
 
 /**
  * Brain runtime value: a small trivially-copyable tagged union. Mirrors the
@@ -72,6 +84,14 @@ public:
     uint32_t funcId;
     /** Captures handle, or {@link kNoCaptures} when the value carries none. */
     uint32_t captures;
+  };
+
+  /** Payload of a borrowed `Buffer` value. */
+  struct BufferRef {
+    /** Byte offset of the buffer's first byte in the program image's borrowed bytes. */
+    uint32_t byteOffset;
+    /** Number of bytes. */
+    uint32_t byteCount;
   };
 
   /** A `Nil` value. */
@@ -138,6 +158,27 @@ public:
     return Value(ValueTag::Function, Payload(Function{funcId, captures}));
   }
 
+  /**
+   * A `Buffer` value borrowing `byteCount` raw bytes at `byteOffset` in the
+   * program image's borrowed bytes ({@link ProgramImage::stringData}). The
+   * bytes are immutable.
+   */
+  static constexpr Value borrowedBuffer(uint32_t byteOffset, uint32_t byteCount) {
+    return Value(ValueTag::Buffer, Payload(BufferRef{byteOffset, byteCount}));
+  }
+
+  /**
+   * A `Buffer` value referencing managed-heap buffer object `handle` (a host-
+   * constructed, collectable buffer) of `byteCount` immutable bytes. The {@link
+   * kManagedBufferRefBit} flag distinguishes it from a borrowed reference;
+   * `byteCount` mirrors the object's length so {@link bufferLength} answers
+   * without resolving the object. Requires `handle` to fit {@link
+   * kBufferRefIndexMask}.
+   */
+  static constexpr Value managedBuffer(uint32_t handle, uint32_t byteCount) {
+    return Value(ValueTag::Buffer, Payload(BufferRef{handle | kManagedBufferRefBit, byteCount}));
+  }
+
   /** A VM-internal `Handle` value referencing a pending async operation. */
   static constexpr Value handle(uint32_t handleId) {
     return Value(ValueTag::Handle, Payload(handleId));
@@ -174,6 +215,17 @@ public:
 
   /** True when the tag is `Function`. */
   constexpr bool isFunction() const { return tag_ == ValueTag::Function; }
+
+  /** True when the tag is `Buffer`. */
+  constexpr bool isBuffer() const { return tag_ == ValueTag::Buffer; }
+
+  /**
+   * True when the tag is `Buffer` and the reference is a managed (collectable)
+   * heap handle; false for a borrowed constant-pool reference.
+   */
+  constexpr bool isManagedBuffer() const {
+    return tag_ == ValueTag::Buffer && (payload_.buffer.byteOffset & kManagedBufferRefBit) != 0;
+  }
 
   /** True when the tag is `Err` (a VM-internal error value). */
   constexpr bool isErr() const { return tag_ == ValueTag::Err; }
@@ -237,6 +289,20 @@ public:
    */
   constexpr uint32_t functionCaptures() const { return payload_.fn.captures; }
 
+  /** Byte offset of a borrowed buffer's first byte in the program image's borrowed bytes. Requires
+   * a borrowed `Buffer`. */
+  constexpr uint32_t bufferOffset() const {
+    return payload_.buffer.byteOffset & kBufferRefIndexMask;
+  }
+
+  /** The managed-heap handle of a managed buffer reference. Requires a managed `Buffer`. */
+  constexpr uint32_t managedBufferHandle() const {
+    return payload_.buffer.byteOffset & kBufferRefIndexMask;
+  }
+
+  /** Number of bytes in the buffer. Requires tag `Buffer`. */
+  constexpr uint32_t bufferLength() const { return payload_.buffer.byteCount; }
+
   /** The async handle id. Requires tag `Handle`. */
   constexpr uint32_t handleId() const { return payload_.ref; }
 
@@ -252,6 +318,7 @@ private:
     constexpr explicit Payload(uint16_t value) : errCode(value) {}
     constexpr explicit Payload(Compound value) : compound(value) {}
     constexpr explicit Payload(Function value) : fn(value) {}
+    constexpr explicit Payload(BufferRef value) : buffer(value) {}
 
     mc_number_t num;
     bool boolean;
@@ -259,6 +326,7 @@ private:
     uint16_t errCode;
     Compound compound;
     Function fn;
+    BufferRef buffer;
   };
 
   constexpr Value(ValueTag tag, Payload payload) : tag_(tag), payload_(payload) {}

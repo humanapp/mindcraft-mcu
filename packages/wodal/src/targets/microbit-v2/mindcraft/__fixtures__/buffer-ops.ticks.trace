@@ -1,0 +1,24 @@
+mctrace 1
+profile 1
+precision f32
+tick 1 time 41800000 dt 00000000
+port display set-pixel 40400000 41a00000 437f0000
+action 401 site 0 args 3 number 40400000 number 41a00000 buffer 0a141e result void
+port display set-pixel 40400000 437f0000 437f0000
+action 401 site 0 args 3 number 40400000 number 437f0000 buffer 00ff7f result void
+port display set-pixel 40000000 42900000 437f0000
+action 401 site 0 args 3 number 40000000 number 42900000 buffer 4869 result void
+tick 2 time 42000000 dt 41800000
+port display set-pixel 40400000 41a00000 437f0000
+action 401 site 0 args 3 number 40400000 number 41a00000 buffer 0a141e result void
+port display set-pixel 40400000 437f0000 437f0000
+action 401 site 0 args 3 number 40400000 number 437f0000 buffer 00ff7f result void
+port display set-pixel 40000000 42900000 437f0000
+action 401 site 0 args 3 number 40000000 number 42900000 buffer 4869 result void
+tick 3 time 42400000 dt 41800000
+port display set-pixel 40400000 41a00000 437f0000
+action 401 site 0 args 3 number 40400000 number 41a00000 buffer 0a141e result void
+port display set-pixel 40400000 437f0000 437f0000
+action 401 site 0 args 3 number 40400000 number 437f0000 buffer 00ff7f result void
+port display set-pixel 40000000 42900000 437f0000
+action 401 site 0 args 3 number 40000000 number 42900000 buffer 4869 result void

@@ -54,7 +54,7 @@ void SlabAllocator::release(void* block, size_t bytes) {
 
 ManagedHeap::ManagedHeap(RegionArena& arena, const ProgramImage* program)
     : base_(arena.base()), program_(program), slabs_(arena), lists_(arena), maps_(arena),
-      structs_(arena), captures_(arena), strings_(arena) {}
+      structs_(arena), captures_(arena), strings_(arena), buffers_(arena) {}
 
 bool ManagedHeap::keyStringContent(const MapKey& key, const char*& bytes, uint32_t& length) const {
   if (key.isManagedString) {
@@ -278,6 +278,92 @@ bool ManagedHeap::stringContent(const Value& value, const char*& bytes, uint32_t
   bytes = reinterpret_cast<const char*>(program_->stringData.data()) + ref.offset;
   length = ref.length;
   return true;
+}
+
+bool ManagedHeap::allocBuffer(uint32_t length, GcRoots* roots, Value& out, uint8_t*& bytesOut) {
+  // A raw slab block is never traced or swept, so back the bytes before
+  // drawing the pool object that will own them.
+  uint8_t* bytes = nullptr;
+  if (length > 0) {
+    bytes = static_cast<uint8_t*>(slabs_.allocate(length));
+    if (bytes == nullptr && roots != nullptr) {
+      collect(*roots);
+      bytes = static_cast<uint8_t*>(slabs_.allocate(length));
+    }
+    if (bytes == nullptr) {
+      return false;
+    }
+  }
+  BufferObject* obj = buffers_.alloc();
+  if (obj == nullptr && roots != nullptr) {
+    collect(*roots);
+    obj = buffers_.alloc();
+  }
+  if (obj == nullptr) {
+    if (bytes != nullptr) {
+      slabs_.release(bytes, length);
+    }
+    return false;
+  }
+  obj->bytes = bytes;
+  obj->length = length;
+  obj->mark = false;
+  out = Value::managedBuffer(handleOf(obj), length);
+  bytesOut = bytes;
+  return true;
+}
+
+bool ManagedHeap::newBuffer(const uint8_t* data, uint32_t length, GcRoots* roots, Value& out) {
+  uint8_t* bytes = nullptr;
+  if (!allocBuffer(length, roots, out, bytes)) {
+    return false;
+  }
+  if (length > 0) {
+    memcpy(bytes, data, length);
+  }
+  return true;
+}
+
+BufferObject* ManagedHeap::bufferObject(const Value& value) const {
+  return static_cast<BufferObject*>(fromHandle(value.managedBufferHandle()));
+}
+
+bool ManagedHeap::bufferContent(const Value& value, const uint8_t*& bytes, uint32_t& length) const {
+  if (!value.isBuffer()) {
+    return false;
+  }
+  if (value.isManagedBuffer()) {
+    const BufferObject* obj = bufferObject(value);
+    bytes = obj->bytes;
+    length = obj->length;
+    return true;
+  }
+  const uint32_t offset = value.bufferOffset();
+  const uint32_t count = value.bufferLength();
+  if (program_ == nullptr || offset > program_->stringData.size() ||
+      count > program_->stringData.size() - offset) {
+    return false;
+  }
+  bytes = program_->stringData.data() + offset;
+  length = count;
+  return true;
+}
+
+bool ManagedHeap::buffersEqual(const Value& a, const Value& b) const {
+  if (!a.isBuffer() || !b.isBuffer()) {
+    return false;
+  }
+  const uint8_t* aBytes = nullptr;
+  uint32_t aLen = 0;
+  const uint8_t* bBytes = nullptr;
+  uint32_t bLen = 0;
+  if (!bufferContent(a, aBytes, aLen) || !bufferContent(b, bBytes, bLen)) {
+    return false;
+  }
+  if (aLen != bLen) {
+    return false;
+  }
+  return aLen == 0 || memcmp(aBytes, bBytes, aLen) == 0;
 }
 
 ListObject* ManagedHeap::list(const Value& value) const {
@@ -547,6 +633,10 @@ void ManagedHeap::mark(const Value& value) {
     // An immutable managed string has no outgoing references; marking the
     // object is enough to keep its byte backing alive through the sweep.
     stringObject(value)->mark = true;
+  } else if (value.isManagedBuffer()) {
+    // An immutable managed buffer has no outgoing references; marking the
+    // object keeps its byte backing alive through the sweep.
+    bufferObject(value)->mark = true;
   } else if (value.isMap()) {
     MapObject* obj = map(value);
     if (!obj->mark) {
@@ -590,6 +680,7 @@ void ManagedHeap::collect(GcRoots& roots) {
   structs_.forEachLive([](StructObject& obj) { obj.mark = false; });
   captures_.forEachLive([](CapturesObject& obj) { obj.mark = false; });
   strings_.forEachLive([](StringObject& obj) { obj.mark = false; });
+  buffers_.forEachLive([](BufferObject& obj) { obj.mark = false; });
 
   roots.enumerateRoots(*this);
   // Pinned in-flight results (deep copies, host-function container builds) are
@@ -636,6 +727,14 @@ void ManagedHeap::collect(GcRoots& roots) {
         slabs_.release(obj.bytes, obj.length);
       }
       strings_.free(&obj);
+    }
+  });
+  buffers_.forEachLive([this](BufferObject& obj) {
+    if (!obj.mark) {
+      if (obj.bytes != nullptr) {
+        slabs_.release(obj.bytes, obj.length);
+      }
+      buffers_.free(&obj);
     }
   });
 }

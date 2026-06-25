@@ -146,6 +146,11 @@ CoreFuncDispatch coreFuncDispatch(CoreFuncId id) {
   case CoreFuncId::StrTrim:
   case CoreFuncId::StrSplit:
   case CoreFuncId::StrConcat:
+  case CoreFuncId::BufferFrom:
+  case CoreFuncId::BufferFromHex:
+  case CoreFuncId::BufferFromString:
+  case CoreFuncId::BufferLength:
+  case CoreFuncId::BufferGet:
     return CoreFuncDispatch::HostCall;
   case CoreFuncId::BrainContextGetVariable:
   case CoreFuncId::BrainContextSetVariable:

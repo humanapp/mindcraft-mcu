@@ -351,6 +351,20 @@ bool isArrayIndexNumber(float v) {
   return !isNan(v) && v >= 0 && __builtin_isfinite(v) && __builtin_floorf(v) == v;
 }
 
+/** Numeric value of a single hex digit char, or -1 when not a hex digit. */
+int hexDigitValue(char c) {
+  if (c >= '0' && c <= '9') {
+    return c - '0';
+  }
+  if (c >= 'a' && c <= 'f') {
+    return c - 'a' + 10;
+  }
+  if (c >= 'A' && c <= 'F') {
+    return c - 'A' + 10;
+  }
+  return -1;
+}
+
 // --- String-producing helpers ----------------------------------------------
 
 Status okString(const HostCallEnv& env, const char* bytes, uint32_t length, Value& out) {
@@ -1012,6 +1026,104 @@ Status callCoreHostFunction(CoreFuncId id, Span<const Value> args, const HostCal
     return strSplitBody(env, args, out);
   case CoreFuncId::StrConcat:
     return strConcatBody(env, args, out);
+
+  // --- Buffer builtins (immutable raw bytes 0-255) ---
+  case CoreFuncId::BufferFrom: {
+    if (env.heap == nullptr) {
+      return capabilityAbsent();
+    }
+    const bool hasList = args.size() >= 1 && args[0].isList();
+    const uint32_t n = hasList ? env.heap->list(args[0])->size : 0;
+    Value result;
+    uint8_t* dst = nullptr;
+    if (!env.heap->allocBuffer(n, env.roots, result, dst)) {
+      return heapFault();
+    }
+    if (hasList) {
+      const ListObject* list = env.heap->list(args[0]); // re-resolve after a possible collection
+      for (uint32_t i = 0; i < n; i++) {
+        const Value& item = list->items[i];
+        dst[i] = item.isNumber()
+                     ? static_cast<uint8_t>(static_cast<uint32_t>(toInt32(item.asNumber())) & 0xffu)
+                     : 0;
+      }
+    }
+    out = result;
+    return Status::ok();
+  }
+  case CoreFuncId::BufferFromHex: {
+    if (env.heap == nullptr) {
+      return capabilityAbsent();
+    }
+    if (!stringArg(env, args, 0, sa, la) || (la & 1u) != 0) {
+      return unsupported();
+    }
+    for (uint32_t i = 0; i < la; i++) {
+      if (hexDigitValue(sa[i]) < 0) {
+        return unsupported();
+      }
+    }
+    const uint32_t n = la / 2;
+    Value result;
+    uint8_t* dst = nullptr;
+    if (!env.heap->allocBuffer(n, env.roots, result, dst)) {
+      return heapFault();
+    }
+    if (!stringArg(env, args, 0, sa, la)) { // re-resolve after a possible collection
+      return unsupported();
+    }
+    for (uint32_t i = 0; i < n; i++) {
+      const int hi = hexDigitValue(sa[2 * i]);
+      const int lo = hexDigitValue(sa[2 * i + 1]);
+      dst[i] = static_cast<uint8_t>((hi << 4) | lo);
+    }
+    out = result;
+    return Status::ok();
+  }
+  case CoreFuncId::BufferFromString: {
+    if (env.heap == nullptr) {
+      return capabilityAbsent();
+    }
+    if (!stringArg(env, args, 0, sa, la)) {
+      return unsupported();
+    }
+    Value result;
+    uint8_t* dst = nullptr;
+    if (!env.heap->allocBuffer(la, env.roots, result, dst)) {
+      return heapFault();
+    }
+    if (!stringArg(env, args, 0, sa, la)) { // re-resolve after a possible collection
+      return unsupported();
+    }
+    if (la > 0) {
+      memcpy(dst, sa, la);
+    }
+    out = result;
+    return Status::ok();
+  }
+  case CoreFuncId::BufferLength:
+    if (args.size() < 1 || !args[0].isBuffer()) {
+      return unsupported();
+    }
+    return okNumber(static_cast<float>(args[0].bufferLength()), out);
+  case CoreFuncId::BufferGet: {
+    if (args.size() < 2 || !args[0].isBuffer() || !rawNumber(args, 1, a)) {
+      return unsupported();
+    }
+    if (env.heap == nullptr) {
+      return capabilityAbsent();
+    }
+    const uint8_t* bytes = nullptr;
+    uint32_t length = 0;
+    if (!env.heap->bufferContent(args[0], bytes, length)) {
+      return okNil(out);
+    }
+    const float n = toInteger(a);
+    if (n >= 0 && n < static_cast<float>(length)) {
+      return okNumber(static_cast<float>(bytes[static_cast<uint32_t>(n)]), out);
+    }
+    return okNil(out);
+  }
 
   // --- Power operator (nil on bad operand or NaN result) ---
   case CoreFuncId::OpPowerNumber: {

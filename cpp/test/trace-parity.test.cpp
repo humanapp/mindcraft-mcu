@@ -638,6 +638,57 @@ TEST_CASE("the container-ops fixture byte-matches the golden observable trace") 
   CHECK(microbit.display.pixels[0][0] == 255);
 }
 
+TEST_CASE("the buffer-ops fixture byte-matches the golden observable trace") {
+  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/buffer-ops";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  TraceTap tap(writer);
+
+  // The buffer builtins draw managed buffers from the heap; the hex/string
+  // constructors read their borrowed string operands through the program, and
+  // the trace writer resolves each managed buffer's bytes through the heap.
+  mindcraft::ManagedHeap heap(arena, &image);
+  writer.setHeap(&heap);
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  ExecutionContext ctx;
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // The brain ignores input and runs identically each tick; advance 16ms thrice
+  // to mirror the TS oracle schedule.
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 3; i++) {
+    const float timeMs = lastThinkTimeMs + 16;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+}
+
 TEST_CASE("the dynamic-field-access fixture byte-matches the golden observable trace") {
   const std::string base =
       std::string(mindcraft::test::kWodalFixturesDir) + "/dynamic-field-access";

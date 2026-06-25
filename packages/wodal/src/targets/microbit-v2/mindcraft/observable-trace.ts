@@ -27,9 +27,10 @@
  * - Strings render as a double-quoted UTF-8 byte sequence: bytes 0x20..0x7e
  *   are literal except `"` (renders `\"`) and `\` (renders `\\`); every
  *   other byte renders as `\xNN` with two lowercase hex digits.
- * - A value token is one of `void`, `nil`, `bool 0|1`, `number <bits>`, or
- *   `string "<bytes>"`. Any other value kind crossing the host-binding
- *   surface is an error in format version 1.
+ * - A value token is one of `void`, `nil`, `bool 0|1`, `number <bits>`,
+ *   `string "<bytes>"`, or `buffer <hex>` (two lowercase hex digits per byte,
+ *   no separators; empty for an empty buffer). Any other value kind crossing
+ *   the host-binding surface is an error in format version 1.
  *
  * Line layout: a three-line header, then events in emission order.
  *
@@ -73,7 +74,7 @@
  */
 
 import { NativeType, type ReadonlyList, type Value } from "@mindcraft-lang/core/app";
-import type { NumberPrecision } from "@mindcraft-lang/core/runtime";
+import { bufferToHex, type NumberPrecision } from "@mindcraft-lang/core/runtime";
 
 /** Current observable trace format version. */
 export const OBSERVABLE_TRACE_FORMAT_VERSION = 1;
@@ -135,6 +136,8 @@ function valueToken(value: Value, precision: NumberPrecision): string {
       return `number ${numberBits(value.v, precision)}`;
     case NativeType.String:
       return `string ${quoted(value.v)}`;
+    case NativeType.Buffer:
+      return `buffer ${bufferToHex(value)}`;
     default:
       throw new Error(
         `observable trace: value kind '${value.t}' has no rendering in trace format ${OBSERVABLE_TRACE_FORMAT_VERSION}`

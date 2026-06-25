@@ -189,6 +189,7 @@ enum class ConstValueKind : uint8_t {
   Map = 8,
   Struct = 9,
   Function = 10,
+  Buffer = 11,
 };
 
 /** Key discriminant of a decoded constant map entry. The values are the wire
@@ -271,6 +272,17 @@ struct ConstValue {
     bool hasCaptures;
   };
 
+  /**
+   * Payload of a `Buffer` value: a borrowed run of raw bytes inline in the
+   * loaded program image. The bytes are immutable.
+   */
+  struct BufferVal {
+    /** Byte offset of the buffer's first byte in `ProgramImage::stringData`. */
+    uint32_t byteOffset;
+    /** Number of bytes. */
+    uint32_t byteCount;
+  };
+
   ConstValueKind kind;
   union {
     BooleanVal boolean;
@@ -281,6 +293,7 @@ struct ConstValue {
     MapVal map;
     StructVal structVal;
     FunctionVal function;
+    BufferVal buffer;
   };
 };
 

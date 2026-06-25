@@ -55,6 +55,7 @@ constexpr Fixture kFixtures[] = {
     {mindcraft::test::kCoreFixturesDir, "struct-field-access"},
     {mindcraft::test::kCoreFixturesDir, "control-flow"},
     {mindcraft::test::kCoreFixturesDir, "values-and-collections"},
+    {mindcraft::test::kCoreFixturesDir, "buffer-vectors"},
     {mindcraft::test::kWodalFixturesDir, "button-display"},
     {mindcraft::test::kWodalFixturesDir, "user-tile-button-display"},
 };

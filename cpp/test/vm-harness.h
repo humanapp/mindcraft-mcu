@@ -124,6 +124,16 @@ public:
     return *this;
   }
 
+  /** Appends a borrowed buffer value constant carrying `bytes` inline. */
+  ProgramBuilder& valueBuffer(std::initializer_list<uint8_t> bytes) {
+    valueCount_++;
+    values_.u8(12).varUint(static_cast<uint32_t>(bytes.size()));
+    for (const uint8_t byte : bytes) {
+      values_.u8(byte);
+    }
+    return *this;
+  }
+
   /** Appends an empty list value constant of list type `typeIdx`. */
   ProgramBuilder& valueEmptyList(uint32_t typeIdx) {
     valueCount_++;
