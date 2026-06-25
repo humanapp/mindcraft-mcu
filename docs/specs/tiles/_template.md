@@ -3,8 +3,8 @@
 The canonical skeleton for a brain tile specification. Copy this file to
 `docs/specs/tiles/<tile-name>.md` and fill every section; delete the guidance notes
 (the parenthesized "Guidance:" lines) and the **Open questions** section once the spec is
-normative. Existing specs that follow this template: `display-scroll.md` (an async
-actuator), `button-sensor.md` (a poll-derived sensor family).
+normative. Existing specs that follow this template: `display.md` (the display draw family,
+including the async scroll actuator), `button-sensor.md` (a poll-derived sensor family).
 
 A tile spec describes, for one authoring tile - or a **family** of tiles that share one
 underlying mechanism - what a brain author writes, how its arguments parse, what it does
