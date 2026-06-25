@@ -25,9 +25,24 @@ change `vm-contract.md`.
   crossed the display device port, recorded with the post-conversion value (see
   below).
 - `port display scroll "<bytes>"` - one scroll request crossing the port.
+- `port display draw <width> <height> <hex>` - one image-draw paste crossing the
+  display port. `<width>` and `<height>` are the clipped frame dimensions in
+  minimal lowercase hex (at most the display size); `<hex>` is the clipped frame's
+  brightness bytes, row-major, two lowercase hex digits per byte with no
+  separators (empty for a zero-size frame). A draw silently dropped by the display
+  lease writes nothing and emits no such line.
 - `fault <fiberId> <errorCode>` - a fiber fault.
 
 Host-action ids and call-site ids render as minimal lowercase hex.
+
+A host-action argument that is an `Image` (or any non-native struct) renders in
+the `action ... <vals>` list as `struct <fieldCount> <value>...`: the field count
+in minimal lowercase hex followed by one value token per field slot, in slot
+order. A `Buffer`-typed field renders as `buffer <hex>` (two lowercase hex digits
+per byte). These value-token kinds are additive in format version 1; native-backed
+struct arguments do not render. The line grammar is defined and versioned in
+`packages/wodal/src/targets/microbit-v2/mindcraft/observable-trace.ts` and mirrored
+by `cpp/hostkit/observable-trace.cpp`.
 
 ## Port-crossing numeric conversion (pinned)
 

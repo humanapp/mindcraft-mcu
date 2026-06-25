@@ -43,6 +43,7 @@ export enum MicroBitV2HostFuncId {
   AccelerometerGetRoll = 1045,
   AccelerometerGetGesture = 1046,
   SensorGesture = 1047,
+  ActuatorDrawImage = 1048,
 }
 
 /**
@@ -57,6 +58,18 @@ export enum MicroBitV2TypeAtomId {
   TouchButton = 1026,
   MicroBit = 1027,
   Accelerometer = 1028,
+  Image = 1029,
+}
+
+/**
+ * Numeric field ids and storage slots for the `Image` value struct. Each value
+ * is the field's durable id and slot; baked `Image` literals store their fields
+ * in this slot order.
+ */
+export enum ImageField {
+  Width = 0,
+  Height = 1,
+  Pixels = 2,
 }
 
 /**
@@ -100,6 +113,13 @@ export const MicroBitV2HostActions = {
 
   /** Sensor: an accelerometer gesture, true while the polled gesture matches the chosen modifier. */
   Gesture: { key: "microbit-v2.gesture", actionId: 1030, fnId: MicroBitV2HostFuncId.SensorGesture },
+
+  /** Actuator: paste an image to the 5x5 display, optionally holding it for a duration. */
+  DrawImage: {
+    key: "microbit-v2.draw-image",
+    actionId: 1031,
+    fnId: MicroBitV2HostFuncId.ActuatorDrawImage,
+  },
 } as const satisfies Record<string, HostActionIds>;
 
 /**
@@ -148,6 +168,9 @@ export const WodalMicroBitV2ModifierId = {
 
   /** Match the freefall gesture. */
   Freefall: "microbit-v2.freefall",
+
+  /** Preempt the current display lease so the draw or scroll runs at once. */
+  Immediately: "microbit-v2.immediately",
 } as const;
 
 /** Parameter tile ids consumed by the actuators. */
@@ -163,4 +186,10 @@ export const WodalMicroBitV2ParameterId = {
 
   /** Text to scroll across the display. */
   Text: "microbit-v2.text",
+
+  /** Image to paste onto the display. */
+  Image: "microbit-v2.image",
+
+  /** Seconds a temporal draw holds the display. */
+  Duration: "microbit-v2.duration",
 } as const;

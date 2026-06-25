@@ -25,6 +25,7 @@ add_executable(mindcraft-tests
   load-error.test.cpp
   managed-heap.test.cpp
   microbit-v2-abi.test.cpp
+  numeric.test.cpp
   observable-trace.test.cpp
   on-flash-region.test.cpp
   pinned-numerics-parity.test.cpp

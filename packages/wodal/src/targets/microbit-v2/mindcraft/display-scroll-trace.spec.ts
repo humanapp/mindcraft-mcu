@@ -39,6 +39,8 @@ const DISPLAY_SET_PIXEL = MicroBitV2HostActions.DisplaySetPixel.actionId;
 
 const BIN_PATH = fileURLToPath(new URL("./__fixtures__/display-scroll.mcprogram.bin", import.meta.url));
 const TRACE_PATH = fileURLToPath(new URL("./__fixtures__/display-scroll.ticks.trace", import.meta.url));
+const DROP_BIN_PATH = fileURLToPath(new URL("./__fixtures__/display-scroll-drop.mcprogram.bin", import.meta.url));
+const DROP_TRACE_PATH = fileURLToPath(new URL("./__fixtures__/display-scroll-drop.ticks.trace", import.meta.url));
 const MANAGED_BIN_PATH = fileURLToPath(new URL("./__fixtures__/managed-string-scroll.mcprogram.bin", import.meta.url));
 const MANAGED_TRACE_PATH = fileURLToPath(new URL("./__fixtures__/managed-string-scroll.ticks.trace", import.meta.url));
 
@@ -160,7 +162,10 @@ function runScrollTrace(bin: Uint8Array, tickCount: number): { trace: string; mi
   const microbit = new MicroBit();
   const deviceScrollText = microbit.display.scrollText.bind(microbit.display);
   microbit.display.scrollText = (text, durationMs, requestTime, onComplete) => {
-    writer.displayScroll(text);
+    // A scroll dropped while the display is busy crosses no port and emits no line.
+    if (!microbit.display.isBusy()) {
+      writer.displayScroll(text);
+    }
     deviceScrollText(text, durationMs, requestTime, onComplete);
   };
   const deviceSetPixelValue = microbit.display.setPixelValue.bind(microbit.display);
@@ -327,5 +332,118 @@ test("the committed managed-string-scroll binary and observable trace golden are
     readFileSync(MANAGED_TRACE_PATH, "utf8"),
     first.trace,
     "managed-string-scroll.ticks.trace is not byte-stable"
+  );
+});
+
+/**
+ * A two-rule brain. Rule 0 scrolls "hi" and takes the display lease; rule 1,
+ * running next in the same think, scrolls "yo". Because the lease is held, rule
+ * 1's scroll is silently dropped -- it crosses no display port (no scroll line)
+ * and its handle resolves on the next poll, so rule 1 lights pixel (4,0). Rule 0
+ * resumes when its scroll completes and lights pixel (0,0).
+ */
+function buildConcurrentScrollBrainJson(): LinkedBrainProgramJson {
+  const holder = [
+    { op: Op.HOST_ACTION_CALL, a: ON_PAGE_ENTERED, b: 0, c: 0 },
+    { op: Op.JMP_IF_FALSE, a: 10 }, // relative: skip to the trailing void push
+    { op: Op.PUSH_CONST_STR, a: 0 }, // "hi"
+    { op: Op.HOST_ACTION_CALL_ASYNC, a: DISPLAY_SCROLL, b: 1, c: 1 },
+    { op: Op.AWAIT },
+    { op: Op.POP },
+    { op: Op.PUSH_CONST_NUM, a: 0 }, // x = 0
+    { op: Op.PUSH_CONST_NUM, a: 0 }, // y = 0
+    { op: Op.PUSH_CONST_NUM, a: 1 }, // brightness = 255
+    { op: Op.HOST_ACTION_CALL, a: DISPLAY_SET_PIXEL, b: 3, c: 2 },
+    { op: Op.POP },
+    { op: Op.PUSH_CONST_VAL, a: 0 },
+    { op: Op.RET },
+  ];
+  const competitor = [
+    { op: Op.HOST_ACTION_CALL, a: ON_PAGE_ENTERED, b: 0, c: 3 },
+    { op: Op.JMP_IF_FALSE, a: 10 }, // relative: skip to the trailing void push
+    { op: Op.PUSH_CONST_STR, a: 1 }, // "yo"
+    { op: Op.HOST_ACTION_CALL_ASYNC, a: DISPLAY_SCROLL, b: 1, c: 4 },
+    { op: Op.AWAIT },
+    { op: Op.POP },
+    { op: Op.PUSH_CONST_NUM, a: 2 }, // x = 4
+    { op: Op.PUSH_CONST_NUM, a: 0 }, // y = 0
+    { op: Op.PUSH_CONST_NUM, a: 1 }, // brightness = 255
+    { op: Op.HOST_ACTION_CALL, a: DISPLAY_SET_PIXEL, b: 3, c: 5 },
+    { op: Op.POP },
+    { op: Op.PUSH_CONST_VAL, a: 0 },
+    { op: Op.RET },
+  ];
+
+  return {
+    program: {
+      version: 1,
+      functions: [
+        { code: holder, numParams: 0, numLocals: 0 },
+        { code: competitor, numParams: 0, numLocals: 0 },
+      ],
+      constantPools: { numbers: [0, 255, 4], strings: ["hi", "yo"], values: [{ t: 1 }] },
+      types: [],
+      variableNames: [],
+      entryPoint: 0,
+      actions: [],
+      ruleFuncIds: [0, 1],
+      ruleAncestors: [],
+    },
+    pages: [
+      {
+        pageIndex: 0,
+        pageId: "scroll-page-0",
+        pageName: "Scroll Page 0",
+        rootRuleFuncIds: [0, 1],
+        actionCallSites: [
+          { binding: "host", callSiteId: 0, actionId: ON_PAGE_ENTERED },
+          { binding: "host", callSiteId: 1, actionId: DISPLAY_SCROLL },
+          { binding: "host", callSiteId: 2, actionId: DISPLAY_SET_PIXEL },
+          { binding: "host", callSiteId: 3, actionId: ON_PAGE_ENTERED },
+          { binding: "host", callSiteId: 4, actionId: DISPLAY_SCROLL },
+          { binding: "host", callSiteId: 5, actionId: DISPLAY_SET_PIXEL },
+        ],
+      },
+    ],
+  };
+}
+
+test("a scroll dispatched while the lease is held is silently dropped", () => {
+  if (!existsSync(DROP_BIN_PATH)) {
+    writeFileSync(DROP_BIN_PATH, serializeBrainBytes(buildConcurrentScrollBrainJson()));
+  }
+  const bin = new Uint8Array(readFileSync(DROP_BIN_PATH));
+  assert.deepEqual(
+    bin,
+    serializeBrainBytes(buildConcurrentScrollBrainJson()),
+    "display-scroll-drop.mcprogram.bin is not byte-stable"
+  );
+
+  const completionTime = scrollCompletionTimeMs(TICK_ADVANCE_MS, SCROLL_TEXT.length, 120);
+  const resumeTick = Math.floor(completionTime / TICK_ADVANCE_MS) + 2;
+
+  const first = runScrollTrace(bin, resumeTick);
+  const second = runScrollTrace(bin, resumeTick);
+  assert.equal(second.trace, first.trace, "two fresh runs must render byte-identical traces");
+
+  const lines = first.trace.split("\n");
+  // Only the holder's scroll crosses the port; the competitor's is dropped.
+  assert.equal(lines.filter((line) => line.startsWith("port display scroll ")).length, 1);
+  assert.equal(lines.filter((line) => line === `port display scroll "${SCROLL_TEXT}"`).length, 1);
+  assert.equal(lines.filter((line) => line === 'port display scroll "yo"').length, 0);
+  // Both rules dispatch a scroll, so two async scroll lines appear.
+  assert.equal(lines.filter((line) => /^action 402 .+ async$/.test(line)).length, 2);
+  // The holder resumed after its scroll and lit (0,0); the scroll animation has
+  // ended, so nothing overwrites it.
+  assert.equal(first.microbit.display.getPixelValue(0, 0), 255);
+  assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
+
+  if (!existsSync(DROP_TRACE_PATH)) {
+    writeFileSync(DROP_TRACE_PATH, first.trace);
+  }
+  assert.equal(
+    readFileSync(DROP_TRACE_PATH, "utf8"),
+    first.trace,
+    "display-scroll-drop.ticks.trace is not byte-stable"
   );
 });

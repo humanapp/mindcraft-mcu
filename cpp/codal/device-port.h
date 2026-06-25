@@ -31,6 +31,28 @@ public:
    */
   virtual void scrollText(const uint8_t* bytes, uint32_t length, uint32_t delayMs,
                           mc_number_t requestTimeMs, AsyncHandle handle) = 0;
+
+  /**
+   * Paste a `width` by `height` packed brightness frame (row-major, one byte per
+   * pixel) to the display top-left, requested at logical tick time
+   * `requestTimeMs`. The frame is already clipped to the board's matrix by the
+   * caller. The call returns immediately and settles `handle` (resolve): a
+   * positive `durationMs` holds the display for that long before settling, and a
+   * non-positive `durationMs` settles at once without holding. A draw requested
+   * while the display is busy (a scroll or a held draw) is silently dropped:
+   * nothing is pasted and `handle` settles at once. The pasted frame is never
+   * cleared; it persists until the next draw.
+   */
+  virtual void drawFrame(const uint8_t* frame, uint32_t width, uint32_t height, uint32_t durationMs,
+                         mc_number_t requestTimeMs, AsyncHandle handle) = 0;
+
+  /**
+   * Release the current display lease at once: a held scroll or timed draw is
+   * dropped and its handle resolved, so its awaiting rule resumes as if the
+   * operation finished. A no-op when no lease is held. The display content is
+   * left as-is; the next operation overwrites it.
+   */
+  virtual void preempt() = 0;
 };
 
 /**

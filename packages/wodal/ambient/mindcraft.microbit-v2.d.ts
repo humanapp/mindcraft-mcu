@@ -1,5 +1,6 @@
 declare module "mindcraft" {
   interface MindcraftTypeMap {
+    Image: Image;
     MicroBitDisplay: MicroBitDisplay;
     Button: Button;
     TouchButton: TouchButton;
@@ -7,6 +8,11 @@ declare module "mindcraft" {
     MicroBit: MicroBit;
   }
 
+  export interface Image {
+    width: number;
+    height: number;
+    pixels: string;
+  }
   export interface MicroBitDisplay {
     readonly __brand: unique symbol;
     setPixelValue(x: number, y: number, brightness: number): void;

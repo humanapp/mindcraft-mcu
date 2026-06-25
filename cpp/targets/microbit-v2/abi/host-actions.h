@@ -45,6 +45,10 @@ inline constexpr HostActionIds ButtonLogo{
 /** Sensor: an accelerometer gesture, true while the polled gesture matches the chosen modifier. */
 inline constexpr HostActionIds Gesture{1030,
                                        static_cast<uint32_t>(MicroBitV2HostFuncId::SensorGesture)};
+
+/** Actuator: paste an image to the 5x5 display, optionally holding it for a duration. */
+inline constexpr HostActionIds DrawImage{
+    1031, static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorDrawImage)};
 } // namespace MicroBitV2HostActions
 
 /**
@@ -55,7 +59,7 @@ inline constexpr HostActionIds kMicroBitV2HostActions[] = {
     MicroBitV2HostActions::ButtonA,       MicroBitV2HostActions::DisplaySetPixel,
     MicroBitV2HostActions::DisplayScroll, MicroBitV2HostActions::ButtonB,
     MicroBitV2HostActions::ButtonAB,      MicroBitV2HostActions::ButtonLogo,
-    MicroBitV2HostActions::Gesture,
+    MicroBitV2HostActions::Gesture,       MicroBitV2HostActions::DrawImage,
 };
 
 } // namespace mindcraft

@@ -767,8 +767,32 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       if (ins.a >= program.constantPools.valueCount) {
         return fault(ErrorCode::ScriptError);
       }
+      const ConstValue& constant = program.constValues[ins.a];
       Value value;
-      if (!constValueToRuntime(program.constValues[ins.a], value)) {
+      if (constant.kind == ConstValueKind::Struct) {
+        // Materialize a baked struct constant into a fresh managed struct whose
+        // slots are its inline field values. The fields are scalar or borrowed
+        // (number/buffer/string), so none allocates and the struct cannot be
+        // collected between its allocation and the slot writes; a nested
+        // container field is unsupported and faults via constValueToRuntime.
+        if (surface.heap == nullptr) {
+          return fault(ErrorCode::HostError);
+        }
+        const uint32_t fieldCount = constant.structVal.fieldsCount;
+        if (!surface.heap->newStruct(constant.structVal.typeIdx, fieldCount, surface.roots,
+                                     value)) {
+          return fault(ErrorCode::StackOverflow);
+        }
+        StructObject* obj = surface.heap->structOf(value);
+        for (uint32_t i = 0; i < fieldCount; i++) {
+          Value field;
+          if (!constValueToRuntime(program.constValues[constant.structVal.fieldsOffset + i],
+                                   field)) {
+            return fault(ErrorCode::ScriptError);
+          }
+          surface.heap->structSet(obj, i, field);
+        }
+      } else if (!constValueToRuntime(constant, value)) {
         return fault(ErrorCode::ScriptError);
       }
       if (!pushValue(state, value)) {

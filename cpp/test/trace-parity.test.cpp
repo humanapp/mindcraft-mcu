@@ -80,9 +80,12 @@ struct HostMicroBit {
   struct TracingDisplay : mindcraft::PixelDisplayPort {
     ObservableTraceWriter* writer = nullptr;
     uint8_t pixels[5][5] = {};
-    bool scrolling = false;
+    // The display lease, shared by the scroll and the timed draw: busy until
+    // completionTime, holding active. A scroll or draw requested while busy is
+    // dropped; a zero-duration draw pastes and settles without taking it.
+    bool busy = false;
     float completionTime = 0;
-    mindcraft::AsyncHandle activeScroll{};
+    mindcraft::AsyncHandle active{};
 
     void setPixel(int16_t x, int16_t y, uint8_t brightness) override {
       if (writer != nullptr) {
@@ -97,29 +100,67 @@ struct HostMicroBit {
 
     // Host stub: completion is driven by the pinned formula against logical time
     // (no glyph rendering), so the resume round matches the wodal oracle. A
-    // scroll requested while one is in progress is rejected (settled at once).
+    // scroll requested while the lease is held is dropped (settled at once, no
+    // port line).
     void scrollText(const uint8_t* bytes, uint32_t length, uint32_t delayMs, float requestTimeMs,
                     mindcraft::AsyncHandle handle) override {
-      if (writer != nullptr) {
-        writer->displayScroll(bytes, length);
-      }
-      if (scrolling) {
+      if (busy) {
         handle.resolve(mindcraft::kVoidValue);
         return;
       }
-      scrolling = true;
+      if (writer != nullptr) {
+        writer->displayScroll(bytes, length);
+      }
+      busy = true;
       completionTime =
           requestTimeMs + static_cast<float>(mindcraft::scrollDurationMs(length, delayMs));
-      activeScroll = handle;
+      active = handle;
     }
 
-    // Resolve the active scroll once due, mirroring the device's pollScroll.
-    void advanceScroll(float now) {
-      if (!scrolling || now < completionTime) {
+    // Host stub: paste the clipped frame top-left (no per-pixel port lines). A
+    // draw requested while the lease is held is dropped (settled at once, no port
+    // line, nothing pasted); a positive duration holds the lease; a zero-duration
+    // draw settles at dispatch without holding it.
+    void drawFrame(const uint8_t* frame, uint32_t width, uint32_t height, uint32_t durationMs,
+                   float requestTimeMs, mindcraft::AsyncHandle handle) override {
+      if (busy) {
+        handle.resolve(mindcraft::kVoidValue);
         return;
       }
-      scrolling = false;
-      activeScroll.resolve(mindcraft::kVoidValue);
+      if (writer != nullptr) {
+        writer->displayDraw(width, height, frame);
+      }
+      for (uint32_t row = 0; row < height && row < 5; row++) {
+        for (uint32_t col = 0; col < width && col < 5; col++) {
+          pixels[row][col] = frame[row * width + col];
+        }
+      }
+      if (durationMs > 0) {
+        busy = true;
+        completionTime = requestTimeMs + static_cast<float>(durationMs);
+        active = handle;
+        return;
+      }
+      handle.resolve(mindcraft::kVoidValue);
+    }
+
+    // Resolve the held scroll or timed draw once due, mirroring pollDisplay.
+    void advanceScroll(float now) {
+      if (!busy || now < completionTime) {
+        return;
+      }
+      busy = false;
+      active.resolve(mindcraft::kVoidValue);
+    }
+
+    // Release the current lease at once, resolving the held op's handle.
+    void preempt() override {
+      if (!busy) {
+        return;
+      }
+      const mindcraft::AsyncHandle held = active;
+      busy = false;
+      held.resolve(mindcraft::kVoidValue);
     }
   };
 
@@ -1321,6 +1362,69 @@ combineActionTable(
   return table;
 }
 
+// Loads the draw-image fixture `name`, runs `tickCount` thinks at `tickMs` each
+// (settling the display lease before each think, as the device's pollDisplay
+// does), and byte-compares the rendered trace against the committed golden. The
+// draw env reaches the display, heap, and program; the writer's heap renders the
+// Image struct argument's slots in the async dispatch line.
+void checkDrawFixture(const std::string& name, int tickCount, float tickMs) {
+  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/" + name;
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  TraceTap tap(writer);
+
+  mindcraft::CoreHostActionEnv coreEnv;
+  mindcraft::VmRng rng;
+  mindcraft::ManagedHeap heap(arena, &image);
+  writer.setHeap(&heap);
+  mindcraft::MicroBitV2DrawImageEnv drawEnv{&microbit.display, &heap, &image};
+  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings =
+      mindcraft::makeMicroBitV2HostActionBindings(microbit.ports, nullptr, nullptr, &drawEnv);
+  auto actions = combineActionTable(coreBindings, mbBindings);
+  ExecutionContext ctx;
+  RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
+  surface.rng = &rng;
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+  coreEnv.brain = &brain;
+  coreEnv.rng = &rng;
+  coreEnv.heap = &heap;
+  coreEnv.roots = &scheduler;
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < tickCount; i++) {
+    const float timeMs = lastThinkTimeMs + tickMs;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    microbit.display.advanceScroll(timeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+}
+
 } // namespace
 
 TEST_CASE("the timer-brain fixture byte-matches the golden observable trace") {
@@ -1549,6 +1653,86 @@ TEST_CASE("the display-scroll fixture byte-matches the golden observable trace")
   // 4. The scroll completion settles the handle out of band before each think,
   // as the CODAL animation-complete event does on device; the think then drains
   // it and resumes the waiter on the next round.
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 4; i++) {
+    const float timeMs = lastThinkTimeMs + 1100;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    microbit.display.advanceScroll(timeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+  CHECK(microbit.display.pixels[0][0] == 255);
+}
+
+TEST_CASE("the draw-image-forget fixture byte-matches the golden observable trace") {
+  checkDrawFixture("draw-image-forget", 3, 100.0f);
+}
+
+TEST_CASE("the draw-image-timed fixture byte-matches the golden observable trace") {
+  checkDrawFixture("draw-image-timed", 5, 100.0f);
+}
+
+TEST_CASE("the draw-image-dropped fixture byte-matches the golden observable trace") {
+  checkDrawFixture("draw-image-dropped", 5, 100.0f);
+}
+
+TEST_CASE("the draw-image-defaults fixture byte-matches the golden observable trace") {
+  checkDrawFixture("draw-image-defaults", 4, 600.0f);
+}
+
+TEST_CASE("the draw-image-preempt fixture byte-matches the golden observable trace") {
+  checkDrawFixture("draw-image-preempt", 3, 100.0f);
+}
+
+TEST_CASE("the display-scroll-drop fixture byte-matches the golden observable trace") {
+  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/display-scroll-drop";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  TraceTap tap(writer);
+
+  mindcraft::CoreHostActionEnv coreEnv;
+  mindcraft::VmRng rng;
+  mindcraft::ManagedHeap heap(arena, &image);
+  mindcraft::MicroBitV2DisplayScrollEnv scrollEnv{&microbit.display, &heap};
+  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports, &scrollEnv);
+  auto actions = combineActionTable(coreBindings, mbBindings);
+  ExecutionContext ctx;
+  RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
+  surface.rng = &rng;
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+  coreEnv.brain = &brain;
+  coreEnv.rng = &rng;
+  coreEnv.heap = &heap;
+  coreEnv.roots = &scheduler;
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Four 1100ms thinks: the holder scrolls "hi" and takes the lease on tick 1,
+  // the competitor's "yo" is dropped (no port line) and resumes in the same
+  // think, and the holder resumes and lights pixel (0,0) on tick 4.
   float lastThinkTimeMs = 0;
   for (int i = 0; i < 4; i++) {
     const float timeMs = lastThinkTimeMs + 1100;

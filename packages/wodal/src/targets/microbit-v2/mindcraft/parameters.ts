@@ -1,5 +1,8 @@
-import { CoreTypeIds, type ParameterTileInput, param } from "@mindcraft-lang/core/app";
+import { CoreTypeIds, mkTypeId, NativeType, type ParameterTileInput, param } from "@mindcraft-lang/core/app";
 import { WodalMicroBitV2ParameterId } from "./tile-ids";
+
+/** TypeId of the `Image` value struct, the data type of the image parameter. */
+const IMAGE_TYPE_ID = mkTypeId(NativeType.Struct, "Image");
 
 /**
  * Shared parameter call-spec arg specs.
@@ -14,6 +17,8 @@ export const Param = {
   y: param(WodalMicroBitV2ParameterId.Y),
   brightness: param(WodalMicroBitV2ParameterId.Brightness),
   text: param(WodalMicroBitV2ParameterId.Text, { anonymous: true }),
+  image: param(WodalMicroBitV2ParameterId.Image, { anonymous: true }),
+  duration: param(WodalMicroBitV2ParameterId.Duration),
 };
 
 /** Parameter tiles registered once with the module. */
@@ -22,4 +27,6 @@ export const MICROBIT_V2_PARAMETERS: readonly ParameterTileInput[] = [
   { id: WodalMicroBitV2ParameterId.Y, dataType: CoreTypeIds.Number, label: "y" },
   { id: WodalMicroBitV2ParameterId.Brightness, dataType: CoreTypeIds.Number, label: "brightness" },
   { id: WodalMicroBitV2ParameterId.Text, dataType: CoreTypeIds.String, label: "text" },
+  { id: WodalMicroBitV2ParameterId.Image, dataType: IMAGE_TYPE_ID, label: "image" },
+  { id: WodalMicroBitV2ParameterId.Duration, dataType: CoreTypeIds.Number, label: "duration" },
 ];

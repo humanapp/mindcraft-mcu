@@ -84,6 +84,13 @@ public:
    */
   void displayScroll(const uint8_t* bytes, uint32_t length);
 
+  /**
+   * Records one image-draw paste crossing the display device port: the clipped
+   * frame width and height (in hex, at most the display size) and `width *
+   * height` clipped brightness bytes (row-major, two lowercase hex digits each).
+   */
+  void displayDraw(uint32_t width, uint32_t height, const uint8_t* frame);
+
   /** Records one fiber fault: the fiber id and the numeric `ErrorCode`. */
   void fiberFault(uint32_t fiberId, ErrorCode code);
 

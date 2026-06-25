@@ -84,6 +84,19 @@ void ObservableTraceWriter::displayScroll(const uint8_t* bytes, uint32_t length)
   w_.nl();
 }
 
+void ObservableTraceWriter::displayDraw(uint32_t width, uint32_t height, const uint8_t* frame) {
+  w_.text("port display draw ");
+  w_.hex(width);
+  w_.ch(' ');
+  w_.hex(height);
+  w_.ch(' ');
+  for (uint32_t i = 0; i < width * height; i++) {
+    w_.hexDigit(static_cast<uint8_t>(frame[i] >> 4));
+    w_.hexDigit(static_cast<uint8_t>(frame[i] & 0xf));
+  }
+  w_.nl();
+}
+
 void ObservableTraceWriter::fiberFault(uint32_t fiberId, ErrorCode code) {
   w_.text("fault ");
   w_.hex(fiberId);
@@ -135,6 +148,24 @@ bool ObservableTraceWriter::valueToken(const Value& value) {
     for (uint32_t i = 0; i < length; i++) {
       w_.hexDigit(static_cast<uint8_t>(bytes[i] >> 4));
       w_.hexDigit(static_cast<uint8_t>(bytes[i] & 0xf));
+    }
+    return true;
+  }
+  case ValueTag::Struct: {
+    if (heap_ == nullptr) {
+      return false;
+    }
+    const StructObject* obj = heap_->structOf(value);
+    if (obj == nullptr) {
+      return false;
+    }
+    w_.text("struct ");
+    w_.hex(obj->slotCount);
+    for (uint32_t i = 0; i < obj->slotCount; i++) {
+      w_.ch(' ');
+      if (!valueToken(heap_->structGet(obj, i))) {
+        return false;
+      }
     }
     return true;
   }

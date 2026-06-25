@@ -13,15 +13,17 @@ import {
 } from "@mindcraft-lang/core/app";
 import { getMicroBitContextDevice } from "../context";
 import { SCROLL_DEFAULT_DELAY_MS, scrollDurationMs } from "../display-scroll";
+import { hasModifier, Modifier } from "../modifiers";
 import { Param } from "../parameters";
 import { MicroBitV2HostActions } from "../tile-ids";
 
 /** Text scrolled when the call omits the optional text argument. */
 const DEFAULT_TEXT = "hello";
 
-const callDef = mkCallDef(bag(optional(Param.text)));
+const callDef = mkCallDef(bag(optional(Param.text), optional(Modifier.immediately)));
 
 const kTextSlotId = getSlotId(callDef, Param.text);
+const kImmediatelySlotId = getSlotId(callDef, Modifier.immediately);
 
 function execDisplayScroll(ctx: ExecutionContext, args: ReadonlyList<Value>, handle: AsyncHandle): void {
   const text = extractStringValue(args.get(kTextSlotId)) ?? DEFAULT_TEXT;
@@ -30,6 +32,9 @@ function execDisplayScroll(ctx: ExecutionContext, args: ReadonlyList<Value>, han
     handle.resolve(VOID_VALUE);
     return;
   }
+  if (hasModifier(args, kImmediatelySlotId)) {
+    microbit.display.preempt();
+  }
   const durationMs = scrollDurationMs(text.length, SCROLL_DEFAULT_DELAY_MS);
   microbit.display.scrollText(text, durationMs, ctx.time, () => handle.resolve(VOID_VALUE));
 }
@@ -37,7 +42,9 @@ function execDisplayScroll(ctx: ExecutionContext, args: ReadonlyList<Value>, han
 /**
  * Host actuator: scroll text across the simulated display. Asynchronous -- the
  * calling fiber awaits the returned handle and resumes when the scroll
- * animation completes.
+ * animation completes. With the `immediately` modifier the current display lease
+ * is preempted so the scroll starts at once; otherwise a scroll requested while
+ * the display is busy is dropped.
  */
 export default {
   ...MicroBitV2HostActions.DisplayScroll,

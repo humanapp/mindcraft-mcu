@@ -33,14 +33,14 @@ describe("MicroBitDisplay async scroll", () => {
     assert.equal(extra, 1);
   });
 
-  test("a scroll requested while one is in progress is rejected and settles at once", () => {
+  test("a scroll requested while one is in progress is dropped and settles at once", () => {
     const display = new MicroBitDisplay();
     const order: string[] = [];
 
     // First scroll: requested at t=0, 600ms long -> completes at 600.
     display.scrollText("a", 600, 0, () => order.push("a"));
-    // Second scroll requested at t=100 while the first runs: rejected, so its
-    // onComplete fires immediately and the active scroll is untouched.
+    // Second scroll requested at t=100 while the first runs: dropped, so its
+    // onComplete fires at once and the active scroll is untouched.
     display.scrollText("b", 600, 100, () => order.push("b"));
     assert.deepEqual(order, ["b"]);
     assert.equal(display.isScrolling(), true);
@@ -74,6 +74,24 @@ describe("MicroBitDisplay async scroll", () => {
       for (let y = 0; y < 5; y++) {
         assert.equal(display.getPixelValue(x, y), 0, `pixel (${x},${y}) should be clear`);
       }
+    }
+  });
+
+  test("a scroll clears a prior drawn image so it does not linger under the animation", () => {
+    const display = new MicroBitDisplay();
+
+    // A fire-and-forget draw paints the top row but takes no lease.
+    const frame = new Array(25).fill(0);
+    for (let x = 0; x < 5; x++) {
+      frame[x] = 255;
+    }
+    display.drawImage(frame, 5, 5, 0, 0, () => {});
+    assert.equal(display.getPixelValue(0, 0), 255);
+
+    // Scrolling clears the display before animating, so the drawn row is gone.
+    display.scrollText("hi", 6 * 3 * 120, 0, () => {});
+    for (let x = 0; x < 5; x++) {
+      assert.equal(display.getPixelValue(x, 0), 0, `drawn pixel (${x},0) should be cleared`);
     }
   });
 

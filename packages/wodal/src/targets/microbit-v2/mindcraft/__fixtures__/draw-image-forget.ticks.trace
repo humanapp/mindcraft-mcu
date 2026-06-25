@@ -1,0 +1,13 @@
+mctrace 1
+profile 1
+precision f32
+tick 1 time 42c80000 dt 00000000
+action 4 site 0 args 0 result bool 1
+port display draw 5 5 ffffffffff0000000000000000000000000000000000000000
+action 407 site 1 args 2 struct 3 number 40a00000 number 40a00000 buffer ffffffffff0000000000000000000000000000000000000000 number 00000000 async
+port display set-pixel 40800000 40800000 437f0000
+action 401 site 2 args 3 number 40800000 number 40800000 number 437f0000 result void
+tick 2 time 43480000 dt 42c80000
+action 4 site 0 args 0 result bool 0
+tick 3 time 43960000 dt 42c80000
+action 4 site 0 args 0 result bool 0

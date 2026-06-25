@@ -35,13 +35,25 @@ interface ScrollAnimation {
   scrollingChar: number;
 }
 
+/** A timed image draw holding the display until {@link until}. */
+interface DrawLease {
+  /** Logical tick time at which the hold elapses and the handle resolves. */
+  readonly until: number;
+
+  /** Invoked once when the hold elapses. */
+  readonly onComplete: () => void;
+}
+
 /** CODAL-style display facade over a 5x5 LED matrix. */
 export class MicroBitDisplay {
   /** Matrix backing this display. */
   public readonly matrix = new LEDMatrix(MICROBIT_LED_MATRIX_SIZE, MICROBIT_LED_MATRIX_SIZE);
 
-  /** The scroll animation in progress, or undefined when the display is free. */
+  /** The scroll animation in progress, or undefined when no scroll holds the display. */
   private activeScroll: ScrollAnimation | undefined;
+
+  /** The timed image draw holding the display, or undefined when none does. */
+  private activeDraw: DrawLease | undefined;
 
   /**
    * Displays a single character or numeric value in the display model.
@@ -69,22 +81,29 @@ export class MicroBitDisplay {
   }
 
   /**
-   * Starts an asynchronous text scroll. The animation begins at `requestTime`,
-   * advances one column step per uniform slice of `durationMs`, and completes
-   * after the full duration, when {@link advanceScroll} is next called with a
-   * time at or past completion. When a scroll is already in progress the new one
-   * is rejected: `onComplete` fires immediately and nothing else changes.
+   * Starts an asynchronous text scroll. The display is cleared and the text
+   * scrolls in from the right. The animation begins at `requestTime`, advances
+   * one column step per uniform slice of `durationMs`, and completes after the
+   * full duration, when {@link advanceScroll} is next called with a time at or
+   * past completion. The scroll holds the display lease for its
+   * duration; when the display is already busy (a scroll or a timed draw holds
+   * the lease) the new scroll is silently dropped: nothing is shown and
+   * `onComplete` fires at once, so the dispatching fiber continues without
+   * blocking.
    *
    * @param text - Text shown on the display.
    * @param durationMs - Animation length in milliseconds.
    * @param requestTime - Logical tick time the scroll was requested.
-   * @param onComplete - Invoked once when the animation completes (or at once when rejected).
+   * @param onComplete - Invoked once when the animation completes (or at once when dropped).
    */
   scrollText(text: string, durationMs: number, requestTime: number, onComplete: () => void): void {
-    if (this.activeScroll !== undefined) {
+    if (this.isBusy()) {
       onComplete();
       return;
     }
+    // The text scrolls in from a blank display; any prior content (an earlier
+    // draw) is cleared so it does not shift through the animation.
+    this.matrix.clear();
     const stepsPerCharacter = this.matrix.width + SCROLL_DISPLAY_SPACING;
     this.activeScroll = {
       text,
@@ -99,13 +118,84 @@ export class MicroBitDisplay {
   }
 
   /**
+   * Pastes an image frame onto the display top-left and, for a positive
+   * duration, holds the display lease until the duration elapses. The frame is
+   * `width` by `height` packed brightness bytes, row-major, already clipped to
+   * the display by the caller. When the display is already busy (a scroll or a
+   * timed draw holds the lease) the draw is silently dropped: nothing is pasted,
+   * no lease is taken, and `onComplete` fires at once. Otherwise the frame is
+   * pasted at once; a positive `durationMs` holds the lease until
+   * `requestTime + durationMs` (settled by {@link advanceScroll}), and a
+   * non-positive `durationMs` takes no lease and fires `onComplete` at once. The
+   * pasted image is never cleared; it persists until the next draw.
+   *
+   * @param frame - Packed brightness bytes, row-major, length `width * height`.
+   * @param width - Frame width in columns, already clipped to the display.
+   * @param height - Frame height in rows, already clipped to the display.
+   * @param durationMs - Hold length in milliseconds; non-positive draws take no lease.
+   * @param requestTime - Logical tick time the draw was requested.
+   * @param onComplete - Invoked once when the hold elapses (or at once when dropped or untimed).
+   */
+  drawImage(
+    frame: ReadonlyArray<number>,
+    width: number,
+    height: number,
+    durationMs: number,
+    requestTime: number,
+    onComplete: () => void
+  ): void {
+    if (this.isBusy()) {
+      onComplete();
+      return;
+    }
+    for (let row = 0; row < height; row++) {
+      for (let col = 0; col < width; col++) {
+        this.matrix.setPixelValue(col, row, (frame[row * width + col] ?? 0) & 0xff);
+      }
+    }
+    if (durationMs > 0) {
+      this.activeDraw = { until: requestTime + durationMs, onComplete };
+      return;
+    }
+    onComplete();
+  }
+
+  /** True while a scroll or a timed draw holds the display lease. */
+  isBusy(): boolean {
+    return this.activeScroll !== undefined || this.activeDraw !== undefined;
+  }
+
+  /**
+   * Releases the current display lease at once: the held scroll or timed draw is
+   * dropped and its handle resolved, so its awaiting rule resumes as if the
+   * operation finished. A no-op when no lease is held. The display content is
+   * left as-is; the next operation overwrites it.
+   */
+  preempt(): void {
+    const scroll = this.activeScroll;
+    if (scroll !== undefined) {
+      this.activeScroll = undefined;
+      scroll.onComplete();
+    }
+    const draw = this.activeDraw;
+    if (draw !== undefined) {
+      this.activeDraw = undefined;
+      draw.onComplete();
+    }
+  }
+
+  /**
    * Advances the active scroll animation to the column step due at `now`,
    * rendering each shifted frame, and completes it (firing `onComplete`) once it
-   * has reached its final step.
+   * has reached its final step. Also settles a timed image draw whose hold has
+   * elapsed by `now`, firing its `onComplete`. This is the per-think display
+   * poll: it resolves the handle of a timed draw holding the lease, and steps
+   * and completes the scroll animation.
    *
    * @param now - Current logical tick time.
    */
   advanceScroll(now: number): void {
+    this.settleDraw(now);
     const anim = this.activeScroll;
     if (anim === undefined) {
       return;
@@ -140,6 +230,17 @@ export class MicroBitDisplay {
   reset(): void {
     this.clear();
     this.activeScroll = undefined;
+    this.activeDraw = undefined;
+  }
+
+  /** Settles a timed image draw whose hold has elapsed by `now`. */
+  private settleDraw(now: number): void {
+    const draw = this.activeDraw;
+    if (draw === undefined || now < draw.until) {
+      return;
+    }
+    this.activeDraw = undefined;
+    draw.onComplete();
   }
 
   /**

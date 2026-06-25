@@ -16,12 +16,14 @@ namespace mindcraft
  */
 
 /**
- * Drives the 5x5 LED matrix through `MicroBitDisplay`: direct pixel writes and
- * the asynchronous text scroll. A scroll starts CODAL's `scrollAsync` for the
- * visible animation and resolves its async handle once the pinned scroll
- * duration has elapsed, polled each host-loop tick by {@link pollScroll}. A
- * scroll requested while one is in progress is rejected (its handle settles at
- * once).
+ * Drives the 5x5 LED matrix through `MicroBitDisplay`: direct pixel writes, the
+ * asynchronous text scroll, and the asynchronous image draw. The scroll and the
+ * timed draw share one display lease: a scroll starts CODAL's `scrollAsync` and a
+ * timed draw pastes the frame, and either resolves its async handle once its
+ * duration has elapsed, polled each host-loop tick by {@link pollDisplay}. A
+ * scroll or draw requested while the lease is held is silently dropped (its
+ * handle settles at once); a zero-duration draw pastes and settles at once
+ * without taking the lease.
  */
 class MicroBitPixelDisplayPort : public PixelDisplayPort
 {
@@ -36,38 +38,80 @@ public:
     void scrollText(const uint8_t *bytes, uint32_t length, uint32_t delayMs, mc_number_t,
                     AsyncHandle handle) override
     {
-        if (animating_)
+        if (busy_)
         {
             handle.resolve(kVoidValue);
             return;
         }
         ManagedString text(reinterpret_cast<const char *>(bytes), static_cast<int16_t>(length));
         active_ = handle;
-        animating_ = true;
+        busy_ = true;
         completionTime_ =
             static_cast<uint32_t>(system_timer_current_time()) + scrollDurationMs(length, delayMs);
+        // The text scrolls in from a blank display; clear any prior content (an
+        // earlier draw) first so it does not linger under the animation.
+        uBit_.display.image.clear();
         uBit_.display.scrollAsync(text, static_cast<int>(delayMs));
     }
 
-    /**
-     * Settles the active scroll's handle once its duration has elapsed
-     * (enqueue-only; the think loop resumes the waiter). Call once per host-loop
-     * tick before the brain thinks.
-     */
-    void pollScroll()
+    void drawFrame(const uint8_t *frame, uint32_t width, uint32_t height, uint32_t durationMs,
+                   mc_number_t, AsyncHandle handle) override
     {
-        if (!animating_ || static_cast<uint32_t>(system_timer_current_time()) < completionTime_)
+        if (busy_)
+        {
+            handle.resolve(kVoidValue);
+            return;
+        }
+        for (uint32_t row = 0; row < height; row++)
+        {
+            for (uint32_t col = 0; col < width; col++)
+            {
+                uBit_.display.image.setPixelValue(
+                    static_cast<int16_t>(col), static_cast<int16_t>(row), frame[row * width + col]);
+            }
+        }
+        if (durationMs > 0)
+        {
+            active_ = handle;
+            busy_ = true;
+            completionTime_ = static_cast<uint32_t>(system_timer_current_time()) + durationMs;
+            return;
+        }
+        handle.resolve(kVoidValue);
+    }
+
+    /**
+     * Settles the held scroll or timed draw's handle once its duration has
+     * elapsed (enqueue-only; the think loop resumes the waiter). Call once per
+     * host-loop tick before the brain thinks.
+     */
+    void pollDisplay()
+    {
+        if (!busy_ || static_cast<uint32_t>(system_timer_current_time()) < completionTime_)
         {
             return;
         }
         const AsyncHandle done = active_;
-        animating_ = false;
+        busy_ = false;
         done.resolve(kVoidValue);
+    }
+
+    void preempt() override
+    {
+        if (!busy_)
+        {
+            return;
+        }
+        const AsyncHandle held = active_;
+        busy_ = false;
+        // Stop any in-flight CODAL scroll animation; the next operation repaints.
+        uBit_.display.stopAnimation();
+        held.resolve(kVoidValue);
     }
 
 private:
     MicroBit &uBit_;
-    bool animating_ = false;
+    bool busy_ = false;
     uint32_t completionTime_ = 0;
     AsyncHandle active_{};
 };

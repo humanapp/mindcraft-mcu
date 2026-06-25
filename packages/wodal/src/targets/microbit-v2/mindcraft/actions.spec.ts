@@ -123,14 +123,14 @@ test("set-pixel actuator applies parameter defaults when arguments are absent", 
   assert.equal(microbit.display.getPixelValue(0, 0), 0);
 });
 
-test("scroll actuator is async with one optional text slot and defaults the omitted text to 'hello'", () => {
+test("scroll actuator is async with optional text and immediately slots and defaults the omitted text to 'hello'", () => {
   const env = createMicroBitV2Environment();
   const microbit = new MicroBit();
   const ctx = createExecutionContext(env, microbit);
 
   const entry = env.brainServices.runtime.functions.getAsyncById(MicroBitV2HostActions.DisplayScroll.fnId);
   assert.ok(entry, "scroll actuator should be registered as an async function");
-  assert.equal(entry.callDef.argSlots.size(), 1);
+  assert.equal(entry.callDef.argSlots.size(), 2);
 
   let scrolled: string | undefined;
   const deviceScrollText = microbit.display.scrollText.bind(microbit.display);

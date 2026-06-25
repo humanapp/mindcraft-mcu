@@ -113,8 +113,12 @@ globe prototype is archived for a separate planned Mindcraft micro:bit webapp, t
 dropped. A5b BUILT + browser-verified 2026-06-19 (`GestureInjector` in wodal + `GesturePicker`
 dropdown in microbit-sim).** **The accelerometer peripheral is now COMPLETE end-to-end (all
 three surfaces + sim UI) except the deferred A4 impact work** - the second Phase 7 peripheral
-done. Next: pick the next Phase 7 peripheral (user-owned), or revive A4 once the impact-delivery
-approach is chosen.** Two further phases queued: 8 (virtual radio
+done. **Separately, the DISPLAY DRAW family is underway** (spec `docs/specs/tiles/display.md`,
+plan `generated-docs/display-impl-plan-2026-06-24.md`): the core **`Buffer`** value type
+(B1-B3 complete, both VMs) and display **D1** (the `draw image` runtime + display lease + scroll
+silent-drop) both landed 2026-06-24 (D1 host-gated, hardware flash pending); D2 (built-in images),
+D3 (surface-2 API + `image()` literal + transparency), D4/D5 (the image editors) remain. Next:
+pick the next Phase 7 peripheral, revive A4, or continue display D2/D3.** Two further phases queued: 8 (virtual radio
 sim-to-sim) and 9 (Cutebot via TS user-tiles).** **PHASE
 6 IS COMPLETE
 (6a-6j, 2026-06-17): the C++ VM is a fully conforming VM - every contract opcode
@@ -2820,6 +2824,27 @@ Condensed dated ledger of accepted phases (newest first). Full per-phase as-buil
 detail lives in the session memory and git history; the accepted phase sections above
 carry the contracts each produced.
 
+- **2026-06-24 - Display D1 complete (`draw image` hardware-validated; `immediately`-preempt device
+  path validate-later): the `draw image` runtime.** The first display draw beyond scroll/set-pixel: an `Image` value struct (type-atom
+  1029; `{width, height, pixels: Buffer}`) + the `draw image` async actuator (action 1031 / fn
+  1048; clip top-left to 5x5, oversize OK; duration 0 = fire-and-forget, > 0 = lease + sleep, no
+  clear) + the **display lease** (the port's busy-until-T state, silent-drop a competing draw,
+  settled by the existing per-think port poll; **scroll reconciled to silent-drop**). Pulled in
+  three cross-cutting VM changes: **(core, user-directed) synchronous handle resolve** -
+  `FiberScheduler` now keeps a settled no-waiter handle for its upcoming `AWAIT` (mirroring C++'s
+  post-tick drain), so a resolve-at-dispatch async continues same-think on both VMs (a conformance
+  fix to AWAIT-on-resolved, no contract change); **(cpp) struct-constant materialization**
+  (`PUSH_CONST_VAL` now builds a baked `Struct` constant - the cpp analog of wodal's load-time
+  path; nested-container constant fields still fault, unneeded for `Image`); and additive trace
+  tokens `port display draw <w> <h> <hex>` + `struct <n> ...` (format v1 unchanged). Goldens
+  byte-match both VMs (3 draw + scroll-drop; lone-scroll + managed-string-scroll byte-stable).
+  Gates: core 923 / cpp check.sh x3 / wodal 216. Plan:
+  `generated-docs/display-impl-plan-2026-06-24.md`. **`draw image` is hardware-validated** (renders;
+  a timed draw holds then the rule continues). Post-summary additions (ratified): the args were
+  revised (Image optional with a default smiley; `duration` a NAMED
+  **seconds** param, default **1 s**, explicit `0` = fire-forget) and an **`immediately` modifier**
+  (lease preempt: resolve the held op's handle, no fault) was added to both `scroll` + `draw image`;
+  that `immediately`-preempt device path is validate-later.
 - **2026-06-24 - `Buffer` value type added across both VMs (separate workstream, B1-B3 complete).**
   A first-class immutable raw-byte container (0-255), a value-model addition peer to the 6a/6c
   work, built as the foundation for display image pixels (and future binary assets). `NativeType`/

@@ -49,7 +49,8 @@ TEST_CASE("MicroBitV2HostFuncId values are wire-stable") {
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::AccelerometerGetRoll) == 1045);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::AccelerometerGetGesture) == 1046);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::SensorGesture) == 1047);
-  CHECK(kMicroBitV2HostFuncIdCount == 24);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorDrawImage) == 1048);
+  CHECK(kMicroBitV2HostFuncIdCount == 25);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::DisplaySetPixelValue) == TARGET_FUNC_ID_BASE);
 }
 
@@ -59,7 +60,8 @@ TEST_CASE("MicroBitV2TypeAtomId values are wire-stable") {
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::TouchButton) == 1026);
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::MicroBit) == 1027);
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::Accelerometer) == 1028);
-  CHECK(kMicroBitV2TypeAtomIdCount == 5);
+  CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::Image) == 1029);
+  CHECK(kMicroBitV2TypeAtomIdCount == 6);
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::MicroBitDisplay) == TARGET_TYPE_ATOM_BASE);
 }
 
@@ -88,8 +90,11 @@ TEST_CASE("microbit-v2 host-action ids are wire-stable") {
   CHECK(MicroBitV2HostActions::Gesture.actionId == 1030);
   CHECK(MicroBitV2HostActions::Gesture.fnId ==
         static_cast<uint32_t>(MicroBitV2HostFuncId::SensorGesture));
+  CHECK(MicroBitV2HostActions::DrawImage.actionId == 1031);
+  CHECK(MicroBitV2HostActions::DrawImage.fnId ==
+        static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorDrawImage));
 
-  REQUIRE(std::size(kMicroBitV2HostActions) == 7);
+  REQUIRE(std::size(kMicroBitV2HostActions) == 8);
   for (uint32_t i = 0; i < std::size(kMicroBitV2HostActions); i++) {
     CHECK(kMicroBitV2HostActions[i].actionId == TARGET_ACTION_ID_BASE + i);
   }

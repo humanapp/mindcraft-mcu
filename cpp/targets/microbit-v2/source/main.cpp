@@ -118,11 +118,15 @@ int main()
     // The async scroll body reaches the display and the heap (to read its text
     // string) through this env; its heap is filled once the heap exists.
     MicroBitV2DisplayScrollEnv scrollEnv{&display, nullptr};
+    // The async draw-image body reaches the display, the heap (to read the Image
+    // struct and a managed pixel buffer), and the program (to resolve a borrowed
+    // pixel buffer); its heap is filled once the heap exists.
+    MicroBitV2DrawImageEnv drawEnv{&display, nullptr, &image};
     // The button sensors poll the button port and back their per-callsite state
     // on the heap; the heap and roots are filled once the scheduler exists.
     MicroBitV2ButtonSensorEnv buttonEnv{&buttons, nullptr, nullptr};
     auto coreBindings = makeCoreHostActionBindings(coreEnv);
-    auto mbBindings = makeMicroBitV2HostActionBindings(ports, &scrollEnv, &buttonEnv);
+    auto mbBindings = makeMicroBitV2HostActionBindings(ports, &scrollEnv, &buttonEnv, &drawEnv);
     std::array<HostActionBinding, kCoreHostActionBindingCount + kMicroBitV2HostActionBindingCount>
         actions{};
     for (size_t i = 0; i < coreBindings.size(); i++)
@@ -150,6 +154,7 @@ int main()
     coreEnv.heap = &heap;
     coreEnv.roots = &scheduler;
     scrollEnv.heap = &heap;
+    drawEnv.heap = &heap;
     buttonEnv.heap = &heap;
     buttonEnv.roots = &scheduler;
 
@@ -166,9 +171,9 @@ int main()
 
     while (true)
     {
-        // Settle any completed scroll before the brain thinks, so its awaiting
-        // rule resumes on this round's drain.
-        display.pollScroll();
+        // Settle any completed scroll or timed draw before the brain thinks, so
+        // its awaiting rule resumes on this round's drain.
+        display.pollDisplay();
         hostLoop.tick();
         uBit.sleep(kTickIntervalMs);
     }

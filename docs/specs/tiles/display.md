@@ -73,6 +73,12 @@ is the arbitration mechanism when more than one rule wants the display.
   display is unchanged), and its handle resolves immediately, so the dispatching fiber continues
   without blocking or erroring. There is no queue or serialization, and the loser does not
   acquire or extend the lease.
+- **The `immediately` modifier preempts the lease.** A scroll or draw carrying the `immediately`
+  modifier (a surface-1 tile on the actuator) cancels the held lease before running: the preempted
+  operation's handle is resolved (its awaiting rule resumes as if it had finished, never faulting)
+  and the modified operation takes the display at once. On device the preempt also stops CODAL's
+  in-flight scroll animation; CODAL's animation code holds no locks and runs on the cooperative
+  scheduler, so stopping and restarting it within one `think()` is race-free.
 - The lease spans the **whole temporal family**: a scroll lease blocks a draw-image and vice
   versa, because they share one physical display.
 - A **zero-duration draw takes no lease** - it paints and completes immediately (see draw image).
@@ -101,11 +107,13 @@ lease are silently dropped (each completes immediately with its paste discarded)
 
 - An async actuator placed in `do`. One optional, anonymous **String** to scroll across the
   display; when the slot is absent or nil, a target default string is scrolled.
-- Scrolls the text across the display, right to left; the rule awaits the animation and parks
-  until it completes (it does not re-fire while parked). On completion the handle resolves and
-  the rule resumes on the following `think()`.
+- Clears the display, then scrolls the text across it, right to left; the text scrolls in from a
+  blank display so any prior content (an earlier draw) does not linger under the animation. The
+  rule awaits the animation and parks until it completes (it does not re-fire while parked). On
+  completion the handle resolves and the rule resumes on the following `think()`.
 - Holds a display lease for the scroll duration; a concurrent draw is silently dropped per the
-  lease policy.
+  lease policy. The optional **`immediately`** modifier preempts the current lease so the scroll
+  starts at once (see the lease section).
 - Completion: `start + (displayWidth + spacing) * (charCount + 1) * delay` ms against VM tick
   time, where `displayWidth` is the target's, `spacing` is 1, `charCount` is the text's UTF-16
   code-unit length, and the `+ 1` is the trailing blank cycle that clears the last character. The
@@ -119,24 +127,35 @@ lease are silently dropped (each completes immediately with its paste discarded)
 ## Member: draw image
 
 - An async actuator placed in `do`. Renders a full `Image` to the display at once.
-- Arguments: the **`Image`** to draw (required - from a `create an image` factory tile, a
-  built-in image tile, or an `Image` variable), plus an optional anonymous **duration** Number in
-  milliseconds, **default 0** (the same optional-anonymous convention as `scroll` text and
-  `pause`).
+- **Future (not yet implemented): multiple anonymous `Image` arguments.** The actuator should
+  accept more than one anonymous `Image`; the behavior is to display each in sequence, holding each
+  for the duration before advancing to the next (one lease spanning the whole sequence). The first
+  cut takes a single `Image`; the call spec and actuator extend to a repeated `Image` slot later.
+- Arguments: an optional anonymous **`Image`** to draw (from a `create an image` factory tile, a
+  built-in image tile, or an `Image` variable), plus an optional, **named** **duration** Number in
+  **seconds** (the `Image` is the bare anonymous slot, like `scroll` text; the duration is a named
+  slot). The actuator converts the seconds duration to the lease's milliseconds (truncated).
+  - **Image default:** when the `Image` slot is absent or nil, a **target default image** is drawn.
+    On micro:bit-v2 that is a smiley face (the target's built-in default image).
+  - **Duration default:** when the duration slot is absent or nil, the draw holds for **1 second**.
+  - The optional **`immediately`** modifier preempts the current display lease so the draw runs at
+    once (see the lease section).
 - At dispatch the image is pasted onto the display **top-left aligned** (the image's `(0,0)` at
   the display's `(0,0)`) and **clipped to the display dimensions**. An image larger than the
   display is **not** an error - off-screen pixels are clipped. (The fixed `(0,0)` offset is the
   first cut; panning an oversize image is a future image-scroll / animate concern.) What follows
   depends on the duration:
-  - **duration 0 (default) - fire-and-forget.** The paste lands and the action completes
-    immediately; the fiber continues without suspending and **no lease is taken**.
-  - **duration > 0 - lock and sleep.** The draw holds a display lease for the duration and the
-    fiber sleeps until it elapses, then continues. The display is **not** cleared afterward - the
-    image persists until the next draw.
+  - **duration 0 - fire-and-forget.** The paste lands and the action completes immediately; the
+    fiber continues without suspending and **no lease is taken**. (Only an explicit `0` is
+    fire-and-forget; an omitted duration uses the 1 second default below.)
+  - **duration > 0 (including the 1 second default) - lock and sleep.** The draw holds a display
+    lease for the duration and the fiber sleeps until it elapses, then continues. The display is
+    **not** cleared afterward - the image persists until the next draw.
 
   Duration is non-negative; there is no negative-duration case.
-- Completion: `start + duration` ms against VM tick time (for duration 0 this is the dispatch
-  instant, so the awaited handle is already resolved and the fiber does not park).
+- Completion: `start + duration * 1000` ms against VM tick time (the duration is in seconds; for an
+  explicit duration 0 this is the dispatch instant, so the awaited handle is already resolved and
+  the fiber does not park).
 - The paste happens at dispatch with **no device-driver hold timer**; the lease and completion
   are the VM's. Forwarding a driver-side `delay` on top of the VM lease would double-gate on two
   clocks and could silently drop a write the VM allowed.
@@ -283,10 +302,14 @@ The concrete fill-in of the target-parameterized pieces for micro:bit-v2:
   `start + 6 * (charCount + 1) * delay`. Goldens `display-scroll.mcprogram.bin` +
   `display-scroll.ticks.trace`; the C++ parity test loads the same binary and byte-compares the
   trace.
-- **draw image:** tile `draw image` (key `microbit-v2.draw-image`); action / function ids
-  assigned at implementation (append-only). On device the paste maps to a full-frame buffer write
-  (CODAL `printAsync(Image, delay = 0)` semantics, or a direct buffer write) with no CODAL hold
-  timer; an oversize image clips via CODAL's paste.
+- **draw image:** tile `draw image` (key `microbit-v2.draw-image`, action id 1031, function id
+  1048 `ActuatorDrawImage`; `Image` type-atom id 1029). An optional **anonymous** `Image` (default a
+  5x5 smiley) + an optional **named** `duration` in seconds (default 1 second); the `immediately`
+  modifier (`microbit-v2.immediately`) preempts the lease. On device the paste maps to a full-frame
+  buffer write (CODAL `printAsync(Image, delay = 0)` semantics, or a direct buffer write) with no
+  CODAL hold timer; an oversize image clips via CODAL's paste. Goldens `draw-image-forget` /
+  `draw-image-timed` / `draw-image-dropped` / `draw-image-defaults` / `draw-image-preempt`
+  (`.mcprogram.bin` + `.ticks.trace`); the C++ parity test loads the same binaries and byte-compares.
 
 ## Conformance
 

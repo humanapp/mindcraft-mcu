@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "regionOffset": 294912,
-  "regionSize": 176128,
+  "regionOffset": 303104,
+  "regionSize": 167936,
   "regionMagic": "4d434652",
   "onFlashFormatVersion": 1
 }

@@ -1,5 +1,11 @@
-import { type ModifierTileInput, mod } from "@mindcraft-lang/core/app";
+import { isNilValue, type ModifierTileInput, mod, type ReadonlyList, type Value } from "@mindcraft-lang/core/app";
 import { WodalMicroBitV2ModifierId } from "./tile-ids";
+
+/** Whether the modifier arg at `slotId` is present (a non-nil value), i.e. its tile is attached. */
+export function hasModifier(args: ReadonlyList<Value>, slotId: number): boolean {
+  const value = args.get(slotId);
+  return value !== undefined && !isNilValue(value);
+}
 
 /**
  * Shared modifier call-spec arg specs, defined once and reused across the
@@ -20,6 +26,7 @@ export const Modifier = {
   faceUp: mod(WodalMicroBitV2ModifierId.FaceUp),
   faceDown: mod(WodalMicroBitV2ModifierId.FaceDown),
   freefall: mod(WodalMicroBitV2ModifierId.Freefall),
+  immediately: mod(WodalMicroBitV2ModifierId.Immediately),
 };
 
 /** Modifier tiles registered once with the module. */
@@ -38,4 +45,5 @@ export const MICROBIT_V2_MODIFIERS: readonly ModifierTileInput[] = [
   { id: WodalMicroBitV2ModifierId.FaceUp, label: "face up" },
   { id: WodalMicroBitV2ModifierId.FaceDown, label: "face down" },
   { id: WodalMicroBitV2ModifierId.Freefall, label: "freefall" },
+  { id: WodalMicroBitV2ModifierId.Immediately, label: "immediately" },
 ];

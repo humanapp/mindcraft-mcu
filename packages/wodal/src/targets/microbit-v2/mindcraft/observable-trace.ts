@@ -28,9 +28,11 @@
  *   are literal except `"` (renders `\"`) and `\` (renders `\\`); every
  *   other byte renders as `\xNN` with two lowercase hex digits.
  * - A value token is one of `void`, `nil`, `bool 0|1`, `number <bits>`,
- *   `string "<bytes>"`, or `buffer <hex>` (two lowercase hex digits per byte,
- *   no separators; empty for an empty buffer). Any other value kind crossing
- *   the host-binding surface is an error in format version 1.
+ *   `string "<bytes>"`, `buffer <hex>` (two lowercase hex digits per byte,
+ *   no separators; empty for an empty buffer), or `struct <fieldCount>
+ *   <value>...` (the field count in hex followed by one value token per field
+ *   slot, in slot order; native-backed structs do not render). Any other value
+ *   kind crossing the host-binding surface is an error in format version 1.
  *
  * Line layout: a three-line header, then events in emission order.
  *
@@ -43,6 +45,7 @@
  * action <actionId> site <callSiteId> args <argc> <value>... async
  * port display set-pixel <xBits> <yBits> <brightnessBits>
  * port display scroll "<bytes>"
+ * port display draw <width> <height> <hex>
  * fault <fiberId> <errorCode>
  * ```
  *
@@ -69,6 +72,11 @@
  * - `port display scroll`: one scroll-text request crossing the display
  *   device port, with the scrolled text as the quoted byte sequence passed
  *   to the port.
+ * - `port display draw`: one image-draw paste crossing the display device
+ *   port. `<width>` and `<height>` are the clipped frame dimensions in hex
+ *   (at most the display size), and `<hex>` is the clipped frame's brightness
+ *   bytes (row-major, two lowercase hex digits per byte, no separators). A
+ *   draw silently dropped by the lease writes nothing and emits no such line.
  * - `fault`: one fiber fault. `<errorCode>` is the numeric wire-stable
  *   `ErrorCode`. Fault messages are implementation-defined and never render.
  */
@@ -138,6 +146,19 @@ function valueToken(value: Value, precision: NumberPrecision): string {
       return `string ${quoted(value.v)}`;
     case NativeType.Buffer:
       return `buffer ${bufferToHex(value)}`;
+    case NativeType.Struct: {
+      const fields = value.v;
+      if (fields === undefined) {
+        throw new Error(
+          `observable trace: native-backed struct has no rendering in trace format ${OBSERVABLE_TRACE_FORMAT_VERSION}`
+        );
+      }
+      let text = `struct ${hexU32(fields.size())}`;
+      for (let i = 0; i < fields.size(); i++) {
+        text += ` ${valueToken(fields.get(i), precision)}`;
+      }
+      return text;
+    }
     default:
       throw new Error(
         `observable trace: value kind '${value.t}' has no rendering in trace format ${OBSERVABLE_TRACE_FORMAT_VERSION}`
@@ -218,6 +239,24 @@ export class ObservableTraceWriter {
    */
   displayScroll(text: string): void {
     this.line(`port display scroll ${quoted(text)}`);
+  }
+
+  /**
+   * Records one image-draw paste crossing the display device port: the clipped
+   * frame written to the display top-left. `width` and `height` are the clipped
+   * frame dimensions (at most the display size) and `frame` holds its
+   * `width * height` brightness bytes, row-major.
+   *
+   * @param width - Clipped frame width in columns.
+   * @param height - Clipped frame height in rows.
+   * @param frame - Brightness bytes, row-major, length `width * height`.
+   */
+  displayDraw(width: number, height: number, frame: ReadonlyArray<number>): void {
+    let hex = "";
+    for (let i = 0; i < frame.length; i++) {
+      hex += hexPadded((frame[i] ?? 0) & 0xff, 2);
+    }
+    this.line(`port display draw ${hexU32(width)} ${hexU32(height)} ${hex}`);
   }
 
   /**

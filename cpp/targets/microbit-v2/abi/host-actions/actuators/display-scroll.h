@@ -23,6 +23,9 @@ namespace mindcraft
  */
 inline constexpr uint32_t kDisplayScrollTextArgSlot = 0;
 
+/** Arg slot of the `immediately` modifier: when present, the scroll preempts the current lease. */
+inline constexpr uint32_t kDisplayScrollImmediatelyArgSlot = 1;
+
 /** Text scrolled when the call omits the optional text argument. */
 inline constexpr char kDisplayScrollDefaultText[] = "hello";
 
@@ -39,11 +42,12 @@ struct MicroBitV2DisplayScrollEnv
 
 /**
  * Async host actuator body: scroll text across the display. Reads the optional
- * text argument (defaulting to "hello" when absent), starts the scroll on the
- * display port at the current think time, and leaves `handle` for the port to
- * resolve when the animation completes; the calling fiber awaits it. `hostData`
- * is the bound {@link MicroBitV2DisplayScrollEnv}. Mirrors wodal
- * `actions/display-scroll.ts`.
+ * text argument (defaulting to "hello" when absent); with the `immediately`
+ * modifier present it preempts the current display lease so the scroll starts at
+ * once. Starts the scroll on the display port at the current think time and
+ * leaves `handle` for the port to resolve when the animation completes; the
+ * calling fiber awaits it. `hostData` is the bound
+ * {@link MicroBitV2DisplayScrollEnv}. Mirrors wodal `actions/display-scroll.ts`.
  */
 inline Status execScrollText(void *hostData, ExecutionContext &ctx, Span<const Value> args,
                              AsyncHandle handle)
@@ -60,6 +64,11 @@ inline Status execScrollText(void *hostData, ExecutionContext &ctx, Span<const V
             bytes = argBytes;
             length = argLength;
         }
+    }
+    if (kDisplayScrollImmediatelyArgSlot < args.size() &&
+        !args[kDisplayScrollImmediatelyArgSlot].isNil())
+    {
+        env.display->preempt();
     }
     env.display->scrollText(reinterpret_cast<const uint8_t *>(bytes), length, kScrollDefaultDelayMs,
                             ctx.time, handle);
