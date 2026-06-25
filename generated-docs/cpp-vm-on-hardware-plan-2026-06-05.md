@@ -115,10 +115,12 @@ dropdown in microbit-sim).** **The accelerometer peripheral is now COMPLETE end-
 three surfaces + sim UI) except the deferred A4 impact work** - the second Phase 7 peripheral
 done. **Separately, the DISPLAY DRAW family is underway** (spec `docs/specs/tiles/display.md`,
 plan `generated-docs/display-impl-plan-2026-06-24.md`): the core **`Buffer`** value type
-(B1-B3 complete, both VMs) and display **D1** (the `draw image` runtime + display lease + scroll
-silent-drop) both landed 2026-06-24 (D1 host-gated, hardware flash pending); D2 (built-in images),
-D3 (surface-2 API + `image()` literal + transparency), D4/D5 (the image editors) remain. Next:
-pick the next Phase 7 peripheral, revive A4, or continue display D2/D3.** Two further phases queued: 8 (virtual radio
+(B1-B3 complete, both VMs), display **D1** (the `draw image` runtime + display lease + scroll
+silent-drop), and display **D2** (built-in images: library + surface-1 tiles + default-smiley swap)
+all landed 2026-06-24 (D1 host-gated, hardware flash pending; D2 accepted). Remaining: D3 (surface-2
+API + `image()` literal + transparency + the moved-in named icons via a `.ts` stdlib-injection
+facility in `external/mindcraft-lang`), D6 (`draw image` multi-image sequence), D4/D5 (the image
+editors). Next: pick the next Phase 7 peripheral, revive A4, or continue display D3/D6.** Two further phases queued: 8 (virtual radio
 sim-to-sim) and 9 (Cutebot via TS user-tiles).** **PHASE
 6 IS COMPLETE
 (6a-6j, 2026-06-17): the C++ VM is a fully conforming VM - every contract opcode
@@ -2824,6 +2826,22 @@ Condensed dated ledger of accepted phases (newest first). Full per-phase as-buil
 detail lives in the session memory and git history; the accepted phase sections above
 carry the contracts each produced.
 
+- **2026-06-24 - Display D2 complete (built-in images: library + surface-1 tiles + default-smiley
+  swap).** A 7-icon append-only starter library (`heart`, `happy`, `sad`, 4 cardinal `arrow`s; lit
+  pixel 255) in `packages/wodal`'s microbit-v2 module as predefined `Image` struct+`Buffer`
+  constants; `happy` is byte-identical to D1's inlined smiley. **Surface 1:** one
+  `BrainTileLiteralDef` per built-in (`persist:false`, baked struct, tile key
+  `tile.literal->struct:<Image>-><name>`); placing one in a `draw image` slot bakes the constant and
+  cpp runs it via D1's generic `PUSH_CONST_VAL` struct materialization - **no cpp built-in table**
+  (LD9: no second consumer). The D1 inlined default smiley **becomes** the `happy` built-in
+  (`draw-image-defaults` byte-stable). New `draw-image-builtins` golden (heart + arrow-north, built
+  through the real brain compiler via tile placement) byte-matches both VMs. **Surface 2 was
+  deliberately not built** - decided with the user to fold into D3: the target-unaware compiler has
+  no named-value-constant fold path, so named icons ride a new **target-injected `.ts` stdlib**
+  (generalize `external/mindcraft-lang`'s ambient-injection to carry `.ts` source, ~100 LOC),
+  exporting the **`image(`...`)` literal** (LOCKED over the `img` tagged template) + inline-authored
+  named icons. Gates: wodal 222 / cpp check.sh x3. `external/mindcraft-lang` untouched this session.
+  Plan: `generated-docs/display-impl-plan-2026-06-24.md`.
 - **2026-06-24 - Display D1 complete (`draw image` hardware-validated; `immediately`-preempt device
   path validate-later): the `draw image` runtime.** The first display draw beyond scroll/set-pixel: an `Image` value struct (type-atom
   1029; `{width, height, pixels: Buffer}`) + the `draw image` async actuator (action 1031 / fn

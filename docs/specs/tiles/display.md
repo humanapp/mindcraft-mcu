@@ -49,8 +49,11 @@ The display family is delivered on the three standard surfaces:
   **`create an image`** factory tile that opens the image editor and produces an `Image` value,
   and **built-in image literal tiles** (a target-defined icon set - see the micro:bit section).
 - **Surface 2 - TS user-code API.** `ctx.microbit.display` (registry: `microbit-context.md`)
-  gains `drawImage(image)` alongside the existing per-pixel reads/writes; the `Image` type and
-  the built-in images are visible to TS user code.
+  gains `drawImage(image)` alongside the existing per-pixel reads/writes. The `Image` type, the
+  `image(...)` literal builder, and the built-in icons (as named `Image` constants) are delivered to
+  TS user code through a **target-injected TS stdlib** - ordinary source compiled with the user's
+  program, not compiler-folded constants (the compiler stays target-unaware). The same facility can
+  later carry a shared, target-agnostic core stdlib.
 - **Surface 3 - image editing.** An image editor for the `Image` value, in both authoring
   environments: in the brain editor, the `create an image` **image factory** (a custom literal
   editor); in VS Code for Web, a **CodeLens** over image literals that opens a webview image
@@ -127,10 +130,11 @@ lease are silently dropped (each completes immediately with its paste discarded)
 ## Member: draw image
 
 - An async actuator placed in `do`. Renders a full `Image` to the display at once.
-- **Future (not yet implemented): multiple anonymous `Image` arguments.** The actuator should
-  accept more than one anonymous `Image`; the behavior is to display each in sequence, holding each
-  for the duration before advancing to the next (one lease spanning the whole sequence). The first
-  cut takes a single `Image`; the call spec and actuator extend to a repeated `Image` slot later.
+- **Planned: multiple anonymous `Image` arguments.** `draw image` accepts one or more anonymous
+  `Image`s (a `repeated` slot); with more than one, it displays each in sequence, **holding each
+  for the `duration`** before advancing (one lease spanning the whole sequence; total =
+  imageCount x `duration`). The shipped cut takes a single `Image`; the repeated slot is the
+  planned extension.
 - Arguments: an optional anonymous **`Image`** to draw (from a `create an image` factory tile, a
   built-in image tile, or an `Image` variable), plus an optional, **named** **duration** Number in
   **seconds** (the `Image` is the bare anonymous slot, like `scroll` text; the duration is a named
@@ -227,12 +231,15 @@ f . f . f
   - The transparent *mode* can be deferred to a later cut without changing the literal: store the
     representation from the start; add the mode later to honor it.
 
-- **Syntax - chosen for UX, not constrained by the compiler.** Candidates: a MakeCode-style
-  tagged template (`img` backtick) - the cleanest, with no surrounding call - or a function over a
-  multiline backtick *string* (`image(` backtick `)` above). We own the ts-compiler and extend it
-  as needed to deliver the cleanest authoring experience (carefully - it is complex); its current
-  template / tagged-template support informs the effort, not the choice. Either form builds an
-  ordinary `Image` struct - no new VM machinery.
+- **Syntax - settled: `image(` backtick `)`, a function over a multiline backtick string** (the form
+  above). It is an ordinary exported function in the target's TS stdlib that parses the art and
+  returns an `Image` struct - so authoring is plain, inspectable, forkable TS, and end users
+  copy-paste the same `image(...)` call to define their own icons. The MakeCode-style tagged template
+  (`img` backtick) was considered and **rejected**: tagged templates have no compiler lowering and
+  would need a tag-name resolution registry, a large net-new compiler change, whereas a call over a
+  template string needs no compiler change (template strings are already supported). Either form
+  would build an ordinary `Image` struct - no new VM machinery - but the function form costs nothing
+  in the compiler.
 
 - **Format (sketch):** spaces/tabs are insignificant separators (for visual alignment), newlines
   delimit rows, every other character is a pixel; leading/trailing blank lines ignored. Ragged
@@ -288,11 +295,13 @@ The concrete fill-in of the target-parameterized pieces for micro:bit-v2:
   Images are commonly 5x5 (the display size) but may be any size (clipped on draw). The
   `create an image` image factory (surface 1) plus the image editor (surface 3, a
   `CustomLiteralType` in the microbit-sim brain editor) author them.
-- **Built-in images:** a small library of built-in image/icon literals (heart, smiley, arrows,
-  and the like) defined at the micro:bit target level - each a predefined `Image` literal.
-  Surface 1 exposes them as `Image` literal tiles; surface 2 surfaces them to TS user code [form
-  to settle - an enum of names, or named `Image` constants; see Open questions]. They are
-  target-specific - another target defines its own set, since pixel interpretation differs.
+- **Built-in images:** a small append-only library of built-in image/icon literals defined at the
+  micro:bit target level - each a predefined `Image` value. The starter set is `heart`, `happy`,
+  `sad`, and the four cardinal `arrow` icons (lit pixel 255); `happy` is the default-image smiley.
+  **Surface 1** exposes them as `Image` literal tiles (built). **Surface 2** surfaces them as named
+  `Image` constants exported from the target-injected TS stdlib (the same stdlib that hosts the
+  `image(...)` builder). They are target-specific - another target defines its own set, since pixel
+  interpretation differs.
 - **Device `Image` analog:** CODAL `codal::Image` - greyscale 8-bit, ref-counted, mutable,
   arbitrary dimensions, constructible from a string / buffer, with paste / crop / shift / clone.
   CODAL ships **no** built-in image library, so the built-in set above is ours to define.
@@ -328,14 +337,15 @@ The concrete fill-in of the target-parameterized pieces for micro:bit-v2:
 
 ## Open questions
 
-1. **TS-ambient form of the built-in images**: how the target's built-in image set is surfaced
-   to TS user code - an enum of names, named `Image` constants, or another shape.
+1. ~~**TS-ambient form of the built-in images**~~ **Resolved:** named `Image` constants exported
+   from a target-injected TS stdlib (ordinary source compiled with the user's program). Remaining
+   detail: whether the stdlib's icon art is kept in sync with the surface-1 built-in bytes by hand
+   (deliberate duplication today) or generated from one source.
 2. **How far to formalize the target seam now**: the dimensions + interpretation seam is settled,
    but the minimal interface a target exposes (e.g. width/height accessors, a narrow-pixel hook)
    is specified only as much as micro:bit needs until a second display target is scoped.
-3. **Image literals and transparency** (see that section): the surface-2 literal form
-   (function-over-string vs tagged template, and what the ts-compiler already supports); the
-   transparency representation (mask vs sentinel) and whether the transparent draw mode ships in
+3. **Transparency** (the literal form is settled - `image(...)` function over a template string):
+   the transparency representation (mask vs sentinel) and whether the transparent draw mode ships in
    the first cut; the hex->brightness mapping; ragged-row handling.
 4. **VS Code CodeLens editor** (see that section): the concrete shape of the cross-asset
    `compile:assets` facility (the kind tag, the per-entry payload, the editor registry), to be

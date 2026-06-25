@@ -1,4 +1,5 @@
 import {
+  BrainTileLiteralDef,
   ContextTypeIds,
   CoreTypeIds,
   createHostActuator,
@@ -30,6 +31,7 @@ import { brightnessToPort, pixelCoordToPort } from "./actions/display-pixel-conv
 import displayScrollActuator from "./actions/display-scroll";
 import displaySetPixelActuator from "./actions/display-set-pixel";
 import { gestureSensor } from "./actions/gesture-sensor";
+import { BUILT_IN_IMAGES, builtInImageStructValue } from "./built-in-images";
 import { getMicroBitContextDevice } from "./context";
 import { MICROBIT_V2_MODIFIERS } from "./modifiers";
 import { MICROBIT_V2_PARAMETERS } from "./parameters";
@@ -409,6 +411,27 @@ function registerBrainTiles(api: MindcraftModuleApi): void {
   api.registerHostActuator(createHostActuator(displayDrawActuator));
   api.registerModifiers(MICROBIT_V2_MODIFIERS);
   api.registerParameters(MICROBIT_V2_PARAMETERS);
+  registerBuiltInImageTiles(api);
+}
+
+/**
+ * Registers a surface-1 `Image` literal tile for each built-in icon. Each tile
+ * carries the icon's baked `Image` struct value (see {@link builtInImageStructValue}):
+ * placing it in a `draw image` image slot bakes that constant into the program.
+ * The tiles are catalog-provided and referenced by id, so they do not persist
+ * their struct value into a saved brain.
+ */
+function registerBuiltInImageTiles(api: MindcraftModuleApi): void {
+  for (const def of BUILT_IN_IMAGES) {
+    api.registerTile(
+      new BrainTileLiteralDef(
+        WODAL_MICROBIT_V2_TYPE_IDS.Image,
+        builtInImageStructValue(def),
+        { valueLabel: def.name, persist: false, metadata: { label: def.label } },
+        api.brainServices
+      )
+    );
+  }
 }
 
 function getDisplayReceiver(args: ReadonlyList<Value>): MicroBitDisplay | undefined {

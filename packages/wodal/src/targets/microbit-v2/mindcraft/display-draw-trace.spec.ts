@@ -24,7 +24,16 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import type { MindcraftEnvironment } from "@mindcraft-lang/core/app";
+import {
+  BrainTileLiteralDef,
+  CoreTypeIds,
+  type IBrainRuleDef,
+  type MindcraftEnvironment,
+  mkActuatorTileId,
+  mkParameterTileId,
+  mkSensorTileId,
+} from "@mindcraft-lang/core/app";
+import { BrainDef } from "@mindcraft-lang/core/brain/model";
 import {
   BrainRuntime,
   CoreHostActions,
@@ -35,13 +44,15 @@ import {
   type PlatformServices,
   type VmEvents,
 } from "@mindcraft-lang/core/runtime";
+import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
 import { parseWodalProgramImageBytes, serializeWodalProgramImageBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
+import { builtInImageHex, builtInImageTileId, getBuiltInImage } from "./built-in-images";
 import { createMicroBitV2Environment } from "./environment";
 import { WODAL_MICROBIT_V2_TYPE_IDS } from "./module";
 import { ObservableTraceWriter } from "./observable-trace";
-import { MicroBitV2HostActions, MicroBitV2TypeAtomId } from "./tile-ids";
+import { MicroBitV2HostActions, MicroBitV2TypeAtomId, WodalMicroBitV2ParameterId } from "./tile-ids";
 
 const ON_PAGE_ENTERED = CoreHostActions.OnPageEntered.actionId;
 const DRAW_IMAGE = MicroBitV2HostActions.DrawImage.actionId;
@@ -438,14 +449,33 @@ function runFixture(
   tickCount: number,
   tickMs: number = TICK_ADVANCE_MS
 ): void {
+  runBytesFixture(name, () => serializeBrainBytes(build()), tickCount, tickMs);
+}
+
+/**
+ * Pins the `.mcprogram.bin` + `.ticks.trace` golden for a brain whose serialized
+ * bytes come from `buildBytes`: the bytes are byte-stable across builds, two
+ * fresh runs render identical traces, and the rendered trace matches the
+ * committed golden.
+ */
+function runBytesFixture(
+  name: string,
+  buildBytes: () => Uint8Array,
+  tickCount: number,
+  tickMs: number = TICK_ADVANCE_MS
+): void {
   const binPath = fileURLToPath(new URL(`./__fixtures__/${name}.mcprogram.bin`, import.meta.url));
   const tracePath = fileURLToPath(new URL(`./__fixtures__/${name}.ticks.trace`, import.meta.url));
 
-  if (!existsSync(binPath)) {
-    writeFileSync(binPath, serializeBrainBytes(build()));
+  // Build once and reuse: a build mints a fresh brain whose page id is drawn
+  // from the environment RNG, so the same `built` bytes are the stability
+  // reference for both the file write and the comparison below.
+  const built = existsSync(binPath) ? undefined : buildBytes();
+  if (built !== undefined) {
+    writeFileSync(binPath, built);
   }
   const bin = new Uint8Array(readFileSync(binPath));
-  assert.deepEqual(bin, serializeBrainBytes(build()), `${name}.mcprogram.bin is not byte-stable`);
+  assert.deepEqual(bin, built ?? buildBytes(), `${name}.mcprogram.bin is not byte-stable`);
 
   const first = runDrawTrace(bin, tickCount, tickMs);
   const second = runDrawTrace(bin, tickCount, tickMs);
@@ -623,6 +653,83 @@ test("a draw with no arguments draws the default smiley and holds for the defaul
   // A smiley eye and a mouth pixel were painted.
   assert.equal(result.microbit.display.getPixelValue(1, 1), 255);
   assert.equal(result.microbit.display.getPixelValue(2, 4), 255);
+  assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
+});
+
+/**
+ * Builds, through the brain compiler, a single-page brain with two rules that
+ * each fire on page entry: the first draws the `heart` built-in literal tile,
+ * the second draws the `arrow-north` built-in literal tile. Both place their
+ * built-in in the `draw image` actuator's anonymous image slot with an explicit
+ * zero duration (fire-and-forget), so both paste in the same think with no lease
+ * contention. The serialized program carries each built-in's baked `Image`
+ * struct constant, in the same binary format the hand-authored fixtures use.
+ */
+function buildBuiltInImageBrainBytes(): Uint8Array {
+  const environment = createMicroBitV2Environment();
+  const brainDef = BrainDef.emptyBrainDef(environment.brainServices, "built-in image draw brain");
+  const page = brainDef.pages().get(0)!;
+  const heartRule = page.children().get(0)!;
+  const arrowRule = page.appendNewRule()!;
+  appendBuiltInDrawRule(environment, brainDef, heartRule, "heart");
+  appendBuiltInDrawRule(environment, brainDef, arrowRule, "arrow-north");
+
+  const built = buildWodalProgramImage({
+    brainDef,
+    environment,
+    deviceProfile: getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2),
+  });
+  if (!built.ok) {
+    assert.fail(`expected a successful build: ${JSON.stringify(built.errors)}`);
+  }
+  return serializeWodalProgramImageBytes(built.image, environment.brainServices.runtime.types);
+}
+
+/**
+ * Fills `rule` with an on-page-entered when() and a `draw image` do() that draws
+ * the named built-in fire-and-forget (the built-in literal tile in the anonymous
+ * image slot, an explicit duration of 0).
+ */
+function appendBuiltInDrawRule(
+  environment: MindcraftEnvironment,
+  brainDef: BrainDef,
+  rule: IBrainRuleDef,
+  builtInName: string
+): void {
+  const tiles = environment.brainServices.edit.tiles;
+  const onPageEntered = tiles.get(mkSensorTileId(CoreHostActions.OnPageEntered.key));
+  const drawImage = tiles.get(mkActuatorTileId(MicroBitV2HostActions.DrawImage.key));
+  const image = tiles.get(builtInImageTileId(getBuiltInImage(builtInName)));
+  const durationParam = tiles.get(mkParameterTileId(WodalMicroBitV2ParameterId.Duration));
+  assert.ok(onPageEntered, "on-page-entered sensor tile should be registered");
+  assert.ok(drawImage, "draw image actuator tile should be registered");
+  assert.ok(image, `built-in image tile '${builtInName}' should be registered`);
+  assert.ok(durationParam, "duration parameter tile should be registered");
+
+  rule.when().appendTile(onPageEntered);
+  rule.do().appendTile(drawImage);
+  rule.do().appendTile(image);
+  rule.do().appendTile(durationParam);
+  const zeroDuration = new BrainTileLiteralDef(CoreTypeIds.Number, 0, {}, environment.brainServices);
+  brainDef.catalog().registerTileDef(zeroDuration);
+  rule.do().appendTile(zeroDuration);
+}
+
+test("built-in image literal tiles draw their baked constants through draw image", () => {
+  const tickCount = 2;
+  runBytesFixture("draw-image-builtins", buildBuiltInImageBrainBytes, tickCount);
+  const result = runDrawTrace(
+    new Uint8Array(
+      readFileSync(fileURLToPath(new URL("./__fixtures__/draw-image-builtins.mcprogram.bin", import.meta.url)))
+    ),
+    tickCount
+  );
+  const lines = result.trace.split("\n");
+  // Both built-ins paste in the same think: the heart, then the arrow over it.
+  const heartHex = builtInImageHex(getBuiltInImage("heart"));
+  const arrowHex = builtInImageHex(getBuiltInImage("arrow-north"));
+  assert.equal(lines.filter((line) => line === `port display draw 5 5 ${heartHex}`).length, 1);
+  assert.equal(lines.filter((line) => line === `port display draw 5 5 ${arrowHex}`).length, 1);
   assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
 });
 

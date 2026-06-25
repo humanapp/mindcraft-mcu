@@ -41,10 +41,10 @@ inline constexpr uint32_t kDrawImageDisplayHeight = 5;
 inline constexpr uint32_t kDrawImageDefaultDurationMs = 1000;
 
 /**
- * The 5x5 smiley drawn when the call omits the optional image, as packed
- * brightness bytes (row-major): two eyes over a smiling mouth. Inline
- * placeholder until the built-in image library exists. Mirrors DEFAULT_IMAGE in
- * wodal actions/display-draw.ts.
+ * The 5x5 image drawn when the call omits the optional image: the `happy`
+ * built-in icon (two eyes over a smiling mouth), as packed brightness bytes
+ * (row-major). Mirrors the `happy` entry of the wodal built-in image library
+ * (built-in-images.ts), the shared source of the default in both VMs.
  */
 inline constexpr uint8_t kDrawImageDefaultPixels[kDrawImageDisplayWidth * kDrawImageDisplayHeight] =
     {

@@ -1690,6 +1690,10 @@ TEST_CASE("the draw-image-preempt fixture byte-matches the golden observable tra
   checkDrawFixture("draw-image-preempt", 3, 100.0f);
 }
 
+TEST_CASE("the draw-image-builtins fixture byte-matches the golden observable trace") {
+  checkDrawFixture("draw-image-builtins", 2, 100.0f);
+}
+
 TEST_CASE("the display-scroll-drop fixture byte-matches the golden observable trace") {
   const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/display-scroll-drop";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");

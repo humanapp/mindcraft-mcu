@@ -15,6 +15,7 @@ import {
 import { bufferByteAt, bufferLength, isBufferValue } from "@mindcraft-lang/core/runtime";
 import { toNonNegativeInteger } from "../../../../core/numeric";
 import { MICROBIT_LED_MATRIX_SIZE } from "../../constants";
+import { builtInImageFrame, DEFAULT_BUILT_IN_IMAGE_NAME, getBuiltInImage } from "../built-in-images";
 import { getMicroBitContextDevice } from "../context";
 import { hasModifier, Modifier } from "../modifiers";
 import { Param } from "../parameters";
@@ -23,22 +24,8 @@ import { ImageField, MicroBitV2HostActions } from "../tile-ids";
 /** Milliseconds a draw holds the display when the call omits the optional duration (1 second). */
 const DEFAULT_DURATION_MS = 1000;
 
-/**
- * The 5x5 smiley drawn when the call omits the optional image, as brightness
- * rows (top to bottom): two eyes over a smiling mouth. Inline placeholder until
- * the built-in image library exists.
- */
-const DEFAULT_IMAGE: ClippedFrame = {
-  width: 5,
-  height: 5,
-  frame: [
-    [0, 0, 0, 0, 0],
-    [0, 255, 0, 255, 0],
-    [0, 0, 0, 0, 0],
-    [255, 0, 0, 0, 255],
-    [0, 255, 255, 255, 0],
-  ].flat(),
-};
+/** The built-in image drawn when the call omits the optional image (the `happy` icon). */
+const DEFAULT_IMAGE: ClippedFrame = builtInImageFrame(getBuiltInImage(DEFAULT_BUILT_IN_IMAGE_NAME));
 
 const callDef = mkCallDef(bag(optional(Param.image), optional(Param.duration), optional(Modifier.immediately)));
 
