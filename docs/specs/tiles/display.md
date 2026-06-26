@@ -38,8 +38,11 @@ specified and built here; no other interpretation is implemented until such a ta
 - Draw functions come in two stances:
   - **Instantaneous** - a write with no duration (a per-pixel poke, or a full-frame paste with
     no hold). A sync host-function. `setPixelValue` (surface 2) is the example.
-  - **Temporal** - a draw that holds the display for a stated duration. An async host-action
-    (op 45 `HOST_ACTION_CALL_ASYNC` + `AWAIT`); the rule parks until it completes.
+  - **Temporal** - a draw that holds the display for a stated duration. An async dispatch +
+    `AWAIT`; the dispatching fiber parks until it completes. It reaches the runtime as op 45
+    `HOST_ACTION_CALL_ASYNC` from a surface-1 tile / brain action, or as op 41 `HOST_CALL_ASYNC`
+    from the surface-2 host-function (`ctx.microbit.display.drawImage`); both return an awaited
+    handle and share the same lease.
 
 ## Surfaces
 
@@ -96,9 +99,10 @@ lease are silently dropped (each completes immediately with its paste discarded)
 
 ## Async-draw pattern (shared by all temporal members)
 
-- Dispatched as op 45 `HOST_ACTION_CALL_ASYNC`, returning a handle the rule `AWAIT`s - the same
-  machinery as `pause`. (A handle resolved at dispatch does not suspend the fiber, which is what
-  makes a zero-duration or dropped draw fire-and-forget.)
+- Dispatched as op 45 `HOST_ACTION_CALL_ASYNC` (a surface-1 tile / brain action) or op 41
+  `HOST_CALL_ASYNC` (the surface-2 host-function), each returning a handle the dispatcher `AWAIT`s -
+  the same machinery as `pause`. (A handle resolved at dispatch does not suspend the fiber, which is
+  what makes a zero-duration or dropped draw fire-and-forget.)
 - The visible effect is produced per the member's nature (an animation across the duration, or a
   one-shot paste held for the duration). On device this maps to a target driver call; in the sim
   to the wodal display model; the two are byte-matched via the observable trace.

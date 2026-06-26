@@ -5,5 +5,5 @@
     "noEmit": true,
     "types": []
   },
-  "files": ["mindcraft.microbit-v2.d.ts"]
+  "files": ["../../../external/mindcraft-lang/packages/core/ambient/mindcraft.core.d.ts", "mindcraft.microbit-v2.d.ts"]
 }

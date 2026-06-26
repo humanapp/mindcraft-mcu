@@ -137,11 +137,13 @@ int main()
     {
         actions[coreBindings.size() + i] = mbBindings[i];
     }
-    auto hostFuncs = makeMicroBitV2HostFuncBindings(ports);
+    auto hostFuncs = makeMicroBitV2HostFuncBindings(ports, &drawEnv);
     ManagedHeap heap(arena, &image);
     TypeRegistry types(image);
     auto nativeStructs = makeMicroBitV2NativeStructBindings(types);
     types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
+    auto registeredStructs = makeMicroBitV2RegisteredStructSlotCounts();
+    types.setRegisteredStructSlotCounts({registeredStructs.data(), registeredStructs.size()});
     ExecutionContext ctx;
     RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, nullptr, &heap};
     surface.types = &types;

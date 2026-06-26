@@ -11,13 +11,14 @@ declare module "mindcraft" {
   export interface Image {
     width: number;
     height: number;
-    pixels: string;
+    pixels: Buffer;
   }
   export interface MicroBitDisplay {
     readonly __brand: unique symbol;
     setPixelValue(x: number, y: number, brightness: number): void;
     getPixelValue(x: number, y: number): number;
     clear(): void;
+    drawImage(image: Image, duration?: number): Promise<void>;
   }
   export interface Button {
     readonly __brand: unique symbol;

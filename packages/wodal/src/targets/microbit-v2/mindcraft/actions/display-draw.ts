@@ -22,10 +22,10 @@ import { Param } from "../parameters";
 import { ImageField, MicroBitV2HostActions } from "../tile-ids";
 
 /** Milliseconds a draw holds the display when the call omits the optional duration (1 second). */
-const DEFAULT_DURATION_MS = 1000;
+export const DEFAULT_DURATION_MS = 1000;
 
 /** The built-in image drawn when the call omits the optional image (the `happy` icon). */
-const DEFAULT_IMAGE: ClippedFrame = builtInImageFrame(getBuiltInImage(DEFAULT_BUILT_IN_IMAGE_NAME));
+export const DEFAULT_IMAGE: ClippedFrame = builtInImageFrame(getBuiltInImage(DEFAULT_BUILT_IN_IMAGE_NAME));
 
 const callDef = mkCallDef(bag(optional(Param.image), optional(Param.duration), optional(Modifier.immediately)));
 
@@ -34,7 +34,7 @@ const kDurationSlotId = getSlotId(callDef, Param.duration);
 const kImmediatelySlotId = getSlotId(callDef, Modifier.immediately);
 
 /** A draw frame clipped to the display: packed brightness bytes plus its clipped size. */
-interface ClippedFrame {
+export interface ClippedFrame {
   /** Brightness bytes, row-major, length `width * height`. */
   readonly frame: number[];
 
@@ -52,7 +52,7 @@ interface ClippedFrame {
  * from the buffer at the image's own row stride; cells past the buffer's end
  * read as brightness 0.
  */
-function clipImage(value: Value): ClippedFrame | undefined {
+export function clipImage(value: Value): ClippedFrame | undefined {
   if (!isStructValue(value) || value.v === undefined) {
     return undefined;
   }

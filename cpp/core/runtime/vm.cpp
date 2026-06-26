@@ -1109,7 +1109,7 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       if (suspendBinding != nullptr && !suspendBinding->isAsync) {
         return fault(ErrorCode::ScriptError);
       }
-      if (surface.handles == nullptr) {
+      if (surface.handles == nullptr || surface.context == nullptr) {
         return fault(ErrorCode::HostError);
       }
       const uint32_t fnId = ins.a;
@@ -1131,8 +1131,8 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       // The arg view is valid only for the call; the body copies what it
       // retains. A failing body rolls back the handle and faults.
       const Span<const Value> args(state.stack + (state.stackDepth - argc), argc);
-      const Status status =
-          binding->execAsync(binding->hostData, args, AsyncHandle{surface.handles, handleId});
+      const Status status = binding->execAsync(binding->hostData, *surface.context, args,
+                                               AsyncHandle{surface.handles, handleId});
       if (!status.isOk()) {
         surface.handles->deleteHandle(handleId);
         return fault(status.error());
@@ -1804,10 +1804,18 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
           return fault(ErrorCode::ScriptError);
         }
         const TypeEntry& entry = program.types[ins.b];
-        if (entry.tag != TypeTag::Struct) {
+        if (entry.tag == TypeTag::Struct) {
+          slotCount = entry.structOf.slotCount;
+        } else if (entry.tag == TypeTag::Atom) {
+          // A host-registered nominal struct: resolve its field storage slot
+          // count from the registry by atom id.
+          if (surface.types == nullptr ||
+              !surface.types->registeredStructSlotCount(entry.atom.atomId, slotCount)) {
+            return fault(ErrorCode::ScriptError);
+          }
+        } else {
           return fault(ErrorCode::ScriptError);
         }
-        slotCount = entry.structOf.slotCount;
       }
       Value structValue;
       if (!surface.heap->newStruct(ins.b, slotCount, surface.roots, structValue)) {

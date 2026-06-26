@@ -70,21 +70,21 @@ struct MicroBitV2DrawImageEnv
 };
 
 /**
- * Clips the `Image` struct at `args[kDrawImageImageArgSlot]` into `frame` (a
+ * Clips the `Image` struct `imageValue` into `frame` (a
  * `kDrawImageDisplayWidth * kDrawImageDisplayHeight` buffer), writing its clipped
  * size into `width`/`height`, and returns true. Returns false (leaving the
- * outputs untouched) when the slot is absent or is not an `Image` (a struct with
- * numeric `width`/`height` and a `pixels` buffer). Pixels are read at the image's
- * own row stride; cells past the buffer's end read as brightness 0.
+ * outputs untouched) when `imageValue` is not an `Image` (a struct with numeric
+ * `width`/`height` and a `pixels` buffer). Pixels are read at the image's own row
+ * stride; cells past the buffer's end read as brightness 0.
  */
-inline bool clipDrawImageArg(MicroBitV2DrawImageEnv &env, Span<const Value> args, uint8_t *frame,
-                             uint32_t &width, uint32_t &height)
+inline bool clipImageValue(MicroBitV2DrawImageEnv &env, const Value &imageValue, uint8_t *frame,
+                           uint32_t &width, uint32_t &height)
 {
-    if (kDrawImageImageArgSlot >= args.size() || !args[kDrawImageImageArgSlot].isStruct())
+    if (!imageValue.isStruct())
     {
         return false;
     }
-    StructObject *obj = env.heap->structOf(args[kDrawImageImageArgSlot]);
+    StructObject *obj = env.heap->structOf(imageValue);
     if (obj == nullptr)
     {
         return false;
@@ -147,7 +147,9 @@ inline Status execDrawImage(void *hostData, ExecutionContext &ctx, Span<const Va
     uint8_t frame[kDrawImageDisplayWidth * kDrawImageDisplayHeight] = {};
     uint32_t width = 0;
     uint32_t height = 0;
-    if (!clipDrawImageArg(env, args, frame, width, height))
+    const bool clipped = kDrawImageImageArgSlot < args.size() &&
+                         clipImageValue(env, args[kDrawImageImageArgSlot], frame, width, height);
+    if (!clipped)
     {
         for (uint32_t i = 0; i < kDrawImageDisplayWidth * kDrawImageDisplayHeight; i++)
         {

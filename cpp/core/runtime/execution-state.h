@@ -4,6 +4,7 @@
 #include <type_traits>
 
 #include "core/runtime/error-code.h"
+#include "core/runtime/mc-number.h"
 #include "core/runtime/program.h"
 #include "core/runtime/value.h"
 
@@ -184,6 +185,13 @@ struct ExecutionState {
    * external/mindcraft-lang/packages/core/src/runtime/vm-types.ts.
    */
   uint32_t asyncResultHandleId = 0;
+
+  /**
+   * Logical tick time captured when an `ACTION_CALL_ASYNC` child fiber was spawned
+   * (meaningful while {@link asyncResultHandleId} is set). The scheduler stamps it
+   * on the shared context's `time` for each of the child's slices.
+   */
+  mc_number_t dispatchTime = 0;
 };
 
 static_assert(std::is_trivially_copyable_v<Frame>, "execution state stays trivially copyable");

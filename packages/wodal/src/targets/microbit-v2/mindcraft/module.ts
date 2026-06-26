@@ -1,4 +1,5 @@
 import {
+  type AsyncHandle,
   BrainTileLiteralDef,
   ContextTypeIds,
   CoreTypeIds,
@@ -22,11 +23,12 @@ import {
 } from "@mindcraft-lang/core/app";
 import { Accelerometer } from "../../../core/accelerometer";
 import { Button } from "../../../core/button";
+import { toNonNegativeInteger } from "../../../core/numeric";
 import { TouchButton } from "../../../core/touch-button";
 import { MicroBit } from "../microbit";
 import { MicroBitDisplay } from "../microbit-display";
 import { buttonABSensor, buttonASensor, buttonBSensor, buttonLogoSensor } from "./actions/button-sensor";
-import displayDrawActuator from "./actions/display-draw";
+import displayDrawActuator, { clipImage, DEFAULT_DURATION_MS, DEFAULT_IMAGE } from "./actions/display-draw";
 import { brightnessToPort, pixelCoordToPort } from "./actions/display-pixel-conversion";
 import displayScrollActuator from "./actions/display-scroll";
 import displaySetPixelActuator from "./actions/display-set-pixel";
@@ -102,10 +104,7 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
     fields: List.from([
       { name: "width", typeId: CoreTypeIds.Number, fieldIndex: ImageField.Width },
       { name: "height", typeId: CoreTypeIds.Number, fieldIndex: ImageField.Height },
-      // pixels is a Buffer value at runtime; the field carries the String
-      // type-metadata placeholder. Field values are not type-checked against
-      // the declared field type.
-      { name: "pixels", typeId: CoreTypeIds.String, fieldIndex: ImageField.Pixels },
+      { name: "pixels", typeId: CoreTypeIds.Buffer, fieldIndex: ImageField.Pixels },
     ]),
   });
 
@@ -135,6 +134,15 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
         name: "clear",
         params: List.empty(),
         returnTypeId: CoreTypeIds.Void,
+      },
+      {
+        name: "drawImage",
+        params: List.from([
+          { name: "image", typeId: WODAL_MICROBIT_V2_TYPE_IDS.Image },
+          { name: "duration", typeId: CoreTypeIds.Number, optional: true },
+        ]),
+        returnTypeId: CoreTypeIds.Void,
+        isAsync: true,
       },
     ]),
   });
@@ -292,6 +300,33 @@ function registerMicroBitDisplayFunctions(api: MindcraftModuleApi): void {
       exec: (_ctx: ExecutionContext, args: ReadonlyList<Value>) => {
         getDisplayReceiver(args)?.clear();
         return VOID_VALUE;
+      },
+    },
+    callDef: emptyCallDef,
+  });
+
+  api.registerFunction({
+    id: MicroBitV2HostFuncId.DisplayDrawImage,
+    name: "MicroBitDisplay.drawImage",
+    isAsync: true,
+    fn: {
+      exec: (ctx: ExecutionContext, args: ReadonlyList<Value>, handle: AsyncHandle) => {
+        const display = getDisplayReceiver(args);
+        if (!display) {
+          handle.resolve(VOID_VALUE);
+          return;
+        }
+        const imageArg = args.get(1);
+        const clipped = (imageArg !== undefined ? clipImage(imageArg) : undefined) ?? DEFAULT_IMAGE;
+        const durationSeconds = extractNumberValue(args.get(2));
+        // Convert the seconds argument to whole ms at f32 precision, matching the device.
+        const durationMs =
+          durationSeconds === undefined
+            ? DEFAULT_DURATION_MS
+            : toNonNegativeInteger(Math.fround(durationSeconds * 1000));
+        display.drawImage(clipped.frame, clipped.width, clipped.height, durationMs, ctx.time, () =>
+          handle.resolve(VOID_VALUE)
+        );
       },
     },
     callDef: emptyCallDef,

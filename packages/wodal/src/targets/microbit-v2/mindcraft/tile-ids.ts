@@ -44,6 +44,7 @@ export enum MicroBitV2HostFuncId {
   AccelerometerGetGesture = 1046,
   SensorGesture = 1047,
   ActuatorDrawImage = 1048,
+  DisplayDrawImage = 1049,
 }
 
 /**

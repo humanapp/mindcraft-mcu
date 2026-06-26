@@ -50,7 +50,8 @@ TEST_CASE("MicroBitV2HostFuncId values are wire-stable") {
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::AccelerometerGetGesture) == 1046);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::SensorGesture) == 1047);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorDrawImage) == 1048);
-  CHECK(kMicroBitV2HostFuncIdCount == 25);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::DisplayDrawImage) == 1049);
+  CHECK(kMicroBitV2HostFuncIdCount == 26);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::DisplaySetPixelValue) == TARGET_FUNC_ID_BASE);
 }
 

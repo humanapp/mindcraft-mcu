@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "core/platform/span.h"
+#include "core/runtime/execution-context.h"
 #include "core/runtime/handle-table.h"
 #include "core/runtime/result.h"
 #include "core/runtime/value.h"
@@ -23,15 +24,16 @@ using TargetHostFuncExec = Status (*)(void* hostData, Span<const Value> args, Va
 
 /**
  * An asynchronous target host-function body: services one `HOST_CALL_ASYNC`
- * whose funcId is at or above {@link TARGET_FUNC_ID_BASE}. `args` is an owned
+ * whose funcId is at or above {@link TARGET_FUNC_ID_BASE}. `ctx` is the brain
+ * execution context (its `time` is the dispatch tick time); `args` is an owned
  * snapshot of the positional arg buffer valid only for the duration of the
  * call; `handle` is the bound settle handle the call owns. The body must arrange
  * for that handle to eventually resolve, reject, or cancel. A non-ok status
  * faults the dispatching call (the opcode frees the handle first). `hostData`
  * is the pointer the function was registered with.
  */
-using TargetHostFuncExecAsync = Status (*)(void* hostData, Span<const Value> args,
-                                           AsyncHandle handle);
+using TargetHostFuncExecAsync = Status (*)(void* hostData, ExecutionContext& ctx,
+                                           Span<const Value> args, AsyncHandle handle);
 
 /**
  * One registered target host function: its stable funcId, the body, and the

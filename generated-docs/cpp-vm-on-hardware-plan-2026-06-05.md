@@ -117,10 +117,12 @@ done. **Separately, the DISPLAY DRAW family is underway** (spec `docs/specs/tile
 plan `generated-docs/display-impl-plan-2026-06-24.md`): the core **`Buffer`** value type
 (B1-B3 complete, both VMs), display **D1** (the `draw image` runtime + display lease + scroll
 silent-drop), and display **D2** (built-in images: library + surface-1 tiles + default-smiley swap)
-all landed 2026-06-24 (D1 host-gated, hardware flash pending; D2 accepted). Remaining: D3 (surface-2
-API + `image()` literal + transparency + the moved-in named icons via a `.ts` stdlib-injection
-facility in `external/mindcraft-lang`), D6 (`draw image` multi-image sequence), D4/D5 (the image
-editors). Next: pick the next Phase 7 peripheral, revive A4, or continue display D3/D6.** Two further phases queued: 8 (virtual radio
+all landed 2026-06-24, and display **D3a** (surface-2 `drawImage` API + a real `Buffer` field type +
+the first async surface-2 host-function) landed 2026-06-25 (D1/D3a host-gated, hardware flash
+pending; D2/D3a accepted). D3 is split D3a/D3b/D3c. Remaining: **D3b** (the `.ts` stdlib-injection
+facility + `image()` literal + named icons, in `external/mindcraft-lang`), **D3c** (transparency
+overlay mode), **D6** (`draw image` multi-image sequence), D4/D5 (the image editors). Next: pick the
+next Phase 7 peripheral, revive A4, or continue display D3b/D3c/D6.** Two further phases queued: 8 (virtual radio
 sim-to-sim) and 9 (Cutebot via TS user-tiles).** **PHASE
 6 IS COMPLETE
 (6a-6j, 2026-06-17): the C++ VM is a fully conforming VM - every contract opcode
@@ -2826,6 +2828,29 @@ Condensed dated ledger of accepted phases (newest first). Full per-phase as-buil
 detail lives in the session memory and git history; the accepted phase sections above
 carry the contracts each produced.
 
+- **2026-06-25 - Display D3a complete (surface-2 `drawImage` API + a real `Buffer` field type;
+  host-gated).** Two new foundations beyond reusing D1's actuator. (1) **A registerable `Buffer`
+  type** in `external/mindcraft-lang`'s type system (`CoreTypeIds.Buffer` /
+  `CoreTypeNames.Buffer="buffer"` / `CoreTypeAtomId.Buffer=12`; new `ITypeRegistry.addBufferType` +
+  a `BufferCodec`, mandatory because `addStructType` validates field typeIds; ambient maps
+  `NativeType.Buffer -> "Buffer"`), resolving D1's `Image.pixels` `String` placeholder to a real
+  `Buffer` field (ambient now `pixels: Buffer`). **Verified a struct field's declared typeId is NOT
+  on the wire** (TYPS serializes name+fieldIndex only), so the change is ambient/typecheck-only and
+  every existing golden stayed byte-stable. (2) **`ctx.microbit.display.drawImage(image, duration?)`
+  - the first async surface-2 (`ctx.microbit.*`) host-function** (op 41 `HOST_CALL_ASYNC`; host-fn
+  id 1049; duration seconds, default 1 s, `0` = fire-and-forget; reuses D1's lease/clip). Required
+  three cross-VM changes to make the op-41 surface-2 async path work on both VMs: cpp
+  `TargetHostFuncExecAsync` gained `ExecutionContext&` (+ null-context guard); **cpp STRUCT_NEW on a
+  host-registered atom struct** (first runtime construction of a registered value struct -
+  host-provided slot-count lookup, `Image` atom -> 3 slots, mirroring the native-struct-binding
+  pattern); and a **cpp async-child dispatch-time freeze** fixing a latent wodal/cpp parity gap (the
+  shared `ExecutionContext` read the run-think time vs wodal's spawn-time snapshot, diverging the
+  lease by one tick; now `ExecutionState.dispatchTime` is stamped for the child's slices). Goldens
+  `user-tile-draw-timed` + `user-tile-draw-forget` byte-match both VMs (op-41 path, `Image` built
+  inline). The opcode-coverage test no longer special-cases HOST_CALL_ASYNC (now dispatched by a
+  golden). Gates: external core 923 / ts-compiler 992; wodal 225; cpp check.sh x3 = 306. Plan:
+  `generated-docs/display-impl-plan-2026-06-24.md`. Hardware flash pending (device `drawImage` path
+  validate-later, as with D1's `immediately`-preempt).
 - **2026-06-24 - Display D2 complete (built-in images: library + surface-1 tiles + default-smiley
   swap).** A 7-icon append-only starter library (`heart`, `happy`, `sad`, 4 cardinal `arrow`s; lit
   pixel 255) in `packages/wodal`'s microbit-v2 module as predefined `Image` struct+`Buffer`

@@ -4,26 +4,30 @@
 #include <cstdint>
 
 #include "core/runtime/host-function.h"
+#include "targets/microbit-v2/abi/host-actions/actuators/display-draw.h"
 #include "targets/microbit-v2/abi/host-func-id.h"
 #include "targets/microbit-v2/abi/host-functions/accelerometer-read.h"
 #include "targets/microbit-v2/abi/host-functions/button-is-pressed.h"
+#include "targets/microbit-v2/abi/host-functions/display-draw-image.h"
 #include "targets/microbit-v2/abi/host-functions/display-set-pixel-value.h"
 
 namespace mindcraft
 {
 
 /** Number of microbit-v2 target host-function bindings the slice registers. */
-inline constexpr uint32_t kMicroBitV2HostFuncBindingCount = 11;
+inline constexpr uint32_t kMicroBitV2HostFuncBindingCount = 12;
 
 /**
  * Builds the microbit-v2 target host-function binding table over `ports`, one
  * entry per body. `ButtonIsPressed` and `TouchButtonIsPressed` share one body
  * (the receiver discriminator selects the input); the accelerometer reads each
- * bind a distinct body over the single accelerometer port. `ports` must outlive
- * every dispatch through the table.
+ * bind a distinct body over the single accelerometer port. The async
+ * `DisplayDrawImage` body uses `drawEnv` (its display port, heap, and program);
+ * pass null when the table will never dispatch it. `ports` and any supplied env
+ * must outlive every dispatch through the table.
  */
 inline std::array<TargetHostFuncBinding, kMicroBitV2HostFuncBindingCount>
-makeMicroBitV2HostFuncBindings(DevicePorts &ports)
+makeMicroBitV2HostFuncBindings(DevicePorts &ports, MicroBitV2DrawImageEnv *drawEnv = nullptr)
 {
     return {{
         {static_cast<uint32_t>(MicroBitV2HostFuncId::ButtonIsPressed), &execButtonIsPressed,
@@ -48,6 +52,8 @@ makeMicroBitV2HostFuncBindings(DevicePorts &ports)
          &execAccelerometerGetRoll, &ports},
         {static_cast<uint32_t>(MicroBitV2HostFuncId::AccelerometerGetGesture),
          &execAccelerometerGetGesture, &ports},
+        {static_cast<uint32_t>(MicroBitV2HostFuncId::DisplayDrawImage), nullptr, drawEnv,
+         &execDrawImageHostFn},
     }};
 }
 

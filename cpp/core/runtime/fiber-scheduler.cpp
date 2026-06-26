@@ -137,6 +137,9 @@ uint32_t FiberScheduler::spawnAsyncActionChild(uint32_t entryFuncId, uint32_t ac
   entry.hasActionBinding = true;
   entry.actionBinding = ActionFrameBinding{actionId, callSiteId, true};
   record->exec.asyncResultHandleId = handleId;
+  // Capture the spawn-time tick time on the child; the scheduler stamps it on
+  // the shared context for each of the child's slices.
+  record->exec.dispatchTime = surface_.context != nullptr ? surface_.context->time : 0;
   enqueue(record);
   return handleId;
 }
@@ -268,7 +271,19 @@ uint32_t FiberScheduler::tick() {
     }
 
     record->exec.budget = caps_.defaultBudget;
+    // An async-action child (one holding a result handle) observes its frozen
+    // dispatch time; stamp it on the shared context for the slice and restore the
+    // live tick time afterward.
+    const bool stampDispatchTime =
+        record->exec.asyncResultHandleId != kNoHandleId && surface_.context != nullptr;
+    const mc_number_t liveTime = stampDispatchTime ? surface_.context->time : 0;
+    if (stampDispatchTime) {
+      surface_.context->time = record->exec.dispatchTime;
+    }
     const RunResult result = runExecution(record->exec, program_, surface_);
+    if (stampDispatchTime) {
+      surface_.context->time = liveTime;
+    }
     if (record->state == FiberState::Cancelled) {
       // A host body cancelled this fiber mid-slice (a page change or restart);
       // the slice stopped early. Leave the Cancelled state in place.

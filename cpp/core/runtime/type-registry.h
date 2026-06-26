@@ -35,6 +35,19 @@ struct NativeStructTypeBinding {
 };
 
 /**
+ * Field storage slot count of a host-registered (atom) struct type, keyed by its
+ * stable type-atom id. `STRUCT_NEW` reads it to size a managed struct allocation
+ * of that type.
+ */
+struct RegisteredStructSlotCount {
+  /** Stable type-atom id of the registered struct type. */
+  uint32_t atomId;
+
+  /** Field storage slot count (its highest field id + 1). */
+  uint32_t slotCount;
+};
+
+/**
  * Resolves type identities against the decoded program image: program-local
  * struct field names and slot counts, the instantiated container types the core
  * builtins produce, and the optional native field getter/setter of a struct
@@ -49,6 +62,29 @@ public:
   explicit TypeRegistry(const ProgramImage& program,
                         Span<const NativeStructTypeBinding> nativeStructs = {})
       : program_(&program), nativeStructs_(nativeStructs) {}
+
+  /**
+   * Installs the slot counts of host-registered (atom) struct types, read by
+   * {@link registeredStructSlotCount}. `bindings` must outlive the registry.
+   */
+  void setRegisteredStructSlotCounts(Span<const RegisteredStructSlotCount> bindings) {
+    registeredStructs_ = bindings;
+  }
+
+  /**
+   * Resolves the field storage slot count of the registered (atom) struct type
+   * `atomId`. Writes it to `slotCount` and returns true on a match; returns false
+   * when no registered struct carries that atom id.
+   */
+  bool registeredStructSlotCount(uint32_t atomId, uint32_t& slotCount) const {
+    for (size_t i = 0; i < registeredStructs_.size(); i++) {
+      if (registeredStructs_[i].atomId == atomId) {
+        slotCount = registeredStructs_[i].slotCount;
+        return true;
+      }
+    }
+    return false;
+  }
 
   /** The decoded program image this registry resolves against. */
   const ProgramImage& program() const { return *program_; }
@@ -158,6 +194,7 @@ private:
 
   const ProgramImage* program_;
   Span<const NativeStructTypeBinding> nativeStructs_;
+  Span<const RegisteredStructSlotCount> registeredStructs_;
 };
 
 } // namespace mindcraft

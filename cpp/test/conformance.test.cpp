@@ -255,13 +255,6 @@ TEST_CASE("the golden program set exercises every contract opcode") {
     if (isReservedOp(row.op)) {
       continue;
     }
-    // HOST_CALL_ASYNC has no microbit-v2 async host function for the compiler to
-    // target, so no golden program can dispatch it; it is exercised by the
-    // async-handles unit tests instead.
-    if (row.op == Op::HOST_CALL_ASYNC) {
-      CHECK_FALSE(seen[static_cast<uint8_t>(row.op)]);
-      continue;
-    }
     CAPTURE(static_cast<int>(row.op));
     CHECK(seen[static_cast<uint8_t>(row.op)]);
   }

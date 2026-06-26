@@ -92,4 +92,29 @@ makeMicroBitV2NativeStructBindings(const TypeRegistry &registry)
     }};
 }
 
+/**
+ * Field storage slot count of the `Image` value struct: its `width`, `height`,
+ * and `pixels` fields (ids 0, 1, 2), so highest field id + 1. Mirrors ImageField
+ * in packages/wodal/src/targets/microbit-v2/mindcraft/tile-ids.ts.
+ */
+inline constexpr uint32_t kMicroBitV2ImageSlotCount = 3;
+
+/** Number of microbit-v2 registered (atom) value-struct slot-count entries. */
+inline constexpr uint32_t kMicroBitV2RegisteredStructCount = 1;
+
+/**
+ * Builds the microbit-v2 registered (atom) value-struct slot-count table: the
+ * `Image` struct, constructed at runtime via `STRUCT_NEW`, whose atom TYPS entry
+ * carries no field shape. Installed on a {@link TypeRegistry} so `STRUCT_NEW` can
+ * size the allocation. The returned array must outlive any registry it is
+ * installed into.
+ */
+inline std::array<RegisteredStructSlotCount, kMicroBitV2RegisteredStructCount>
+makeMicroBitV2RegisteredStructSlotCounts()
+{
+    return {{
+        {static_cast<uint32_t>(MicroBitV2TypeAtomId::Image), kMicroBitV2ImageSlotCount},
+    }};
+}
+
 } // namespace mindcraft

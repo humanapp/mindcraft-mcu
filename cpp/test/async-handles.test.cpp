@@ -99,7 +99,8 @@ struct AsyncSettleScheduler {
   }
 };
 
-Status execAsyncSettle(void* hostData, Span<const Value> args, AsyncHandle handle) {
+Status execAsyncSettle(void* hostData, ExecutionContext&, Span<const Value> args,
+                       AsyncHandle handle) {
   AsyncSettleScheduler& s = *static_cast<AsyncSettleScheduler*>(hostData);
   const uint32_t targetTick =
       !args.empty() && args[0].isNumber() ? static_cast<uint32_t>(args[0].asNumber()) : 0;
@@ -114,14 +115,15 @@ Status execAsyncSettle(void* hostData, Span<const Value> args, AsyncHandle handl
 // The host-action form of the async settle capability, dispatched by
 // HOST_ACTION_CALL_ASYNC; it shares the settle scheduler with the host-function
 // form.
-Status execAsyncSettleAction(void* hostData, ExecutionContext&, Span<const Value> args,
+Status execAsyncSettleAction(void* hostData, ExecutionContext& ctx, Span<const Value> args,
                              AsyncHandle handle) {
-  return execAsyncSettle(hostData, args, handle);
+  return execAsyncSettle(hostData, ctx, args, handle);
 }
 
 // An async function that resolves its handle synchronously in its own body, so a
 // following AWAIT sees a settled handle and resumes inline in the same slice.
-Status execAsyncResolveNow(void* hostData, Span<const Value> args, AsyncHandle handle) {
+Status execAsyncResolveNow(void* hostData, ExecutionContext&, Span<const Value> args,
+                           AsyncHandle handle) {
   static_cast<void>(hostData);
   const mc_number_t value = !args.empty() && args[0].isNumber() ? args[0].asNumber() : 0;
   handle.resolve(Value::number(value));

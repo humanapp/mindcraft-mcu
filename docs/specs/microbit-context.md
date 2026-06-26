@@ -27,7 +27,9 @@ template.
   discriminator)` rep + `native-struct-bindings.h`); its methods are host-functions over a
   `DevicePort`, bound to `uBit` on device and to the wodal sim model.
 - Stance (same as the tiles): instantaneous reads/writes = **sync** host-functions; temporal
-  effects = **awaited** (op 45).
+  effects = **awaited**. A surface-2 awaited host-function dispatches as op 41 `HOST_CALL_ASYNC`
+  (e.g. `display.drawImage`); the surface-1 tile / brain-action form of the same effect dispatches
+  as op 45 `HOST_ACTION_CALL_ASYNC`. Both return an awaited handle and share one display lease.
 - ABI ids are append-only. Each member is implemented + tested on **both VMs**
   and declared in the ambient `.d.ts`.
 
@@ -37,7 +39,7 @@ From the ambient `.d.ts` + the `*Port` layer:
 
 | `ctx.microbit.*` | Methods                                                              | `*Port`             | Notes |
 | ---------------- | ------------------------------------------------------------------- | ------------------- | ----- |
-| `display`        | `setPixelValue(x,y,brightness)`, `getPixelValue(x,y)`, `clear()`   | `PixelDisplayPort`  | `scroll` is **tile-only** (a temporal actuator); not on this surface yet |
+| `display`        | `setPixelValue(x,y,brightness)`, `getPixelValue(x,y)`, `clear()`, `drawImage(image, duration?)` | `PixelDisplayPort`  | `drawImage` is the awaited (op 41) draw actuator: duration in seconds, default 1 s, explicit `0` = fire-and-forget, same lease as the surface-1 `draw image` tile. `scroll` is **tile-only** (a temporal actuator); not on this surface yet |
 | `buttonA`        | `isPressed()`                                                       | `ButtonInputPort` (index 0) | |
 | `buttonB`        | `isPressed()`                                                       | `ButtonInputPort` (index 1) | |
 | `logo`           | `isPressed()`, `getThreshold()`/`setThreshold()`, `getValue()`/`setValue()` | `ButtonInputPort` (index 2) for `isPressed`; touch config separate | the `[logo]` tile hard-codes capacitance; surface 2 exposes the raw touch config (deliberate not-1:1) |
