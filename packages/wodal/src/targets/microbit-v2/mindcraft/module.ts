@@ -25,6 +25,7 @@ import { Accelerometer } from "../../../core/accelerometer";
 import { Button } from "../../../core/button";
 import { toNonNegativeInteger } from "../../../core/numeric";
 import { TouchButton } from "../../../core/touch-button";
+import { WODAL_SHARED_TYPE_IDS } from "../../../mindcraft/shared-type-ids";
 import { MicroBit } from "../microbit";
 import { MicroBitDisplay } from "../microbit-display";
 import { buttonABSensor, buttonASensor, buttonBSensor, buttonLogoSensor } from "./actions/button-sensor";
@@ -37,7 +38,7 @@ import { BUILT_IN_IMAGES, builtInImageStructValue } from "./built-in-images";
 import { getMicroBitContextDevice } from "./context";
 import { MICROBIT_V2_MODIFIERS } from "./modifiers";
 import { MICROBIT_V2_PARAMETERS } from "./parameters";
-import { ImageField, MicroBitV2HostFuncId, MicroBitV2TypeAtomId } from "./tile-ids";
+import { MicroBitV2HostFuncId, MicroBitV2TypeAtomId } from "./tile-ids";
 
 /** Mindcraft module ID for the WODAL profile. */
 export const WODAL_MICROBIT_V2_MODULE_ID = "mindcraft.microbit-v2";
@@ -58,9 +59,6 @@ export const WODAL_MICROBIT_V2_TYPE_IDS = {
 
   /** Native-backed accelerometer facade for the simulated device. */
   Accelerometer: mkTypeId(NativeType.Struct, "Accelerometer"),
-
-  /** Value struct holding an image: dimensions plus a packed pixel buffer. */
-  Image: mkTypeId(NativeType.Struct, "Image"),
 } as const;
 
 /**
@@ -99,15 +97,6 @@ export function createMicroBitV2Module(): MindcraftModule {
 function registerMicroBitTypes(api: MindcraftModuleApi): void {
   const { types } = api.brainServices.runtime;
 
-  types.addStructType("Image", {
-    atomId: MicroBitV2TypeAtomId.Image,
-    fields: List.from([
-      { name: "width", typeId: CoreTypeIds.Number, fieldIndex: ImageField.Width },
-      { name: "height", typeId: CoreTypeIds.Number, fieldIndex: ImageField.Height },
-      { name: "pixels", typeId: CoreTypeIds.Buffer, fieldIndex: ImageField.Pixels },
-    ]),
-  });
-
   types.addStructType("MicroBitDisplay", {
     atomId: MicroBitV2TypeAtomId.MicroBitDisplay,
     fields: List.empty(),
@@ -138,7 +127,7 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
       {
         name: "drawImage",
         params: List.from([
-          { name: "image", typeId: WODAL_MICROBIT_V2_TYPE_IDS.Image },
+          { name: "image", typeId: WODAL_SHARED_TYPE_IDS.Image },
           { name: "duration", typeId: CoreTypeIds.Number, optional: true },
         ]),
         returnTypeId: CoreTypeIds.Void,
@@ -460,7 +449,7 @@ function registerBuiltInImageTiles(api: MindcraftModuleApi): void {
   for (const def of BUILT_IN_IMAGES) {
     api.registerTile(
       new BrainTileLiteralDef(
-        WODAL_MICROBIT_V2_TYPE_IDS.Image,
+        WODAL_SHARED_TYPE_IDS.Image,
         builtInImageStructValue(def),
         { valueLabel: def.name, persist: false, metadata: { label: def.label } },
         api.brainServices

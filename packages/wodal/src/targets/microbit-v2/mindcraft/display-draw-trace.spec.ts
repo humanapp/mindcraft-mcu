@@ -47,12 +47,12 @@ import {
 import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
 import { parseWodalProgramImageBytes, serializeWodalProgramImageBytes } from "../../../mindcraft/program-image-binary";
+import { WODAL_SHARED_TYPE_IDS, WodalSharedTypeAtomId } from "../../../mindcraft/shared-type-ids";
 import { MicroBit } from "../microbit";
 import { builtInImageHex, builtInImageTileId, getBuiltInImage } from "./built-in-images";
 import { createMicroBitV2Environment } from "./environment";
-import { WODAL_MICROBIT_V2_TYPE_IDS } from "./module";
 import { ObservableTraceWriter } from "./observable-trace";
-import { MicroBitV2HostActions, MicroBitV2TypeAtomId, WodalMicroBitV2ParameterId } from "./tile-ids";
+import { MicroBitV2HostActions, WodalMicroBitV2ParameterId } from "./tile-ids";
 
 const ON_PAGE_ENTERED = CoreHostActions.OnPageEntered.actionId;
 const DRAW_IMAGE = MicroBitV2HostActions.DrawImage.actionId;
@@ -79,7 +79,7 @@ const LEFT_COL_PIXELS_HEX = ["ff", "00", "00", "00", "00"].join("").repeat(5);
 function imageConstant(pixelsHex: string): unknown {
   return {
     t: NativeType.Struct,
-    typeId: WODAL_MICROBIT_V2_TYPE_IDS.Image,
+    typeId: WODAL_SHARED_TYPE_IDS.Image,
     v: [
       { t: NativeType.Number, v: IMAGE_WIDTH },
       { t: NativeType.Number, v: IMAGE_HEIGHT },
@@ -91,8 +91,8 @@ function imageConstant(pixelsHex: string): unknown {
 /** TYPS atom entry resolving the baked `Image` constants to the registered type. */
 const IMAGE_TYPE_ENTRY = {
   tag: "atom",
-  typeId: WODAL_MICROBIT_V2_TYPE_IDS.Image,
-  atomId: MicroBitV2TypeAtomId.Image,
+  typeId: WODAL_SHARED_TYPE_IDS.Image,
+  atomId: WodalSharedTypeAtomId.Image,
 };
 
 function serializeBrainBytes(json: LinkedBrainProgramJson): Uint8Array {

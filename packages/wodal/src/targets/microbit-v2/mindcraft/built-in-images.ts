@@ -9,8 +9,8 @@ import {
   type Value,
 } from "@mindcraft-lang/core/app";
 import { mkBufferValueFromHex } from "@mindcraft-lang/core/runtime";
+import { ImageField } from "../../../mindcraft/shared-type-ids";
 import { MICROBIT_LED_MATRIX_SIZE } from "../constants";
-import { ImageField } from "./tile-ids";
 
 /** TypeId of the `Image` value struct the built-in literals carry. */
 const IMAGE_TYPE_ID = mkTypeId(NativeType.Struct, "Image");

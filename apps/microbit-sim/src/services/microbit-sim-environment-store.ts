@@ -14,6 +14,7 @@ import { BrainDef, coreModule, createMindcraftEnvironment, type MindcraftEnviron
 import { createProfileNumerics } from "@mindcraft-lang/core/runtime";
 import { isCompilerControlledPath } from "@mindcraft-lang/ts-compiler";
 import {
+  createWodalSharedModule,
   getWodalDeviceProfile,
   validateWodalTarget,
   type WodalBuildInput,
@@ -23,6 +24,7 @@ import {
 import { name as appName, version as appVersion } from "../../package.json";
 import { loadBindingToken, saveBindingToken } from "./binding-token-persistence";
 import { microbitAmbientFiles } from "./microbit-ambient-files";
+import { microbitStdlibFiles } from "./microbit-stdlib-files";
 import {
   BRAINS_INDEX_KEY,
   buildMicrobitSimExportDocument,
@@ -216,13 +218,15 @@ export class MicrobitSimEnvironmentStore {
     const host = new AppEnvironmentHost({
       projectManager: new ProjectManager(projectStore, {
         filesystemOptions: {
-          shouldExclude: (path) => isCompilerControlledPath(path, { ambientFiles: microbitAmbientFiles }),
+          shouldExclude: (path) =>
+            isCompilerControlledPath(path, { ambientFiles: microbitAmbientFiles, stdlibFiles: microbitStdlibFiles }),
         },
         lock: createWebLocksProjectLock(appName),
       }),
-      modules: [coreModule(), activeProfile.createMindcraftModule()],
+      modules: [coreModule(), createWodalSharedModule(), activeProfile.createMindcraftModule()],
       numerics: createProfileNumerics(activeProfile.numberPrecision),
       ambientFiles: microbitAmbientFiles,
+      stdlibFiles: microbitStdlibFiles,
       host: { name: appName, version: appVersion },
       bridgeUrl: appSettings.vscodeBridgeUrl,
       loadBindingToken,

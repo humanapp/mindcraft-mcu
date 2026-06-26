@@ -18,10 +18,16 @@ struct ProgramReaderOptions {
   /**
    * Number of type atoms owned by the active target, dense from
    * {@link TARGET_TYPE_ATOM_BASE}. A TYPS atom entry whose atomId falls
-   * outside the core range and this target range fails with
+   * outside the core range, this target range, and the shared range fails with
    * `LoadError::UnknownTypeAtom`.
    */
   uint32_t targetTypeAtomCount;
+  /**
+   * Number of shared type atoms, dense from {@link SHARED_TYPE_ATOM_BASE}.
+   * Defaults to 0 (a reader that expects no shared atoms); the active firmware
+   * supplies the count of shared types its installed shared module registers.
+   */
+  uint32_t sharedTypeAtomCount = 0;
 };
 
 /**

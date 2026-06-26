@@ -25,7 +25,7 @@ inline constexpr uint32_t kMicroBitV2NumericProfileId = 1;
  */
 inline constexpr DeviceProfileCaps kMicroBitV2DeviceProfileCaps{
     1000,  // defaultBudget
-    10000, // hookBudget
+    40000, // hookBudget
     100,   // maxFibers
     256,   // maxStackSize
     256,   // maxLocalsSize

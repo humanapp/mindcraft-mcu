@@ -16,11 +16,11 @@ import {
   type Value,
 } from "@mindcraft-lang/core/app";
 import { bufferToHex, isBufferValue } from "@mindcraft-lang/core/runtime";
+import { ImageField, WODAL_SHARED_TYPE_IDS } from "../../../mindcraft/shared-type-ids";
 import { MicroBit } from "../microbit";
 import { BUILT_IN_IMAGES, builtInImageHex, builtInImageTileId } from "./built-in-images";
 import { createMicroBitV2Environment } from "./environment";
 import { CONTEXT_MICROBIT_FIELD_ID, MicroBitField, WODAL_MICROBIT_V2_TYPE_IDS } from "./module";
-import { ImageField } from "./tile-ids";
 
 test("Context.microbit exposes the native WODAL microbit device", () => {
   const env = createMicroBitV2Environment();
@@ -132,7 +132,7 @@ test("each built-in image registers a literal tile carrying its baked Image stru
     assert.equal(tile.kind, "literal");
     const value = (tile as BrainTileLiteralDef).value as Value | undefined;
     assert.ok(isStructValue(value));
-    assert.equal(value.typeId, WODAL_MICROBIT_V2_TYPE_IDS.Image);
+    assert.equal(value.typeId, WODAL_SHARED_TYPE_IDS.Image);
     const pixels = value.v?.get(ImageField.Pixels);
     assert.ok(isBufferValue(pixels));
     assert.equal(bufferToHex(pixels), builtInImageHex(def));

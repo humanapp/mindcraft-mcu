@@ -5,11 +5,21 @@
 namespace mindcraft {
 
 /**
- * First type-atom id owned by the active target; core type atoms are below
- * this. Mirrors TARGET_TYPE_ATOM_BASE in
+ * First type-atom id owned by a target; core type atoms are below this. Each
+ * target's atoms are dense from here and are disambiguated across targets by
+ * the program's device profile id. Mirrors TARGET_TYPE_ATOM_BASE in
  * external/mindcraft-lang/packages/core/src/runtime/abi-ids.ts.
  */
 inline constexpr uint32_t TARGET_TYPE_ATOM_BASE = 1024;
+
+/**
+ * First type-atom id of the shared tier: nominal types common to every target
+ * (e.g. `Image`), dense from here. Above every target's own atom range, so
+ * shared atoms validate independently of any target. Mirrors
+ * SHARED_TYPE_ATOM_BASE in
+ * external/mindcraft-lang/packages/core/src/runtime/abi-ids.ts.
+ */
+inline constexpr uint32_t SHARED_TYPE_ATOM_BASE = 2048;
 
 /**
  * Stable type-atom ids of the core nominal types: the scalar types, the named

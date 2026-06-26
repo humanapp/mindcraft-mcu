@@ -6,7 +6,12 @@ import { fileURLToPath } from "node:url";
 import { createIdbProjectStore, importProjectDocument, ProjectManager } from "@mindcraft-lang/app-host";
 import { AppEnvironmentHost } from "@mindcraft-lang/bridge-app";
 import { BrainDef, coreModule } from "@mindcraft-lang/core/app";
-import { getWodalDeviceProfile, validateWodalTarget, WodalDeviceProfileId } from "@mindcraft-lang/wodal";
+import {
+  createWodalSharedModule,
+  getWodalDeviceProfile,
+  validateWodalTarget,
+  WodalDeviceProfileId,
+} from "@mindcraft-lang/wodal";
 import { name as appName, version as appVersion } from "../../package.json";
 import {
   BRAINS_INDEX_KEY,
@@ -60,7 +65,7 @@ async function generateFixtureDocument(): Promise<string> {
   const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
   const host = new AppEnvironmentHost({
     projectManager: new ProjectManager(await createIdbProjectStore(`fixture-gen-${storeCounter++}`)),
-    modules: [coreModule(), profile.createMindcraftModule()],
+    modules: [coreModule(), createWodalSharedModule(), profile.createMindcraftModule()],
     ambientFiles: [],
     host: { name: appName, version: appVersion },
     rng: { next: seededRandom() },

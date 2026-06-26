@@ -34,7 +34,12 @@ import {
   type PlatformServices,
   type VmEvents,
 } from "@mindcraft-lang/core/runtime";
-import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@mindcraft-lang/ts-compiler";
+import {
+  type AmbientFile,
+  buildCompiledActionBundle,
+  type StdlibSourceFile,
+  UserTileProject,
+} from "@mindcraft-lang/ts-compiler";
 import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
 import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../../mindcraft/program-image";
@@ -53,6 +58,9 @@ const HOLD_SECONDS = 0.25;
 
 /** Trace hex of the drawn 5x5 image (top row lit, the rest dark), row-major brightness bytes. */
 const TOP_ROW_HEX = `ffffffffff${"00".repeat(20)}`;
+
+/** Trace hex of the stdlib `heart` icon (5x5, row-major brightness bytes). */
+const HEART_HEX = "00ff00ff00ffffffffffffffffffff00ffffff000000ff0000";
 
 /**
  * Source of an async actuator that builds a 5x5 `Image` whose top row is lit,
@@ -84,6 +92,27 @@ export default Actuator({
 `;
 }
 
+/**
+ * Source of an async actuator that imports the lazy `heart` named-icon builder
+ * from the target stdlib, constructs the icon `Image` once at module-init via
+ * the stdlib's `image()` parser (string split / char access / `Buffer.from`),
+ * and fire-and-forget-draws it.
+ */
+function iconActuatorSource(name: string): string {
+  return `import { Actuator, type Context } from "mindcraft";
+import { heart } from "stdlib/image";
+
+const heartIcon = heart();
+
+export default Actuator({
+  name: "${name}",
+  async onExecute(ctx: Context): Promise<void> {
+    await ctx.microbit.display.drawImage(heartIcon, 0);
+  },
+});
+`;
+}
+
 function readText(relativePath: string): string {
   return readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), "utf8");
 }
@@ -96,6 +125,11 @@ function wodalAmbientFiles(): readonly AmbientFile[] {
     },
     { path: "mindcraft.microbit-v2.d.ts", content: readText("../../../../ambient/mindcraft.microbit-v2.d.ts") },
   ];
+}
+
+/** The image stdlib source, mounted so user code can `import` from `"stdlib/image"`. */
+function wodalStdlibFiles(): readonly StdlibSourceFile[] {
+  return [{ path: "stdlib/image.ts", content: readText("../../../../stdlib/targets/microbit-v2/image.ts") }];
 }
 
 function findActuatorTile(tiles: readonly IBrainTileDef[]): IBrainTileDef {
@@ -117,10 +151,14 @@ function hostServicesOf(environment: MindcraftEnvironment): Omit<PlatformService
 function buildImage(
   environment: MindcraftEnvironment,
   actuatorName: string,
-  durationLiteral: string
+  source: string
 ): WodalProgramImage<LinkedBrainProgram> {
-  const project = new UserTileProject({ ambientFiles: wodalAmbientFiles(), services: environment.brainServices });
-  project.setFiles(new Map([[`${actuatorName}.ts`, actuatorSource(actuatorName, durationLiteral)]]));
+  const project = new UserTileProject({
+    ambientFiles: wodalAmbientFiles(),
+    stdlibFiles: wodalStdlibFiles(),
+    services: environment.brainServices,
+  });
+  project.setFiles(new Map([[`${actuatorName}.ts`, source]]));
   const compileResult = project.compileAll();
   assert.equal(
     compileResult.tsErrors.size,
@@ -151,12 +189,12 @@ function buildImage(
 }
 
 /** Writes the JSON `.mcprogram` golden if missing, freezing the brain's generated id. */
-function ensureJsonGolden(jsonPath: string, actuatorName: string, durationLiteral: string): void {
+function ensureJsonGolden(jsonPath: string, actuatorName: string, source: string): void {
   if (existsSync(jsonPath)) {
     return;
   }
   const environment = createMicroBitV2Environment();
-  const image = buildImage(environment, actuatorName, durationLiteral);
+  const image = buildImage(environment, actuatorName, source);
   writeFileSync(
     jsonPath,
     serializeWodalProgramImageJson({ ...image, program: linkedBrainProgramToJson(image.program) })
@@ -247,12 +285,12 @@ function runTrace(bin: Uint8Array, tickCount: number): { trace: string; microbit
  * byte-stable across builds, two fresh runs render identical traces, and the
  * rendered trace matches the committed golden.
  */
-function runDrawFixture(name: string, actuatorName: string, durationLiteral: string, tickCount: number): string {
+function runDrawFixture(name: string, actuatorName: string, source: string, tickCount: number): string {
   const jsonPath = fileURLToPath(new URL(`./__fixtures__/${name}.mcprogram`, import.meta.url));
   const binPath = fileURLToPath(new URL(`./__fixtures__/${name}.mcprogram.bin`, import.meta.url));
   const tracePath = fileURLToPath(new URL(`./__fixtures__/${name}.ticks.trace`, import.meta.url));
 
-  ensureJsonGolden(jsonPath, actuatorName, durationLiteral);
+  ensureJsonGolden(jsonPath, actuatorName, source);
   const generated = wodalProgramBytes(new Uint8Array(readFileSync(jsonPath)));
   if (!existsSync(binPath)) {
     writeFileSync(binPath, generated);
@@ -275,7 +313,12 @@ test("a user-tile timed drawImage holds the display, parks, and resumes", () => 
   // 100ms thinks: the 250ms hold (dispatched at think 1, time 100) completes at
   // 350, is resolved by the think-4 poll, and the actuator resumes on think 5.
   const resumeTick = Math.floor((TICK_ADVANCE_MS + HOLD_SECONDS * 1000) / TICK_ADVANCE_MS) + 2;
-  const trace = runDrawFixture("user-tile-draw-timed", "user-draw-timed", `${HOLD_SECONDS}`, resumeTick);
+  const trace = runDrawFixture(
+    "user-tile-draw-timed",
+    "user-draw-timed",
+    actuatorSource("user-draw-timed", `${HOLD_SECONDS}`),
+    resumeTick
+  );
   const result = runTrace(
     new Uint8Array(
       readFileSync(fileURLToPath(new URL("./__fixtures__/user-tile-draw-timed.mcprogram.bin", import.meta.url)))
@@ -293,7 +336,7 @@ test("a user-tile timed drawImage holds the display, parks, and resumes", () => 
 });
 
 test("a user-tile fire-and-forget drawImage paints and continues in the same think", () => {
-  const trace = runDrawFixture("user-tile-draw-forget", "user-draw-forget", "0", 2);
+  const trace = runDrawFixture("user-tile-draw-forget", "user-draw-forget", actuatorSource("user-draw-forget", "0"), 2);
   const result = runTrace(
     new Uint8Array(
       readFileSync(fileURLToPath(new URL("./__fixtures__/user-tile-draw-forget.mcprogram.bin", import.meta.url)))
@@ -310,9 +353,59 @@ test("a user-tile fire-and-forget drawImage paints and continues in the same thi
   assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
 });
 
+test("a user-tile that imports the heart icon from the stdlib draws its pixels", () => {
+  const trace = runDrawFixture("user-tile-draw-icon", "user-draw-icon", iconActuatorSource("user-draw-icon"), 2);
+  const lines = trace.split("\n");
+  // The heart icon, constructed at module-init by the stdlib parser, pasted once.
+  assert.equal(lines.filter((line) => line === `port display draw 5 5 ${HEART_HEX}`).length, 1);
+  assert.equal(lines.filter((line) => line.endsWith(" async")).length, 0);
+  assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
+});
+
+test("a user-tile can import and call the stdlib image() builder directly", () => {
+  const environment = createMicroBitV2Environment();
+  const project = new UserTileProject({
+    ambientFiles: wodalAmbientFiles(),
+    stdlibFiles: wodalStdlibFiles(),
+    services: environment.brainServices,
+  });
+  const source = `import { Actuator, type Context } from "mindcraft";
+import { image, heart } from "stdlib/image";
+
+const dot = image(\`
+. . . . .
+. . f . .
+. . . . .
+\`);
+
+export default Actuator({
+  name: "user-draw-image-builder",
+  async onExecute(ctx: Context): Promise<void> {
+    await ctx.microbit.display.drawImage(dot, 0);
+    await ctx.microbit.display.drawImage(heart(), 0);
+  },
+});
+`;
+  project.setFiles(new Map([["user-draw-image-builder.ts", source]]));
+  const compileResult = project.compileAll();
+  assert.equal(
+    compileResult.tsErrors.size,
+    0,
+    `Unexpected TypeScript diagnostics: ${JSON.stringify([...compileResult.tsErrors])}`
+  );
+  for (const [path, result] of compileResult.results) {
+    assert.deepEqual(result.diagnostics, [], `Unexpected compiler diagnostics for ${path}`);
+    assert.ok(result.program, `Expected a compiled program for ${path}`);
+  }
+});
+
 test("drawImage's duration argument is optional: omitting it typechecks and compiles", () => {
   const environment = createMicroBitV2Environment();
-  const project = new UserTileProject({ ambientFiles: wodalAmbientFiles(), services: environment.brainServices });
+  const project = new UserTileProject({
+    ambientFiles: wodalAmbientFiles(),
+    stdlibFiles: wodalStdlibFiles(),
+    services: environment.brainServices,
+  });
   const source = `import { Actuator, type Context, type Image } from "mindcraft";
 
 export default Actuator({

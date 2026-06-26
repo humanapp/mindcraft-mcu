@@ -25,6 +25,7 @@
   "files": [
     "dist",
     "ambient",
+    "stdlib",
     "README.md"
   ],
   "publishConfig": {
@@ -51,6 +52,9 @@
     },
     "./ambient/mindcraft.microbit-v2.d.ts": {
       "default": "./ambient/mindcraft.microbit-v2.d.ts"
+    },
+    "./stdlib/targets/microbit-v2/image.ts": {
+      "default": "./stdlib/targets/microbit-v2/image.ts"
     }
   },
   "scripts": {

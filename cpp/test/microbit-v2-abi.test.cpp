@@ -1,5 +1,6 @@
 #include "doctest/doctest.h"
 
+#include "codal/shared-type-atom-id.h"
 #include "core/runtime/context-field.h"
 #include "core/runtime/core-type-atom-id.h"
 #include "targets/microbit-v2/abi/host-actions.h"
@@ -61,9 +62,15 @@ TEST_CASE("MicroBitV2TypeAtomId values are wire-stable") {
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::TouchButton) == 1026);
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::MicroBit) == 1027);
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::Accelerometer) == 1028);
-  CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::Image) == 1029);
-  CHECK(kMicroBitV2TypeAtomIdCount == 6);
+  CHECK(kMicroBitV2TypeAtomIdCount == 5);
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::MicroBitDisplay) == TARGET_TYPE_ATOM_BASE);
+}
+
+TEST_CASE("SharedTypeAtomId values are wire-stable") {
+  CHECK(static_cast<uint32_t>(mindcraft::SharedTypeAtomId::Image) == 2048);
+  CHECK(mindcraft::kSharedTypeAtomIdCount == 1);
+  CHECK(static_cast<uint32_t>(mindcraft::SharedTypeAtomId::Image) ==
+        mindcraft::SHARED_TYPE_ATOM_BASE);
 }
 
 TEST_CASE("microbit-v2 host-action ids are wire-stable") {

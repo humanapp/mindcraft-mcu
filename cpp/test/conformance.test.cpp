@@ -1,5 +1,6 @@
 #include "doctest/doctest.h"
 
+#include "codal/shared-type-atom-id.h"
 #include "core/codec/program-reader.h"
 #include "core/runtime/bytecode.h"
 #include "core/runtime/core-func-id.h"
@@ -25,6 +26,7 @@ using mindcraft::findHostActionById;
 using mindcraft::HostActionBinding;
 using mindcraft::kMicroBitV2TypeAtomIdCount;
 using mindcraft::kOperandSchema;
+using mindcraft::kSharedTypeAtomIdCount;
 using mindcraft::LoadError;
 using mindcraft::Op;
 using mindcraft::OpOperandSchema;
@@ -240,7 +242,7 @@ TEST_CASE("the golden program set exercises every contract opcode") {
     }
     const std::vector<uint8_t> wire = readFileBytes(path);
     RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-    constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+    constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
     const Result<ProgramImage, LoadError> decoded =
         readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
     REQUIRE_MESSAGE(decoded.isOk(), "cannot decode golden ", name);

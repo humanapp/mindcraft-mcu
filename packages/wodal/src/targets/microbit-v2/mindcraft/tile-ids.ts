@@ -59,18 +59,6 @@ export enum MicroBitV2TypeAtomId {
   TouchButton = 1026,
   MicroBit = 1027,
   Accelerometer = 1028,
-  Image = 1029,
-}
-
-/**
- * Numeric field ids and storage slots for the `Image` value struct. Each value
- * is the field's durable id and slot; baked `Image` literals store their fields
- * in this slot order.
- */
-export enum ImageField {
-  Width = 0,
-  Height = 1,
-  Pixels = 2,
 }
 
 /**

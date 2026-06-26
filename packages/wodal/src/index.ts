@@ -65,3 +65,5 @@ export {
   type WodalProjectValidationError,
   type WodalTargetParseResult,
 } from "./mindcraft/project-document";
+export { createWodalSharedModule, WODAL_SHARED_MODULE_ID } from "./mindcraft/shared-module";
+export { ImageField, WODAL_SHARED_TYPE_IDS, WodalSharedTypeAtomId } from "./mindcraft/shared-type-ids";

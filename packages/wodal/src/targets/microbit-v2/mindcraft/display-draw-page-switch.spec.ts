@@ -22,10 +22,10 @@ import {
   type VmEvents,
 } from "@mindcraft-lang/core/runtime";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
+import { WODAL_SHARED_TYPE_IDS, WodalSharedTypeAtomId } from "../../../mindcraft/shared-type-ids";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Environment } from "./environment";
-import { WODAL_MICROBIT_V2_TYPE_IDS } from "./module";
-import { MicroBitV2HostActions, MicroBitV2TypeAtomId } from "./tile-ids";
+import { MicroBitV2HostActions } from "./tile-ids";
 
 const SWITCH_PAGE = CoreHostActions.SwitchPage.actionId;
 const DRAW_IMAGE = MicroBitV2HostActions.DrawImage.actionId;
@@ -89,7 +89,7 @@ function buildPageSwitchBrainJson(): LinkedBrainProgramJson {
           { t: NativeType.Nil },
           {
             t: NativeType.Struct,
-            typeId: WODAL_MICROBIT_V2_TYPE_IDS.Image,
+            typeId: WODAL_SHARED_TYPE_IDS.Image,
             v: [
               { t: NativeType.Number, v: 5 },
               { t: NativeType.Number, v: 5 },
@@ -98,7 +98,7 @@ function buildPageSwitchBrainJson(): LinkedBrainProgramJson {
           },
         ],
       },
-      types: [{ tag: "atom", typeId: WODAL_MICROBIT_V2_TYPE_IDS.Image, atomId: MicroBitV2TypeAtomId.Image }],
+      types: [{ tag: "atom", typeId: WODAL_SHARED_TYPE_IDS.Image, atomId: WodalSharedTypeAtomId.Image }],
       variableNames: [],
       entryPoint: 0,
       actions: [],

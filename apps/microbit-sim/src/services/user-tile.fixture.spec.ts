@@ -10,6 +10,7 @@ import { createProfileNumerics } from "@mindcraft-lang/core/runtime";
 import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@mindcraft-lang/ts-compiler";
 import {
   buildWodalProgramImage,
+  createWodalSharedModule,
   getWodalDeviceProfile,
   validateWodalTarget,
   WodalDeviceProfileId,
@@ -150,7 +151,7 @@ describe("user-tile source round-trips through .mindcraft", () => {
     const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
     const host = new AppEnvironmentHost({
       projectManager: new ProjectManager(await createIdbProjectStore(`user-tile-export-${storeCounter++}`)),
-      modules: [coreModule(), profile.createMindcraftModule()],
+      modules: [coreModule(), createWodalSharedModule(), profile.createMindcraftModule()],
       numerics: createProfileNumerics(profile.numberPrecision),
       ambientFiles: [],
       host: { name: appName, version: appVersion },

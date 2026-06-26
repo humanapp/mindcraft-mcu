@@ -128,6 +128,9 @@ bool isKnownTypeAtom(uint32_t atomId, const ProgramReaderOptions& options) {
   if (atomId < kCoreTypeAtomIdCount) {
     return true;
   }
+  if (atomId >= SHARED_TYPE_ATOM_BASE) {
+    return atomId - SHARED_TYPE_ATOM_BASE < options.sharedTypeAtomCount;
+  }
   return atomId >= TARGET_TYPE_ATOM_BASE &&
          atomId - TARGET_TYPE_ATOM_BASE < options.targetTypeAtomCount;
 }

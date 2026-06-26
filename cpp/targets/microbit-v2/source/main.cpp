@@ -4,6 +4,7 @@
 #include "codal/fault-mode.h"
 #include "codal/host-loop.h"
 #include "codal/on-flash-region.h"
+#include "codal/shared-type-atom-id.h"
 #include "core/codec/program-reader.h"
 #include "core/platform/span.h"
 #include "core/runtime/brain-runtime.h"
@@ -91,7 +92,7 @@ int main()
     }
 
     RegionArena arena(Span<uint8_t>(g_vmRegion, sizeof(g_vmRegion)));
-    constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+    constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
     const Result<ProgramImage, LoadError> decoded =
         readProgramImage(region.value(), arena, options);
     if (!decoded.isOk())
@@ -142,7 +143,7 @@ int main()
     TypeRegistry types(image);
     auto nativeStructs = makeMicroBitV2NativeStructBindings(types);
     types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
-    auto registeredStructs = makeMicroBitV2RegisteredStructSlotCounts();
+    auto registeredStructs = makeSharedRegisteredStructSlotCounts();
     types.setRegisteredStructSlotCounts({registeredStructs.data(), registeredStructs.size()});
     ExecutionContext ctx;
     RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, nullptr, &heap};

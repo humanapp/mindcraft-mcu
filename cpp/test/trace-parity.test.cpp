@@ -3,6 +3,7 @@
 #include "codal/accelerometer-gesture.h"
 #include "codal/device-port.h"
 #include "codal/host-loop.h"
+#include "codal/shared-type-atom-id.h"
 #include "core/codec/program-reader.h"
 #include "core/runtime/brain-runtime.h"
 #include "core/runtime/core-host-functions.h"
@@ -38,6 +39,7 @@ using mindcraft::ExecutionContext;
 using mindcraft::FiberScheduler;
 using mindcraft::HostLoop;
 using mindcraft::kMicroBitV2TypeAtomIdCount;
+using mindcraft::kSharedTypeAtomIdCount;
 using mindcraft::LoadError;
 using mindcraft::ObservableTraceWriter;
 using mindcraft::ProgramImage;
@@ -285,7 +287,7 @@ void runButtonSensorParity(const std::string& name, const ButtonScheduleStep* sc
 
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
   const Result<ProgramImage, LoadError> decoded =
       readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
   REQUIRE(decoded.isOk());
@@ -361,7 +363,7 @@ void runGestureSensorParity(const std::string& name, const GestureScheduleStep* 
 
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
   const Result<ProgramImage, LoadError> decoded =
       readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
   REQUIRE(decoded.isOk());
@@ -414,7 +416,7 @@ TEST_CASE("the button-display fixture byte-matches the golden observable trace")
   // holding the program image and the scheduler's fiber pools.
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
   const Result<ProgramImage, LoadError> decoded =
       readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
   REQUIRE(decoded.isOk());
@@ -588,7 +590,7 @@ TEST_CASE("the exceptions-yield fixture byte-matches the golden observable trace
 
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
   const Result<ProgramImage, LoadError> decoded =
       readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
   REQUIRE(decoded.isOk());
@@ -636,7 +638,7 @@ TEST_CASE("the container-ops fixture byte-matches the golden observable trace") 
 
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
   const Result<ProgramImage, LoadError> decoded =
       readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
   REQUIRE(decoded.isOk());
@@ -686,7 +688,7 @@ TEST_CASE("the buffer-ops fixture byte-matches the golden observable trace") {
 
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
   const Result<ProgramImage, LoadError> decoded =
       readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
   REQUIRE(decoded.isOk());
@@ -738,7 +740,7 @@ TEST_CASE("the dynamic-field-access fixture byte-matches the golden observable t
 
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
   const Result<ProgramImage, LoadError> decoded =
       readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
   REQUIRE(decoded.isOk());
@@ -787,7 +789,7 @@ TEST_CASE("the sync-action-yield fixture byte-matches the golden observable trac
 
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
   const Result<ProgramImage, LoadError> decoded =
       readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
   REQUIRE(decoded.isOk());
@@ -836,7 +838,7 @@ TEST_CASE("the action-page-lifecycle fixture byte-matches the golden observable 
 
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
   const Result<ProgramImage, LoadError> decoded =
       readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
   REQUIRE(decoded.isOk());
@@ -888,7 +890,7 @@ TEST_CASE("the context-variables fixture byte-matches the golden observable trac
 
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
   const Result<ProgramImage, LoadError> decoded =
       readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
   REQUIRE(decoded.isOk());
@@ -938,7 +940,7 @@ TEST_CASE("the rule-helper-variables fixture byte-matches the golden observable 
 
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
   const Result<ProgramImage, LoadError> decoded =
       readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
   REQUIRE(decoded.isOk());
@@ -988,7 +990,7 @@ TEST_CASE("the struct-closure fixture byte-matches the golden observable trace")
 
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
   const Result<ProgramImage, LoadError> decoded =
       readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
   REQUIRE(decoded.isOk());
@@ -1038,7 +1040,7 @@ TEST_CASE("the user-tile button-display fixture byte-matches the golden observab
 
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
   const Result<ProgramImage, LoadError> decoded =
       readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
   REQUIRE(decoded.isOk());
@@ -1106,7 +1108,7 @@ TEST_CASE("the user-tile button-states fixture byte-matches the golden observabl
 
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
   const Result<ProgramImage, LoadError> decoded =
       readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
   REQUIRE(decoded.isOk());
@@ -1203,7 +1205,7 @@ TEST_CASE("the user-tile accelerometer-reads fixture byte-matches the golden obs
 
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
   const Result<ProgramImage, LoadError> decoded =
       readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
   REQUIRE(decoded.isOk());
@@ -1288,7 +1290,7 @@ TEST_CASE("the user-tile pixel-conversion fixture byte-matches the golden observ
 
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
   const Result<ProgramImage, LoadError> decoded =
       readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
   REQUIRE(decoded.isOk());
@@ -1374,7 +1376,7 @@ void checkDrawFixture(const std::string& name, int tickCount, float tickMs) {
 
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
   const Result<ProgramImage, LoadError> decoded =
       readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
   REQUIRE(decoded.isOk());
@@ -1439,7 +1441,7 @@ void checkUserTileDrawFixture(const std::string& name, int tickCount, float tick
 
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
   const Result<ProgramImage, LoadError> decoded =
       readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
   REQUIRE(decoded.isOk());
@@ -1463,7 +1465,7 @@ void checkUserTileDrawFixture(const std::string& name, int tickCount, float tick
   mindcraft::TypeRegistry types(image);
   auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
-  auto registeredStructs = mindcraft::makeMicroBitV2RegisteredStructSlotCounts();
+  auto registeredStructs = mindcraft::makeSharedRegisteredStructSlotCounts();
   types.setRegisteredStructSlotCounts({registeredStructs.data(), registeredStructs.size()});
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
@@ -1506,7 +1508,7 @@ TEST_CASE("the timer-brain fixture byte-matches the golden observable trace") {
 
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
   const Result<ProgramImage, LoadError> decoded =
       readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
   REQUIRE(decoded.isOk());
@@ -1565,7 +1567,7 @@ TEST_CASE("the restart-interrupt fixture byte-matches the golden observable trac
 
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
   const Result<ProgramImage, LoadError> decoded =
       readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
   REQUIRE(decoded.isOk());
@@ -1623,7 +1625,7 @@ TEST_CASE("the core-host-actions fixture byte-matches the golden observable trac
 
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
   const Result<ProgramImage, LoadError> decoded =
       readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
   REQUIRE(decoded.isOk());
@@ -1682,7 +1684,7 @@ TEST_CASE("the display-scroll fixture byte-matches the golden observable trace")
 
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
   const Result<ProgramImage, LoadError> decoded =
       readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
   REQUIRE(decoded.isOk());
@@ -1774,6 +1776,10 @@ TEST_CASE("the user-tile-draw-forget fixture byte-matches the golden observable 
   checkUserTileDrawFixture("user-tile-draw-forget", 2, 100.0f);
 }
 
+TEST_CASE("the user-tile-draw-icon fixture byte-matches the golden observable trace") {
+  checkUserTileDrawFixture("user-tile-draw-icon", 2, 100.0f);
+}
+
 TEST_CASE("the display-scroll-drop fixture byte-matches the golden observable trace") {
   const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/display-scroll-drop";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
@@ -1781,7 +1787,7 @@ TEST_CASE("the display-scroll-drop fixture byte-matches the golden observable tr
 
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
   const Result<ProgramImage, LoadError> decoded =
       readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
   REQUIRE(decoded.isOk());
@@ -1841,7 +1847,7 @@ TEST_CASE("the async-action fixture byte-matches the golden observable trace") {
 
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
   const Result<ProgramImage, LoadError> decoded =
       readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
   REQUIRE(decoded.isOk());
@@ -1901,7 +1907,7 @@ TEST_CASE("the pixel-conversion fixture byte-matches the golden observable trace
 
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
   const Result<ProgramImage, LoadError> decoded =
       readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
   REQUIRE(decoded.isOk());
@@ -1958,7 +1964,7 @@ TEST_CASE("the opcode-coverage fixture byte-matches the golden observable trace"
 
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
   const Result<ProgramImage, LoadError> decoded =
       readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
   REQUIRE(decoded.isOk());
@@ -2012,7 +2018,7 @@ TEST_CASE("the managed-string-scroll fixture byte-matches the golden observable 
 
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount};
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
   const Result<ProgramImage, LoadError> decoded =
       readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
   REQUIRE(decoded.isOk());

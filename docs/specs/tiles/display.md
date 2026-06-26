@@ -22,6 +22,16 @@ are **the target's to define**, not this layer's:
 - **Pixel-value interpretation.** A pixel is an integer. What it *means*, its valid range, and
   how an out-of-range value narrows are the target's. On micro:bit a pixel is a grayscale
   brightness; another target may interpret it as a palette index or a packed color.
+- **Editor presentation (surface 3, off the parity path).** How a stored pixel byte is shown in an
+  image editor, and which values are paintable, are the target's. The editor is one general palette
+  pixel editor driven by a **target-provided descriptor**: a `renderPixel(value 0..255) -> color`
+  total function (micro:bit = a black->red brightness gradient; a palette target = `palette[value]`)
+  and an `editPalette` of selectable `{ value, swatch }` entries (micro:bit = 2 entries `{0, 255}`,
+  presented as click-to-toggle; a 16-color target = its 16 custom colors, painted as the current
+  selection). The render palette and the edit palette are independent: `renderPixel` covers the full
+  storable range (so a brightness authored in a literal still displays), while `editPalette` may be a
+  subset (binary today; a brightness ramp later) with no model change. micro:bit is thus the
+  degenerate (2-swatch) case of the same editor a palette target uses.
 
 The cross-target layer therefore treats pixel values as **opaque integers** and reads the
 display dimensions from the target. The seam exists so a different display - for example a
@@ -223,17 +233,21 @@ f . f . f
   steps, mapped to the type's full 0-255 (`n * 17`, so `f` -> 255). The image editor authors
   arbitrary 0-255 values; both produce the same `Image` struct.
 
-- **Separate the image's transparency *representation* from the draw's transparency *mode*.**
+- **The transparency *representation* and the draw's transparency *mode* land together (deferred).**
   - *Representation:* the `Image` records which pixels are unset/transparent (a mask, or a
     sentinel distinct from brightness 0). Storing this keeps `.` and `0` meaningfully different
     (transparent vs explicit-off), which matters on a grayscale display where 0 is a real
-    brightness.
+    brightness. Because pixels are full 0-255 bytes, a distinct "transparent" needs a mask buffer or
+    a widened representation - a structural change to the `Image` struct.
   - *Mode (a draw-time choice):* `draw image` defaults to **overwrite** (transparent pixels
     written as brightness 0 - a full-frame replace); a **transparent / overlay mode** (a
     surface-1 modifier, a surface-2 flag) **skips** transparent pixels, compositing over existing
     content. This is CODAL `paste`'s `alpha`.
-  - The transparent *mode* can be deferred to a later cut without changing the literal: store the
-    representation from the start; add the mode later to honor it.
+  - **They ship together, not the representation first.** Storing a representation with no consumer
+    until the mode exists buys nothing (and forces an `Image` struct change early), so the first
+    `image()` cut maps `.` to brightness 0 (no transparent/explicit-0 distinction); the
+    representation and the mode arrive in the same later cut. Image literals are recompiled from
+    their source text every build, so adding the distinction later costs no migration.
 
 - **Syntax - settled: `image(` backtick `)`, a function over a multiline backtick string** (the form
   above). It is an ordinary exported function in the target's TS stdlib that parses the art and
@@ -275,6 +289,27 @@ construct deserves, since VS Code does not expose a clickable gutter widget to e
   is tagged by asset **kind** (image now, the planned sound-effect editor next), so one CodeLens
   mechanism plus a per-kind editor registry serves every asset type - adding a kind is additive,
   no new message per type.
+- **How an editable literal is identified, with a target-unaware compiler.** The compiler must not
+  know the name `image`, and the extension must not know about targets. The association runs through
+  a **kind string** across three independent parties:
+  1. The **target stdlib** marks its asset-producing function (e.g. `image`) as an *asset producer
+     of a given kind* (`"image"`) - a generic marker the compiler recognizes on **any** declaration,
+     authored in the target-contributed stdlib source (so it stays target-owned). The marker names a
+     kind, never an editor.
+  2. The **compiler** (generic) resolves each call to its declaration; if the declaration carries
+     the marker, it emits a `compile:assets` entry `{ range-of-the-string-literal-arg, kind,
+     version }`. It only knows "a call to a marked function with a string-literal arg is an editable
+     asset of the marker's kind."
+  3. The **extension** (generic) maps kind -> editor via the per-kind registry; the lens opens that
+     editor seeded from the literal text, and write-back replaces the same range.
+
+  Resolving a call to its declaration requires the stdlib function to be **real compiled source in
+  the program** (which the injected-stdlib facility provides) - a hardcoded compiler builtin could
+  not carry a target-owned marker without the compiler hardcoding target knowledge. The marker
+  *syntax* (a declaration annotation such as a JSDoc `@asset <kind>` tag, vs a branded parameter
+  type) is an open editor-phase decision, co-designed with the sound-effect editor. The stdlib's
+  `image` function is the carrier; keeping it a single exported function over a plain string literal
+  (not a builtin, not interpolated) keeps the mechanism available.
 - **Transport: a sibling `compile:assets` message.** The compiler already pushes a per-file
   result after each debounced compile - `CompileDiagnosticsMessage` (`compile:diagnostics`),
   keyed by `file` + content `version` with ranged entries. Asset locations travel in a **sibling

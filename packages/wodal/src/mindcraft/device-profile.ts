@@ -65,7 +65,7 @@ export const WODAL_DEVICE_PROFILES = Object.freeze({
     numericProfileId: WodalDeviceProfileNumericId[WodalDeviceProfileIds.MICROBIT_V2],
     numberPrecision: "f32",
     defaultBudget: 1000,
-    hookBudget: 10000,
+    hookBudget: 40000,
     maxFibers: 100,
     // Per-fiber overflow guards; mirrored as the C++ kMax* in
     // cpp/core/runtime/execution-state.h. The two sides must stay equal.

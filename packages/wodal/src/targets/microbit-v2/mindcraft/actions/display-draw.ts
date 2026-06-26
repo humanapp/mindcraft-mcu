@@ -14,12 +14,13 @@ import {
 } from "@mindcraft-lang/core/app";
 import { bufferByteAt, bufferLength, isBufferValue } from "@mindcraft-lang/core/runtime";
 import { toNonNegativeInteger } from "../../../../core/numeric";
+import { ImageField } from "../../../../mindcraft/shared-type-ids";
 import { MICROBIT_LED_MATRIX_SIZE } from "../../constants";
 import { builtInImageFrame, DEFAULT_BUILT_IN_IMAGE_NAME, getBuiltInImage } from "../built-in-images";
 import { getMicroBitContextDevice } from "../context";
 import { hasModifier, Modifier } from "../modifiers";
 import { Param } from "../parameters";
-import { ImageField, MicroBitV2HostActions } from "../tile-ids";
+import { MicroBitV2HostActions } from "../tile-ids";
 
 /** Milliseconds a draw holds the display when the call omits the optional duration (1 second). */
 export const DEFAULT_DURATION_MS = 1000;

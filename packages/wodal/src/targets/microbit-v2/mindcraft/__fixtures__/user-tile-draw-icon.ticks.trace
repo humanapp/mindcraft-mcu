@@ -1,0 +1,7 @@
+mctrace 1
+profile 1
+precision f32
+tick 1 time 42c80000 dt 00000000
+action 4 site 0 args 0 result bool 1
+tick 2 time 43480000 dt 42c80000
+port display draw 5 5 00ff00ff00ffffffffffffffffffff00ffffff000000ff0000
