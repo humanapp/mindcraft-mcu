@@ -244,7 +244,10 @@ f . f . f
   - *Mode (a draw-time choice):* `draw image` defaults to **overwrite** (transparent pixels
     written as brightness 0 - a full-frame replace); a **transparent / overlay mode** (a
     surface-1 modifier, a surface-2 flag) **skips** transparent pixels, compositing over existing
-    content. This is CODAL `paste`'s `alpha`.
+    content. This is the same *concept* as CODAL `paste`'s `alpha`, but implemented as a **masked
+    read-modify-write composite** (keep the existing display pixel where the source is masked
+    transparent), because our transparency is a **separate per-pixel mask**, not CODAL's
+    value-0 keying - a pixel can be brightness 0 *and* opaque.
   - **They ship together, not the representation first.** Storing a representation with no consumer
     until the mode exists buys nothing (and forces an `Image` struct change early), so the first
     `image()` cut maps `.` to brightness 0 (no transparent/explicit-0 distinction); the
