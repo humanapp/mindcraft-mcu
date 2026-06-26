@@ -201,8 +201,10 @@ lease are silently dropped (each completes immediately with its paste discarded)
   pattern - a registered struct type plus a custom literal editor (a `CustomLiteralType` whose
   `renderInputFields` is the editor), registered against the core factory API
   (`BrainTileFactoryDef` / `api.defineType` / `registerLiteralFactoryTileDef`).
-- The struct *shape* is target-agnostic, but the *type registration* is **target-side** (a
-  micro:bit-v2 type), because pixel interpretation is target-owned.
+- The struct *shape* is target-agnostic, so the type is registered in a **shared tier** installed by
+  every target (a shared type-atom range above the core and per-target ranges), not on any one
+  target. Pixel *interpretation* stays target-owned (it lives in the display port, not the type).
+  This lets a second display target reuse the same `Image` type rather than redefine it.
 
 ## Image literals and transparency (under consideration)
 
@@ -329,18 +331,22 @@ The concrete fill-in of the target-parameterized pieces for micro:bit-v2:
 - **Pixel interpretation:** grayscale brightness, 0-255 per pixel. A value crossing the display
   port narrows as: coordinates truncate to int16, brightness truncates to uint8 (wrap, no clamp);
   pinned in `docs/specs/contracts/observable-trace.md`.
-- **`Image` type:** the `{ width, height, pixels }` struct registered as a micro:bit-v2 type
-  (`api.defineType`; type-atom id appended at implementation, append-only); pixels are grayscale.
-  Images are commonly 5x5 (the display size) but may be any size (clipped on draw). The
-  `create an image` image factory (surface 1) plus the image editor (surface 3, a
+- **`Image` type:** the `{ width, height, pixels }` struct registered in the **shared type-atom
+  tier** (installed by every target, not micro:bit-specific - the shape is target-agnostic; type-atom
+  `2048`, the base of the shared range). On micro:bit its pixels are interpreted as grayscale (the
+  display port owns that). Images are commonly 5x5 (the display size) but may be any size (clipped on
+  draw). The `create an image` image factory (surface 1) plus the image editor (surface 3, a
   `CustomLiteralType` in the microbit-sim brain editor) author them.
 - **Built-in images:** a small append-only library of built-in image/icon literals defined at the
   micro:bit target level - each a predefined `Image` value. The starter set is `heart`, `happy`,
   `sad`, and the four cardinal `arrow` icons (lit pixel 255); `happy` is the default-image smiley.
-  **Surface 1** exposes them as `Image` literal tiles (built). **Surface 2** surfaces them as named
-  `Image` constants exported from the target-injected TS stdlib (the same stdlib that hosts the
-  `image(...)` builder). They are target-specific - another target defines its own set, since pixel
-  interpretation differs.
+  **Surface 1** exposes them as `Image` literal tiles (built). **Surface 2** surfaces them from the
+  target-injected TS stdlib (the same stdlib that hosts the `image(...)` builder), imported as
+  `import { image, heart } from "stdlib/image"`. The icons are **nullary lazy functions** -
+  `export function heart(): Image` returning `image(\`...\`)` - not eager `const`s, so importing the
+  library costs nothing at module-init and an unused icon builds nothing (each `image(...)` build is
+  ~2,300 VM instructions; an eager 7-icon module would build all of them on import). They are
+  target-specific - another target defines its own set, since pixel interpretation differs.
 - **Device `Image` analog:** CODAL `codal::Image` - greyscale 8-bit, ref-counted, mutable,
   arbitrary dimensions, constructible from a string / buffer, with paste / crop / shift / clone.
   CODAL ships **no** built-in image library, so the built-in set above is ours to define.
@@ -351,7 +357,8 @@ The concrete fill-in of the target-parameterized pieces for micro:bit-v2:
   `display-scroll.ticks.trace`; the C++ parity test loads the same binary and byte-compares the
   trace.
 - **draw image:** tile `draw image` (key `microbit-v2.draw-image`, action id 1031, function id
-  1048 `ActuatorDrawImage`; `Image` type-atom id 1029). An optional **anonymous** `Image` (default a
+  1048 `ActuatorDrawImage`; surface-2 host-fn `drawImage` id 1049; `Image` shared type-atom id 2048).
+  An optional **anonymous** `Image` (default a
   5x5 smiley) + an optional **named** `duration` in seconds (default 1 second); the `immediately`
   modifier (`microbit-v2.immediately`) preempts the lease. On device the paste maps to a full-frame
   buffer write (CODAL `printAsync(Image, delay = 0)` semantics, or a direct buffer write) with no
@@ -376,10 +383,12 @@ The concrete fill-in of the target-parameterized pieces for micro:bit-v2:
 
 ## Open questions
 
-1. ~~**TS-ambient form of the built-in images**~~ **Resolved:** named `Image` constants exported
-   from a target-injected TS stdlib (ordinary source compiled with the user's program). Remaining
-   detail: whether the stdlib's icon art is kept in sync with the surface-1 built-in bytes by hand
-   (deliberate duplication today) or generated from one source.
+1. ~~**TS-ambient form of the built-in images**~~ **Resolved:** nullary lazy functions (e.g.
+   `heart()`) exported from a target-injected TS stdlib (`import { image, heart } from
+   "stdlib/image"`), ordinary source compiled with the user's program (functions, not eager `const`s,
+   to avoid a module-init build cost). Remaining detail: whether the stdlib's icon art is kept in
+   sync with the surface-1 built-in bytes by hand (deliberate duplication today) or generated from
+   one source.
 2. **How far to formalize the target seam now**: the dimensions + interpretation seam is settled,
    but the minimal interface a target exposes (e.g. width/height accessors, a narrow-pixel hook)
    is specified only as much as micro:bit needs until a second display target is scoped.

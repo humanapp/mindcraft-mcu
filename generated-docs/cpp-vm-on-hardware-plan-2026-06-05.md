@@ -118,11 +118,12 @@ plan `generated-docs/display-impl-plan-2026-06-24.md`): the core **`Buffer`** va
 (B1-B3 complete, both VMs), display **D1** (the `draw image` runtime + display lease + scroll
 silent-drop), and display **D2** (built-in images: library + surface-1 tiles + default-smiley swap)
 all landed 2026-06-24, and display **D3a** (surface-2 `drawImage` API + a real `Buffer` field type +
-the first async surface-2 host-function) landed 2026-06-25 (D1/D3a host-gated, hardware flash
-pending; D2/D3a accepted). D3 is split D3a/D3b/D3c. Remaining: **D3b** (the `.ts` stdlib-injection
-facility + `image()` literal + named icons, in `external/mindcraft-lang`), **D3c** (transparency
-overlay mode), **D6** (`draw image` multi-image sequence), D4/D5 (the image editors). Next: pick the
-next Phase 7 peripheral, revive A4, or continue display D3b/D3c/D6.** Two further phases queued: 8 (virtual radio
+the first async surface-2 host-function) and **D3b** (the `.ts` stdlib facility + `image()` + named
+icons, plus the `Image` shared-type-atom-tier refactor) both landed 2026-06-25 - **D1/D3a/D3b
+hardware-validated** (a TS user tile drawing a stdlib icon renders on real hardware); D2 accepted.
+The author-able image slice is complete end-to-end. Remaining display work: **D3c** (transparency
+representation + overlay mode), **D6** (`draw image` multi-image sequence), D4/D5 (the image
+editors). Next: pick the next Phase 7 peripheral, revive A4, or continue display D3c/D6/D4/D5.** Two further phases queued: 8 (virtual radio
 sim-to-sim) and 9 (Cutebot via TS user-tiles).** **PHASE
 6 IS COMPLETE
 (6a-6j, 2026-06-17): the C++ VM is a fully conforming VM - every contract opcode
@@ -2828,6 +2829,32 @@ Condensed dated ledger of accepted phases (newest first). Full per-phase as-buil
 detail lives in the session memory and git history; the accepted phase sections above
 carry the contracts each produced.
 
+- **2026-06-25 - Display D3b complete (the `.ts` stdlib facility + `image()` + named icons;
+  hardware-validated) + the `Image` shared-type-atom-tier refactor.** The first author-able image
+  slice, end-to-end: a TS user tile imports a stdlib icon, draws it, and it renders on a real
+  micro:bit. **The `.ts` stdlib-injection facility** (`external/mindcraft-lang`): the ambient
+  facility, `.d.ts`-only, now also carries compilable `.ts` SOURCE (`StdlibSourceFile`,
+  `CompileOptions.stdlibFiles`) that mounts into the compiler file map non-root, resolves bare
+  specifiers, lowers through the ordinary import path, and syncs read-only into the workspace VFS
+  (and over the bridge to VS Code). **The image stdlib** (`packages/wodal/stdlib/targets/microbit-v2/
+  image.ts`, real forkable user-level TS outside `src/`): `image(art)` parser + 7 named icons,
+  imported `import { image, heart } from "stdlib/image"`. **Icons are nullary LAZY FUNCTIONS** (not
+  eager `const`s - each build is ~2,300 instr and eager `const`s init all of a module's consts at the
+  non-suspendable `<module-init>`), and **`hookBudget` was raised 10000 -> 40000 on both VMs** (so a
+  user can still build the whole library as top-level consts; caps fixture regenerated, cap-parity
+  gate holds). No cpp runtime change (reuses D3a's `STRUCT_NEW`-on-atom + `Buffer.from` + String
+  ops). **`Image` moved off the microbit target into a SHARED type-atom tier** (its shape is
+  target-agnostic and a 16-color MCU target is imminent): a tiered atom space - core `[0,1024)`,
+  per-target profile-gated `[1024,2048)`, **shared `[2048,...)`** (`SHARED_TYPE_ATOM_BASE = 2048`;
+  `Image` atom `1029 -> 2048`) - validated independently by the program reader (core OR target OR
+  shared); a shared module every target installs (TS `createWodalSharedModule`; cpp common-layer
+  `SharedTypeAtomId`); Image-using goldens regenerated (no back-compat, per user; size identical).
+  cpp naming cleanup: the shared symbols are `Shared*` not `Wodal*` (web-codal does not belong on
+  firmware). **Hardware: re-vendoring the firmware hex (a stale partial hex from a `vendor-firmware.mjs`
+  build/vendor race had caused a device `E4`) makes D3a + D3b hardware-validated.** Surfaced for
+  planning: a sync actuator calling the async `drawImage` host fn faults silently (no diagnostic) - a
+  candidate ts-compiler diagnostic. Gates: external ts-compiler 992 / core 923 / bridge-app 9; wodal
+  227; microbit-sim 22; cpp check.sh x3 = 308. Plan: `generated-docs/display-impl-plan-2026-06-24.md`.
 - **2026-06-25 - Display D3a complete (surface-2 `drawImage` API + a real `Buffer` field type;
   host-gated).** Two new foundations beyond reusing D1's actuator. (1) **A registerable `Buffer`
   type** in `external/mindcraft-lang`'s type system (`CoreTypeIds.Buffer` /
