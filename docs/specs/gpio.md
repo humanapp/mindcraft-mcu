@@ -14,8 +14,8 @@ Cutebot's pins do not overlap the matrix, so this is off the Cutebot path.
 marked, not omitted** (board features get a complete API design; the current consumer drives build
 *priority*, not design *scope*). The micro:bit pin capability set is **digital I/O, pull, servo,
 analog/PWM, touch, and pulse measurement**: digital/pull/servo are host-function primitives (below);
-analog/PWM and touch are designed but not currently exposed as primitives; the ultrasonic is a native
-primitive (design pending).
+analog/PWM and touch are designed but not currently exposed as primitives; the ultrasonic is an
+event-driven async sensor driven by a shared background CODAL fiber (contract below).
 
 ## Digital I/O + pull + servo (sync host-functions)
 
@@ -67,27 +67,26 @@ The touch-capable pins (v2: P0/P1/P2) surface through the **existing `TouchButto
 pin arg (today's getters are fixed-discriminator). A raw `isTouched(pin): number` is the simpler
 alternative if the config object is not wanted.
 
-## Ultrasonic / pulse (native; design pending)
+## Ultrasonic / pulse (event-driven async; a background-sensor-driver consumer)
 
-The SR04 ultrasonic needs a 10 us trigger pulse + a microsecond echo-pulse measurement (CODAL
-`getPulseUs`). The round-based VM cannot time microseconds in bytecode, so this is a **native C++
-host-function**. **Design pending (co-design with the native NEC IR-receive primitive):** a general
-`pulseIn(pin, level, timeoutUs)` measurement + a native `waitMicros` for the trigger (general,
-reusable, but exposes a blocking busy-wait), vs. an **atomic** triggered-pulse primitive
-(`sonarPulse(trig, echo, triggerUs, timeoutUs) -> echoUs`) that does the whole SR04 trigger+measure in
-one native call (no inter-call VM jitter, no `waitMicros` primitive). Cutebot's drive motors + lamps
-are I2C; the ultrasonic is the obstacle-distance sensor. The design is grounded in the **official
-driver** (ELECFREAKS pxt-cutebot `ultrasonic()`): `setPull(P8,None)` + `digitalWrite(P8, 0/1/0)` with
-`waitMicros(2)`/`waitMicros(10)` + `pulseIn(P12, High, maxCm*50)`, cm = `floor(d*34/2/1000)`. A
-faithful port needs the digital primitives + `pulseIn` + a native `waitMicros` - and **`waitMicros` is
-a general `control`-timing op, not a `gpio` method** (placement to settle when this is built).
+The SR04 ultrasonic is an **active** sensor on the **background sensor driver**
+(`docs/specs/background-sensor-driver.md`). It cannot be a sync host-function - it needs microsecond
+echo timing the VM cannot do in bytecode, and a synchronous `getPulseUs` busy-wait would stall the
+whole VM - so the driver fiber performs the measurement off the VM (event-driven, yielding) and the VM
+reads a **cached distance**. See that spec for the mechanism, the one-cycle-lag read contract, the
+shared-per-cycle guarantee, and the sim-parity model.
 
-**Relation to the IR-receive primitive.** Both are native C++ Device-API
-primitives that wrap the same CODAL pulse facility (`getPulseUs`) because the VM cannot time
-microseconds in bytecode. But the **timing models differ**, so IR's machinery does not transfer
-wholesale: IR is a long (~70 ms), asynchronous, continuous NEC frame, decoded **in the background
-(interrupt-driven, non-blocking)** into a polled "last code" register; the ultrasonic is a short,
-**on-demand, request-response** measurement, naturally a **blocking** `getPulseUs` bounded by a
-timeout. The shared design question to settle together: does the ultrasonic read **block** the VM
-(stall bounded by a capped timeout - IR's "don't stall the single-entry loop" concern is why the cap
-matters), or also use a background/polled-register approach.
+Ultrasonic-specific design (grounded in the official ELECFREAKS pxt-cutebot `ultrasonic()` driver):
+
+- **Read surface:** a flat host-function keyed by the sensor's pins -
+  `microbit.sonarDistance(trig, echo) -> cm` - identical in shape to `gpio.digitalRead(pin)` /
+  `i2c.writeBuffer(addr, ...)`. The pins are the identity; the first call naming a pin-set registers
+  the sonar with the background driver, and every later call (any callsite) reads its shared cache.
+  No constructed/held instance.
+- **Pins vary by chassis:** the pins are the **argument**, not fixed. A per-chassis library names
+  them (Cutebot wires trigger to **P8**, echo to **P12**); other chassis differ. The measurement:
+  a ~10 us trigger high pulse, echo width via CODAL `eventOn(ON_PULSE)`, distance
+  `cm = floor(echoUs * 34 / 2 / 1000)`.
+- **Range cap:** the echo timeout is capped so a measurement always completes within one driver cycle
+  (the background-driver bound). A `think()` (~16 ms) bounds the round trip, so the usable range is
+  shorter than the SR04's ~4 m max; a timeout (no echo) reads as the max-distance miss value.

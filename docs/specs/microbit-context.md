@@ -60,10 +60,24 @@ the device's CODAL surface:
   microphone sound level, `radio` (send/receive).
 - **edge-connector primitives** (Device-API ONLY - no tile counterpart), each with a **dedicated
   spec**: **I2C (`docs/specs/i2c.md`)**, **GPIO (`docs/specs/gpio.md`)**, the native NEC IR-receive
-  primitive (spec TBD). These are the library plumbing a Cutebot-style
-  peripheral library consumes; they live on this
-  surface even though they have no tile. Cutebot needs all three (I2C @ 0x10 for motors/lamps, GPIO
-  for line sensors + gripper + ultrasonic, IR for the remote).
+  primitive (spec TBD), **NeoPixel/WS2812 (`docs/specs/neopixel.md`, designed; not built)**, and
+  **serial/UART (`docs/specs/serial.md`, designed; built when a serial-MCU robot is a target)**. These
+  are the chassis-agnostic library plumbing a per-chassis robot library consumes; they have no tile.
+  Robot chassis fall into **two classes** (driver surveys), and the primitive set serves both:
+  - **Peripheral-direct** (the micro:bit drives the chassis hardware itself): Cutebot, DFRobot Maqueen /
+    Maqueen Plus. They distribute the **same** capabilities differently - Cutebot is GPIO-heavy (line
+    sensors, gripper, ultrasonic on pins; I2C `0x10` only for motors/lamps), while Maqueen Plus routes
+    nearly everything (motors, servos, RGB, line sensors, odometry, PID) through one I2C co-processor at
+    `0x10`. So **`i2c` read + write is the workhorse**, with GPIO + the background sonar/IR for pin-level
+    sensors, and NeoPixel for chassis using addressable LEDs (rather than firmware RGB over I2C).
+  - **Serial-MCU** (the chassis has its own MCU; the micro:bit is just the UART host, the robot API is a
+    packet protocol): the ELECFREAKS XGO-Rider class. Needs only the **serial** transport; the protocol
+    is a pure-TS library. Note its **read is awaited** (a response is a round-trip wait) - the first
+    awaited Device-API read.
+- **background sensor driver** (`docs/specs/background-sensor-driver.md`): the device-runtime
+  mechanism (a device-owned background CODAL fiber + cached, sync-read values) backing sensors that
+  cannot be measured synchronously - the GPIO **ultrasonic** and the **NEC IR-receive** decoder. Not a
+  `ctx.microbit.*` peripheral itself; it backs the ones that are.
 
 ## Conformance
 
