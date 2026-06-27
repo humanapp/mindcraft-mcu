@@ -68,7 +68,7 @@ export const BUILT_IN_IMAGES: readonly BuiltInImageDef[] = [
     name: "sad",
     label: "sad",
     art: [
-      ".#.#.", //
+      ".....", //
       ".#.#.", //
       ".....", //
       ".###.", //
