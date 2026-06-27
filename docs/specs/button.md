@@ -1,4 +1,9 @@
-# Tile spec: button sensor
+# Spec: buttons
+
+The micro:bit button feature across both surfaces it is exposed through: the **Tiles** surface (the
+four button sensor tiles `[A]`/`[B]`/`[A+B]`/`[logo]`; Identity ... Device and trace below) and the
+**Device API** (the raw `ctx.microbit.buttonA/buttonB/logo` reads; see Device API). The cross-cutting
+`ctx.microbit.*` conventions and the Device-API registry index live in `docs/specs/microbit-context.md`.
 
 Status: implemented (both VMs) - semantics resolved 2026-06-17; wodal oracle + C++ mirror
 landed and gated 2026-06-17 (ids, thresholds, state machine, and trace line format pinned
@@ -184,7 +189,29 @@ from the first pressed tick). Tick granularity caps resolution (the think loop r
   the rest `nil`; a non-firing tick renders the same line ending `result bool 0`. No new trace
   line kind was added.
 
-## Sim UI (apps/microbit-sim) - surface 3
+## Device API (`ctx.microbit.buttonA/buttonB/logo`) - wired both VMs 2026-06-17
+
+The raw pressed level (and the logo's touch config), surfaced to TS user code. **Not 1:1 with the
+tiles:** `isPressed()` is the raw level; the click/hold/double-click derivation lives only in the
+sensor tiles (above), not here. The `isPressed()` reads **share the same per-input poll** the sensor
+tiles consume (one poll, both surfaces): in C++ both surfaces read `ButtonInputPort::isPressed(index)`;
+in wodal both read the same `Button`/`TouchButton` device objects.
+
+| `ctx.microbit.*` | Methods | Port |
+| ---------------- | ------- | ---- |
+| `buttonA` | `isPressed()` | `ButtonInputPort` (index 0) |
+| `buttonB` | `isPressed()` | `ButtonInputPort` (index 1) |
+| `logo` | `isPressed()`, `getThreshold()`/`setThreshold()`, `getValue()`/`setValue()` | `ButtonInputPort` (index 2) for `isPressed`; touch config separate |
+
+- The `[logo]` tile hard-codes capacitance; the Device API exposes the raw touch config (a deliberate
+  not-1:1).
+- `Button.isPressed` (host-fn 1027) and `TouchButton.isPressed` (1028) share one C++ body keyed by
+  the receiver discriminator. (The C++ `microBitFieldGetter` resolves `buttonA`/`buttonB`/`logo`.)
+- **No `buttonAB` on this surface:** the `[A+B]` brain *tile* (the Tiles) exists because button
+  sensors are non-composable, but TS user code reads `buttonA` and `buttonB` independently and `&&`s
+  them, so the composite is not exposed here.
+
+## Simulator (apps/microbit-sim)
 
 The on-screen board's **A / B buttons** and a **logo-touch** affordance are the input UI -
 clicking/holding them injects the pressed state (driving the same wodal
@@ -214,6 +241,28 @@ graceful deprecation (user directive 2026-06-17):
   the `ctx.microbit.buttonA.isPressed()` surface) is a *different* surface - it is the
   underlying poll the new sensor's derivation reads, so it stays; the `user-tile-button-display`
   golden is untouched unless the implementation says otherwise.
+
+## CODAL capability coverage
+
+Per the full-surface-design principle, the whole CODAL button/touch capability set is accounted for;
+each item is shipped / composable / designed-out / deferred (never silently omitted).
+
+- **Shipped:** the four sensor tiles (`[A]`/`[B]`/`[A+B]`/`[logo]`) + 6 derived-event
+  modifiers (pressed/released/click/double-click/long-click/held); Device-API `buttonA`/`buttonB`/
+  `logo` `isPressed()` + the logo touch config (`getThreshold`/`setThreshold`/`getValue`/`setValue`).
+- **DESIGNED OUT - deliberate architectural choice: CODAL's message-bus button EVENT engine**
+  (DOWN/UP/CLICK/LONG_CLICK/HOLD/DOUBLE_CLICK events). We **poll the raw level and derive the events**
+  in the target layer instead (the poll-derived, not bus-driven stance - see Behavior - to avoid the
+  unreliable-hardware-listener hazard and stay trace-parity-checkable). The 6 modifiers replicate
+  CODAL's event vocabulary via our own derivation; CODAL's events are the naming reference, not the
+  mechanism.
+- **Composable / designed out:** `wasPressed()` (latching "pressed since last read" - the `pressed`
+  edge modifier, or composable from the poll); `getPresses()` (press count - count edges); `A+B` on
+  the Device API (`buttonA && buttonB` - already noted in Device API).
+- **DEFERRED / not exposed: TouchButton calibration + touch mode.** CODAL's `touchCalibrate()` and the
+  capacitive-vs-resistive touch mode are not exposed - the `[logo]` hard-codes its
+  capacitance/threshold (no exposed calibration). Add if a consumer needs to tune/recalibrate touch.
+  (Pin touch via `TouchButton` is a separate future under `docs/specs/gpio.md`.)
 
 ## Conformance
 

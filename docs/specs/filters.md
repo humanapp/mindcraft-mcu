@@ -13,7 +13,7 @@ rule**, after a sensor. It consumes the preceding signal and produces a transfor
 WHEN  <sensor>  <filter>  [<filter> ...]   ->  rule fires on the final signal
 ```
 
-Examples (origin: scratch in `accelerometer-sensor.md`):
+Examples (origin: scratch in `accelerometer.md`):
 
 ```
 WHEN gesture tilt-left toggle      // each tilt-left toggles a held on/off bit

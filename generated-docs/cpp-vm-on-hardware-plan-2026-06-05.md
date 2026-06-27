@@ -64,12 +64,12 @@ Surface 1 (tile language): 4 sensor tiles `[A]`/`[B]`/`[A+B]`/`[logo]`, 6 mutual
 modifiers (default `pressed`), poll-derived per-call-site state machine; the old button-A
 sensor was overwritten (`[A]` reused its id 1024/1033). Surface 2 (TS user-code):
 `ctx.microbit.buttonA/buttonB/logo.isPressed()` wired both VMs (no `buttonAB` - composable in
-user code). Specs current: `docs/specs/tiles/button-sensor.md` (status implemented) +
+user code). Specs current: `docs/specs/button.md` (status implemented) +
 `docs/specs/microbit-context.md`. The injectable sensor-input harness (scriptable down/up per
 tick, both VMs) is now established + reusable. Stage-1 CODAL inventory done
 (`generated-docs/codal-capability-inventory-2026-06-17.md`); tile-spec template at
-`docs/specs/tiles/_template.md`; target-binding reorg done (commit `921a5b2`). **Next peripheral = accelerometer+gesture**
-(chosen 2026-06-17): **specs RESOLVED both surfaces** (`docs/specs/tiles/accelerometer-sensor.md`
+`docs/specs/_template.md`; target-binding reorg done (commit `921a5b2`). **Next peripheral = accelerometer+gesture**
+(chosen 2026-06-17): **specs RESOLVED both surfaces** (`docs/specs/accelerometer.md`
 status proposed + the `microbit-context.md` accelerometer entry), implementation-ready. Design:
 poll CODAL `getGesture()` (sync poll), inject the gesture enum for parity (CODAL owns
 x/y/z->gesture, not reimplemented); the `gesture` tile is a level signal, default `shake`,
@@ -113,7 +113,7 @@ globe prototype is archived for a separate planned Mindcraft micro:bit webapp, t
 dropped. A5b BUILT + browser-verified 2026-06-19 (`GestureInjector` in wodal + `GesturePicker`
 dropdown in microbit-sim).** **The accelerometer peripheral is now COMPLETE end-to-end (all
 three surfaces + sim UI) except the deferred A4 impact work** - the second Phase 7 peripheral
-done. **Separately, the DISPLAY DRAW family is underway** (spec `docs/specs/tiles/display.md`,
+done. **Separately, the DISPLAY DRAW family is underway** (spec `docs/specs/display.md`,
 plan `generated-docs/display-impl-plan-2026-06-24.md`): the core **`Buffer`** value type
 (B1-B3 complete, both VMs), display **D1** (the `draw image` runtime + display lease + scroll
 silent-drop), and display **D2** (built-in images: library + surface-1 tiles + default-smiley swap)
@@ -126,7 +126,7 @@ hardware-validated 2026-06-25. **The DISPLAY DRAW family's runtime/parity surfac
 hardware-validated** (D1/D2/D3a/D3b/D6: single + sequenced image draws render on hardware from tiles
 and from imported stdlib icons). **All remaining display work is DEFERRED (2026-06-25, user) to
 prioritize the Cutebot goal:** D3c (transparency - design open) + the editor track D4/D5 (sim-only
-authoring, off the parity path); designs carried in `docs/specs/tiles/display.md`.
+authoring, off the parity path); designs carried in `docs/specs/display.md`.
 **NEXT = THE CUTEBOT CRITICAL PATH.** The ELECFREAKS Cutebot (Phase 9, pure TS user-tiles, no new
 firmware) needs three Phase 7 surface-2 EDGE-CONNECTOR PRIMITIVES: **I2C** (Cutebot motors/servos/
 lamps @ 0x10), **GPIO** (Cutebot ultrasonic + line sensors), and a **native NEC IR-receive** primitive
@@ -2542,7 +2542,7 @@ literal strings are gated; the body's byte-read (`extractStringValue` / C++
 `heap->stringContent`) already handles managed strings, so support is
 implementation-complete - only the test is missing.
 
-New durable artifact: `docs/specs/tiles/display-scroll.md` (first `docs/specs/tiles/`
+New durable artifact: `docs/specs/display-scroll.md` (first `docs/specs/`
 entry; the template for future tile specs).
 
 ### Phase 6j: Conformance + Parity Suite - ACCEPTED 2026-06-17 (host-gated; PHASE 6 COMPLETE)
@@ -2673,7 +2673,7 @@ sync-vs-async) into a default, overridden only with cause:
 peripheral-by-peripheral; for each, the user owns the tile design (Stage 2 for that
 peripheral), then it is implemented on both sides + gated, then the next. Each peripheral is
 effectively its own thin sub-phase. **First peripheral: buttons - COMPLETE both VMs +
-hardware-validated 2026-06-17** (`docs/specs/tiles/button-sensor.md` surface 1 +
+hardware-validated 2026-06-17** (`docs/specs/button.md` surface 1 +
 `docs/specs/microbit-context.md` surface 2, both current). As-built notes worth carrying
 forward: the four tiles' ids (`[A]` reused 1024/1033, `[B]` 1027/1036, `[A+B]` 1028/1037,
 `[logo]` 1029/1038); the modifier default landed as **`pressed`** (changed from `click`
@@ -2688,7 +2688,7 @@ hardware-validated 2026-06-18** (sub-phased; A1 port+harness, A2 surface-2 reads
 `gesture` tile for shake/4 tilt/2 face/freefall - all accepted. A4 (impact + conditional
 g-force) was attempted and DEFERRED (impacts are CODAL events, not pollable - see the Phase Log
 + Deferred Work); A5 (sim detector/UI) remains. See the Phase Log A1/A2/A3/A4 entries and
-`docs/specs/tiles/accelerometer-sensor.md` + `docs/specs/microbit-context.md`.
+`docs/specs/accelerometer.md` + `docs/specs/microbit-context.md`.
 
 **STANDING CAUTION for every CODAL-bound read (learned at A3, 2026-06-18).** Enum/value
 injection parity goldens run against the host stub + wodal and are **blind to device-only CODAL
@@ -3030,7 +3030,7 @@ carry the contracts each produced.
   path). The refined **globe** control (liquid-glass orb, 3D drag, radial gesture menu, board
   art, x/y/z axes) is reserved for a separate planned Mindcraft micro:bit webapp; its standalone
   prototype is archived at `generated-docs/a5b-sim-ui-prototype-2026-06-19/`; the g-force slider
-  is dropped. Spec: `docs/specs/tiles/accelerometer-sensor.md` Sim UI.
+  is dropped. Spec: `docs/specs/accelerometer.md` Sim UI.
 - **2026-06-19 - Phase 7 accelerometer A5a complete** (faithful wodal gesture detector;
   wodal-only, off the parity path). New `packages/wodal/src/core/gesture-detector.ts`:
   `GestureDetector` (`update(sample)->AccelerometerGesture` + `reset()`) + a pure
@@ -3110,7 +3110,7 @@ carry the contracts each produced.
   level fire). **Update 2026-06-19: all 8 core gesture modifiers (shake / 4 tilt / 2 face /
   freefall) verified working on hardware** - so `freefall` is pollable via `getGesture()`, not
   event-only (the event-only limitation is impact-specific). Specs current:
-  `docs/specs/tiles/accelerometer-sensor.md`. Next: A4.
+  `docs/specs/accelerometer.md`. Next: A4.
 - **2026-06-18 - Phase 7 accelerometer A2 complete** (surface-2 TS reads;
   host/firmware-build-gated, hardware read smoke test pending user flash). 8 sync host-function
   reads `ctx.microbit.accelerometer.{getX/Y/Z, getPitchRadians/RollRadians, getPitch/Roll,
@@ -3156,7 +3156,7 @@ carry the contracts each produced.
   orientation radians-only) + `accelerometer-read-vectors.spec.ts` + cpp
   `accelerometer-read-parity.test.cpp`; gesture-enum pinning in `cpp/test/device-port.test.cpp`.
   No `MicroBitField`/`ctx.microbit.accelerometer`/`.d.ts` yet (A2; host-fn id count still 15).
-  Specs current: `docs/specs/tiles/accelerometer-sensor.md` + `docs/specs/microbit-context.md`.
+  Specs current: `docs/specs/accelerometer.md` + `docs/specs/microbit-context.md`.
   Gate: cpp check.sh x3 (274 cases, parity case 87 assertions), wodal typecheck+biome clean +
   162 tests, firmware Docker build exit 0 (no injection hook).
 - **2026-06-17 - Phase 7: buttons complete** (first Phase 7 peripheral; both VMs +
@@ -3169,7 +3169,7 @@ carry the contracts each produced.
   display/buttonA; no `buttonAB` - composable in user code). Established the reusable
   injectable sensor-input harness (scriptable down/up per tick, both VMs) and surfaced the
   native-struct field-order invariant (position == id; append fields last). Specs:
-  `docs/specs/tiles/button-sensor.md` + `docs/specs/microbit-context.md`. Gate: wodal 160,
+  `docs/specs/button.md` + `docs/specs/microbit-context.md`. Gate: wodal 160,
   cpp check.sh x3, microbit-sim 22, comment review pass, on-hardware smoke test pass.
 - **2026-06-17 - Phase 6j accepted** (host-gated; **PHASE 6 COMPLETE**): the C++ VM is now a
   fully conforming VM - every contract opcode implemented, zero `default:`-fault paths.
@@ -3212,7 +3212,7 @@ carry the contracts each produced.
   (no separate harness). LD9 pass also removed dead font/delay constants + a defensive heap
   guard. Gate: wodal 139, C++ 252 cases x3 (scroll golden byte-matches, pixel (0,0) lit),
   core 913; hardware-validated (single + repeating scroll). Open follow-up: a managed-string
-  scroll test (implementation-complete). New artifact: `docs/specs/tiles/display-scroll.md`.
+  scroll test (implementation-complete). New artifact: `docs/specs/display-scroll.md`.
 - **2026-06-16 - Phase 6h accepted** (host-gated + timer-brain hardware regression): the
   async core, a C++ mirror of vm.ts (semantics already core contract). Core `HandleTable`
   (`handle-table.h`, Pool-backed/LD7; `createPending` faults at `maxHandles`;
@@ -3497,7 +3497,7 @@ carry the contracts each produced.
   it. Does NOT block A3 (the gesture tile is a host-action). Do it before any user-tile golden
   needs to display a non-integer or negative read.
 - **Accelerometer `[impact]` modifier + g-force sub-modifiers (deferred from A4, 2026-06-18).**
-  The gesture tile's design (`docs/specs/tiles/accelerometer-sensor.md`) includes `[impact]` and
+  The gesture tile's design (`docs/specs/accelerometer.md`) includes `[impact]` and
   the conditional `[2g]/[3g]/[6g]/[8g]` g-force levels; A4 attempted them, could not make impact
   fire on hardware, and reverted to the core-gesture A3 state. Revival is mostly re-wiring the
   tile (the `AccelerometerGesture` impact codes are kept and already parity-tested), but it must
@@ -3550,7 +3550,7 @@ carry the contracts each produced.
   path**, for a debugging aid the gate never named. Build it when a real cross-VM divergence
   needs localizing.
 - **Filters (WHEN-side signal modifiers) - core tile-language feature, spec'd not
-  scheduled** (`docs/specs/tiles/filters.md`, concept/draft 2026-06-17). A new tile category:
+  scheduled** (`docs/specs/filters.md`, concept/draft 2026-06-17). A new tile category:
   unary signal transforms on a rule's WHEN side (`invert`/`one-shot`/`latch`/`toggle`, eventually
   more), implemented as **regular intrinsics with full language capability** (the normal
   function machinery, not a closed native set). Core + target-agnostic; touches
@@ -3558,7 +3558,7 @@ carry the contracts each produced.
   signal; filters layer on later). Open: the call signature + latch-reset semantics. Revisit
   after the current device-surface peripherals (it benefits from a few sensors landing first).
 - **`pause` - core async actuator, registered 2026-06-17, not yet scheduled**
-  (`docs/specs/tiles/pause.md`, status proposed). A core (target-agnostic) actuator that
+  (`docs/specs/pause.md`, status proposed). A core (target-agnostic) actuator that
   **suspends the calling fiber for a duration**: async (op 45 + AWAIT), one optional anonymous
   Number = seconds (default 1, fractional allowed); resumes at the first think with VM tick
   `time` >= `start + duration*1000` ms. It is the **first async core host action** (all

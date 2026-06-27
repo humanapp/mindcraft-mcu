@@ -42,13 +42,13 @@ Arcade device) slots in as a new target without changing the family model or the
 
 The audio family is delivered on the three standard surfaces:
 
-- **Surface 1 - brain tiles.** The `play sound` actuator (with an optional `interrupt` modifier)
+- **Tiles.** The `play sound` actuator (with an optional `interrupt` modifier)
   plus a **`create a sound`** factory tile that opens the sound-effect editor and produces a
   `Sound` value. The device's built-in named sounds are also selectable on `play sound`.
-- **Surface 2 - TS user-code API.** `ctx.microbit.audio` (registry: `microbit-context.md`) gains
+- **Device API.** `ctx.microbit.audio` (registry: `microbit-context.md`) gains
   a play method with an optional **`interrupt`** flag (e.g. `playSound(sound, interrupt = false)`);
   the `Sound` type is visible to TS user code.
-- **Surface 3 - the sound-effect editor.** A **custom literal factory** bound to the `Sound`
+- **Simulator - the sound-effect editor.** A **custom literal factory** bound to the `Sound`
   type - a simplified, friendlier sfxr: the controls are the `Sound` fields (waveform, base
   frequency, duration, volume, a frequency sweep, a vibrato, and a volume envelope / fade in-out),
   with live preview. It builds the `Sound` literal the `create a sound` tile manufactures.
@@ -72,8 +72,8 @@ the display.
   must not fault a reactive rule). There is no queue or mixing.
 - **An `interrupt` modifier overrides that**: the new sound **stops the current one and takes the
   speaker** - the interrupted sound's awaiting rule **resolves** (it continues, not an error), and
-  the new sound plays for its duration. `interrupt` is available on the actuator (surface 1) and
-  the surface-2 API.
+  the new sound plays for its duration. `interrupt` is available on the actuator (the Tiles) and
+  the the Device API.
 - Determinism: rule execution order within a round is deterministic, so which sound holds the
   speaker - and whether a competitor is dropped or interrupts - is a deterministic function of
   round order + the `interrupt` flag.
@@ -144,13 +144,13 @@ playback (the only polyphony case) is handled by the lease, not by summing voice
   writes only that encoder + the sim renderer - no custom DSP (the target's synth generates the
   sound; see micro:bit-v2).
 - **Instances are literals.** A `Sound` value is created by the `create a sound` factory tile
-  (surface 1), whose editor (surface 3) builds the struct; the literal is baked into the brain
+  (the Tiles), whose editor (the Simulator) builds the struct; the literal is baked into the brain
   program as a constant and passed to `play sound`.
 - The effect parameters' realization (frequency -> tone, the waveform and effect set) is
   **target-interpreted**. The struct *shape* is target-agnostic, but the *type registration* is
   **target-side**, because the synthesis capability is target-owned.
 
-## Sound-effect editor (surface 3)
+## Sound-effect editor (the Simulator)
 
 The custom literal factory bound to `Sound` - a **simplified, friendlier jsfxr**. In microbit-sim
 it is deliberately **basic** (labeled sliders + a few buttons, just to express the functionality;
@@ -204,7 +204,7 @@ The concrete fill-in of the target-parameterized pieces for micro:bit-v2:
 - **Completion:** resolved on the duration formula; CODAL's message-bus completion events are
   ignored.
 - **`Sound` type:** the registered struct authored by the `create a sound` factory tile + the
-  sound-effect editor (surface 3); type-atom id appended at implementation (append-only).
+  sound-effect editor (the Simulator); type-atom id appended at implementation (append-only).
 - **play sound:** action / function ids assigned at implementation (append-only). On device the
   sound expression is sequenced by the synthesizer; in the sim it renders via the Web Audio API
   (an oscillator with the chosen waveform, a gain envelope, and an LFO for vibrato/tremolo).
@@ -218,7 +218,7 @@ The concrete fill-in of the target-parameterized pieces for micro:bit-v2:
   Completion resolves on VM tick time (the duration formula), so the trace is deterministic and
   reproducible across both VMs.
 - The compiled `Sound` value is a brain-program constant and is on the parity path (both VMs derive
-  the same play command from it). The surface-3 editor UI that authors it, and the rendered sound,
+  the same play command from it). The Simulator editor UI that authors it, and the rendered sound,
   are sim-only and not byte-matched.
 - The lease outcome (which `play sound` holds the speaker, which a busy speaker rejects) is part of
   the trace and is deterministic via round order + the per-sound formula.

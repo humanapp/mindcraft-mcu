@@ -1,11 +1,10 @@
-# Spec: micro:bit Context surface (TS user-code device API)
+# Spec: micro:bit Context surface (TS user-code device API) - registry index
 
-Status: living registry. The authoritative definition of `ctx.microbit.*` - the lower-level
-device API exposed to TypeScript user code. This is **surface 2** of the two-surface model
-(surface 1 = the brain tile language, specs in `docs/specs/tiles/`). It is **one
-cross-cutting interface** that grows incrementally: each peripheral added to the tile
-language appends its sub-interface here. It is not a tile spec and does not follow the tile
-template.
+Status: living registry / index. The cross-cutting definition of `ctx.microbit.*` - the lower-level
+device API exposed to TypeScript user code (**Device API** of the model). Each peripheral's **full
+design across every surface it is exposed through** lives in its own **feature spec**
+(`docs/specs/<feature>.md`); this file holds only the cross-cutting conventions and the index of
+which feature spec owns each `ctx.microbit.*` sub-interface.
 
 ## What this is (and isn't)
 
@@ -16,7 +15,7 @@ template.
   *sensor tile*, not here.
 - The TS-author-facing type surface is the ambient
   `packages/wodal/ambient/mindcraft.microbit-v2.d.ts` (the `Context.microbit: MicroBit`
-  interface). **This spec is the design intent; that `.d.ts` is its maintained mirror** -
+  interface). **The feature specs are the design intent; that `.d.ts` is its maintained mirror** -
   keep them in lockstep.
 - **Reads share the underlying poll with the tiles:** one poll per input, consumed by both
   the tile derivation and the host-function. Do not duplicate the read.
@@ -27,128 +26,41 @@ template.
   discriminator)` rep + `native-struct-bindings.h`); its methods are host-functions over a
   `DevicePort`, bound to `uBit` on device and to the wodal sim model.
 - Stance (same as the tiles): instantaneous reads/writes = **sync** host-functions; temporal
-  effects = **awaited**. A surface-2 awaited host-function dispatches as op 41 `HOST_CALL_ASYNC`
-  (e.g. `display.drawImage`); the surface-1 tile / brain-action form of the same effect dispatches
+  effects = **awaited**. A Device-API awaited host-function dispatches as op 41 `HOST_CALL_ASYNC`
+  (e.g. `display.drawImage`); the tile / brain-action form of the same effect dispatches
   as op 45 `HOST_ACTION_CALL_ASYNC`. Both return an awaited handle and share one display lease.
 - ABI ids are append-only. Each member is implemented + tested on **both VMs**
   and declared in the ambient `.d.ts`.
+- **Invariant (native-struct field order):** the compiler keys `STRUCT_GET_FIELD` by a field's
+  *position* in the registered fields list, so the wodal `MicroBit` field order and the C++
+  `MicroBitField` enum values must stay equal (position == id). Append a new `ctx.microbit` field
+  **last**, at the next free id.
 
-## Current surface (2026-06-17)
+## Surface registry (index)
 
-From the ambient `.d.ts` + the `*Port` layer:
+Each `ctx.microbit.*` sub-interface and the feature spec that owns its full design (all surfaces):
 
-| `ctx.microbit.*` | Methods                                                              | `*Port`             | Notes |
-| ---------------- | ------------------------------------------------------------------- | ------------------- | ----- |
-| `display`        | `setPixelValue(x,y,brightness)`, `getPixelValue(x,y)`, `clear()`, `drawImage(image, duration?)` | `PixelDisplayPort`  | `drawImage` is the awaited (op 41) draw actuator: duration in seconds, default 1 s, explicit `0` = fire-and-forget, same lease as the surface-1 `draw image` tile. `scroll` is **tile-only** (a temporal actuator); not on this surface yet |
-| `buttonA`        | `isPressed()`                                                       | `ButtonInputPort` (index 0) | |
-| `buttonB`        | `isPressed()`                                                       | `ButtonInputPort` (index 1) | |
-| `logo`           | `isPressed()`, `getThreshold()`/`setThreshold()`, `getValue()`/`setValue()` | `ButtonInputPort` (index 2) for `isPressed`; touch config separate | the `[logo]` tile hard-codes capacitance; surface 2 exposes the raw touch config (deliberate not-1:1) |
-| `accelerometer`  | `getX/Y/Z()`, `getPitchRadians/RollRadians()`, `getPitch/Roll()`, `getGesture()` | `AccelerometerInputPort` | singleton struct, no discriminator; 8 sync reads; pitch/roll degrees derive-from-radians in the port (full detail in the section below) |
-
-**Wired both VMs (2026-06-17):** `buttonA`/`buttonB`/`logo` `isPressed()`. The C++
-`microBitFieldGetter` previously resolved only `display`/`buttonA`, so `buttonB`/`logo` produced
-nil receivers on device; it now resolves all three. `Button.isPressed` (1027) and
-`TouchButton.isPressed` (1028) share one C++ body keyed by the receiver discriminator. The
-`isPressed()` reads share the same per-input poll the button *sensor tiles* consume: in C++
-both surfaces read `ButtonInputPort::isPressed(index)`; in wodal both read the same `Button`/
-`TouchButton` device objects.
-
-**No `buttonAB` on this surface:** the `[A+B]` brain *tile* (surface 1) exists because button
-sensors are non-composable, but TS user code can read `buttonA` and `buttonB` independently and
-`&&` them, so the composite is not exposed here.
-
-**Invariant (native-struct field order):** the compiler keys `STRUCT_GET_FIELD` by a field's
-*position* in the registered fields list, so the wodal `MicroBit` field order and the C++
-`MicroBitField` enum values must stay equal (position == id). Append a new `ctx.microbit` field
-last, at the next free id.
-
-**Remaining gap:**
-- `display.scroll` is tile-only; expose it here as an awaited `display.scroll()` only if a
-  TS-user-code consumer wants it (no consumer today).
-
-## `accelerometer` (wired both VMs 2026-06-18)
-
-Surface-2 reads for the accelerometer peripheral (surface 1 = the gesture sensor tile,
-`docs/specs/tiles/accelerometer-sensor.md`). Continuous values that are not rule triggers, so
-they live here, not as tiles:
-
-| `ctx.microbit.accelerometer.*` | Returns | Notes |
-| ------------------------------ | ------- | ----- |
-| `getX()` / `getY()` / `getZ()` | number (mg) | raw acceleration per axis |
-| `getPitchRadians()` / `getRollRadians()` | number (radians) | the orientation primary; CODAL's on device, injected directly on the test-only path |
-| `getPitch()` / `getRoll()`     | number (whole degrees) | DERIVED from radians via CODAL's exact f32 formula `(int)(360*rad/(2*PI))`, both VMs (not derived from x/y/z, not independently polled) |
-| `getGesture()`                 | number (gesture code) | the current gesture enum (CODAL `ACCELEROMETER_EVT_*` codes verbatim); the same value the surface-1 `gesture` tile compares against |
-
-- `AccelerometerInputPort` (`getGesture`, `getX/getY/getZ`, `getPitch/Roll` +
-  `getPitchRadians/RollRadians`) on `DevicePorts`, bound to `uBit.accelerometer`. The reads
-  **share the same poll** the gesture sensor tile consumes (one poll, both surfaces).
-- Sync reads (instantaneous), per the stance.
-- **Singleton struct - no discriminator** (unlike the buttons, which key one shared
-  `isPressed` body by receiver): the `accelerometer` field resolves to one struct value and
-  each of the 8 reads binds a distinct host-function body.
-- **Not 1:1 with the tile:** TS user-code gets the raw values + pitch/roll + the current
-  `getGesture()` code; the gesture *tile* (surface 1) adds the modifier-match + level
-  semantics on top of `getGesture()`.
-- **As-built ABI ids (append-only):** `MicroBitField.Accelerometer = 4` (appended LAST per the
-  field-order invariant above), type-atom `1028`, host-function ids `1039-1046` (getX 1039,
-  getY 1040, getZ 1041, getPitchRadians 1042, getRollRadians 1043, getPitch 1044, getRoll 1045,
-  getGesture 1046).
-
-## `i2c` (first edge-connector primitive; `writeBuffer` + `readBuffer` wired both VMs, host-gated - build plan `generated-docs/i2c-primitive-impl-plan-2026-06-26.md`)
-
-The external I2C bus on the edge connector (micro:bit v2 SDA/SCL, pins P19/P20), the plumbing a
-Cutebot-style peripheral library consumes. **Surface-2 only - no tile** (an edge-connector
-primitive). A singleton native-struct getter `ctx.microbit.i2c` (no discriminator, like
-`accelerometer`), bound to CODAL `uBit.i2c` on device and to an injectable simulated bus in wodal.
-
-| `ctx.microbit.i2c.*` | Returns | Notes |
-| -------------------- | ------- | ----- |
-| `writeBuffer(address, data)` | number (status: 0 = ok, nonzero = error) | write `data`'s bytes to the 7-bit `address` in one complete START/STOP transaction (CODAL `write(address, ptr, len, repeated=false)`). `data` is a `Buffer`. **The Cutebot-critical op** (motors/servos/lamps @ `0x10`). |
-| `readBuffer(address, length)` | `Buffer` (`length` bytes; empty `Buffer` on error) | read `length` bytes from the 7-bit `address` (CODAL `read(address, ptr, len, repeated=false)`). Returns a runtime-allocated **managed** `Buffer`. |
-
-- **Address convention: 7-bit**, matching pxt's `pins.i2cWriteBuffer(address, buf)` (the Cutebot
-  library passes the 7-bit device address, e.g. `0x10`). CODAL's `I2C::write(uint16_t address, ...)`
-  takes the 8-bit address (the 7-bit value shifted up one, R/W bit clear), so the device port impl
-  shifts (`address << 1`); the surface and the trace keep the 7-bit address.
-- **`Buffer` I/O:** `writeBuffer` reads the arg `Buffer`'s bytes (`bufferLength`/`bufferByteAt` in TS,
-  `bufferBytes` in cpp); `readBuffer` produces a **managed** `Buffer` (runtime-allocated) - the first
-  surface-2 host-function to return managed bytes (the `Buffer` workstream's managed-buffer path).
-- **New `I2CPort` device-port** (`cpp/codal/device-port.h`): `write(address, bytes, len) -> status`,
-  `read(address, buf, len) -> status`; device impl binds `uBit.i2c`, the host/test impl is an
-  **injectable simulated bus** (a test registers per-address read-response bytes and inspects
-  recorded writes - mirroring the gesture/button injection harness).
-- **Trace:** `port i2c write <address> <hex>` and `port i2c read <address> <len> <hex>` (the bytes
-  transferred), both VMs + `observable-trace.md`; parity is deterministic via injected read responses.
-- **Sync** (instantaneous) host-functions per the stance; both VMs; append-only ids; ambient `.d.ts`
-  mirror. **Sub-phased I1 (`writeBuffer`, Cutebot-critical) -> I2 (`readBuffer`, general).** Register
-  helpers (write/read a device register) are composable in TS user code and intentionally NOT
-  primitives here (Cutebot builds register bytes into the buffer it writes).
-- **As-built ABI ids (I1+I2, append-only):** `MicroBitField.I2C = 5` (appended LAST per the
-  field-order invariant), type-atom `1029`, host-function ids `1050` (`I2C.writeBuffer`) + `1051`
-  (`I2C.readBuffer`). A zero-length write is a valid address-only transaction (an empty `port i2c
-  write` byte list); there is no buffer-length cap (no CODAL limit to defend).
-- **`readBuffer` (I2, 2026-06-26):** returns a runtime-allocated **managed `Buffer`** - the first
-  surface-2 host-fn to do so (cpp `ManagedHeap::allocBuffer`, read filled directly into the buffer;
-  wodal `mkBufferValue`). A NACK / no-device / unrecognized-receiver read returns an **empty
-  `Buffer`** (a heap-allocation failure faults the call, per the core buffer-builtin convention). The
-  device impl shifts the 7-bit address `<<1` to CODAL's 8-bit form (port/sim/trace stay 7-bit). The
-  simulated bus models a **fixed response per address** (set once, persists; `read` returns exactly
-  `length` bytes - truncated if the stored response is longer, zero-padded if shorter, honoring the
-  device "fill exactly `len`" contract); an address with no response is a no-device read.
+| `ctx.microbit.*` | Summary | Feature spec | Status |
+| ---------------- | ------- | ------------ | ------ |
+| `display` | per-pixel `setPixelValue`/`getPixelValue`/`clear` + `drawImage`; the draw family (scroll text, draw image, `Image` type, image editors) | `docs/specs/display.md` | wired; draw family hardware-validated |
+| `buttonA` / `buttonB` / `logo` | `isPressed()` + the logo touch config | `docs/specs/button.md` | wired both VMs |
+| `accelerometer` | `getX/Y/Z`, `getPitch/Roll(+Radians)`, `getGesture()` reads | `docs/specs/accelerometer.md` | wired both VMs 2026-06-18 |
+| `i2c` | `writeBuffer` / `readBuffer` (edge-connector, no tile) | `docs/specs/i2c.md` | done, host-gated |
+| `gpio` | digital/pull/servo (+ designed: analog/PWM, touch, ultrasonic) (edge-connector, no tile) | `docs/specs/gpio.md` | proposed |
 
 ## Roadmap (append as peripherals land)
 
-Each peripheral adds its sub-interface here when its tile is added; source of capability is
+Each peripheral adds a feature spec + a registry row here when it lands; source of capability is
 the CODAL inventory (`generated-docs/codal-capability-inventory-2026-06-17.md`):
 
-- onboard: `accelerometer` (getX/Y/Z, gesture), `thermometer` (getTemperature), `compass`
-  (heading), display light level, microphone sound level, `radio` (send/receive).
-- **edge-connector primitives** (surface-2 ONLY - no tile counterpart): **I2C (`writeBuffer` wired
-  both VMs; `readBuffer` pending - see the `i2c` section above)**, GPIO
-  (digital/analog/PWM/touch/pulse), the native NEC
-  IR-receive primitive. These are the library plumbing a Cutebot-style peripheral library consumes;
-  they live on this surface even though they have no tile. Cutebot needs all three (I2C @ 0x10 for
-  motors/servos/lamps, GPIO for ultrasonic + line sensors, IR for the remote).
+- onboard: `accelerometer` (done), `thermometer` (getTemperature), `compass` (heading), display
+  light level, microphone sound level, `radio` (send/receive).
+- **edge-connector primitives** (Device-API ONLY - no tile counterpart), each with a **dedicated
+  spec**: **I2C (DONE both VMs, host-gated - `docs/specs/i2c.md`)**, **GPIO (PROPOSED -
+  `docs/specs/gpio.md`)**, the native NEC IR-receive primitive (design locked in the parent plan; spec
+  TBD). These are the library plumbing a Cutebot-style peripheral library consumes; they live on this
+  surface even though they have no tile. Cutebot needs all three (I2C @ 0x10 for motors/lamps, GPIO
+  for line sensors + gripper + ultrasonic, IR for the remote).
 
 ## Conformance
 

@@ -1,4 +1,10 @@
-# Spec: display draw functions
+# Spec: display
+
+The micro:bit display feature across the surfaces it is exposed through: the **draw family**
+(scroll text + draw image, tiles + the Device-API `drawImage`), the per-pixel **Device API**
+(`ctx.microbit.display`, see the Device API section), the `Image` type, and the
+Simulator image editors. The cross-cutting `ctx.microbit.*` conventions + registry index live in
+`docs/specs/microbit-context.md`.
 
 A device's display is a single shared pixel grid. This spec is the home for the **family of
 functions that put content on it** - their shared arbitration model, the async-draw pattern they
@@ -6,7 +12,7 @@ follow, and the `Image` type they consume. The family model and `Image` type are
 **target-agnostic**; how a pixel value is interpreted and how big the display is are **defined by
 the target** (see Target parameterization). The first - and currently only - target is
 micro:bit-v2, specified in its own section. The first members are **scroll text** and **draw
-image**. Per-pixel reads/writes are surface 2 (`microbit-context.md`).
+image**. Per-pixel reads/writes are the the Device API (below).
 
 Status: evolving family spec. The settled design is below; unresolved items are collected under
 **Open questions** at the end.
@@ -22,7 +28,7 @@ are **the target's to define**, not this layer's:
 - **Pixel-value interpretation.** A pixel is an integer. What it *means*, its valid range, and
   how an out-of-range value narrows are the target's. On micro:bit a pixel is a grayscale
   brightness; another target may interpret it as a palette index or a packed color.
-- **Editor presentation (surface 3, off the parity path).** How a stored pixel byte is shown in an
+- **Editor presentation (Simulator, off the parity path).** How a stored pixel byte is shown in an
   image editor, and which values are paintable, are the target's. The editor is one general palette
   pixel editor driven by a **target-provided descriptor**: a `renderPixel(value 0..255) -> color`
   total function (micro:bit = a black->red brightness gradient; a palette target = `palette[value]`)
@@ -47,31 +53,48 @@ specified and built here; no other interpretation is implemented until such a ta
   There is no implicit clear.
 - Draw functions come in two stances:
   - **Instantaneous** - a write with no duration (a per-pixel poke, or a full-frame paste with
-    no hold). A sync host-function. `setPixelValue` (surface 2) is the example.
+    no hold). A sync host-function. `setPixelValue` (the Device API) is the example.
   - **Temporal** - a draw that holds the display for a stated duration. An async dispatch +
     `AWAIT`; the dispatching fiber parks until it completes. It reaches the runtime as op 45
-    `HOST_ACTION_CALL_ASYNC` from a surface-1 tile / brain action, or as op 41 `HOST_CALL_ASYNC`
-    from the surface-2 host-function (`ctx.microbit.display.drawImage`); both return an awaited
+    `HOST_ACTION_CALL_ASYNC` from a tile / brain action, or as op 41 `HOST_CALL_ASYNC`
+    from the Device-API host-function (`ctx.microbit.display.drawImage`); both return an awaited
     handle and share the same lease.
 
 ## Surfaces
 
 The display family is delivered on the three standard surfaces:
 
-- **Surface 1 - brain tiles.** The draw actuators (`scroll text`, `draw image`), a
+- **Tiles.** The draw actuators (`scroll text`, `draw image`), a
   **`create an image`** factory tile that opens the image editor and produces an `Image` value,
   and **built-in image literal tiles** (a target-defined icon set - see the micro:bit section).
-- **Surface 2 - TS user-code API.** `ctx.microbit.display` (registry: `microbit-context.md`)
+- **Device API.** `ctx.microbit.display` (registry: `microbit-context.md`)
   gains `drawImage(image)` alongside the existing per-pixel reads/writes. The `Image` type, the
   `image(...)` literal builder, and the built-in icons (as named `Image` constants) are delivered to
   TS user code through a **target-injected TS stdlib** - ordinary source compiled with the user's
   program, not compiler-folded constants (the compiler stays target-unaware). The same facility can
   later carry a shared, target-agnostic core stdlib.
-- **Surface 3 - image editing.** An image editor for the `Image` value, in both authoring
+- **Simulator (image editing).** An image editor for the `Image` value, in both authoring
   environments: in the brain editor, the `create an image` **image factory** (a custom literal
   editor); in VS Code for Web, a **CodeLens** over image literals that opens a webview image
   editor (see Image editing in VS Code for Web). Both edit the same `Image`; both are editor-only
   - the compiled `Image` value is on the parity path, the editor UI is not.
+
+## Device API (`ctx.microbit.display`)
+
+The `ctx.microbit.display` host-function surface (TS user code) - the lower-level device API to the
+display, tracking the device / `PixelDisplayPort` shape rather than the tile semantics.
+
+| `ctx.microbit.display.*` | Returns | Notes |
+| ------------------------ | ------- | ----- |
+| `setPixelValue(x, y, brightness)` | void | instantaneous per-pixel write (sync; **not gated by the display lease**) |
+| `getPixelValue(x, y)` | number | per-pixel read (sync) |
+| `clear()` | void | clears the display (sync) |
+| `drawImage(image, duration?)` | `Promise<void>` | the awaited (op 41) draw actuator - see Member: draw image (duration in seconds, default 1 s, `0` = fire-and-forget; same lease as the `draw image` tile) |
+
+- **`scroll` is tile-only** today (a temporal actuator, the `scroll text`); expose an
+  awaited `display.scroll()` here only if a TS-user-code consumer wants it (no consumer today).
+- The Device-API host-fn ids + the `Image` / draw-image as-built ids are in the micro:bit-v2 target
+  section.
 
 ## Arbitration: the display lease
 
@@ -90,7 +113,7 @@ is the arbitration mechanism when more than one rule wants the display.
   without blocking or erroring. There is no queue or serialization, and the loser does not
   acquire or extend the lease.
 - **The `immediately` modifier preempts the lease.** A scroll or draw carrying the `immediately`
-  modifier (a surface-1 tile on the actuator) cancels the held lease before running: the preempted
+  modifier (a tile on the actuator) cancels the held lease before running: the preempted
   operation's handle is resolved (its awaiting rule resumes as if it had finished, never faulting)
   and the modified operation takes the display at once. On device the preempt also stops CODAL's
   in-flight scroll animation; CODAL's animation code holds no locks and runs on the cooperative
@@ -109,8 +132,8 @@ lease are silently dropped (each completes immediately with its paste discarded)
 
 ## Async-draw pattern (shared by all temporal members)
 
-- Dispatched as op 45 `HOST_ACTION_CALL_ASYNC` (a surface-1 tile / brain action) or op 41
-  `HOST_CALL_ASYNC` (the surface-2 host-function), each returning a handle the dispatcher `AWAIT`s -
+- Dispatched as op 45 `HOST_ACTION_CALL_ASYNC` (a tile / brain action) or op 41
+  `HOST_CALL_ASYNC` (the Device-API host-function), each returning a handle the dispatcher `AWAIT`s -
   the same machinery as `pause`. (A handle resolved at dispatch does not suspend the fiber, which is
   what makes a zero-duration or dropped draw fire-and-forget.)
 - The visible effect is produced per the member's nature (an animation across the duration, or a
@@ -197,7 +220,7 @@ lease are silently dropped (each completes immediately with its paste discarded)
   oversize image to the display (above). A target's built-in images are typically display-sized,
   but the type permits any width and height.
 - **Instances are literals.** An `Image` value is created by the `create an image` image factory
-  (surface 1), whose image editor (surface 3) builds the struct; the literal is baked into
+  (the Tiles), whose image editor (the Simulator) builds the struct; the literal is baked into
   the brain program as a constant and passed to `draw image`. This mirrors the existing `Vector2`
   pattern - a registered struct type plus a custom literal editor (a `CustomLiteralType` whose
   `renderInputFields` is the editor), registered against the core factory API
@@ -209,8 +232,8 @@ lease are silently dropped (each completes immediately with its paste discarded)
 
 ## Image literals and transparency (under consideration)
 
-A readable text literal for authoring an `Image` in TS user code (surface 2), the inline
-counterpart to the surface-3 image editor, modeled on MakeCode's `img` literal. This is a
+A readable text literal for authoring an `Image` in TS user code (the Device API), the inline
+counterpart to the Simulator image editor, modeled on MakeCode's `img` literal. This is a
 working sketch, not settled.
 
 ```
@@ -248,7 +271,7 @@ see below); a hex digit `0`-`f` is a brightness level. Reflections:
     stealing a brightness level; candidates include a separate per-pixel mask (a parallel buffer or
     bitmask - a structural change to the shared `Image` struct) or some other encoding, each with
     tradeoffs still to weigh.
-  - *Mode.* An overlay/transparent draw mode (a surface-1 modifier + a surface-2 flag) would skip
+  - *Mode.* An overlay/transparent draw mode (a modifier + a Device-API flag) would skip
     transparent pixels. Note CODAL `paste`'s `alpha` keys transparency on source value 0, which does
     not match a separate-mask representation - a tension any mask-based design has to resolve.
   - *Sequencing.* Representation and mode are coupled (the mode consumes the representation), so the
@@ -289,7 +312,7 @@ construct deserves, since VS Code does not expose a clickable gutter widget to e
 - **The literal text is the source of truth** - there is no separate asset file. Saving
   round-trips the literal: the literal's backtick-string range is replaced in the document (a
   `WorkspaceEdit` on the open document, or the extension's bridge full-file write through the
-  `mindcraft://` filesystem). This authors the same `Image` value as the surface-1 image editor.
+  `mindcraft://` filesystem). This authors the same `Image` value as the image editor.
 - **Literal locations come from the compiler, not regex.** The bridge compiler has the AST and
   reports the source ranges of editable asset literals; the extension places the lenses from
   those. This is a **general asset-literal-location facility**, not image-specific: each location
@@ -340,12 +363,12 @@ The concrete fill-in of the target-parameterized pieces for micro:bit-v2:
   tier** (installed by every target, not micro:bit-specific - the shape is target-agnostic; type-atom
   `2048`, the base of the shared range). On micro:bit its pixels are interpreted as grayscale (the
   display port owns that). Images are commonly 5x5 (the display size) but may be any size (clipped on
-  draw). The `create an image` image factory (surface 1) plus the image editor (surface 3, a
+  draw). The `create an image` image factory (the Tiles) plus the image editor (Simulator, a
   `CustomLiteralType` in the microbit-sim brain editor) author them.
 - **Built-in images:** a small append-only library of built-in image/icon literals defined at the
   micro:bit target level - each a predefined `Image` value. The starter set is `heart`, `happy`,
   `sad`, and the four cardinal `arrow` icons (lit pixel 255); `happy` is the default-image smiley.
-  **Surface 1** exposes them as `Image` literal tiles (built). **Surface 2** surfaces them from the
+  The **Tiles** expose them as `Image` literal tiles (built). The **Device API** surfaces them from the
   target-injected TS stdlib (the same stdlib that hosts the `image(...)` builder), imported as
   `import { image, heart } from "stdlib/image"`. The icons are **nullary lazy functions** -
   `export function heart(): Image` returning `image(\`...\`)` - not eager `const`s, so importing the
@@ -362,7 +385,7 @@ The concrete fill-in of the target-parameterized pieces for micro:bit-v2:
   `display-scroll.ticks.trace`; the C++ parity test loads the same binary and byte-compares the
   trace.
 - **draw image:** tile `draw image` (key `microbit-v2.draw-image`, action id 1031, function id
-  1048 `ActuatorDrawImage`; surface-2 host-fn `drawImage` id 1049; `Image` shared type-atom id 2048).
+  1048 `ActuatorDrawImage`; Device-API host-fn `drawImage` id 1049; `Image` shared type-atom id 2048).
   A **`repeated` anonymous** `Image` slot (zero or more, gathered into a `List<Image>`; default a 5x5
   smiley when none) + an optional **named** `duration` in seconds (default 1 second, **per image**);
   the `immediately` modifier (`microbit-v2.immediately`) preempts the lease. On device the paste maps
@@ -373,6 +396,36 @@ The concrete fill-in of the target-parameterized pieces for micro:bit-v2:
   `draw-image-builtins` (single-image, slot now a `List`) and `draw-image-sequence` /
   `draw-image-sequence-dropped` / `draw-image-sequence-preempt` / `draw-image-sequence-compiled`
   (`.mcprogram.bin` + `.ticks.trace`); the C++ parity test loads the same binaries and byte-compares.
+
+## CODAL display capability coverage
+
+Per the full-surface-design principle, the whole CODAL `MicroBitDisplay` capability set is accounted
+for; what is built is a subset, and every gap is marked composable / designed-out / deferred (never
+silently omitted).
+
+- **Shipped:** per-pixel `setPixelValue`/`getPixelValue`/`clear` (the Device API); static image paste =
+  `print(Image)` -> `draw image` (tile + Device-API `drawImage`, incl. the D6 multi-image
+  sequence); `scroll(string)` -> the `scroll text` tile.
+- **Composable / designed out:** `screenShot()` (capture the display as an `Image`) - composable from
+  `getPixelValue`; **display mode** `setDisplayMode`/`getDisplayMode` (greyscale vs binary) - we
+  **always run greyscale** (`drawImage` is 0-255), so the binary mode is designed out (no consumer).
+- **DEFERRED capabilities (genuine, designed-here-noted, not built):**
+  - **Brightness** - `setBrightness`/`getBrightness` (a global master dim on top of per-pixel values).
+    A real capability; would be Device-API `display.setBrightness/getBrightness`. No consumer yet.
+  - **`enable()`/`disable()`** - powers the LED matrix off, **freeing the matrix's shared edge-connector
+    pins (P3/P4/P6/P7/P9/P10) for GPIO use**. A genuine capability with a **cross-feature interaction**:
+    to drive a display-shared pin via `ctx.microbit.gpio`, the display must be disabled. (Cutebot's pins
+    - P1/P2/P8/P12/P13/P14/P15/P16 - do **not** overlap the matrix, so Cutebot is unaffected.) No
+    consumer yet; note for any GPIO use of the shared pins.
+  - **Scroll / animate an `Image`** - CODAL `scroll(Image)` / `animate(Image, stride)` pan a wide image
+    across the display (distinct from D6's discrete-image sequence). A future draw-family member.
+  - **Static `print(string)` / `print(char)`** (non-scrolling text) - we surface scrolling text only;
+    a static string/char show is not built (no glyph font surfaced on this side). Deferred.
+  - **Device-API awaited `scroll()`** - `scroll text` is tile-only today; expose `display.scroll()` on
+    the Device API only when a TS-user-code consumer wants it (no consumer today; also in the Device-API row).
+- **Separate roadmap (not a display-output capability):** **light-level sensing** (the LED matrix
+  doubles as a light sensor) is a *sensor*, roadmapped under `docs/specs/microbit-context.md`
+  ("display light level"), not part of the draw family.
 
 ## Conformance
 
@@ -388,7 +441,7 @@ The concrete fill-in of the target-parameterized pieces for micro:bit-v2:
   discarded) and resolves immediately.
 - The compiled `Image` value is a brain-program constant and is on the parity path (the `draw
   image` actuator reads the struct and writes the display port identically on both VMs). The
-  surface-3 editor UI that authors it is sim-only and not byte-matched.
+  Simulator editor UI that authors it is sim-only and not byte-matched.
 - The device-driver animation-complete event is not on the parity path.
 
 ## Open questions

@@ -1,14 +1,16 @@
-# Tile spec: gesture sensor
+# Spec: accelerometer
 
-(The accelerometer's surface-1 tile. The continuous reads x/y/z/pitch/roll are surface 2,
-`microbit-context.md`.)
+The micro:bit accelerometer feature across both surfaces it is exposed through: the **Tiles** surface
+(the `gesture` sensor tile; Identity ... Device and trace, below) and the **Device API** (the
+continuous `ctx.microbit.accelerometer.*` reads; see Device API). The cross-cutting `ctx.microbit.*`
+conventions and the Device-API registry index live in `docs/specs/microbit-context.md`.
 
 ## Identity
 
-The accelerometer is a single device (no input family like the four buttons), so surface 1
-is **one sensor tile** (`gesture`) with a modifier choosing which gesture fires the rule. The
-continuous readings (x/y/z, pitch/roll) are **surface 2 only** (TS user-code,
-`microbit-context.md`) - they are values, not rule triggers.
+The accelerometer is a single device (no input family like the four buttons), so its **Tiles**
+surface is **one sensor tile** (`gesture`) with a modifier choosing which gesture fires the rule. The
+continuous readings (x/y/z, pitch/roll) are the **Device API** (TS user code; see Device API below) -
+they are values, not rule triggers.
 
 | Field         | Value |
 | ------------- | ----- |
@@ -41,7 +43,7 @@ CODAL's 2G/3G/6G/8G impulse levels.
 
 **Every modifier emits a LEVEL signal: true on every tick the gesture is recognized**, false
 otherwise - uniform across all gestures. Edge / one-shot / toggle behavior is obtained by
-composing a **filter** (`docs/specs/tiles/filters.md`), the same way for every sensor, rather
+composing a **filter** (`docs/specs/filters.md`), the same way for every sensor, rather
 than per-gesture variants here.
 
 ```
@@ -122,14 +124,14 @@ gesture; there is no debounce window.
 
 - Device port: `AccelerometerInputPort` on `DevicePorts` exposing `getGesture()` (the gesture
   code, for this tile) plus `getX()`/`getY()`/`getZ()` (mg) and `getPitch()`/`getRoll()` (for
-  surface 2). Bound to `uBit.accelerometer` on device; a stub on the cpp host build + the wodal
+  the Device API). Bound to `uBit.accelerometer` on device; a stub on the cpp host build + the wodal
   sim (the injection point), like `ButtonInputPort`.
 - **Device activation:** on hardware `getGesture()` calls CODAL's `requestUpdate()` before
   reading. CODAL's gesture getter does not self-update (unlike the value getters), so the
   accelerometer's sampling and gesture detection only start once an update is requested;
   otherwise it reads NONE. The host stub + wodal need no such call (they return injected values).
 - Injectable input (test-only): the gesture enum for this tile, and x/y/z + pitch/roll scalars
-  for the surface-2 reads. The injection path lives only on the cpp host + wodal builds and is
+  for the Device-API reads. The injection path lives only on the cpp host + wodal builds and is
   excluded from the device firmware; on device the port is CODAL-bound with no injection hook. No
   x/y/z->gesture derivation runs on the parity path.
 - The injected gesture is a **held value**: a golden sets a gesture code and it persists until
@@ -138,7 +140,34 @@ gesture; there is no debounce window.
 - Observable trace (format version 1): the chosen gesture firing reuses the existing sensor-fire
   `action` trace line.
 
-## Sim UI (apps/microbit-sim) - surface 3
+## Device API (`ctx.microbit.accelerometer`) - wired both VMs 2026-06-18
+
+The continuous reads for the accelerometer. These are values (not rule triggers), so they have no
+tile; they live only on the Device API (TS user code). They **share the same per-`think()` poll** the
+`gesture` tile consumes (one poll, both surfaces).
+
+| `ctx.microbit.accelerometer.*` | Returns | Notes |
+| ------------------------------ | ------- | ----- |
+| `getX()` / `getY()` / `getZ()` | number (mg) | raw acceleration per axis |
+| `getPitchRadians()` / `getRollRadians()` | number (radians) | the orientation primary; CODAL's on device, injected directly on the test-only path |
+| `getPitch()` / `getRoll()`     | number (whole degrees) | DERIVED from radians via CODAL's exact f32 formula `(int)(360*rad/(2*PI))`, both VMs (not derived from x/y/z, not independently polled) |
+| `getGesture()`                 | number (gesture code) | the current gesture enum (CODAL `ACCELEROMETER_EVT_*` codes verbatim); the same value the `gesture` tile compares against |
+
+- `AccelerometerInputPort` (`getGesture`, `getX/getY/getZ`, `getPitch/Roll` +
+  `getPitchRadians/RollRadians`) on `DevicePorts`, bound to `uBit.accelerometer`.
+- Sync reads (instantaneous), per the Device-API stance.
+- **Singleton struct - no discriminator** (unlike the buttons, which key one shared `isPressed` body
+  by receiver): the `accelerometer` field resolves to one struct value and each of the 8 reads binds
+  a distinct host-function body.
+- **Not 1:1 with the tile:** TS user-code gets the raw values + pitch/roll + the current
+  `getGesture()` code; the gesture *tile* (the Tiles) adds the modifier-match + level semantics on
+  top of `getGesture()`.
+- **As-built ABI ids (append-only):** `MicroBitField.Accelerometer = 4` (appended LAST per the
+  native-struct field-order invariant - see `microbit-context.md`), type-atom `1028`, host-function
+  ids `1039-1046` (getX 1039, getY 1040, getZ 1041, getPitchRadians 1042, getRollRadians 1043,
+  getPitch 1044, getRoll 1045, getGesture 1046).
+
+## Simulator (apps/microbit-sim)
 
 A **gesture-picker dropdown**, one per simulated device, at the top of each micro:bit simulator
 card, above the 5x5 screen. Selecting a gesture **injects an animated x/y/z sample sequence**
@@ -166,6 +195,26 @@ recognize it (WYSIWYG); it never writes the gesture enum directly.
   `accelerometer.getPeriod()`), decoupled from the brain tick (zero-or-more detector steps per
   `think()` as elapsed time crosses the period), so recognized durations match the device.
   `apps/microbit-sim` owns the dropdown UI and calls the driver for the chosen gesture / `none`.
+
+## CODAL capability coverage
+
+Per the full-surface-design principle, the whole CODAL accelerometer capability set is accounted for;
+each item is shipped / composable / designed-out / deferred (never silently omitted).
+
+- **Shipped:** the `gesture` tile (8 core gestures: shake / 4 tilt / 2 face / freefall);
+  Device-API reads `getX/Y/Z`, `getPitch/Roll` (+ radians), `getGesture()`.
+- **DEFERRED (designed, implementation deferred): impact + g-force** (the impulse 2G/3G/6G/8G). The
+  `[impact]` + `[Ng]` sub-modifiers are designed (Authoring / Behavior above), but **implementation is
+  deferred (A4, 2026-06-18)**: CODAL surfaces impulses as `DEVICE_ID_GESTURE` **events only** (not
+  pollable via `getGesture()` like the core gestures) and needs the range raised above the default
+  +-2G; the recommended revival polls `instantaneousAccelerationSquared()` (see the parent plan
+  `cpp-vm-on-hardware-plan-2026-06-05.md`, Deferred Work).
+- **Composable / designed out:** `getSample()` (the x/y/z vector - composable from the three axis
+  reads); acceleration **strength/magnitude** (`sqrt(x^2+y^2+z^2)` from the reads).
+- **Config capabilities NOT exposed on the Device API (deferred):** `setRange/getRange` (+-2G/4G/8G) and
+  `setPeriod/getPeriod` (sample rate). Both are used **internally** (a future impact build raises the
+  range; the sim gesture-injector reads `getPeriod()`), but neither is exposed as a the Device API
+  - no consumer today. Add them if a consumer needs to configure range/rate.
 
 ## Conformance
 
