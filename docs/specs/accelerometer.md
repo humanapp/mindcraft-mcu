@@ -140,7 +140,7 @@ gesture; there is no debounce window.
 - Observable trace (format version 1): the chosen gesture firing reuses the existing sensor-fire
   `action` trace line.
 
-## Device API (`ctx.microbit.accelerometer`) - wired both VMs 2026-06-18
+## Device API (`ctx.microbit.accelerometer`)
 
 The continuous reads for the accelerometer. These are values (not rule triggers), so they have no
 tile; they live only on the Device API (TS user code). They **share the same per-`think()` poll** the
@@ -162,7 +162,7 @@ tile; they live only on the Device API (TS user code). They **share the same per
 - **Not 1:1 with the tile:** TS user-code gets the raw values + pitch/roll + the current
   `getGesture()` code; the gesture *tile* (the Tiles) adds the modifier-match + level semantics on
   top of `getGesture()`.
-- **As-built ABI ids (append-only):** `MicroBitField.Accelerometer = 4` (appended LAST per the
+- **ABI ids (append-only):** `MicroBitField.Accelerometer = 4` (appended LAST per the
   native-struct field-order invariant - see `microbit-context.md`), type-atom `1028`, host-function
   ids `1039-1046` (getX 1039, getY 1040, getZ 1041, getPitchRadians 1042, getRollRadians 1043,
   getPitch 1044, getRoll 1045, getGesture 1046).
@@ -199,22 +199,21 @@ recognize it (WYSIWYG); it never writes the gesture enum directly.
 ## CODAL capability coverage
 
 Per the full-surface-design principle, the whole CODAL accelerometer capability set is accounted for;
-each item is shipped / composable / designed-out / deferred (never silently omitted).
+each item is provided / composable / designed-out / not-built (never silently omitted).
 
-- **Shipped:** the `gesture` tile (8 core gestures: shake / 4 tilt / 2 face / freefall);
+- **Provided:** the `gesture` tile (8 core gestures: shake / 4 tilt / 2 face / freefall);
   Device-API reads `getX/Y/Z`, `getPitch/Roll` (+ radians), `getGesture()`.
-- **DEFERRED (designed, implementation deferred): impact + g-force** (the impulse 2G/3G/6G/8G). The
-  `[impact]` + `[Ng]` sub-modifiers are designed (Authoring / Behavior above), but **implementation is
-  deferred (A4, 2026-06-18)**: CODAL surfaces impulses as `DEVICE_ID_GESTURE` **events only** (not
-  pollable via `getGesture()` like the core gestures) and needs the range raised above the default
-  +-2G; the recommended revival polls `instantaneousAccelerationSquared()` (see the parent plan
-  `cpp-vm-on-hardware-plan-2026-06-05.md`, Deferred Work).
+- **Designed, not currently built: impact + g-force** (the impulse 2G/3G/6G/8G). The `[impact]` +
+  `[Ng]` sub-modifiers are designed (Authoring / Behavior above) but not built: CODAL surfaces
+  impulses as `DEVICE_ID_GESTURE` **events only** (not pollable via `getGesture()` like the core
+  gestures) and needs the range raised above the default +-2G; the recommended approach polls
+  `instantaneousAccelerationSquared()` and thresholds against the g-force levels.
 - **Composable / designed out:** `getSample()` (the x/y/z vector - composable from the three axis
   reads); acceleration **strength/magnitude** (`sqrt(x^2+y^2+z^2)` from the reads).
-- **Config capabilities NOT exposed on the Device API (deferred):** `setRange/getRange` (+-2G/4G/8G) and
-  `setPeriod/getPeriod` (sample rate). Both are used **internally** (a future impact build raises the
-  range; the sim gesture-injector reads `getPeriod()`), but neither is exposed as a the Device API
-  - no consumer today. Add them if a consumer needs to configure range/rate.
+- **Config capabilities NOT exposed (designed):** `setRange/getRange` (+-2G/4G/8G) and
+  `setPeriod/getPeriod` (sample rate). Both are used **internally** (an impact build raises the range;
+  the sim gesture-injector reads `getPeriod()`), but neither is exposed as a Device-API method - no
+  consumer. Add them if a consumer needs to configure range/rate.
 
 ## Conformance
 

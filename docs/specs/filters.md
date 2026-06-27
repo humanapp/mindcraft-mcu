@@ -1,8 +1,7 @@
 # Spec: filters (WHEN-side signal modifiers)
 
-Status: CONCEPT / DRAFT (2026-06-17, design capture - not implementation-ready). Core,
-target-agnostic tile-language feature. Captured now so the design can harden; the call
-signature and the latch-reset semantics are open (see Open questions).
+A core, target-agnostic tile-language feature. The call signature and the latch-reset semantics are
+open (see Open questions).
 
 ## What a filter is
 
@@ -22,7 +21,7 @@ WHEN gesture shake one-shot        // fire once per shake (a single-tick pulse)
 WHEN see carnivore invert          // fires while NOT seeing a carnivore
 ```
 
-Category properties (decided across 2026-06-17 discussion):
+Category properties (by category):
 
 - **WHEN-side only.** Filters are not valid in a rule's `do` / actuator position.
 - **Top-level, never in an expression.** A filter post-processes the rule's signal; it does

@@ -1,6 +1,6 @@
 # Spec: micro:bit Context surface (TS user-code device API) - registry index
 
-Status: living registry / index. The cross-cutting definition of `ctx.microbit.*` - the lower-level
+The cross-cutting registry / index of `ctx.microbit.*` - the lower-level
 device API exposed to TypeScript user code (**Device API** of the model). Each peripheral's **full
 design across every surface it is exposed through** lives in its own **feature spec**
 (`docs/specs/<feature>.md`); this file holds only the cross-cutting conventions and the index of
@@ -40,25 +40,28 @@ which feature spec owns each `ctx.microbit.*` sub-interface.
 
 Each `ctx.microbit.*` sub-interface and the feature spec that owns its full design (all surfaces):
 
-| `ctx.microbit.*` | Summary | Feature spec | Status |
-| ---------------- | ------- | ------------ | ------ |
-| `display` | per-pixel `setPixelValue`/`getPixelValue`/`clear` + `drawImage`; the draw family (scroll text, draw image, `Image` type, image editors) | `docs/specs/display.md` | wired; draw family hardware-validated |
-| `buttonA` / `buttonB` / `logo` | `isPressed()` + the logo touch config | `docs/specs/button.md` | wired both VMs |
-| `accelerometer` | `getX/Y/Z`, `getPitch/Roll(+Radians)`, `getGesture()` reads | `docs/specs/accelerometer.md` | wired both VMs 2026-06-18 |
-| `i2c` | `writeBuffer` / `readBuffer` (edge-connector, no tile) | `docs/specs/i2c.md` | done, host-gated |
-| `gpio` | digital/pull/servo (+ designed: analog/PWM, touch, ultrasonic) (edge-connector, no tile) | `docs/specs/gpio.md` | proposed |
+| `ctx.microbit.*` | Summary | Feature spec |
+| ---------------- | ------- | ------------ |
+| `display` | per-pixel `setPixelValue`/`getPixelValue`/`clear` + `drawImage`; the draw family (scroll text, draw image, `Image` type, image editors) | `docs/specs/display.md` |
+| `buttonA` / `buttonB` / `logo` | `isPressed()` + the logo touch config | `docs/specs/button.md` |
+| `accelerometer` | `getX/Y/Z`, `getPitch/Roll(+Radians)`, `getGesture()` reads | `docs/specs/accelerometer.md` |
+| `i2c` | `writeBuffer` / `readBuffer` (edge-connector, no tile) | `docs/specs/i2c.md` |
+| `gpio` | digital/pull/servo (+ designed: analog/PWM, touch, ultrasonic) (edge-connector, no tile) | `docs/specs/gpio.md` |
+
+(Build status, dates, and as-built history live in the build plans, not the specs - specs are
+eternal.)
 
 ## Roadmap (append as peripherals land)
 
-Each peripheral adds a feature spec + a registry row here when it lands; source of capability is
-the CODAL inventory (`generated-docs/codal-capability-inventory-2026-06-17.md`):
+Each peripheral adds a feature spec + a registry row here when it lands; the source of capability is
+the device's CODAL surface:
 
-- onboard: `accelerometer` (done), `thermometer` (getTemperature), `compass` (heading), display
-  light level, microphone sound level, `radio` (send/receive).
+- onboard: `accelerometer`, `thermometer` (getTemperature), `compass` (heading), display light level,
+  microphone sound level, `radio` (send/receive).
 - **edge-connector primitives** (Device-API ONLY - no tile counterpart), each with a **dedicated
-  spec**: **I2C (DONE both VMs, host-gated - `docs/specs/i2c.md`)**, **GPIO (PROPOSED -
-  `docs/specs/gpio.md`)**, the native NEC IR-receive primitive (design locked in the parent plan; spec
-  TBD). These are the library plumbing a Cutebot-style peripheral library consumes; they live on this
+  spec**: **I2C (`docs/specs/i2c.md`)**, **GPIO (`docs/specs/gpio.md`)**, the native NEC IR-receive
+  primitive (spec TBD). These are the library plumbing a Cutebot-style
+  peripheral library consumes; they live on this
   surface even though they have no tile. Cutebot needs all three (I2C @ 0x10 for motors/lamps, GPIO
   for line sensors + gripper + ultrasonic, IR for the remote).
 

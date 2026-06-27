@@ -1,7 +1,6 @@
 # Spec: pause (core actuator)
 
-Status: proposed - design registered by the user 2026-06-17; a few impl-time notes. **Core,
-target-agnostic** (available on every device profile, like `yield`/`switch-page`), not a
+**Core, target-agnostic** (available on every device profile, like `yield`/`switch-page`), not a
 microbit-v2 tile.
 
 ## Identity

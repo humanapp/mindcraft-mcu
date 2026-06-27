@@ -5,9 +5,8 @@ four button sensor tiles `[A]`/`[B]`/`[A+B]`/`[logo]`; Identity ... Device and t
 **Device API** (the raw `ctx.microbit.buttonA/buttonB/logo` reads; see Device API). The cross-cutting
 `ctx.microbit.*` conventions and the Device-API registry index live in `docs/specs/microbit-context.md`.
 
-Status: implemented (both VMs) - semantics resolved 2026-06-17; wodal oracle + C++ mirror
-landed and gated 2026-06-17 (ids, thresholds, state machine, and trace line format pinned
-below). This is the first sensor tile, so it sets precedent for the poll-on-sensors stance.
+The ids, thresholds, state machine, and trace line format are pinned below. This sensor sets the
+precedent for the poll-on-sensors stance.
 
 ## Identity
 
@@ -189,7 +188,7 @@ from the first pressed tick). Tick granularity caps resolution (the think loop r
   the rest `nil`; a non-firing tick renders the same line ending `result bool 0`. No new trace
   line kind was added.
 
-## Device API (`ctx.microbit.buttonA/buttonB/logo`) - wired both VMs 2026-06-17
+## Device API (`ctx.microbit.buttonA/buttonB/logo`)
 
 The raw pressed level (and the logo's touch config), surfaced to TS user code. **Not 1:1 with the
 tiles:** `isPressed()` is the raw level; the click/hold/double-click derivation lives only in the
@@ -219,35 +218,20 @@ clicking/holding them injects the pressed state (driving the same wodal
 tiles and `ctx.microbit.*.isPressed()` read. (A/B are present in the sim; confirm a logo-touch
 affordance exists or add one.)
 
-## Replacement (no back-compat)
+## ABI id note: `[A]` id reuse
 
-These four tiles **overwrite the existing button-A sensor** outright - no back-compat, no
-graceful deprecation (user directive 2026-06-17):
-
-- **Remove** the current single button-A sensor: wodal `targets/microbit-v2/mindcraft/
-  actions/button-a.ts` and cpp `targets/microbit-v2/abi/host-actions/sensors/button-a.h`,
-  plus its tile-id / ABI entries. It is replaced by the four-tile + six-modifier design
-  above, not kept alongside.
-- **ABI ids:** `[A]` **reuses** the existing button-A sensor's id - a blessed, one-time
-  exception to the append-only-ids rule (user, 2026-06-17), safe only because no persisted
-  program references it in this single-build world. `[B]`, `[A+B]`, `[logo]` get **new
-  appended** ids. The exception is scoped to `[A]` here and does **not** loosen the
-  append-only rule generally; id reuse remains forbidden by default.
-- **Update/regenerate affected fixtures and tests**, in particular the `button-display`
-  brain and its `button-display.press-cycles.trace` golden (the existing button-A-sensor
-  parity fixture) - rewrite the brain to the new design and regenerate, and update the C++
-  parity cases that consume it.
-- **Unaffected:** the user-tile `isPressed` host-function (`host-functions/button-is-pressed.h`,
-  the `ctx.microbit.buttonA.isPressed()` surface) is a *different* surface - it is the
-  underlying poll the new sensor's derivation reads, so it stays; the `user-tile-button-display`
-  golden is untouched unless the implementation says otherwise.
+`[A]` **reuses** the id of the original single button-A sensor it superseded (action `1024`, function
+`1033`; the `pressed`/`released` modifier ids are likewise reused) - a blessed, one-time exception to
+the append-only-ids rule, safe only because no persisted program references it in this single-build
+world. `[B]`, `[A+B]`, `[logo]` and the other modifiers carry **new appended** ids. The exception is
+scoped to `[A]`; **id reuse remains forbidden by default.**
 
 ## CODAL capability coverage
 
 Per the full-surface-design principle, the whole CODAL button/touch capability set is accounted for;
-each item is shipped / composable / designed-out / deferred (never silently omitted).
+each item is provided / composable / designed-out / not-exposed (never silently omitted).
 
-- **Shipped:** the four sensor tiles (`[A]`/`[B]`/`[A+B]`/`[logo]`) + 6 derived-event
+- **Provided:** the four sensor tiles (`[A]`/`[B]`/`[A+B]`/`[logo]`) + 6 derived-event
   modifiers (pressed/released/click/double-click/long-click/held); Device-API `buttonA`/`buttonB`/
   `logo` `isPressed()` + the logo touch config (`getThreshold`/`setThreshold`/`getValue`/`setValue`).
 - **DESIGNED OUT - deliberate architectural choice: CODAL's message-bus button EVENT engine**
@@ -259,7 +243,7 @@ each item is shipped / composable / designed-out / deferred (never silently omit
 - **Composable / designed out:** `wasPressed()` (latching "pressed since last read" - the `pressed`
   edge modifier, or composable from the poll); `getPresses()` (press count - count edges); `A+B` on
   the Device API (`buttonA && buttonB` - already noted in Device API).
-- **DEFERRED / not exposed: TouchButton calibration + touch mode.** CODAL's `touchCalibrate()` and the
+- **Not exposed: TouchButton calibration + touch mode.** CODAL's `touchCalibrate()` and the
   capacitive-vs-resistive touch mode are not exposed - the `[logo]` hard-codes its
   capacitance/threshold (no exposed calibration). Add if a consumer needs to tune/recalibrate touch.
   (Pin touch via `TouchButton` is a separate future under `docs/specs/gpio.md`.)

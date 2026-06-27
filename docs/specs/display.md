@@ -14,7 +14,7 @@ the target** (see Target parameterization). The first - and currently only - tar
 micro:bit-v2, specified in its own section. The first members are **scroll text** and **draw
 image**. Per-pixel reads/writes are the the Device API (below).
 
-Status: evolving family spec. The settled design is below; unresolved items are collected under
+This is an evolving family spec; the settled design is below, with unresolved items collected under
 **Open questions** at the end.
 
 ## Target parameterization
@@ -93,8 +93,7 @@ display, tracking the device / `PixelDisplayPort` shape rather than the tile sem
 
 - **`scroll` is tile-only** today (a temporal actuator, the `scroll text`); expose an
   awaited `display.scroll()` here only if a TS-user-code consumer wants it (no consumer today).
-- The Device-API host-fn ids + the `Image` / draw-image as-built ids are in the micro:bit-v2 target
-  section.
+- The Device-API host-fn ids + the `Image` / draw-image ids are in the micro:bit-v2 target section.
 
 ## Arbitration: the display lease
 
@@ -404,12 +403,12 @@ for; what is built is a subset, and every gap is marked composable / designed-ou
 silently omitted).
 
 - **Shipped:** per-pixel `setPixelValue`/`getPixelValue`/`clear` (the Device API); static image paste =
-  `print(Image)` -> `draw image` (tile + Device-API `drawImage`, incl. the D6 multi-image
+  `print(Image)` -> `draw image` (tile + Device-API `drawImage`, incl. the multi-image
   sequence); `scroll(string)` -> the `scroll text` tile.
 - **Composable / designed out:** `screenShot()` (capture the display as an `Image`) - composable from
   `getPixelValue`; **display mode** `setDisplayMode`/`getDisplayMode` (greyscale vs binary) - we
   **always run greyscale** (`drawImage` is 0-255), so the binary mode is designed out (no consumer).
-- **DEFERRED capabilities (genuine, designed-here-noted, not built):**
+- **Designed but not built (genuine capabilities):**
   - **Brightness** - `setBrightness`/`getBrightness` (a global master dim on top of per-pixel values).
     A real capability; would be Device-API `display.setBrightness/getBrightness`. No consumer yet.
   - **`enable()`/`disable()`** - powers the LED matrix off, **freeing the matrix's shared edge-connector
@@ -418,7 +417,7 @@ silently omitted).
     - P1/P2/P8/P12/P13/P14/P15/P16 - do **not** overlap the matrix, so Cutebot is unaffected.) No
     consumer yet; note for any GPIO use of the shared pins.
   - **Scroll / animate an `Image`** - CODAL `scroll(Image)` / `animate(Image, stride)` pan a wide image
-    across the display (distinct from D6's discrete-image sequence). A future draw-family member.
+    across the display (distinct from the discrete multi-image sequence). A future draw-family member.
   - **Static `print(string)` / `print(char)`** (non-scrolling text) - we surface scrolling text only;
     a static string/char show is not built (no glyph font surfaced on this side). Deferred.
   - **Device-API awaited `scroll()`** - `scroll text` is tile-only today; expose `display.scroll()` on
@@ -455,7 +454,7 @@ silently omitted).
 2. **How far to formalize the target seam now**: the dimensions + interpretation seam is settled,
    but the minimal interface a target exposes (e.g. width/height accessors, a narrow-pixel hook)
    is specified only as much as micro:bit needs until a second display target is scoped.
-3. **Transparency - DEFERRED, design open.** Not important for micro:bit; intentionally not decided.
+3. **Transparency - design open.** Not important for micro:bit; intentionally not decided.
    The representation (separate mask vs some other encoding) and the overlay/transparent draw mode
    are an open dialog (see Image literals and transparency); today `.` maps to brightness 0 and draws
    overwrite. (The literal form itself is settled: `image(...)` over a template string.)

@@ -19,16 +19,16 @@ The governing stance defaults: **poll on sensors, await on actuators with a temp
 surface states which bucket it occupies and justifies any deviation (e.g. a sensor taking the event
 exception, against the bus-listener hazard - a hardware listener that may not fire).
 
+**Specs are eternal.** Do NOT put dates, phase/work-item markers (e.g. `G1`, `I2`, `D3b`, `6f4`), or
+build-status ("wired both VMs", "host-gated", "as-built", "accepted") in a spec - those belong in the
+build plan (kept locally, not committed). Keep only the design, the behavior, and the permanent
+(append-only) ABI ids. Capabilities not yet built are described as design intent, not dated status.
+
 ---
-
-## Status
-
-One of: `draft` | `proposed` | `implemented (wodal)` | `implemented (both VMs)` | `accepted` - plus a
-one-line note (what is pinned, what is pending). Note per-surface status if they differ.
 
 ## Overview
 
-One paragraph: what the feature is, which surfaces it is exposed through, and the as-built ABI ids
+One paragraph: what the feature is, which surfaces it is exposed through, and the ABI ids
 (append-only - once assigned, never renumbered or reused; write `TBD` while drafting).
 
 ## Tiles (omit if the feature has no tile)
@@ -134,7 +134,7 @@ device / `*Port` shape, not the tile semantics. Sync for instantaneous reads/wri
 | `ctx.microbit.<feature>.*` | Returns | Notes |
 | -------------------------- | ------- | ----- |
 
-- **As-built ABI ids (append-only):** `MicroBitField.<F> = N` (appended LAST per the native-struct
+- **ABI ids (append-only):** `MicroBitField.<F> = N` (appended LAST per the native-struct
   field-order invariant in `microbit-context.md`), type-atom id, host-function ids.
 - **Not 1:1 with the tile:** note where the raw Device API differs from the tile (the tile may add
   derivation / level / modifier semantics on top of the raw read/write).
@@ -157,14 +157,14 @@ interactive surface). Describe it:
 ## CODAL capability coverage
 
 Per the full-surface-design principle, account for the **whole CODAL capability set** of this feature
-(source: `generated-docs/codal-capability-inventory-2026-06-17.md`) - each capability marked, none
-silently omitted:
+- each capability marked, none silently omitted:
 
 - **Shipped:** built (name the surface).
 - **Composable / designed out:** expressible from the shipped primitives in TS user code, or
   deliberately not a primitive - say which and why.
-- **DEFERRED:** a genuine capability designed here but not built - name the phase/condition and why
-  there is no consumer today.
+- **Designed, not built:** a capability designed here but not currently a primitive - say why there
+  is no consumer (describe it as design intent; do NOT reference a build phase or date - those live
+  in the plan).
 
 (Design-complete is not build-everything: design the whole surface, build the minimum, mark every
 deferral. Cutebot - or whatever the current consumer is - drives build *priority*, not design *scope*.)

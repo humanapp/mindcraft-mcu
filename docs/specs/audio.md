@@ -11,7 +11,7 @@ family model and types are **target-agnostic**; the audio capability (speaker, w
 effects, pitch range, built-in sounds) is **defined by the target**. The first - and currently
 only - target is micro:bit-v2. The first member is **play sound**.
 
-Status: evolving family spec. The settled design is below; unresolved items are collected under
+This is an evolving family spec; the settled design is below, with unresolved items collected under
 **Open questions** at the end. Musical note sequences, melodies, and chords are a deliberately
 deferred direction (see Open questions) - not the near-term focus.
 

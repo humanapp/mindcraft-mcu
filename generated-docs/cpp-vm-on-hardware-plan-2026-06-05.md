@@ -131,12 +131,14 @@ authoring, off the parity path); designs carried in `docs/specs/display.md`.
 firmware) needs three Phase 7 surface-2 EDGE-CONNECTOR PRIMITIVES: **I2C** (Cutebot motors/servos/
 lamps @ 0x10), **GPIO** (Cutebot ultrasonic + line sensors), and a **native NEC IR-receive** primitive
 (Cutebot remote; native C++ - the round-based VM cannot do microsecond pulse timing; general +
-pin-parameterized, NEC-only). **The I2C primitive is COMPLETE both VMs 2026-06-26 (host-gated)** - `writeBuffer` (I1, the
-Cutebot-critical write @ 0x10) + `readBuffer` (I2, the first surface-2 managed-`Buffer` return).
-Recommended next: **GPIO** (Cutebot's ultrasonic + line sensing) -> **IR** (remote) -> **Phase 9**
-(Cutebot via TS); plus I2C hardware validation when a device is available. NOTE: GPIO prep must
-resolve whether the Cutebot ultrasonic needs a native microsecond pulse-timing primitive (the
-round-based VM cannot time us in bytecode - the same constraint that makes IR native). Off-critical-path candidates still
+pin-parameterized, NEC-only). **I2C is COMPLETE and GPIO G1 is DONE both VMs 2026-06-26 (host-gated).** I2C `writeBuffer`/`readBuffer`
++ GPIO `digitalRead`/`digitalWrite`/`setPull`/`servoWrite` - together a controllable Cutebot (drive +
+line-following + gripper). Remaining toward Cutebot: **GPIO G2** (ultrasonic - native microsecond pulse
+timing, DESIGN-OPEN, co-design with IR), **GPIO G3** (analog/PWM - designed, deferred), the **native
+NEC IR-receive** primitive (Cutebot remote), then **Phase 9** (Cutebot via TS user-tiles, no new
+firmware). Plus I2C+GPIO hardware validation when a device is available. The G2/IR native-timing
+design (the round-based VM cannot time microseconds in bytecode) is the open piece - see
+`docs/specs/gpio.md` G2 + the parent plan's "Native IR receive". Off-critical-path candidates still
 available: A4 impact revival, an audio / sound-effect family, and Phase 8 (virtual radio sim-to-sim,
 needs a Phase 7 radio family).** Two further phases queued: 8 (virtual radio
 sim-to-sim) and 9 (Cutebot via TS user-tiles).** **PHASE
@@ -2844,6 +2846,20 @@ Condensed dated ledger of accepted phases (newest first). Full per-phase as-buil
 detail lives in the session memory and git history; the accepted phase sections above
 carry the contracts each produced.
 
+- **2026-06-26 - GPIO primitive G1 complete (`ctx.microbit.gpio` simple pin I/O; host-gated).** The
+  second edge-connector primitive (Device-API only, no tile), on the Cutebot path (line sensors +
+  gripper servos). Four sync host-fns: `digitalRead(pin)`, `digitalWrite(pin, value)`,
+  `setPull(pin, mode)`, `servoWrite(pin, angle)`; pin = number 0-20. Mirrors the I2C Device-API +
+  injectable-port pattern: singleton `gpio` native-struct getter; new abstract `GPIOPort`; firmware
+  `MicroBitGPIOPort` maps the pin number -> `uBit.io.P0..P20`; wodal injectable `Gpio`
+  (`core/gpio.ts`). ids `MicroBitField.GPIO=6` / type-atom `1030` / host-fns `1052`-`1055`
+  (append-only). Decisions: writes return a status number (0 ok); `setPull` mode 0 none/1 up/2 down;
+  out-of-range pin is a no-op but still emits its trace line with the raw pin (mirrors `display
+  set-pixel`). New trace lines `port gpio digital-write/digital-read/set-pull/servo-write` (both VMs,
+  `observable-trace.md`, additive v1). Golden `user-tile-gpio` byte-matches both VMs. With I2C this
+  yields a controllable Cutebot (drive + line-following + gripper). G2 (ultrasonic, native) + G3
+  (analog/PWM, deferred) remain. `external/mindcraft-lang` untouched. Gates: wodal 240; cpp check.sh
+  x3. Plan: `generated-docs/gpio-primitive-impl-plan-2026-06-26.md`. Hardware validate-later.
 - **2026-06-26 - I2C primitive I2 complete (`ctx.microbit.i2c.readBuffer`; host-gated) - I2C feature
   done.** The read counterpart of I1 and the **first surface-2 host-function returning a managed
   `Buffer`** (runtime-allocated bytes). `readBuffer(address, length): Buffer` reads `length` bytes

@@ -40,6 +40,16 @@ change `vm-contract.md`.
   count, both minimal lowercase hex; `<hex>` is the returned bytes, two lowercase
   hex digits per byte with no separators. The byte field is empty on a
   no-device/error read, which still records `<len>` so the request is visible.
+- `port gpio digital-write <pin> <value>` - one digital pin write.
+- `port gpio digital-read <pin> <value>` - one digital pin read (`<value>` = the
+  0/1 returned).
+- `port gpio set-pull <pin> <mode>` - one pull-mode config (`<mode>`: 0 none / 1 up
+  / 2 down).
+- `port gpio servo-write <pin> <angle>` - one servo write (`<angle>` 0-180).
+  For all four gpio lines `<pin>` and the value/mode/angle are minimal lowercase
+  hex; an out-of-range pin (outside 0-20) is a no-op effect but **still emits the
+  line** with the raw pin (mirroring `display set-pixel` - the trace records the
+  value as passed to the port, before the device clamps/discards).
 - `fault <fiberId> <errorCode>` - a fiber fault.
 
 Host-action ids and call-site ids render as minimal lowercase hex.
