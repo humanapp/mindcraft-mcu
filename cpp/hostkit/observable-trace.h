@@ -98,6 +98,13 @@ public:
    */
   void i2cWrite(uint32_t address, const uint8_t* bytes, uint32_t length);
 
+  /**
+   * Records one buffer read crossing the I2C device port: the 7-bit `address`
+   * and the requested `length` in hex, then the `byteCount` returned bytes (two
+   * lowercase hex digits each, in receive order; empty on a no-device read).
+   */
+  void i2cRead(uint32_t address, uint32_t length, const uint8_t* bytes, uint32_t byteCount);
+
   /** Records one fiber fault: the fiber id and the numeric `ErrorCode`. */
   void fiberFault(uint32_t fiberId, ErrorCode code);
 

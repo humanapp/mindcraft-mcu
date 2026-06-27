@@ -29,6 +29,7 @@
 #include <array>
 #include <cstdint>
 #include <fstream>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -253,8 +254,9 @@ struct HostMicroBit {
     mindcraft::mc_number_t getRollRadians() override { return rollRadians; }
   };
 
-  // Injectable I2C bus: records each write and emits the port trace line, holding
-  // no real hardware. Mirrors the wodal I2CBus sim model.
+  // Injectable I2C bus: records each write and serves reads from a per-address
+  // response a test injects, emitting the port trace line at each transaction.
+  // Holds no real hardware; mirrors the wodal I2CBus sim model.
   struct TracingI2C : mindcraft::I2CPort {
     struct Write {
       uint16_t address;
@@ -262,6 +264,7 @@ struct HostMicroBit {
     };
     ObservableTraceWriter* writer = nullptr;
     std::vector<Write> writes;
+    std::map<uint16_t, std::vector<uint8_t>> readResponses;
 
     int write(uint16_t address, const uint8_t* data, int len) override {
       const uint32_t count = len > 0 ? static_cast<uint32_t>(len) : 0;
@@ -269,6 +272,26 @@ struct HostMicroBit {
         writer->i2cWrite(address, data, count);
       }
       writes.push_back({address, std::vector<uint8_t>(data, data + count)});
+      return 0;
+    }
+
+    int read(uint16_t address, uint8_t* data, int len) override {
+      const uint32_t count = len > 0 ? static_cast<uint32_t>(len) : 0;
+      const auto it = readResponses.find(address);
+      if (it == readResponses.end()) {
+        // No-device read: no bytes returned.
+        if (writer != nullptr) {
+          writer->i2cRead(address, count, data, 0);
+        }
+        return 1;
+      }
+      const std::vector<uint8_t>& response = it->second;
+      for (uint32_t i = 0; i < count; i++) {
+        data[i] = i < response.size() ? response[i] : 0;
+      }
+      if (writer != nullptr) {
+        writer->i2cRead(address, count, data, count);
+      }
       return 0;
     }
   };
@@ -1420,6 +1443,80 @@ TEST_CASE("the user-tile i2c-write fixture byte-matches the golden observable tr
   for (const auto& write : microbit.i2c.writes) {
     CHECK(write.address == 0x10);
     CHECK(write.bytes == std::vector<uint8_t>{1, 2, 3, 4, 5});
+  }
+}
+
+TEST_CASE("the user-tile i2c-read fixture byte-matches the golden observable trace") {
+  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-i2c-read";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.i2c.writer = &writer;
+  // The responder address returns three bytes; the absent address is a no-device
+  // read. Mirrors the injected responses in wodal
+  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-i2c-read.spec.ts.
+  microbit.i2c.readResponses[0x42] = {0xaa, 0xbb, 0xcc};
+  TraceTap tap(writer);
+
+  // The actuator reads ctx.microbit.i2c through the native struct field getter
+  // and echoes each read (a managed Buffer the readBuffer host function
+  // allocates) straight back through writeBuffer; the read body allocates its
+  // buffer through the heap with the scheduler as its collection roots.
+  mindcraft::ManagedHeap heap(arena, &image);
+  mindcraft::MicroBitV2I2CWriteEnv i2cWriteEnv{&microbit.i2c, &heap, &image};
+  mindcraft::MicroBitV2I2CReadEnv i2cReadEnv{&microbit.i2c, &heap, nullptr};
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs =
+      mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cWriteEnv, &i2cReadEnv);
+  ExecutionContext ctx;
+  mindcraft::TypeRegistry types(image);
+  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+  surface.types = &types;
+  surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  i2cReadEnv.roots = &scheduler;
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Two 16ms thinks mirror SCHEDULE in wodal
+  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-i2c-read.spec.ts.
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 2; i++) {
+    const float timeMs = lastThinkTimeMs + 16;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+  // Each echoed write carries the bytes the read returned: the responder bytes
+  // for the responder address, an empty buffer for the no-device read.
+  REQUIRE(microbit.i2c.writes.size() == 4);
+  for (size_t i = 0; i < microbit.i2c.writes.size(); i += 2) {
+    CHECK(microbit.i2c.writes[i].address == 0x10);
+    CHECK(microbit.i2c.writes[i].bytes == std::vector<uint8_t>{0xaa, 0xbb, 0xcc});
+    CHECK(microbit.i2c.writes[i + 1].address == 0x11);
+    CHECK(microbit.i2c.writes[i + 1].bytes.empty());
   }
 }
 

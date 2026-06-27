@@ -49,6 +49,7 @@
  * port display scroll "<bytes>"
  * port display draw <width> <height> <hex>
  * port i2c write <address> <hex>
+ * port i2c read <address> <len> <hex>
  * fault <fiberId> <errorCode>
  * ```
  *
@@ -84,6 +85,10 @@
  *   `<address>` is the 7-bit device address in hex, and `<hex>` is the bytes
  *   written (in transmission order, two lowercase hex digits per byte, no
  *   separators; empty for a zero-length write).
+ * - `port i2c read`: one buffer read crossing the I2C device port. `<address>`
+ *   is the 7-bit device address in hex, `<len>` is the requested byte count in
+ *   hex, and `<hex>` is the bytes returned (in receive order, two lowercase hex
+ *   digits per byte, no separators; empty for a no-device read).
  * - `fault`: one fiber fault. `<errorCode>` is the numeric wire-stable
  *   `ErrorCode`. Fault messages are implementation-defined and never render.
  */
@@ -286,6 +291,21 @@ export class ObservableTraceWriter {
       hex += hexPadded((bytes[i] ?? 0) & 0xff, 2);
     }
     this.line(`port i2c write ${hexU32(address)} ${hex}`);
+  }
+
+  /**
+   * Records one buffer read crossing the I2C device port.
+   *
+   * @param address - 7-bit device address the bytes were read from.
+   * @param length - Number of bytes requested.
+   * @param bytes - Bytes returned, in receive order (empty on a no-device read).
+   */
+  i2cRead(address: number, length: number, bytes: Uint8Array): void {
+    let hex = "";
+    for (let i = 0; i < bytes.length; i++) {
+      hex += hexPadded((bytes[i] ?? 0) & 0xff, 2);
+    }
+    this.line(`port i2c read ${hexU32(address)} ${hexU32(length)} ${hex}`);
   }
 
   /**

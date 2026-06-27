@@ -77,6 +77,29 @@ test("I2C.writeBuffer routes the address and bytes through the native bus receiv
   assert.deepEqual(Array.from(writes[0]?.bytes ?? []), [1, 2, 3, 4, 5]);
 });
 
+test("I2C.readBuffer returns the injected response bytes for the address as a Buffer", () => {
+  const env = createMicroBitV2Environment();
+  const microbit = new MicroBit();
+  const ctx = createExecutionContext(env, microbit);
+  const receiver = mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.I2C, microbit.i2c);
+  microbit.i2c.setReadResponse(0x42, Uint8Array.from([0xaa, 0xbb, 0xcc]));
+
+  const data = getSyncFunction(env, "I2C.readBuffer").exec(
+    ctx,
+    List.from([receiver, mkNumberValue(0x42), mkNumberValue(3)])
+  );
+  assert.ok(isBufferValue(data));
+  assert.equal(bufferToHex(data), "aabbcc");
+
+  // An address with no injected response is a no-device read: an empty Buffer.
+  const empty = getSyncFunction(env, "I2C.readBuffer").exec(
+    ctx,
+    List.from([receiver, mkNumberValue(0x55), mkNumberValue(2)])
+  );
+  assert.ok(isBufferValue(empty));
+  assert.equal(bufferToHex(empty), "");
+});
+
 test("MicroBitDisplay host methods route through the native display receiver", () => {
   const env = createMicroBitV2Environment();
   const microbit = new MicroBit();

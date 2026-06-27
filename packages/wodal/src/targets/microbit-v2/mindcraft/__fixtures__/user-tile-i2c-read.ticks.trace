@@ -1,0 +1,13 @@
+mctrace 1
+profile 1
+precision f32
+tick 1 time 41800000 dt 00000000
+port i2c read 42 3 aabbcc
+port i2c write 10 aabbcc
+port i2c read 55 2 
+port i2c write 11 
+tick 2 time 42000000 dt 41800000
+port i2c read 42 3 aabbcc
+port i2c write 10 aabbcc
+port i2c read 55 2 
+port i2c write 11 

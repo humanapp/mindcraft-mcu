@@ -88,6 +88,7 @@ struct NullAccelerometer : mindcraft::AccelerometerInputPort {
 
 struct NullI2C : mindcraft::I2CPort {
   int write(uint16_t, const uint8_t*, int) override { return 0; }
+  int read(uint16_t, uint8_t*, int) override { return 0; }
 };
 
 /** Clock returning a fixed reading. */

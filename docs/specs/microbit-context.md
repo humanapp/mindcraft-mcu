@@ -94,7 +94,7 @@ they live here, not as tiles:
   getY 1040, getZ 1041, getPitchRadians 1042, getRollRadians 1043, getPitch 1044, getRoll 1045,
   getGesture 1046).
 
-## `i2c` (first edge-connector primitive; `writeBuffer` wired both VMs, `readBuffer` pending - build plan `generated-docs/i2c-primitive-impl-plan-2026-06-26.md`)
+## `i2c` (first edge-connector primitive; `writeBuffer` + `readBuffer` wired both VMs, host-gated - build plan `generated-docs/i2c-primitive-impl-plan-2026-06-26.md`)
 
 The external I2C bus on the edge connector (micro:bit v2 SDA/SCL, pins P19/P20), the plumbing a
 Cutebot-style peripheral library consumes. **Surface-2 only - no tile** (an edge-connector
@@ -123,10 +123,18 @@ primitive). A singleton native-struct getter `ctx.microbit.i2c` (no discriminato
   mirror. **Sub-phased I1 (`writeBuffer`, Cutebot-critical) -> I2 (`readBuffer`, general).** Register
   helpers (write/read a device register) are composable in TS user code and intentionally NOT
   primitives here (Cutebot builds register bytes into the buffer it writes).
-- **As-built ABI ids (I1, append-only):** `MicroBitField.I2C = 5` (appended LAST per the field-order
-  invariant), type-atom `1029`, host-function id `1050` (`I2C.writeBuffer`). A zero-length write is
-  a valid address-only transaction (an empty `port i2c write` byte list); there is no buffer-length
-  cap (no CODAL limit to defend). `readBuffer` (I2) is not yet built.
+- **As-built ABI ids (I1+I2, append-only):** `MicroBitField.I2C = 5` (appended LAST per the
+  field-order invariant), type-atom `1029`, host-function ids `1050` (`I2C.writeBuffer`) + `1051`
+  (`I2C.readBuffer`). A zero-length write is a valid address-only transaction (an empty `port i2c
+  write` byte list); there is no buffer-length cap (no CODAL limit to defend).
+- **`readBuffer` (I2, 2026-06-26):** returns a runtime-allocated **managed `Buffer`** - the first
+  surface-2 host-fn to do so (cpp `ManagedHeap::allocBuffer`, read filled directly into the buffer;
+  wodal `mkBufferValue`). A NACK / no-device / unrecognized-receiver read returns an **empty
+  `Buffer`** (a heap-allocation failure faults the call, per the core buffer-builtin convention). The
+  device impl shifts the 7-bit address `<<1` to CODAL's 8-bit form (port/sim/trace stay 7-bit). The
+  simulated bus models a **fixed response per address** (set once, persists; `read` returns exactly
+  `length` bytes - truncated if the stored response is longer, zero-padded if shorter, honoring the
+  device "fill exactly `len`" contract); an address with no response is a no-device read.
 
 ## Roadmap (append as peripherals land)
 

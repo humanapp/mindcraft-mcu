@@ -74,9 +74,17 @@ struct RecordingI2C : mindcraft::I2CPort {
     std::vector<uint8_t> bytes;
   };
   std::vector<Write> writes;
+  std::vector<uint8_t> readResponse;
 
   int write(uint16_t address, const uint8_t* data, int len) override {
     writes.push_back({address, std::vector<uint8_t>(data, data + (len > 0 ? len : 0))});
+    return 0;
+  }
+
+  int read(uint16_t, uint8_t* data, int len) override {
+    for (int i = 0; i < len; i++) {
+      data[i] = static_cast<size_t>(i) < readResponse.size() ? readResponse[i] : 0;
+    }
     return 0;
   }
 };
@@ -139,6 +147,11 @@ TEST_CASE("a host stub can implement every device port") {
   REQUIRE(i2c.writes.size() == 1);
   CHECK(i2c.writes[0].address == 0x10);
   CHECK(i2c.writes[0].bytes == std::vector<uint8_t>{0xde, 0xad, 0xbe});
+
+  i2c.readResponse = {0xaa, 0xbb, 0xcc};
+  uint8_t readBuf[3] = {0, 0, 0};
+  CHECK(ports.i2c->read(0x42, readBuf, 3) == 0);
+  CHECK(std::vector<uint8_t>(readBuf, readBuf + 3) == std::vector<uint8_t>{0xaa, 0xbb, 0xcc});
 }
 
 TEST_CASE("AccelerometerGesture codes match the CODAL accelerometer gesture values") {

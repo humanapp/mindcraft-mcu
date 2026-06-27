@@ -44,12 +44,13 @@ enum class MicroBitV2HostFuncId : uint32_t
     ActuatorDrawImage = 1048,
     DisplayDrawImage = 1049,
     I2CWriteBuffer = 1050,
+    I2CReadBuffer = 1051,
 };
 
 /**
  * Number of declared {@link MicroBitV2HostFuncId} members; ids are dense
  * from 1024.
  */
-inline constexpr uint32_t kMicroBitV2HostFuncIdCount = 27;
+inline constexpr uint32_t kMicroBitV2HostFuncIdCount = 28;
 
 } // namespace mindcraft

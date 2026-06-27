@@ -10,13 +10,14 @@
 #include "targets/microbit-v2/abi/host-functions/button-is-pressed.h"
 #include "targets/microbit-v2/abi/host-functions/display-draw-image.h"
 #include "targets/microbit-v2/abi/host-functions/display-set-pixel-value.h"
+#include "targets/microbit-v2/abi/host-functions/i2c-read.h"
 #include "targets/microbit-v2/abi/host-functions/i2c-write.h"
 
 namespace mindcraft
 {
 
 /** Number of microbit-v2 target host-function bindings the slice registers. */
-inline constexpr uint32_t kMicroBitV2HostFuncBindingCount = 13;
+inline constexpr uint32_t kMicroBitV2HostFuncBindingCount = 14;
 
 /**
  * Builds the microbit-v2 target host-function binding table over `ports`, one
@@ -24,13 +25,15 @@ inline constexpr uint32_t kMicroBitV2HostFuncBindingCount = 13;
  * (the receiver discriminator selects the input); the accelerometer reads each
  * bind a distinct body over the single accelerometer port. The async
  * `DisplayDrawImage` body uses `drawEnv` (its display port, heap, and program);
- * the `I2CWriteBuffer` body uses `i2cEnv` (its I2C port, heap, and program);
- * pass null for an env when the table will never dispatch its body. `ports` and
- * any supplied env must outlive every dispatch through the table.
+ * the `I2CWriteBuffer` body uses `i2cWriteEnv` (its I2C port, heap, and
+ * program); the `I2CReadBuffer` body uses `i2cReadEnv` (its I2C port, heap, and
+ * roots); pass null for an env when the table will never dispatch its body.
+ * `ports` and any supplied env must outlive every dispatch through the table.
  */
 inline std::array<TargetHostFuncBinding, kMicroBitV2HostFuncBindingCount>
 makeMicroBitV2HostFuncBindings(DevicePorts &ports, MicroBitV2DrawImageEnv *drawEnv = nullptr,
-                               MicroBitV2I2CWriteEnv *i2cEnv = nullptr)
+                               MicroBitV2I2CWriteEnv *i2cWriteEnv = nullptr,
+                               MicroBitV2I2CReadEnv *i2cReadEnv = nullptr)
 {
     return {{
         {static_cast<uint32_t>(MicroBitV2HostFuncId::ButtonIsPressed), &execButtonIsPressed,
@@ -57,7 +60,10 @@ makeMicroBitV2HostFuncBindings(DevicePorts &ports, MicroBitV2DrawImageEnv *drawE
          &execAccelerometerGetGesture, &ports},
         {static_cast<uint32_t>(MicroBitV2HostFuncId::DisplayDrawImage), nullptr, drawEnv,
          &execDrawImageHostFn},
-        {static_cast<uint32_t>(MicroBitV2HostFuncId::I2CWriteBuffer), &execI2CWriteBuffer, i2cEnv},
+        {static_cast<uint32_t>(MicroBitV2HostFuncId::I2CWriteBuffer), &execI2CWriteBuffer,
+         i2cWriteEnv},
+        {static_cast<uint32_t>(MicroBitV2HostFuncId::I2CReadBuffer), &execI2CReadBuffer,
+         i2cReadEnv},
     }};
 }
 

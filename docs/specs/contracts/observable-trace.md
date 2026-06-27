@@ -35,6 +35,11 @@ change `vm-contract.md`.
   port. `<address>` is the 7-bit device address in minimal lowercase hex; `<hex>`
   is the bytes written, in transmission order, two lowercase hex digits per byte
   with no separators (empty for a zero-length write).
+- `port i2c read <address> <len> <hex>` - one buffer read crossing the I2C device
+  port. `<address>` is the 7-bit device address and `<len>` the requested byte
+  count, both minimal lowercase hex; `<hex>` is the returned bytes, two lowercase
+  hex digits per byte with no separators. The byte field is empty on a
+  no-device/error read, which still records `<len>` so the request is visible.
 - `fault <fiberId> <errorCode>` - a fiber fault.
 
 Host-action ids and call-site ids render as minimal lowercase hex.

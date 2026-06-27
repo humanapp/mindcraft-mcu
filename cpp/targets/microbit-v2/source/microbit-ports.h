@@ -269,6 +269,12 @@ public:
                                len, false);
     }
 
+    int read(uint16_t address, uint8_t *data, int len) override
+    {
+        // CODAL's I2C::read takes the 8-bit address, matching write.
+        return uBit_.i2c.read(static_cast<uint16_t>(address << 1), data, len, false);
+    }
+
 private:
     MicroBit &uBit_;
 };

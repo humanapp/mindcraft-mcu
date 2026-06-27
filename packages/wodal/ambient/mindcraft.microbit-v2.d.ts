@@ -47,6 +47,7 @@ declare module "mindcraft" {
   export interface I2C {
     readonly __brand: unique symbol;
     writeBuffer(address: number, data: Buffer): number;
+    readBuffer(address: number, length: number): Buffer;
   }
   export interface MicroBit {
     readonly __brand: unique symbol;

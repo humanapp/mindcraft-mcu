@@ -146,6 +146,15 @@ public:
    * may be null only then). Returns 0 on success, nonzero on a bus error.
    */
   virtual int write(uint16_t address, const uint8_t* data, int len) = 0;
+
+  /**
+   * Read `len` bytes from the 7-bit `address` into `data` in one complete
+   * START/STOP transaction. On success exactly `len` bytes are written to `data`
+   * and 0 is returned; on a bus error or absent device nonzero is returned and
+   * `data` is left undefined. A zero `len` reads no bytes (`data` may be null
+   * only then).
+   */
+  virtual int read(uint16_t address, uint8_t* data, int len) = 0;
 };
 
 /**

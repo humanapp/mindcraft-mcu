@@ -46,6 +46,7 @@ export enum MicroBitV2HostFuncId {
   ActuatorDrawImage = 1048,
   DisplayDrawImage = 1049,
   I2CWriteBuffer = 1050,
+  I2CReadBuffer = 1051,
 }
 
 /**

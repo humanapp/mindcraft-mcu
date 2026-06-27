@@ -128,13 +128,17 @@ and from imported stdlib icons). **All remaining display work is DEFERRED (2026-
 prioritize the Cutebot goal:** D3c (transparency - design open) + the editor track D4/D5 (sim-only
 authoring, off the parity path); designs carried in `docs/specs/tiles/display.md`.
 **NEXT = THE CUTEBOT CRITICAL PATH.** The ELECFREAKS Cutebot (Phase 9, pure TS user-tiles, no new
-firmware) needs three Phase 7 surface-2 EDGE-CONNECTOR PRIMITIVES, **none yet built**: **I2C**
-(Cutebot motors/servos/lamps @ 0x10), **GPIO** (Cutebot ultrasonic + line sensors), and a **native
-NEC IR-receive** primitive (Cutebot remote; native C++ - the round-based VM cannot do microsecond
-pulse timing; general + pin-parameterized, NEC-only). Recommended order: **I2C** (core actuation -
-drive the motors) -> **GPIO** (sensing) -> **IR** (remote), then **Phase 9** (Cutebot via TS).
-Off-critical-path candidates still available: A4 impact revival, an audio / sound-effect family, and
-Phase 8 (virtual radio sim-to-sim, needs a Phase 7 radio family).** Two further phases queued: 8 (virtual radio
+firmware) needs three Phase 7 surface-2 EDGE-CONNECTOR PRIMITIVES: **I2C** (Cutebot motors/servos/
+lamps @ 0x10), **GPIO** (Cutebot ultrasonic + line sensors), and a **native NEC IR-receive** primitive
+(Cutebot remote; native C++ - the round-based VM cannot do microsecond pulse timing; general +
+pin-parameterized, NEC-only). **The I2C primitive is COMPLETE both VMs 2026-06-26 (host-gated)** - `writeBuffer` (I1, the
+Cutebot-critical write @ 0x10) + `readBuffer` (I2, the first surface-2 managed-`Buffer` return).
+Recommended next: **GPIO** (Cutebot's ultrasonic + line sensing) -> **IR** (remote) -> **Phase 9**
+(Cutebot via TS); plus I2C hardware validation when a device is available. NOTE: GPIO prep must
+resolve whether the Cutebot ultrasonic needs a native microsecond pulse-timing primitive (the
+round-based VM cannot time us in bytecode - the same constraint that makes IR native). Off-critical-path candidates still
+available: A4 impact revival, an audio / sound-effect family, and Phase 8 (virtual radio sim-to-sim,
+needs a Phase 7 radio family).** Two further phases queued: 8 (virtual radio
 sim-to-sim) and 9 (Cutebot via TS user-tiles).** **PHASE
 6 IS COMPLETE
 (6a-6j, 2026-06-17): the C++ VM is a fully conforming VM - every contract opcode
@@ -2840,6 +2844,36 @@ Condensed dated ledger of accepted phases (newest first). Full per-phase as-buil
 detail lives in the session memory and git history; the accepted phase sections above
 carry the contracts each produced.
 
+- **2026-06-26 - I2C primitive I2 complete (`ctx.microbit.i2c.readBuffer`; host-gated) - I2C feature
+  done.** The read counterpart of I1 and the **first surface-2 host-function returning a managed
+  `Buffer`** (runtime-allocated bytes). `readBuffer(address, length): Buffer` reads `length` bytes
+  from the 7-bit address; host-fn id `1051` (append-only). Managed-buffer return: cpp
+  `ManagedHeap::allocBuffer` + read filled directly into the buffer (the `$buf_from` GC-roots
+  precedent; roots wired to the FiberScheduler; no-device discards + allocates empty so nothing
+  unrooted survives an allocation); wodal `mkBufferValue`. Empty `Buffer` on NACK/no-device; the
+  injectable bus models a fixed response per address. New trace line `port i2c read <addr> <len>
+  <hex>` (both VMs; `observable-trace.md` reconciled). Golden `user-tile-i2c-read` echoes reads back
+  through `writeBuffer` to prove the buffer's contents end-to-end, byte-matched both VMs; GC verified
+  via the sanitizer preset. `external/mindcraft-lang` untouched. Gates: wodal 238; cpp check.sh x3.
+  **The I2C edge-connector primitive is complete (write + read).** Hardware validate-later (no I2C
+  device this session). Plan: `generated-docs/i2c-primitive-impl-plan-2026-06-26.md`.
+- **2026-06-26 - I2C primitive I1 complete (`ctx.microbit.i2c.writeBuffer`; host-gated, hardware
+  validate-later).** The **first edge-connector primitive** (Phase 7 surface-2-only, no tile) and the
+  **first surface-2 host-function taking a `Buffer` argument**, on the Cutebot critical path (Cutebot
+  drives motors/servos/lamps @ I2C `0x10` via writes). `writeBuffer(address, data: Buffer): number`
+  writes the buffer's bytes to the 7-bit address in one START/STOP transaction. Built on the
+  accelerometer surface-2 pattern: a singleton `i2c` native-struct getter + a new `I2CPort`
+  device-port (`write -> int status`); ids host-fn `1050` / type-atom `1029` / `MicroBitField.I2C=5`
+  (append-only). **7-bit address at the surface** (matching pxt `pins.i2cWriteBuffer`); the CODAL
+  impl shifts `<<1` to the 8-bit form (kept out of the port/sim/trace). Return = status number (0 ok);
+  0-length write = valid address-only transaction; no length cap. The cpp host-fn reads the `Buffer`
+  arg from both managed + borrowed sources. wodal sim `I2CBus` (records writes, injectable, owns no
+  hardware); new trace line `port i2c write <addr-hex> <bytes-hex>` (additive, format v1, no version
+  bump, `observable-trace.md`). Golden `user-tile-i2c-write` byte-matches both VMs. The read path
+  (`readBuffer`, the first surface-2 managed-`Buffer` return) + the per-address read-response store are
+  deferred to I2. `external/mindcraft-lang` untouched. Gates: wodal 236; cpp check.sh x3. Plan:
+  `generated-docs/i2c-primitive-impl-plan-2026-06-26.md`. Hardware validate-later (no I2C device this
+  session; firmware files wired but not host-compiled).
 - **2026-06-25 - Display D6 complete (`draw image` multi-image sequence; hardware-validated).** The
   `Image` slot became a `repeated` anon slot gathered into a `List<Image>`; a multi-image draw plays
   each frame for the `duration` (one lease spanning the sequence, total = imageCount x duration, last

@@ -1,3 +1,4 @@
+import { stream } from "@mindcraft-lang/core";
 import {
   type AsyncHandle,
   BrainTileLiteralDef,
@@ -21,7 +22,7 @@ import {
   type Value,
   VOID_VALUE,
 } from "@mindcraft-lang/core/app";
-import { bufferByteAt, bufferLength, isBufferValue } from "@mindcraft-lang/core/runtime";
+import { bufferByteAt, bufferLength, isBufferValue, mkBufferValue } from "@mindcraft-lang/core/runtime";
 import { Accelerometer } from "../../../core/accelerometer";
 import { Button } from "../../../core/button";
 import { I2CBus } from "../../../core/i2c-bus";
@@ -217,6 +218,14 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
           { name: "data", typeId: CoreTypeIds.Buffer },
         ]),
         returnTypeId: CoreTypeIds.Number,
+      },
+      {
+        name: "readBuffer",
+        params: List.from([
+          { name: "address", typeId: CoreTypeIds.Number },
+          { name: "length", typeId: CoreTypeIds.Number },
+        ]),
+        returnTypeId: CoreTypeIds.Buffer,
       },
     ]),
   });
@@ -462,6 +471,22 @@ function registerI2CFunctions(api: MindcraftModuleApi): void {
         const address = toNonNegativeInteger(numberArg(args, 1));
         const bytes = bufferArgBytes(args.get(2));
         return mkNumberValue(bus ? bus.write(address, bytes) : 0);
+      },
+    },
+    callDef: emptyCallDef,
+  });
+
+  api.registerFunction({
+    id: MicroBitV2HostFuncId.I2CReadBuffer,
+    name: "I2C.readBuffer",
+    isAsync: false,
+    fn: {
+      exec: (_ctx: ExecutionContext, args: ReadonlyList<Value>) => {
+        const bus = getI2CReceiver(args);
+        const address = toNonNegativeInteger(numberArg(args, 1));
+        const length = toNonNegativeInteger(numberArg(args, 2));
+        const bytes = bus ? bus.read(address, length) : new Uint8Array(0);
+        return mkBufferValue(stream.byteArrayFromUint8Array(bytes));
       },
     },
     callDef: emptyCallDef,
