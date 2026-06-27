@@ -121,10 +121,11 @@ all landed 2026-06-24, and display **D3a** (surface-2 `drawImage` API + a real `
 the first async surface-2 host-function) and **D3b** (the `.ts` stdlib facility + `image()` + named
 icons, plus the `Image` shared-type-atom-tier refactor) both landed 2026-06-25 - **D1/D3a/D3b
 hardware-validated** (a TS user tile drawing a stdlib icon renders on real hardware); D2 accepted.
-The author-able image slice is complete end-to-end. **D3c (transparency) is DEFERRED with its design
-OPEN** (unpinned - not important for micro:bit; the mask sketch raised concerns). Remaining display
-work: **D6** (`draw image` multi-image sequence), D4/D5 (the image editors). Next: pick the next
-Phase 7 peripheral, revive A4, or continue display D6/D4/D5.** Two further phases queued: 8 (virtual radio
+The author-able image slice is complete end-to-end, and **D6** (multi-image sequence) landed
+hardware-validated 2026-06-25. **D3c (transparency) is DEFERRED with its design OPEN** (unpinned - not
+important for micro:bit; the mask sketch raised concerns). The display runtime/parity surface is
+complete; only the **editor track D4/D5** (sim-only image editors) remains. Next: pick the next
+Phase 7 peripheral, revive A4, or continue display D4/D5.** Two further phases queued: 8 (virtual radio
 sim-to-sim) and 9 (Cutebot via TS user-tiles).** **PHASE
 6 IS COMPLETE
 (6a-6j, 2026-06-17): the C++ VM is a fully conforming VM - every contract opcode
@@ -2830,6 +2831,23 @@ Condensed dated ledger of accepted phases (newest first). Full per-phase as-buil
 detail lives in the session memory and git history; the accepted phase sections above
 carry the contracts each produced.
 
+- **2026-06-25 - Display D6 complete (`draw image` multi-image sequence; hardware-validated).** The
+  `Image` slot became a `repeated` anon slot gathered into a `List<Image>`; a multi-image draw plays
+  each frame for the `duration` (one lease spanning the sequence, total = imageCount x duration, last
+  frame persists). **First repeated ANON/PARAM consumer** - the brain compiler (`external/mindcraft-lang`
+  `rule-compiler.ts`) gained List-gather for repeated anon/param slots (unified `emitSlotExprs`
+  applied symmetrically to the anon + named loops, `LIST_NEW`/`LIST_PUSH` + per-element conversion,
+  `BrainActionArgSlot.repeated` flag), **leaving the existing repeated-MODIFIER count path
+  byte-identical** (regression-gated against `apps/sim` `move`/`turn`/`see`/`detect`). Both VMs: the
+  display lease generalized to a frame sequence (per-`think()` poll swaps frames, n=1 reduces to D1's
+  single draw exactly); cpp got a `DrawFrameSource` pull interface (`drawFrames`) shared by the
+  actuator + the single-image host fn. Trace: a `port display draw` line per frame swap + a new `list
+  <count> <value>...` value token (both VMs, `observable-trace.md`, additive v1). Decisions: unbounded
+  per-port frame store; duration-0 + multi paints only the last image fire-and-forget. Goldens:
+  single-image regen (slot now a List), 4 new sequence goldens (incl. a real-compiler 2-anon-tile ->
+  List case); `repeated-args.spec.ts` (anon/named -> List, modifier -> count). Gates: external core
+  926 / ts-compiler 1001; wodal 234; cpp check.sh x3 = 312. Plan:
+  `generated-docs/display-impl-plan-2026-06-24.md`.
 - **2026-06-25 - Display D3b complete (the `.ts` stdlib facility + `image()` + named icons;
   hardware-validated) + the `Image` shared-type-atom-tier refactor.** The first author-able image
   slice, end-to-end: a TS user tile imports a stdlib icon, draws it, and it renders on a real

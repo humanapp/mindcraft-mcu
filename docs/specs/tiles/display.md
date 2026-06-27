@@ -143,21 +143,23 @@ lease are silently dropped (each completes immediately with its paste discarded)
 
 ## Member: draw image
 
-- An async actuator placed in `do`. Renders a full `Image` to the display at once.
-- **Planned: multiple anonymous `Image` arguments.** `draw image` accepts one or more anonymous
-  `Image`s (a `repeated` slot); with more than one, it displays each in sequence, **holding each
-  for the `duration`** before advancing (one lease spanning the whole sequence; total =
-  imageCount x `duration`). The shipped cut takes a single `Image`; the repeated slot is the
-  planned extension.
-- Arguments: an optional anonymous **`Image`** to draw (from a `create an image` factory tile, a
-  built-in image tile, or an `Image` variable), plus an optional, **named** **duration** Number in
-  **seconds** (the `Image` is the bare anonymous slot, like `scroll` text; the duration is a named
-  slot). The actuator converts the seconds duration to the lease's milliseconds (truncated).
-  - **Image default:** when the `Image` slot is absent or nil, a **target default image** is drawn.
-    On micro:bit-v2 that is a smiley face (the target's built-in default image).
-  - **Duration default:** when the duration slot is absent or nil, the draw holds for **1 second**.
-  - The optional **`immediately`** modifier preempts the current display lease so the draw runs at
-    once (see the lease section).
+- An async actuator placed in `do`. Renders one or more `Image`s to the display.
+- **Multiple anonymous `Image` arguments.** The `Image` slot is a **`repeated`** slot (zero or more
+  anonymous `Image`s, gathered into a `List<Image>`); with more than one, `draw image` displays each
+  in sequence, **holding each for the `duration`** before advancing (one lease spanning the whole
+  sequence; total = imageCount x `duration`; the last frame persists after completion). A single
+  `Image` is the one-element case (identical to a lone draw); zero is the default-image case.
+- Arguments: zero or more anonymous **`Image`s** to draw (each from a `create an image` factory tile,
+  a built-in image tile, or an `Image` variable), plus an optional, **named** **duration** Number in
+  **seconds** (the `Image`s are the bare anonymous repeated slot, like `scroll` text; the duration is
+  a named slot). The actuator converts the seconds duration to the lease's milliseconds (truncated).
+  - **Image default:** when **no** `Image` is supplied, a **target default image** is drawn. On
+    micro:bit-v2 that is a smiley face (the target's built-in default image).
+  - **Duration default:** when the duration slot is absent or nil, each image holds for **1 second**.
+  - **duration 0 with multiple images:** a zero duration is fire-and-forget (no hold), so the
+    sequence cannot animate - only the **last** image is painted, fire-and-forget (no lease).
+  - The optional **`immediately`** modifier preempts the current display lease so the draw (or the
+    whole sequence) runs at once (see the lease section).
 - At dispatch the image is pasted onto the display **top-left aligned** (the image's `(0,0)` at
   the display's `(0,0)`) and **clipped to the display dimensions**. An image larger than the
   display is **not** an error - off-screen pixels are clipped. (The fixed `(0,0)` offset is the
@@ -361,21 +363,26 @@ The concrete fill-in of the target-parameterized pieces for micro:bit-v2:
   trace.
 - **draw image:** tile `draw image` (key `microbit-v2.draw-image`, action id 1031, function id
   1048 `ActuatorDrawImage`; surface-2 host-fn `drawImage` id 1049; `Image` shared type-atom id 2048).
-  An optional **anonymous** `Image` (default a
-  5x5 smiley) + an optional **named** `duration` in seconds (default 1 second); the `immediately`
-  modifier (`microbit-v2.immediately`) preempts the lease. On device the paste maps to a full-frame
-  buffer write (CODAL `printAsync(Image, delay = 0)` semantics, or a direct buffer write) with no
-  CODAL hold timer; an oversize image clips via CODAL's paste. Goldens `draw-image-forget` /
-  `draw-image-timed` / `draw-image-dropped` / `draw-image-defaults` / `draw-image-preempt`
+  A **`repeated` anonymous** `Image` slot (zero or more, gathered into a `List<Image>`; default a 5x5
+  smiley when none) + an optional **named** `duration` in seconds (default 1 second, **per image**);
+  the `immediately` modifier (`microbit-v2.immediately`) preempts the lease. On device the paste maps
+  to a full-frame buffer write (CODAL `printAsync(Image, delay = 0)` semantics, or a direct buffer
+  write) with no CODAL hold timer; an oversize image clips via CODAL's paste; a multi-image sequence
+  swaps frames per `duration` from the per-`think()` poll. Goldens `draw-image-forget` /
+  `draw-image-timed` / `draw-image-dropped` / `draw-image-defaults` / `draw-image-preempt` /
+  `draw-image-builtins` (single-image, slot now a `List`) and `draw-image-sequence` /
+  `draw-image-sequence-dropped` / `draw-image-sequence-preempt` / `draw-image-sequence-compiled`
   (`.mcprogram.bin` + `.ticks.trace`); the C++ parity test loads the same binaries and byte-compares.
 
 ## Conformance
 
 - The wodal microbit module is the oracle; the C++ port mirrors it. Temporal draws are
-  byte-matched via the observable trace: a display-port line for the draw (under the target's
-  narrowing) plus the async `action ... async` dispatch line. Completion resolves on VM tick
-  time, so the trace is deterministic and reproducible across both VMs. Goldens live beside the
-  wodal trace specs and the C++ parity test loads the same binary.
+  byte-matched via the observable trace: a display-port line **per frame shown** (one for a single
+  draw, one per swap for a sequence, under the target's narrowing) plus the async `action ... async`
+  dispatch line (whose `draw image` `Image` argument renders as a `list <count> <value>...` token,
+  the repeated slot's `List<Image>`). Completion resolves on VM tick time, so the trace is
+  deterministic and reproducible across both VMs. Goldens live beside the wodal trace specs and the
+  C++ parity test loads the same binary.
 - The arbitration outcome is part of the trace and is deterministic via round order plus VM-tick
   lease timing: a dropped draw emits its async action line but no display-port line (its paste is
   discarded) and resolves immediately.
