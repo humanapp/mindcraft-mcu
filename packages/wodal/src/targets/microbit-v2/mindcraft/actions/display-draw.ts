@@ -31,7 +31,7 @@ export const DEFAULT_DURATION_MS = 1000;
 export const DEFAULT_IMAGE: ClippedFrame = builtInImageFrame(getBuiltInImage(DEFAULT_BUILT_IN_IMAGE_NAME));
 
 const callDef = mkCallDef(
-  bag(repeated(Param.image, { min: 0 }), optional(Param.duration), optional(Modifier.immediately))
+  bag(optional(repeated(Param.image, { min: 0 })), optional(Param.duration), optional(Modifier.immediately))
 );
 
 const kImageSlotId = getSlotId(callDef, Param.image);
