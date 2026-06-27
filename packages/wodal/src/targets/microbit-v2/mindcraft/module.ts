@@ -313,9 +313,8 @@ function registerMicroBitDisplayFunctions(api: MindcraftModuleApi): void {
           durationSeconds === undefined
             ? DEFAULT_DURATION_MS
             : toNonNegativeInteger(Math.fround(durationSeconds * 1000));
-        display.drawImage(clipped.frame, clipped.width, clipped.height, durationMs, ctx.time, () =>
-          handle.resolve(VOID_VALUE)
-        );
+        // This host function draws a single image, leased as a one-frame sequence.
+        display.drawImage([clipped], durationMs, ctx.time, () => handle.resolve(VOID_VALUE));
       },
     },
     callDef: emptyCallDef,

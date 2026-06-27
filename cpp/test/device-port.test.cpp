@@ -23,8 +23,8 @@ struct RecordingDisplay : mindcraft::PixelDisplayPort {
   void scrollText(const uint8_t*, uint32_t, uint32_t, mindcraft::mc_number_t,
                   mindcraft::AsyncHandle) override {}
 
-  void drawFrame(const uint8_t*, uint32_t, uint32_t, uint32_t, mindcraft::mc_number_t,
-                 mindcraft::AsyncHandle) override {}
+  void drawFrames(mindcraft::DrawFrameSource&, uint32_t, mindcraft::mc_number_t,
+                  mindcraft::AsyncHandle) override {}
 
   void preempt() override {}
 };

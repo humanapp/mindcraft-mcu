@@ -4,10 +4,10 @@ precision f32
 tick 1 time 42c80000 dt 00000000
 action 4 site 0 args 0 result bool 1
 port display draw 5 5 ffffffffff0000000000000000000000000000000000000000
-action 407 site 1 args 2 struct 3 number 40a00000 number 40a00000 buffer ffffffffff0000000000000000000000000000000000000000 number 3e800000 async
+action 407 site 1 args 2 list 1 struct 3 number 40a00000 number 40a00000 buffer ffffffffff0000000000000000000000000000000000000000 number 3e800000 async
 action 4 site 3 args 0 result bool 1
 port display draw 5 5 ff00000000ff00000000ff00000000ff00000000ff00000000
-action 407 site 4 args 3 struct 3 number 40a00000 number 40a00000 buffer ff00000000ff00000000ff00000000ff00000000ff00000000 number 00000000 bool 1 async
+action 407 site 4 args 3 list 1 struct 3 number 40a00000 number 40a00000 buffer ff00000000ff00000000ff00000000ff00000000ff00000000 number 00000000 bool 1 async
 port display set-pixel 00000000 40800000 437f0000
 action 401 site 5 args 3 number 00000000 number 40800000 number 437f0000 result void
 tick 2 time 43480000 dt 42c80000

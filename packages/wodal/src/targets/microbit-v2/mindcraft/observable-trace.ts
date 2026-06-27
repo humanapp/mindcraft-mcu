@@ -29,10 +29,12 @@
  *   other byte renders as `\xNN` with two lowercase hex digits.
  * - A value token is one of `void`, `nil`, `bool 0|1`, `number <bits>`,
  *   `string "<bytes>"`, `buffer <hex>` (two lowercase hex digits per byte,
- *   no separators; empty for an empty buffer), or `struct <fieldCount>
+ *   no separators; empty for an empty buffer), `struct <fieldCount>
  *   <value>...` (the field count in hex followed by one value token per field
- *   slot, in slot order; native-backed structs do not render). Any other value
- *   kind crossing the host-binding surface is an error in format version 1.
+ *   slot, in slot order; native-backed structs do not render), or `list
+ *   <count> <value>...` (the element count in hex followed by one value token
+ *   per element, in order; empty for an empty list). Any other value kind
+ *   crossing the host-binding surface is an error in format version 1.
  *
  * Line layout: a three-line header, then events in emission order.
  *
@@ -156,6 +158,14 @@ function valueToken(value: Value, precision: NumberPrecision): string {
       let text = `struct ${hexU32(fields.size())}`;
       for (let i = 0; i < fields.size(); i++) {
         text += ` ${valueToken(fields.get(i), precision)}`;
+      }
+      return text;
+    }
+    case NativeType.List: {
+      const items = value.v;
+      let text = `list ${hexU32(items.size())}`;
+      for (let i = 0; i < items.size(); i++) {
+        text += ` ${valueToken(items.get(i), precision)}`;
       }
       return text;
     }

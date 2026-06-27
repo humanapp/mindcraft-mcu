@@ -54,43 +54,81 @@ public:
         uBit_.display.scrollAsync(text, static_cast<int>(delayMs));
     }
 
-    void drawFrame(const uint8_t *frame, uint32_t width, uint32_t height, uint32_t durationMs,
-                   mc_number_t, AsyncHandle handle) override
+    void drawFrames(DrawFrameSource &frames, uint32_t perFrameDurationMs, mc_number_t,
+                    AsyncHandle handle) override
     {
         if (busy_)
         {
             handle.resolve(kVoidValue);
             return;
         }
-        for (uint32_t row = 0; row < height; row++)
+        const uint32_t frameCount = frames.frameCount();
+        uint8_t buf[kPixelCount];
+        if (perFrameDurationMs == 0)
         {
-            for (uint32_t col = 0; col < width; col++)
-            {
-                uBit_.display.image.setPixelValue(
-                    static_cast<int16_t>(col), static_cast<int16_t>(row), frame[row * width + col]);
-            }
-        }
-        if (durationMs > 0)
-        {
-            active_ = handle;
-            busy_ = true;
-            completionTime_ = static_cast<uint32_t>(system_timer_current_time()) + durationMs;
+            // Fire-and-forget: paint only the final frame and take no lease.
+            uint32_t width = 0;
+            uint32_t height = 0;
+            frames.writeFrame(frameCount - 1, buf, width, height);
+            pasteFrame(buf, width, height);
+            handle.resolve(kVoidValue);
             return;
         }
-        handle.resolve(kVoidValue);
+        releaseFrames();
+        frameCount_ = frameCount;
+        frameBytes_ = new uint8_t[frameCount * kPixelCount];
+        frameWidths_ = new uint32_t[frameCount];
+        frameHeights_ = new uint32_t[frameCount];
+        for (uint32_t i = 0; i < frameCount; i++)
+        {
+            uint32_t width = 0;
+            uint32_t height = 0;
+            frames.writeFrame(i, &frameBytes_[i * kPixelCount], width, height);
+            frameWidths_[i] = width;
+            frameHeights_[i] = height;
+        }
+        pasteFrame(&frameBytes_[0], frameWidths_[0], frameHeights_[0]);
+        busy_ = true;
+        seqStart_ = static_cast<uint32_t>(system_timer_current_time());
+        perFrameMs_ = perFrameDurationMs;
+        paintedCount_ = 1;
+        completionTime_ = seqStart_ + frameCount * perFrameDurationMs;
+        active_ = handle;
     }
 
     /**
-     * Settles the held scroll or timed draw's handle once its duration has
-     * elapsed (enqueue-only; the think loop resumes the waiter). Call once per
-     * host-loop tick before the brain thinks.
+     * Advances a held image sequence to the frame due now, then settles the held
+     * scroll or sequence handle once its lease has elapsed (enqueue-only; the
+     * think loop resumes the waiter). Call once per host-loop tick before the
+     * brain thinks.
      */
     void pollDisplay()
     {
-        if (!busy_ || static_cast<uint32_t>(system_timer_current_time()) < completionTime_)
+        if (!busy_)
         {
             return;
         }
+        const uint32_t now = static_cast<uint32_t>(system_timer_current_time());
+        if (frameCount_ > 0)
+        {
+            const uint32_t elapsed = now > seqStart_ ? now - seqStart_ : 0;
+            uint32_t target = perFrameMs_ == 0 ? 0 : elapsed / perFrameMs_;
+            if (target > frameCount_ - 1)
+            {
+                target = frameCount_ - 1;
+            }
+            while (paintedCount_ <= target)
+            {
+                pasteFrame(&frameBytes_[paintedCount_ * kPixelCount], frameWidths_[paintedCount_],
+                           frameHeights_[paintedCount_]);
+                paintedCount_++;
+            }
+        }
+        if (now < completionTime_)
+        {
+            return;
+        }
+        releaseFrames();
         const AsyncHandle done = active_;
         busy_ = false;
         done.resolve(kVoidValue);
@@ -104,16 +142,55 @@ public:
         }
         const AsyncHandle held = active_;
         busy_ = false;
+        releaseFrames();
         // Stop any in-flight CODAL scroll animation; the next operation repaints.
         uBit_.display.stopAnimation();
         held.resolve(kVoidValue);
     }
 
 private:
+    /** Pixels in the 5x5 matrix; the per-frame storage stride. */
+    static constexpr uint32_t kPixelCount = 25;
+
     MicroBit &uBit_;
     bool busy_ = false;
     uint32_t completionTime_ = 0;
     AsyncHandle active_{};
+    // A held image sequence: each frame's bytes (stride kPixelCount), its size,
+    // and the playback cursor. Null/zero while no sequence holds the lease.
+    uint8_t *frameBytes_ = nullptr;
+    uint32_t *frameWidths_ = nullptr;
+    uint32_t *frameHeights_ = nullptr;
+    uint32_t frameCount_ = 0;
+    uint32_t paintedCount_ = 0;
+    uint32_t seqStart_ = 0;
+    uint32_t perFrameMs_ = 0;
+
+    /** Paste one frame top-left into the display image, row-major. */
+    void pasteFrame(const uint8_t *frame, uint32_t width, uint32_t height)
+    {
+        for (uint32_t row = 0; row < height; row++)
+        {
+            for (uint32_t col = 0; col < width; col++)
+            {
+                uBit_.display.image.setPixelValue(
+                    static_cast<int16_t>(col), static_cast<int16_t>(row), frame[row * width + col]);
+            }
+        }
+    }
+
+    /** Free the held sequence storage and reset the playback cursor. */
+    void releaseFrames()
+    {
+        delete[] frameBytes_;
+        delete[] frameWidths_;
+        delete[] frameHeights_;
+        frameBytes_ = nullptr;
+        frameWidths_ = nullptr;
+        frameHeights_ = nullptr;
+        frameCount_ = 0;
+        paintedCount_ = 0;
+    }
 };
 
 /** Reads button levels: index 0 is button A, 1 is button B, 2 is the touch logo. */

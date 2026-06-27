@@ -233,12 +233,10 @@ function runTrace(bin: Uint8Array, tickCount: number): { trace: string; microbit
   };
 
   const microbit = new MicroBit();
-  const deviceDrawImage = microbit.display.drawImage.bind(microbit.display);
-  microbit.display.drawImage = (frame, width, height, durationMs, requestTime, onComplete) => {
-    if (!microbit.display.isBusy()) {
-      writer.displayDraw(width, height, frame);
-    }
-    deviceDrawImage(frame, width, height, durationMs, requestTime, onComplete);
+  const devicePaintFrame = microbit.display.paintFrame.bind(microbit.display);
+  microbit.display.paintFrame = (image) => {
+    writer.displayDraw(image.width, image.height, image.frame);
+    devicePaintFrame(image);
   };
   const deviceSetPixelValue = microbit.display.setPixelValue.bind(microbit.display);
   microbit.display.setPixelValue = (x, y, brightness) => {

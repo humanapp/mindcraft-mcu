@@ -8,6 +8,28 @@
 namespace mindcraft {
 
 /**
+ * Supplies the frames of a timed image draw to a {@link PixelDisplayPort}. The
+ * port reads every frame up front (into its own storage) when the draw is
+ * accepted, so the source need only outlive the `drawFrames` call.
+ */
+class DrawFrameSource {
+public:
+  virtual ~DrawFrameSource() = default;
+
+  /** Number of frames in the sequence; always at least one. */
+  virtual uint32_t frameCount() = 0;
+
+  /**
+   * Write frame `index` (0-based, less than {@link frameCount}) as packed
+   * brightness bytes, row-major, into `out`, and report its clipped
+   * `width`/`height`. The frame is clipped to the board matrix, so
+   * `width * height` bytes are written and `out` must have room for the board's
+   * pixel count.
+   */
+  virtual void writeFrame(uint32_t index, uint8_t* out, uint32_t& width, uint32_t& height) = 0;
+};
+
+/**
  * Pixel-matrix display output. Coordinates are zero-based from the top-left;
  * dimensions are board-defined (5x5 on a micro:bit v2).
  */
@@ -33,18 +55,21 @@ public:
                           mc_number_t requestTimeMs, AsyncHandle handle) = 0;
 
   /**
-   * Paste a `width` by `height` packed brightness frame (row-major, one byte per
-   * pixel) to the display top-left, requested at logical tick time
-   * `requestTimeMs`. The frame is already clipped to the board's matrix by the
-   * caller. The call returns immediately and settles `handle` (resolve): a
-   * positive `durationMs` holds the display for that long before settling, and a
-   * non-positive `durationMs` settles at once without holding. A draw requested
-   * while the display is busy (a scroll or a held draw) is silently dropped:
-   * nothing is pasted and `handle` settles at once. The pasted frame is never
-   * cleared; it persists until the next draw.
+   * Paste a sequence of packed brightness frames (row-major, one byte per pixel,
+   * each already clipped to the board's matrix) to the display top-left, one
+   * frame per `perFrameDurationMs` slice, requested at logical tick time
+   * `requestTimeMs`. The port reads every frame from `frames` up front. The call
+   * returns immediately and settles `handle` (resolve): a positive
+   * `perFrameDurationMs` holds the display for `frameCount * perFrameDurationMs`,
+   * advancing to the next frame each slice, before settling; a non-positive
+   * `perFrameDurationMs` is fire-and-forget -- only the final frame is pasted, no
+   * hold is taken, and `handle` settles at once. A draw requested while the
+   * display is busy (a scroll or a held draw) is silently dropped: nothing is
+   * pasted and `handle` settles at once. The last pasted frame is never cleared;
+   * it persists until the next draw.
    */
-  virtual void drawFrame(const uint8_t* frame, uint32_t width, uint32_t height, uint32_t durationMs,
-                         mc_number_t requestTimeMs, AsyncHandle handle) = 0;
+  virtual void drawFrames(DrawFrameSource& frames, uint32_t perFrameDurationMs,
+                          mc_number_t requestTimeMs, AsyncHandle handle) = 0;
 
   /**
    * Release the current display lease at once: a held scroll or timed draw is

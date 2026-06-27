@@ -121,9 +121,10 @@ all landed 2026-06-24, and display **D3a** (surface-2 `drawImage` API + a real `
 the first async surface-2 host-function) and **D3b** (the `.ts` stdlib facility + `image()` + named
 icons, plus the `Image` shared-type-atom-tier refactor) both landed 2026-06-25 - **D1/D3a/D3b
 hardware-validated** (a TS user tile drawing a stdlib icon renders on real hardware); D2 accepted.
-The author-able image slice is complete end-to-end. Remaining display work: **D3c** (transparency
-representation + overlay mode), **D6** (`draw image` multi-image sequence), D4/D5 (the image
-editors). Next: pick the next Phase 7 peripheral, revive A4, or continue display D3c/D6/D4/D5.** Two further phases queued: 8 (virtual radio
+The author-able image slice is complete end-to-end. **D3c (transparency) is DEFERRED with its design
+OPEN** (unpinned - not important for micro:bit; the mask sketch raised concerns). Remaining display
+work: **D6** (`draw image` multi-image sequence), D4/D5 (the image editors). Next: pick the next
+Phase 7 peripheral, revive A4, or continue display D6/D4/D5.** Two further phases queued: 8 (virtual radio
 sim-to-sim) and 9 (Cutebot via TS user-tiles).** **PHASE
 6 IS COMPLETE
 (6a-6j, 2026-06-17): the C++ VM is a fully conforming VM - every contract opcode

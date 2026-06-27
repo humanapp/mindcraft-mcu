@@ -46,21 +46,9 @@ inline Status execDrawImageHostFn(void *hostData, ExecutionContext &ctx, Span<co
         return Status::ok();
     }
 
-    uint8_t frame[kDrawImageDisplayWidth * kDrawImageDisplayHeight] = {};
-    uint32_t width = 0;
-    uint32_t height = 0;
-    const bool clipped =
-        kDrawImageHostFnImageArgSlot < args.size() &&
-        clipImageValue(env, args[kDrawImageHostFnImageArgSlot], frame, width, height);
-    if (!clipped)
-    {
-        for (uint32_t i = 0; i < kDrawImageDisplayWidth * kDrawImageDisplayHeight; i++)
-        {
-            frame[i] = kDrawImageDefaultPixels[i];
-        }
-        width = kDrawImageDisplayWidth;
-        height = kDrawImageDisplayHeight;
-    }
+    const Value image = kDrawImageHostFnImageArgSlot < args.size()
+                            ? args[kDrawImageHostFnImageArgSlot]
+                            : Value::nil();
 
     uint32_t durationMs = kDrawImageDefaultDurationMs;
     if (kDrawImageHostFnDurationArgSlot < args.size() &&
@@ -70,7 +58,9 @@ inline Status execDrawImageHostFn(void *hostData, ExecutionContext &ctx, Span<co
         durationMs =
             toNonNegativeInteger(args[kDrawImageHostFnDurationArgSlot].asNumber() * 1000.0f);
     }
-    env.display->drawFrame(frame, width, height, durationMs, ctx.time, handle);
+    // This host function draws a single image, leased as a one-frame sequence.
+    DrawImageFrameSource source(env, image);
+    env.display->drawFrames(source, durationMs, ctx.time, handle);
     return Status::ok();
 }
 

@@ -85,7 +85,7 @@ describe("MicroBitDisplay async scroll", () => {
     for (let x = 0; x < 5; x++) {
       frame[x] = 255;
     }
-    display.drawImage(frame, 5, 5, 0, 0, () => {});
+    display.drawImage([{ frame, width: 5, height: 5 }], 0, 0, () => {});
     assert.equal(display.getPixelValue(0, 0), 255);
 
     // Scrolling clears the display before animating, so the drawn row is gone.
@@ -129,5 +129,72 @@ describe("MicroBitDisplay async scroll", () => {
     assert.equal(secondAt, undefined);
     display.advanceScroll(1600);
     assert.equal(secondAt, 1600);
+  });
+});
+
+describe("MicroBitDisplay image sequence", () => {
+  /** A single-pixel frame lighting (col,0) at full brightness; the col marks which frame is shown. */
+  function markerFrame(col: number) {
+    const frame = new Array(5).fill(0);
+    frame[col] = 255;
+    return { frame, width: 5, height: 1 };
+  }
+
+  test("plays each frame for its hold under one lease and resolves at the total", () => {
+    const display = new MicroBitDisplay();
+    let completedAt: number | undefined;
+
+    // Three frames, 100ms each: lease runs [100, 400), resolving at 400.
+    display.drawImage([markerFrame(0), markerFrame(1), markerFrame(2)], 100, 100, () => {
+      completedAt = 1;
+    });
+    // Frame 0 painted at dispatch.
+    assert.equal(display.getPixelValue(0, 0), 255);
+    assert.equal(display.isBusy(), true);
+
+    // At 200 the second frame is due.
+    display.advanceScroll(200);
+    assert.equal(display.getPixelValue(0, 0), 0);
+    assert.equal(display.getPixelValue(1, 0), 255);
+    assert.equal(completedAt, undefined);
+
+    // At 300 the third (final) frame is due; still under lease.
+    display.advanceScroll(300);
+    assert.equal(display.getPixelValue(2, 0), 255);
+    assert.equal(completedAt, undefined);
+
+    // The lease elapses at 400; the final frame persists.
+    display.advanceScroll(400);
+    assert.equal(completedAt, 1);
+    assert.equal(display.isBusy(), false);
+    assert.equal(display.getPixelValue(2, 0), 255);
+  });
+
+  test("a zero-duration multi-image draw paints only the last frame and takes no lease", () => {
+    const display = new MicroBitDisplay();
+    let completed = false;
+
+    display.drawImage([markerFrame(0), markerFrame(1), markerFrame(2)], 0, 0, () => {
+      completed = true;
+    });
+    // Only the last frame is painted; no lease is held and it resolves at once.
+    assert.equal(display.getPixelValue(2, 0), 255);
+    assert.equal(display.getPixelValue(0, 0), 0);
+    assert.equal(completed, true);
+    assert.equal(display.isBusy(), false);
+  });
+
+  test("a sequence dispatched while the display is busy is silently dropped", () => {
+    const display = new MicroBitDisplay();
+    let dropped = false;
+
+    display.drawImage([markerFrame(0), markerFrame(1)], 100, 0, () => {});
+    // The display is now busy; a second sequence is dropped (nothing painted, resolves at once).
+    display.drawImage([markerFrame(3), markerFrame(4)], 100, 0, () => {
+      dropped = true;
+    });
+    assert.equal(dropped, true);
+    assert.equal(display.getPixelValue(3, 0), 0);
+    assert.equal(display.getPixelValue(4, 0), 0);
   });
 });

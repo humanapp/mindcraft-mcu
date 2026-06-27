@@ -129,35 +129,139 @@ inline bool clipImageValue(MicroBitV2DrawImageEnv &env, const Value &imageValue,
 }
 
 /**
- * Async host actuator body: paste an `Image` to the display top-left, clipped to
- * the 5x5 matrix. Both args are optional: the `Image` (when absent the default
- * smiley is drawn) and the hold duration in seconds (when absent
- * {@link kDrawImageDefaultDurationMs}, one second). With the `immediately`
- * modifier present it preempts the current display lease so the draw runs at
- * once. The port settles `handle`: an explicit zero-duration draw resolves at
- * dispatch (no lease), a positive duration holds the display, and a draw
- * dispatched while the display is busy is dropped and resolves at once.
- * `hostData` is the bound {@link MicroBitV2DrawImageEnv}. Mirrors wodal
- * `actions/display-draw.ts`.
+ * True when `value` is an `Image` struct that {@link clipImageValue} can clip: a
+ * struct with numeric `width`/`height` and a `pixels` buffer.
+ */
+inline bool isClippableImage(MicroBitV2DrawImageEnv &env, const Value &value)
+{
+    if (!value.isStruct())
+    {
+        return false;
+    }
+    StructObject *obj = env.heap->structOf(value);
+    if (obj == nullptr)
+    {
+        return false;
+    }
+    return env.heap->structGet(obj, kImageWidthFieldId).isNumber() &&
+           env.heap->structGet(obj, kImageHeightFieldId).isNumber() &&
+           env.heap->structGet(obj, kImagePixelsFieldId).isBuffer();
+}
+
+/**
+ * Frame source over the draw-image image slot. The slot is a `List<Image>` (the
+ * repeated anonymous image arg) or a bare `Image` / nil (the single-image
+ * `drawImage` host function): each clippable element becomes a frame, in order.
+ * When no element is clippable the source yields the single default image. The
+ * source re-reads the slot per call, so it holds only the slot value and its
+ * environment. Mirrors wodal `clipImageSequence` in actions/display-draw.ts.
+ */
+class DrawImageFrameSource : public DrawFrameSource
+{
+public:
+    DrawImageFrameSource(MicroBitV2DrawImageEnv &env, const Value &slot) : env_(env), slot_(slot) {}
+
+    uint32_t frameCount() override
+    {
+        const uint32_t clippable = clippableCount();
+        return clippable == 0 ? 1 : clippable;
+    }
+
+    void writeFrame(uint32_t index, uint8_t *out, uint32_t &width, uint32_t &height) override
+    {
+        Value image;
+        if (nthClippable(index, image) && clipImageValue(env_, image, out, width, height))
+        {
+            return;
+        }
+        for (uint32_t i = 0; i < kDrawImageDisplayWidth * kDrawImageDisplayHeight; i++)
+        {
+            out[i] = kDrawImageDefaultPixels[i];
+        }
+        width = kDrawImageDisplayWidth;
+        height = kDrawImageDisplayHeight;
+    }
+
+private:
+    MicroBitV2DrawImageEnv &env_;
+    Value slot_;
+
+    uint32_t clippableCount()
+    {
+        if (!slot_.isList())
+        {
+            return isClippableImage(env_, slot_) ? 1 : 0;
+        }
+        const ListObject *obj = env_.heap->list(slot_);
+        if (obj == nullptr)
+        {
+            return 0;
+        }
+        uint32_t count = 0;
+        for (uint32_t i = 0; i < obj->size; i++)
+        {
+            if (isClippableImage(env_, env_.heap->listGet(obj, static_cast<int32_t>(i))))
+            {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    bool nthClippable(uint32_t index, Value &out)
+    {
+        if (!slot_.isList())
+        {
+            if (index == 0 && isClippableImage(env_, slot_))
+            {
+                out = slot_;
+                return true;
+            }
+            return false;
+        }
+        const ListObject *obj = env_.heap->list(slot_);
+        if (obj == nullptr)
+        {
+            return false;
+        }
+        uint32_t seen = 0;
+        for (uint32_t i = 0; i < obj->size; i++)
+        {
+            const Value element = env_.heap->listGet(obj, static_cast<int32_t>(i));
+            if (isClippableImage(env_, element))
+            {
+                if (seen == index)
+                {
+                    out = element;
+                    return true;
+                }
+                seen++;
+            }
+        }
+        return false;
+    }
+};
+
+/**
+ * Async host actuator body: paste one or more `Image`s to the display top-left,
+ * clipped to the 5x5 matrix. The image slot is the repeated anonymous arg (a
+ * `List<Image>`; when empty or nil the default smiley is drawn); with more than
+ * one image they play in sequence, each held for the duration, under one lease.
+ * The duration arg is optional (when absent {@link kDrawImageDefaultDurationMs},
+ * one second). With the `immediately` modifier present it preempts the current
+ * display lease so the draw runs at once. The port settles `handle`: an explicit
+ * zero-duration draw resolves at dispatch (no lease; with multiple images only
+ * the last is painted), a positive duration holds the display for the whole
+ * sequence, and a draw dispatched while the display is busy is dropped and
+ * resolves at once. `hostData` is the bound {@link MicroBitV2DrawImageEnv}.
+ * Mirrors wodal `actions/display-draw.ts`.
  */
 inline Status execDrawImage(void *hostData, ExecutionContext &ctx, Span<const Value> args,
                             AsyncHandle handle)
 {
     MicroBitV2DrawImageEnv &env = *static_cast<MicroBitV2DrawImageEnv *>(hostData);
-    uint8_t frame[kDrawImageDisplayWidth * kDrawImageDisplayHeight] = {};
-    uint32_t width = 0;
-    uint32_t height = 0;
-    const bool clipped = kDrawImageImageArgSlot < args.size() &&
-                         clipImageValue(env, args[kDrawImageImageArgSlot], frame, width, height);
-    if (!clipped)
-    {
-        for (uint32_t i = 0; i < kDrawImageDisplayWidth * kDrawImageDisplayHeight; i++)
-        {
-            frame[i] = kDrawImageDefaultPixels[i];
-        }
-        width = kDrawImageDisplayWidth;
-        height = kDrawImageDisplayHeight;
-    }
+    const Value slot =
+        kDrawImageImageArgSlot < args.size() ? args[kDrawImageImageArgSlot] : Value::nil();
 
     uint32_t durationMs = kDrawImageDefaultDurationMs;
     if (kDrawImageDurationArgSlot < args.size() && args[kDrawImageDurationArgSlot].isNumber())
@@ -169,7 +273,8 @@ inline Status execDrawImage(void *hostData, ExecutionContext &ctx, Span<const Va
     {
         env.display->preempt();
     }
-    env.display->drawFrame(frame, width, height, durationMs, ctx.time, handle);
+    DrawImageFrameSource source(env, slot);
+    env.display->drawFrames(source, durationMs, ctx.time, handle);
     return Status::ok();
 }
 

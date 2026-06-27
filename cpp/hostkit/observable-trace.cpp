@@ -169,6 +169,24 @@ bool ObservableTraceWriter::valueToken(const Value& value) {
     }
     return true;
   }
+  case ValueTag::List: {
+    if (heap_ == nullptr) {
+      return false;
+    }
+    const ListObject* obj = heap_->list(value);
+    if (obj == nullptr) {
+      return false;
+    }
+    w_.text("list ");
+    w_.hex(obj->size);
+    for (uint32_t i = 0; i < obj->size; i++) {
+      w_.ch(' ');
+      if (!valueToken(heap_->listGet(obj, static_cast<int32_t>(i)))) {
+        return false;
+      }
+    }
+    return true;
+  }
   default:
     // No other value kind has a rendering in trace format version 1.
     return false;

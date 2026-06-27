@@ -88,6 +88,26 @@ struct HostMicroBit {
     bool busy = false;
     float completionTime = 0;
     mindcraft::AsyncHandle active{};
+    // A held image-sequence draw: its frames (each row-major brightness bytes),
+    // their sizes, and the playback cursor. Empty while a scroll holds the lease.
+    std::vector<std::vector<uint8_t>> seqFrames;
+    std::vector<uint32_t> seqWidths;
+    std::vector<uint32_t> seqHeights;
+    float seqStart = 0;
+    uint32_t perFrameMs = 0;
+    uint32_t paintedCount = 0;
+
+    // Emit the port draw line and paste a frame top-left (no per-pixel port lines).
+    void pasteFrame(const uint8_t* frame, uint32_t width, uint32_t height) {
+      if (writer != nullptr) {
+        writer->displayDraw(width, height, frame);
+      }
+      for (uint32_t row = 0; row < height && row < 5; row++) {
+        for (uint32_t col = 0; col < width && col < 5; col++) {
+          pixels[row][col] = frame[row * width + col];
+        }
+      }
+    }
 
     void setPixel(int16_t x, int16_t y, uint8_t brightness) override {
       if (writer != nullptr) {
@@ -119,39 +139,73 @@ struct HostMicroBit {
       active = handle;
     }
 
-    // Host stub: paste the clipped frame top-left (no per-pixel port lines). A
-    // draw requested while the lease is held is dropped (settled at once, no port
-    // line, nothing pasted); a positive duration holds the lease; a zero-duration
-    // draw settles at dispatch without holding it.
-    void drawFrame(const uint8_t* frame, uint32_t width, uint32_t height, uint32_t durationMs,
-                   float requestTimeMs, mindcraft::AsyncHandle handle) override {
+    // Host stub: paste a clipped frame sequence top-left (no per-pixel port
+    // lines). A draw requested while the lease is held is dropped (settled at
+    // once, no port line, nothing pasted); a positive per-frame duration holds
+    // the lease for the whole sequence; a zero-duration draw paints only the last
+    // frame and settles at dispatch without holding it.
+    void drawFrames(mindcraft::DrawFrameSource& frames, uint32_t perFrameDurationMs,
+                    float requestTimeMs, mindcraft::AsyncHandle handle) override {
       if (busy) {
         handle.resolve(mindcraft::kVoidValue);
         return;
       }
-      if (writer != nullptr) {
-        writer->displayDraw(width, height, frame);
-      }
-      for (uint32_t row = 0; row < height && row < 5; row++) {
-        for (uint32_t col = 0; col < width && col < 5; col++) {
-          pixels[row][col] = frame[row * width + col];
-        }
-      }
-      if (durationMs > 0) {
-        busy = true;
-        completionTime = requestTimeMs + static_cast<float>(durationMs);
-        active = handle;
+      const uint32_t frameCount = frames.frameCount();
+      uint8_t buf[5 * 5] = {};
+      if (perFrameDurationMs == 0) {
+        uint32_t width = 0;
+        uint32_t height = 0;
+        frames.writeFrame(frameCount - 1, buf, width, height);
+        pasteFrame(buf, width, height);
+        handle.resolve(mindcraft::kVoidValue);
         return;
       }
-      handle.resolve(mindcraft::kVoidValue);
+      seqFrames.clear();
+      seqWidths.clear();
+      seqHeights.clear();
+      for (uint32_t i = 0; i < frameCount; i++) {
+        uint32_t width = 0;
+        uint32_t height = 0;
+        frames.writeFrame(i, buf, width, height);
+        seqFrames.emplace_back(buf, buf + width * height);
+        seqWidths.push_back(width);
+        seqHeights.push_back(height);
+      }
+      pasteFrame(seqFrames[0].data(), seqWidths[0], seqHeights[0]);
+      busy = true;
+      seqStart = requestTimeMs;
+      perFrameMs = perFrameDurationMs;
+      paintedCount = 1;
+      completionTime = requestTimeMs + static_cast<float>(frameCount * perFrameDurationMs);
+      active = handle;
     }
 
-    // Resolve the held scroll or timed draw once due, mirroring pollDisplay.
+    // Advance a held image sequence to the frame due at `now`, then resolve the
+    // held scroll or sequence once its lease has elapsed. Mirrors pollDisplay.
     void advanceScroll(float now) {
-      if (!busy || now < completionTime) {
+      if (!busy) {
+        return;
+      }
+      if (!seqFrames.empty()) {
+        const uint32_t frameCount = static_cast<uint32_t>(seqFrames.size());
+        const int64_t raw = static_cast<int64_t>((now - seqStart) / static_cast<float>(perFrameMs));
+        uint32_t target = raw < 0 ? 0 : static_cast<uint32_t>(raw);
+        if (target > frameCount - 1) {
+          target = frameCount - 1;
+        }
+        while (paintedCount <= target) {
+          pasteFrame(seqFrames[paintedCount].data(), seqWidths[paintedCount],
+                     seqHeights[paintedCount]);
+          paintedCount++;
+        }
+      }
+      if (now < completionTime) {
         return;
       }
       busy = false;
+      seqFrames.clear();
+      seqWidths.clear();
+      seqHeights.clear();
       active.resolve(mindcraft::kVoidValue);
     }
 
@@ -162,6 +216,9 @@ struct HostMicroBit {
       }
       const mindcraft::AsyncHandle held = active;
       busy = false;
+      seqFrames.clear();
+      seqWidths.clear();
+      seqHeights.clear();
       held.resolve(mindcraft::kVoidValue);
     }
   };
@@ -1766,6 +1823,22 @@ TEST_CASE("the draw-image-preempt fixture byte-matches the golden observable tra
 
 TEST_CASE("the draw-image-builtins fixture byte-matches the golden observable trace") {
   checkDrawFixture("draw-image-builtins", 2, 100.0f);
+}
+
+TEST_CASE("the draw-image-sequence fixture byte-matches the golden observable trace") {
+  checkDrawFixture("draw-image-sequence", 8, 100.0f);
+}
+
+TEST_CASE("the draw-image-sequence-dropped fixture byte-matches the golden observable trace") {
+  checkDrawFixture("draw-image-sequence-dropped", 5, 100.0f);
+}
+
+TEST_CASE("the draw-image-sequence-preempt fixture byte-matches the golden observable trace") {
+  checkDrawFixture("draw-image-sequence-preempt", 3, 100.0f);
+}
+
+TEST_CASE("the draw-image-sequence-compiled fixture byte-matches the golden observable trace") {
+  checkDrawFixture("draw-image-sequence-compiled", 5, 100.0f);
 }
 
 TEST_CASE("the user-tile-draw-timed fixture byte-matches the golden observable trace") {

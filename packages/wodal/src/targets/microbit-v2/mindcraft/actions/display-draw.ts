@@ -5,10 +5,12 @@ import {
   type ExecutionContext,
   extractNumberValue,
   getSlotId,
+  isListValue,
   isStructValue,
   mkCallDef,
   optional,
   type ReadonlyList,
+  repeated,
   type Value,
   VOID_VALUE,
 } from "@mindcraft-lang/core/app";
@@ -28,7 +30,9 @@ export const DEFAULT_DURATION_MS = 1000;
 /** The built-in image drawn when the call omits the optional image (the `happy` icon). */
 export const DEFAULT_IMAGE: ClippedFrame = builtInImageFrame(getBuiltInImage(DEFAULT_BUILT_IN_IMAGE_NAME));
 
-const callDef = mkCallDef(bag(optional(Param.image), optional(Param.duration), optional(Modifier.immediately)));
+const callDef = mkCallDef(
+  bag(repeated(Param.image, { min: 0 }), optional(Param.duration), optional(Modifier.immediately))
+);
 
 const kImageSlotId = getSlotId(callDef, Param.image);
 const kDurationSlotId = getSlotId(callDef, Param.duration);
@@ -78,6 +82,33 @@ export function clipImage(value: Value): ClippedFrame | undefined {
   return { frame, width, height };
 }
 
+/**
+ * Clips the image slot value into an ordered sequence of display frames. The
+ * slot is a `List<Image>` (the repeated anonymous image arg): each clippable
+ * element becomes a frame, in order. An empty or nil slot, or one with no
+ * clippable element, yields the single default image.
+ */
+function clipImageSequence(value: Value | undefined): ClippedFrame[] {
+  const frames: ClippedFrame[] = [];
+  if (isListValue(value)) {
+    for (let i = 0; i < value.v.size(); i++) {
+      const clipped = clipImage(value.v.get(i));
+      if (clipped !== undefined) {
+        frames.push(clipped);
+      }
+    }
+  } else if (value !== undefined) {
+    const clipped = clipImage(value);
+    if (clipped !== undefined) {
+      frames.push(clipped);
+    }
+  }
+  if (frames.length === 0) {
+    frames.push(DEFAULT_IMAGE);
+  }
+  return frames;
+}
+
 function execDrawImage(ctx: ExecutionContext, args: ReadonlyList<Value>, handle: AsyncHandle): void {
   const microbit = getMicroBitContextDevice(ctx);
   if (!microbit) {
@@ -87,25 +118,26 @@ function execDrawImage(ctx: ExecutionContext, args: ReadonlyList<Value>, handle:
   if (hasModifier(args, kImmediatelySlotId)) {
     microbit.display.preempt();
   }
-  const clipped = clipImage(args.get(kImageSlotId)) ?? DEFAULT_IMAGE;
+  const frames = clipImageSequence(args.get(kImageSlotId));
   const durationSeconds = extractNumberValue(args.get(kDurationSlotId));
   // Convert the seconds argument to whole ms at f32 precision, matching the device.
   const durationMs =
     durationSeconds === undefined ? DEFAULT_DURATION_MS : toNonNegativeInteger(Math.fround(durationSeconds * 1000));
-  microbit.display.drawImage(clipped.frame, clipped.width, clipped.height, durationMs, ctx.time, () =>
-    handle.resolve(VOID_VALUE)
-  );
+  microbit.display.drawImage(frames, durationMs, ctx.time, () => handle.resolve(VOID_VALUE));
 }
 
 /**
- * Host actuator: paste an `Image` to the simulated display top-left, clipped to
- * the 5x5 matrix. Two optional args: the anonymous `Image` (when absent a default
- * smiley is drawn) and the named hold duration in seconds (when absent 1
- * second). Asynchronous -- an explicit zero-duration draw resolves at dispatch
- * (fire-and-forget, no lease); a positive-duration draw (including the default 1
- * second) holds the display lease for the duration and resolves when it elapses,
- * with the awaiting fiber parked until then. With the `immediately` modifier the
- * current display lease is preempted so the draw runs at once; otherwise a draw
+ * Host actuator: paste one or more `Image`s to the simulated display top-left,
+ * clipped to the 5x5 matrix. Args: the repeated anonymous `Image` slot (a
+ * `List<Image>`; when empty or nil a default smiley is drawn) and the named hold
+ * duration in seconds (when absent 1 second). With more than one image the
+ * images play in sequence, each held for the duration, under one lease (total =
+ * imageCount x duration). Asynchronous -- an explicit zero-duration draw resolves
+ * at dispatch (fire-and-forget, no lease; with multiple images only the last is
+ * painted); a positive-duration draw (including the default 1 second) holds the
+ * display lease for the whole sequence and resolves when it elapses, with the
+ * awaiting fiber parked until then. With the `immediately` modifier the current
+ * display lease is preempted so the draw runs at once; otherwise a draw
  * dispatched while the display is busy is silently dropped.
  */
 export default {

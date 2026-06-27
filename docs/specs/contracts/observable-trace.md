@@ -39,8 +39,12 @@ A host-action argument that is an `Image` (or any non-native struct) renders in
 the `action ... <vals>` list as `struct <fieldCount> <value>...`: the field count
 in minimal lowercase hex followed by one value token per field slot, in slot
 order. A `Buffer`-typed field renders as `buffer <hex>` (two lowercase hex digits
-per byte). These value-token kinds are additive in format version 1; native-backed
-struct arguments do not render. The line grammar is defined and versioned in
+per byte). A `List` argument renders as `list <count> <value>...`: the element
+count in minimal lowercase hex followed by one value token per element, in order
+(empty for an empty list); `draw image`'s image argument is a `List<Image>`, so it
+renders this way. These value-token kinds are additive in format version 1;
+native-backed struct arguments do not render. The line grammar is defined and
+versioned in
 `packages/wodal/src/targets/microbit-v2/mindcraft/observable-trace.ts` and mirrored
 by `cpp/hostkit/observable-trace.cpp`.
 

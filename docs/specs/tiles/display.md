@@ -177,10 +177,9 @@ lease are silently dropped (each completes immediately with its paste discarded)
 - The paste happens at dispatch with **no device-driver hold timer**; the lease and completion
   are the VM's. Forwarding a driver-side `delay` on top of the VM lease would double-gate on two
   clocks and could silently drop a write the VM allowed.
-- **Transparency (under consideration):** the paste defaults to **overwrite** (every image pixel
-  written, transparent pixels as brightness 0); a transparent / overlay mode (a surface-1
-  modifier, a surface-2 flag) would **skip** transparent pixels to composite over existing
-  content. See Image literals and transparency.
+- **Transparency: deferred, design open.** The paste always **overwrites** (every image pixel
+  written; transparent `.` pixels paint as brightness 0). A future overlay/transparent mode that
+  skips transparent pixels is a deferred, undecided design - see Image literals and transparency.
 
 ## The `Image` type
 
@@ -222,7 +221,8 @@ f . f . f
 `)
 ```
 
-`.` is an unset/transparent pixel; a hex digit `0`-`f` is a brightness level. Reflections:
+`.` is an unset pixel (today mapped to brightness 0; a distinct transparency is deferred and open -
+see below); a hex digit `0`-`f` is a brightness level. Reflections:
 
 - **The encoding is target-owned, like pixel interpretation - this answers the palette-scaling
   worry.** The literal maps characters to the target's opaque pixel integers; the hex-brightness
@@ -235,24 +235,24 @@ f . f . f
   steps, mapped to the type's full 0-255 (`n * 17`, so `f` -> 255). The image editor authors
   arbitrary 0-255 values; both produce the same `Image` struct.
 
-- **The transparency *representation* and the draw's transparency *mode* land together (deferred).**
-  - *Representation:* the `Image` records which pixels are unset/transparent (a mask, or a
-    sentinel distinct from brightness 0). Storing this keeps `.` and `0` meaningfully different
-    (transparent vs explicit-off), which matters on a grayscale display where 0 is a real
-    brightness. Because pixels are full 0-255 bytes, a distinct "transparent" needs a mask buffer or
-    a widened representation - a structural change to the `Image` struct.
-  - *Mode (a draw-time choice):* `draw image` defaults to **overwrite** (transparent pixels
-    written as brightness 0 - a full-frame replace); a **transparent / overlay mode** (a
-    surface-1 modifier, a surface-2 flag) **skips** transparent pixels, compositing over existing
-    content. This is the same *concept* as CODAL `paste`'s `alpha`, but implemented as a **masked
-    read-modify-write composite** (keep the existing display pixel where the source is masked
-    transparent), because our transparency is a **separate per-pixel mask**, not CODAL's
-    value-0 keying - a pixel can be brightness 0 *and* opaque.
-  - **They ship together, not the representation first.** Storing a representation with no consumer
-    until the mode exists buys nothing (and forces an `Image` struct change early), so the first
-    `image()` cut maps `.` to brightness 0 (no transparent/explicit-0 distinction); the
-    representation and the mode arrive in the same later cut. Image literals are recompiled from
-    their source text every build, so adding the distinction later costs no migration.
+- **Transparency is an open, deferred design question (NOT decided, NOT scheduled).** A way to mark
+  a pixel as transparent (unset) distinct from brightness 0, plus a draw-time **overlay mode** that
+  composites over existing content instead of overwriting. It is **not important for micro:bit**, and
+  the obvious sketches raise concerns, so the design is intentionally left open. Today `image()` maps
+  `.` to brightness 0 (no transparent/explicit-0 distinction) and `draw image` always overwrites.
+  Considerations carried forward for the eventual dialog (none is a commitment):
+  - *Representation.* Keeping `.` and `0` distinct needs the `Image` value to record transparency
+    somewhere. Pixels are full 0-255 bytes, so a byte value cannot mean "transparent" without
+    stealing a brightness level; candidates include a separate per-pixel mask (a parallel buffer or
+    bitmask - a structural change to the shared `Image` struct) or some other encoding, each with
+    tradeoffs still to weigh.
+  - *Mode.* An overlay/transparent draw mode (a surface-1 modifier + a surface-2 flag) would skip
+    transparent pixels. Note CODAL `paste`'s `alpha` keys transparency on source value 0, which does
+    not match a separate-mask representation - a tension any mask-based design has to resolve.
+  - *Sequencing.* Representation and mode are coupled (the mode consumes the representation), so the
+    representation has no value on its own.
+  - *No pressure to decide now.* Image literals recompile from source text every build, so adding
+    transparency later costs no migration.
 
 - **Syntax - settled: `image(` backtick `)`, a function over a multiline backtick string** (the form
   above). It is an ordinary exported function in the target's TS stdlib that parses the art and
@@ -389,15 +389,16 @@ The concrete fill-in of the target-parameterized pieces for micro:bit-v2:
 1. ~~**TS-ambient form of the built-in images**~~ **Resolved:** nullary lazy functions (e.g.
    `heart()`) exported from a target-injected TS stdlib (`import { image, heart } from
    "stdlib/image"`), ordinary source compiled with the user's program (functions, not eager `const`s,
-   to avoid a module-init build cost). Remaining detail: whether the stdlib's icon art is kept in
-   sync with the surface-1 built-in bytes by hand (deliberate duplication today) or generated from
-   one source.
+   to avoid a module-init build cost). The resulting icon-art duplication (native built-in bytes vs
+   the stdlib `image()` calls) is accepted as-is and not tracked; a future asset-library concept
+   (images, sound effects packaged separately) would subsume it but is not scheduled.
 2. **How far to formalize the target seam now**: the dimensions + interpretation seam is settled,
    but the minimal interface a target exposes (e.g. width/height accessors, a narrow-pixel hook)
    is specified only as much as micro:bit needs until a second display target is scoped.
-3. **Transparency** (the literal form is settled - `image(...)` function over a template string):
-   the transparency representation (mask vs sentinel) and whether the transparent draw mode ships in
-   the first cut; the hex->brightness mapping; ragged-row handling.
+3. **Transparency - DEFERRED, design open.** Not important for micro:bit; intentionally not decided.
+   The representation (separate mask vs some other encoding) and the overlay/transparent draw mode
+   are an open dialog (see Image literals and transparency); today `.` maps to brightness 0 and draws
+   overwrite. (The literal form itself is settled: `image(...)` over a template string.)
 4. **VS Code CodeLens editor** (see that section): the concrete shape of the cross-asset
    `compile:assets` facility (the kind tag, the per-entry payload, the editor registry), to be
    co-designed with the planned sound-effect editor; write-back (`WorkspaceEdit` on the open

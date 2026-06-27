@@ -35,13 +35,37 @@ interface ScrollAnimation {
   scrollingChar: number;
 }
 
-/** A timed image draw holding the display until {@link until}. */
-interface DrawLease {
-  /** Logical tick time at which the hold elapses and the handle resolves. */
-  readonly until: number;
+/** A single draw frame: packed brightness bytes plus its size, already clipped to the display. */
+export interface DisplayFrame {
+  /** Brightness bytes, row-major, length `width * height`. */
+  readonly frame: ReadonlyArray<number>;
 
-  /** Invoked once when the hold elapses. */
+  /** Frame width in columns, at most the display width. */
+  readonly width: number;
+
+  /** Frame height in rows, at most the display height. */
+  readonly height: number;
+}
+
+/**
+ * A timed image-sequence draw holding the display lease. Each frame is shown for
+ * {@link perFrameDurationMs}; the lease elapses after the whole sequence.
+ */
+interface DrawLease {
+  /** Frames shown in order, one per {@link perFrameDurationMs} slice. */
+  readonly frames: ReadonlyArray<DisplayFrame>;
+
+  /** Milliseconds each frame holds the display before the next is shown. */
+  readonly perFrameDurationMs: number;
+
+  /** Logical tick time at which the sequence began (frame 0 painted). */
+  readonly start: number;
+
+  /** Invoked once when the whole sequence elapses. */
   readonly onComplete: () => void;
+
+  /** Frames already painted to the matrix (1 after the dispatch paint). */
+  paintedCount: number;
 }
 
 /** CODAL-style display facade over a 5x5 LED matrix. */
@@ -118,29 +142,27 @@ export class MicroBitDisplay {
   }
 
   /**
-   * Pastes an image frame onto the display top-left and, for a positive
-   * duration, holds the display lease until the duration elapses. The frame is
-   * `width` by `height` packed brightness bytes, row-major, already clipped to
-   * the display by the caller. When the display is already busy (a scroll or a
-   * timed draw holds the lease) the draw is silently dropped: nothing is pasted,
-   * no lease is taken, and `onComplete` fires at once. Otherwise the frame is
-   * pasted at once; a positive `durationMs` holds the lease until
-   * `requestTime + durationMs` (settled by {@link advanceScroll}), and a
-   * non-positive `durationMs` takes no lease and fires `onComplete` at once. The
-   * pasted image is never cleared; it persists until the next draw.
+   * Pastes a sequence of image frames onto the display top-left, one frame per
+   * `perFrameDurationMs` slice, holding the display lease for the whole
+   * sequence. Each frame is packed brightness bytes, row-major, already clipped
+   * to the display by the caller. When the display is already busy (a scroll or
+   * a timed draw holds the lease) the draw is silently dropped: nothing is
+   * pasted, no lease is taken, and `onComplete` fires at once. Otherwise the
+   * first frame is pasted at once. A positive `perFrameDurationMs` holds the
+   * lease until `requestTime + frames.length * perFrameDurationMs`, advancing to
+   * the next frame each slice (settled by {@link advanceScroll}); a non-positive
+   * `perFrameDurationMs` is fire-and-forget -- only the final frame is pasted, no
+   * lease is taken, and `onComplete` fires at once. The pasted image is never
+   * cleared; the last frame persists until the next draw.
    *
-   * @param frame - Packed brightness bytes, row-major, length `width * height`.
-   * @param width - Frame width in columns, already clipped to the display.
-   * @param height - Frame height in rows, already clipped to the display.
-   * @param durationMs - Hold length in milliseconds; non-positive draws take no lease.
+   * @param frames - Frames shown in order; the caller supplies at least one.
+   * @param perFrameDurationMs - Hold per frame in milliseconds; non-positive is fire-and-forget.
    * @param requestTime - Logical tick time the draw was requested.
-   * @param onComplete - Invoked once when the hold elapses (or at once when dropped or untimed).
+   * @param onComplete - Invoked once when the sequence elapses (or at once when dropped or untimed).
    */
   drawImage(
-    frame: ReadonlyArray<number>,
-    width: number,
-    height: number,
-    durationMs: number,
+    frames: ReadonlyArray<DisplayFrame>,
+    perFrameDurationMs: number,
     requestTime: number,
     onComplete: () => void
   ): void {
@@ -148,16 +170,34 @@ export class MicroBitDisplay {
       onComplete();
       return;
     }
-    for (let row = 0; row < height; row++) {
-      for (let col = 0; col < width; col++) {
-        this.matrix.setPixelValue(col, row, (frame[row * width + col] ?? 0) & 0xff);
-      }
-    }
-    if (durationMs > 0) {
-      this.activeDraw = { until: requestTime + durationMs, onComplete };
+    if (perFrameDurationMs <= 0) {
+      // Fire-and-forget: paint only the final frame and take no lease.
+      this.paintFrame(frames[frames.length - 1]!);
+      onComplete();
       return;
     }
-    onComplete();
+    this.paintFrame(frames[0]!);
+    this.activeDraw = {
+      frames,
+      perFrameDurationMs,
+      start: requestTime,
+      onComplete,
+      paintedCount: 1,
+    };
+  }
+
+  /**
+   * Pastes one frame onto the display top-left, row-major, brightness wrapped to
+   * a byte. The frame's own width is its row stride.
+   *
+   * @param image - Frame to paste, already clipped to the display.
+   */
+  paintFrame(image: DisplayFrame): void {
+    for (let row = 0; row < image.height; row++) {
+      for (let col = 0; col < image.width; col++) {
+        this.matrix.setPixelValue(col, row, (image.frame[row * image.width + col] ?? 0) & 0xff);
+      }
+    }
   }
 
   /** True while a scroll or a timed draw holds the display lease. */
@@ -187,15 +227,16 @@ export class MicroBitDisplay {
   /**
    * Advances the active scroll animation to the column step due at `now`,
    * rendering each shifted frame, and completes it (firing `onComplete`) once it
-   * has reached its final step. Also settles a timed image draw whose hold has
-   * elapsed by `now`, firing its `onComplete`. This is the per-think display
-   * poll: it resolves the handle of a timed draw holding the lease, and steps
-   * and completes the scroll animation.
+   * has reached its final step. Also advances a timed image-sequence draw to the
+   * frame due at `now` and completes it (firing its `onComplete`) once the whole
+   * sequence has elapsed. This is the per-think display poll: it advances and
+   * resolves a timed draw holding the lease, and steps and completes the scroll
+   * animation.
    *
    * @param now - Current logical tick time.
    */
   advanceScroll(now: number): void {
-    this.settleDraw(now);
+    this.advanceDraw(now);
     const anim = this.activeScroll;
     if (anim === undefined) {
       return;
@@ -233,14 +274,28 @@ export class MicroBitDisplay {
     this.activeDraw = undefined;
   }
 
-  /** Settles a timed image draw whose hold has elapsed by `now`. */
-  private settleDraw(now: number): void {
+  /**
+   * Advances a timed image-sequence draw to the frame due at `now`, painting
+   * each newly-due frame, and completes it (firing `onComplete`) once the whole
+   * sequence has elapsed by `now`. The frame index due at `now` is
+   * `min(floor((now - start) / perFrameDurationMs), frameCount - 1)`; the last
+   * frame persists after completion.
+   */
+  private advanceDraw(now: number): void {
     const draw = this.activeDraw;
-    if (draw === undefined || now < draw.until) {
+    if (draw === undefined) {
       return;
     }
-    this.activeDraw = undefined;
-    draw.onComplete();
+    const frameCount = draw.frames.length;
+    const targetIndex = Math.min(Math.floor((now - draw.start) / draw.perFrameDurationMs), frameCount - 1);
+    while (draw.paintedCount <= targetIndex) {
+      this.paintFrame(draw.frames[draw.paintedCount]!);
+      draw.paintedCount++;
+    }
+    if (now >= draw.start + frameCount * draw.perFrameDurationMs) {
+      this.activeDraw = undefined;
+      draw.onComplete();
+    }
   }
 
   /**

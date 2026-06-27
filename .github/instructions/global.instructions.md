@@ -77,10 +77,14 @@ functionality.
 - Prefer: `Compiles and links a brain and returns the linked program. Throws if
   it fails to compile or link.`
 
+Do not include plan-only or work-item names in comments. These markers are meaningful
+only while the work is in progress and become noise once the plan is complete. Examples:
+"phase 2b", "surface 1", "surface-2"
+
 ## Plan-Only Names in Code
 
 Do not embed plan-only or work-item names in code, identifiers, string literals,
-test names, or fixtures. Markers like `phase 2b`, a milestone, or a ticket id
+test names, or fixtures. Markers like `phase 2b`, `surface 3`, a milestone, or a ticket id
 are meaningful only while the work is in progress and become noise once the plan
 is complete. Name things for the behavior or domain concept they represent.
 Phase tracking belongs in the plan and its phase log; the code outlives them.
