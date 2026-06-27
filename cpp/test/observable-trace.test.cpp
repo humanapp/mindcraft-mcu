@@ -104,9 +104,12 @@ TEST_CASE("port and fault lines render their fixed shapes") {
   StringTextSink sink;
   ObservableTraceWriter writer(sink, image);
   writer.displaySetPixel(0.0f, 2.0f, 255.0f);
+  const uint8_t i2cBytes[5] = {1, 2, 3, 4, 5};
+  writer.i2cWrite(0x10, i2cBytes, 5);
   writer.fiberFault(3, ErrorCode::StackUnderflow);
   const std::string expected = "mctrace 1\nprofile 0\nprecision f32\n"
                                "port display set-pixel 00000000 40000000 437f0000\n"
+                               "port i2c write 10 0102030405\n"
                                "fault 3 6\n";
   CHECK(sink.text() == expected);
 }

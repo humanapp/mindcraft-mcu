@@ -68,6 +68,19 @@ struct RecordingFaultDisplay : mindcraft::FaultDisplayPort {
   void scrollFaultCode(const char* code) override { scrolled.push_back(code); }
 };
 
+struct RecordingI2C : mindcraft::I2CPort {
+  struct Write {
+    uint16_t address;
+    std::vector<uint8_t> bytes;
+  };
+  std::vector<Write> writes;
+
+  int write(uint16_t address, const uint8_t* data, int len) override {
+    writes.push_back({address, std::vector<uint8_t>(data, data + (len > 0 ? len : 0))});
+    return 0;
+  }
+};
+
 struct SteppingClock : mindcraft::MonotonicClockPort {
   uint32_t now = 0;
 
@@ -82,8 +95,9 @@ TEST_CASE("a host stub can implement every device port") {
   RecordingFaultDisplay faultDisplay;
   SteppingClock clock;
   SettableAccelerometer accelerometer;
+  RecordingI2C i2c;
 
-  mindcraft::DevicePorts ports{&display, &buttons, &faultDisplay, &clock, &accelerometer};
+  mindcraft::DevicePorts ports{&display, &buttons, &faultDisplay, &clock, &accelerometer, &i2c};
 
   ports.display->setPixel(2, 3, 255);
   REQUIRE(display.calls.size() == 1);
@@ -119,6 +133,12 @@ TEST_CASE("a host stub can implement every device port") {
   // Degrees derive from the radian reading, matching CODAL's conversion.
   CHECK(ports.accelerometer->getPitch() == 45);
   CHECK(ports.accelerometer->getRoll() == -30);
+
+  const uint8_t payload[3] = {0xde, 0xad, 0xbe};
+  CHECK(ports.i2c->write(0x10, payload, 3) == 0);
+  REQUIRE(i2c.writes.size() == 1);
+  CHECK(i2c.writes[0].address == 0x10);
+  CHECK(i2c.writes[0].bytes == std::vector<uint8_t>{0xde, 0xad, 0xbe});
 }
 
 TEST_CASE("AccelerometerGesture codes match the CODAL accelerometer gesture values") {

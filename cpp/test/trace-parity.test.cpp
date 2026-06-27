@@ -253,6 +253,26 @@ struct HostMicroBit {
     mindcraft::mc_number_t getRollRadians() override { return rollRadians; }
   };
 
+  // Injectable I2C bus: records each write and emits the port trace line, holding
+  // no real hardware. Mirrors the wodal I2CBus sim model.
+  struct TracingI2C : mindcraft::I2CPort {
+    struct Write {
+      uint16_t address;
+      std::vector<uint8_t> bytes;
+    };
+    ObservableTraceWriter* writer = nullptr;
+    std::vector<Write> writes;
+
+    int write(uint16_t address, const uint8_t* data, int len) override {
+      const uint32_t count = len > 0 ? static_cast<uint32_t>(len) : 0;
+      if (writer != nullptr) {
+        writer->i2cWrite(address, data, count);
+      }
+      writes.push_back({address, std::vector<uint8_t>(data, data + count)});
+      return 0;
+    }
+  };
+
   struct NullFaultDisplay : mindcraft::FaultDisplayPort {
     void showFaultFace() override {}
     void scrollFaultCode(const char*) override {}
@@ -267,10 +287,11 @@ struct HostMicroBit {
   TracingDisplay display;
   SettableButtons buttons;
   SettableAccelerometer accelerometer;
+  TracingI2C i2c;
   NullFaultDisplay faultDisplay;
   FixedClock clock;
 
-  mindcraft::DevicePorts ports{&display, &buttons, &faultDisplay, &clock, &accelerometer};
+  mindcraft::DevicePorts ports{&display, &buttons, &faultDisplay, &clock, &accelerometer, &i2c};
 };
 
 /** Forwards the VM's host-binding events into the observable trace. */
@@ -1337,6 +1358,69 @@ TEST_CASE("the user-tile accelerometer-reads fixture byte-matches the golden obs
   CHECK(microbit.display.pixels[0][0] == 40);
   CHECK(microbit.display.pixels[0][3] == 171);
   CHECK(microbit.display.pixels[1][2] == 0);
+}
+
+TEST_CASE("the user-tile i2c-write fixture byte-matches the golden observable trace") {
+  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-i2c-write";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.i2c.writer = &writer;
+  TraceTap tap(writer);
+
+  // The actuator reads ctx.microbit.i2c through the native struct field getter
+  // and writes a Buffer.fromHex constant (a managed buffer) through the
+  // writeBuffer host function; the env resolves that buffer through the heap.
+  mindcraft::ManagedHeap heap(arena, &image);
+  mindcraft::MicroBitV2I2CWriteEnv i2cEnv{&microbit.i2c, &heap, &image};
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cEnv);
+  ExecutionContext ctx;
+  mindcraft::TypeRegistry types(image);
+  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+  surface.types = &types;
+  surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Two 16ms thinks mirror SCHEDULE in wodal
+  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-i2c-write.spec.ts.
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 2; i++) {
+    const float timeMs = lastThinkTimeMs + 16;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+  // The injectable bus records the exact address and bytes the brain wrote.
+  REQUIRE(microbit.i2c.writes.size() == 2);
+  for (const auto& write : microbit.i2c.writes) {
+    CHECK(write.address == 0x10);
+    CHECK(write.bytes == std::vector<uint8_t>{1, 2, 3, 4, 5});
+  }
 }
 
 TEST_CASE("the user-tile pixel-conversion fixture byte-matches the golden observable trace") {

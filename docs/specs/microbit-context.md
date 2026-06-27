@@ -94,6 +94,40 @@ they live here, not as tiles:
   getY 1040, getZ 1041, getPitchRadians 1042, getRollRadians 1043, getPitch 1044, getRoll 1045,
   getGesture 1046).
 
+## `i2c` (first edge-connector primitive; `writeBuffer` wired both VMs, `readBuffer` pending - build plan `generated-docs/i2c-primitive-impl-plan-2026-06-26.md`)
+
+The external I2C bus on the edge connector (micro:bit v2 SDA/SCL, pins P19/P20), the plumbing a
+Cutebot-style peripheral library consumes. **Surface-2 only - no tile** (an edge-connector
+primitive). A singleton native-struct getter `ctx.microbit.i2c` (no discriminator, like
+`accelerometer`), bound to CODAL `uBit.i2c` on device and to an injectable simulated bus in wodal.
+
+| `ctx.microbit.i2c.*` | Returns | Notes |
+| -------------------- | ------- | ----- |
+| `writeBuffer(address, data)` | number (status: 0 = ok, nonzero = error) | write `data`'s bytes to the 7-bit `address` in one complete START/STOP transaction (CODAL `write(address, ptr, len, repeated=false)`). `data` is a `Buffer`. **The Cutebot-critical op** (motors/servos/lamps @ `0x10`). |
+| `readBuffer(address, length)` | `Buffer` (`length` bytes; empty `Buffer` on error) | read `length` bytes from the 7-bit `address` (CODAL `read(address, ptr, len, repeated=false)`). Returns a runtime-allocated **managed** `Buffer`. |
+
+- **Address convention: 7-bit**, matching pxt's `pins.i2cWriteBuffer(address, buf)` (the Cutebot
+  library passes the 7-bit device address, e.g. `0x10`). CODAL's `I2C::write(uint16_t address, ...)`
+  takes the 8-bit address (the 7-bit value shifted up one, R/W bit clear), so the device port impl
+  shifts (`address << 1`); the surface and the trace keep the 7-bit address.
+- **`Buffer` I/O:** `writeBuffer` reads the arg `Buffer`'s bytes (`bufferLength`/`bufferByteAt` in TS,
+  `bufferBytes` in cpp); `readBuffer` produces a **managed** `Buffer` (runtime-allocated) - the first
+  surface-2 host-function to return managed bytes (the `Buffer` workstream's managed-buffer path).
+- **New `I2CPort` device-port** (`cpp/codal/device-port.h`): `write(address, bytes, len) -> status`,
+  `read(address, buf, len) -> status`; device impl binds `uBit.i2c`, the host/test impl is an
+  **injectable simulated bus** (a test registers per-address read-response bytes and inspects
+  recorded writes - mirroring the gesture/button injection harness).
+- **Trace:** `port i2c write <address> <hex>` and `port i2c read <address> <len> <hex>` (the bytes
+  transferred), both VMs + `observable-trace.md`; parity is deterministic via injected read responses.
+- **Sync** (instantaneous) host-functions per the stance; both VMs; append-only ids; ambient `.d.ts`
+  mirror. **Sub-phased I1 (`writeBuffer`, Cutebot-critical) -> I2 (`readBuffer`, general).** Register
+  helpers (write/read a device register) are composable in TS user code and intentionally NOT
+  primitives here (Cutebot builds register bytes into the buffer it writes).
+- **As-built ABI ids (I1, append-only):** `MicroBitField.I2C = 5` (appended LAST per the field-order
+  invariant), type-atom `1029`, host-function id `1050` (`I2C.writeBuffer`). A zero-length write is
+  a valid address-only transaction (an empty `port i2c write` byte list); there is no buffer-length
+  cap (no CODAL limit to defend). `readBuffer` (I2) is not yet built.
+
 ## Roadmap (append as peripherals land)
 
 Each peripheral adds its sub-interface here when its tile is added; source of capability is
@@ -101,10 +135,12 @@ the CODAL inventory (`generated-docs/codal-capability-inventory-2026-06-17.md`):
 
 - onboard: `accelerometer` (getX/Y/Z, gesture), `thermometer` (getTemperature), `compass`
   (heading), display light level, microphone sound level, `radio` (send/receive).
-- **edge-connector primitives** (surface-2 ONLY - no tile counterpart): GPIO (digital/analog/
-  PWM/touch/pulse), I2C (read/write register), the native NEC IR-receive primitive. These are
-  the library plumbing a Cutebot-style peripheral library consumes; they live on this surface even though
-  they have no tile.
+- **edge-connector primitives** (surface-2 ONLY - no tile counterpart): **I2C (`writeBuffer` wired
+  both VMs; `readBuffer` pending - see the `i2c` section above)**, GPIO
+  (digital/analog/PWM/touch/pulse), the native NEC
+  IR-receive primitive. These are the library plumbing a Cutebot-style peripheral library consumes;
+  they live on this surface even though they have no tile. Cutebot needs all three (I2C @ 0x10 for
+  motors/servos/lamps, GPIO for ultrasonic + line sensors, IR for the remote).
 
 ## Conformance
 

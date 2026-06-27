@@ -122,10 +122,19 @@ the first async surface-2 host-function) and **D3b** (the `.ts` stdlib facility 
 icons, plus the `Image` shared-type-atom-tier refactor) both landed 2026-06-25 - **D1/D3a/D3b
 hardware-validated** (a TS user tile drawing a stdlib icon renders on real hardware); D2 accepted.
 The author-able image slice is complete end-to-end, and **D6** (multi-image sequence) landed
-hardware-validated 2026-06-25. **D3c (transparency) is DEFERRED with its design OPEN** (unpinned - not
-important for micro:bit; the mask sketch raised concerns). The display runtime/parity surface is
-complete; only the **editor track D4/D5** (sim-only image editors) remains. Next: pick the next
-Phase 7 peripheral, revive A4, or continue display D4/D5.** Two further phases queued: 8 (virtual radio
+hardware-validated 2026-06-25. **The DISPLAY DRAW family's runtime/parity surface is now COMPLETE +
+hardware-validated** (D1/D2/D3a/D3b/D6: single + sequenced image draws render on hardware from tiles
+and from imported stdlib icons). **All remaining display work is DEFERRED (2026-06-25, user) to
+prioritize the Cutebot goal:** D3c (transparency - design open) + the editor track D4/D5 (sim-only
+authoring, off the parity path); designs carried in `docs/specs/tiles/display.md`.
+**NEXT = THE CUTEBOT CRITICAL PATH.** The ELECFREAKS Cutebot (Phase 9, pure TS user-tiles, no new
+firmware) needs three Phase 7 surface-2 EDGE-CONNECTOR PRIMITIVES, **none yet built**: **I2C**
+(Cutebot motors/servos/lamps @ 0x10), **GPIO** (Cutebot ultrasonic + line sensors), and a **native
+NEC IR-receive** primitive (Cutebot remote; native C++ - the round-based VM cannot do microsecond
+pulse timing; general + pin-parameterized, NEC-only). Recommended order: **I2C** (core actuation -
+drive the motors) -> **GPIO** (sensing) -> **IR** (remote), then **Phase 9** (Cutebot via TS).
+Off-critical-path candidates still available: A4 impact revival, an audio / sound-effect family, and
+Phase 8 (virtual radio sim-to-sim, needs a Phase 7 radio family).** Two further phases queued: 8 (virtual radio
 sim-to-sim) and 9 (Cutebot via TS user-tiles).** **PHASE
 6 IS COMPLETE
 (6a-6j, 2026-06-17): the C++ VM is a fully conforming VM - every contract opcode

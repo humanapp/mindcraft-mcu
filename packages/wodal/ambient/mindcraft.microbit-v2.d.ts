@@ -5,6 +5,7 @@ declare module "mindcraft" {
     Button: Button;
     TouchButton: TouchButton;
     Accelerometer: Accelerometer;
+    I2C: I2C;
     MicroBit: MicroBit;
   }
 
@@ -43,6 +44,10 @@ declare module "mindcraft" {
     getRoll(): number;
     getGesture(): number;
   }
+  export interface I2C {
+    readonly __brand: unique symbol;
+    writeBuffer(address: number, data: Buffer): number;
+  }
   export interface MicroBit {
     readonly __brand: unique symbol;
     readonly display: MicroBitDisplay;
@@ -50,6 +55,7 @@ declare module "mindcraft" {
     readonly buttonB: Button;
     readonly logo: TouchButton;
     readonly accelerometer: Accelerometer;
+    readonly i2c: I2C;
   }
   export interface Context {
     readonly microbit: MicroBit;

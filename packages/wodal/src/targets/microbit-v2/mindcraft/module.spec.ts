@@ -15,7 +15,7 @@ import {
   type StructTypeDef,
   type Value,
 } from "@mindcraft-lang/core/app";
-import { bufferToHex, isBufferValue } from "@mindcraft-lang/core/runtime";
+import { bufferToHex, isBufferValue, mkBufferValueFromHex } from "@mindcraft-lang/core/runtime";
 import { ImageField, WODAL_SHARED_TYPE_IDS } from "../../../mindcraft/shared-type-ids";
 import { MicroBit } from "../microbit";
 import { BUILT_IN_IMAGES, builtInImageHex, builtInImageTileId } from "./built-in-images";
@@ -52,6 +52,29 @@ test("Context.microbit exposes the native WODAL microbit device", () => {
   assert.ok(isStructValue(logoValue));
   assert.equal(logoValue.typeId, WODAL_MICROBIT_V2_TYPE_IDS.TouchButton);
   assert.equal(logoValue.native, microbit.logo);
+
+  const i2cValue = microbitDef.fieldGetter?.(microbitValue, MicroBitField.I2C, ctx);
+  assert.ok(isStructValue(i2cValue));
+  assert.equal(i2cValue.typeId, WODAL_MICROBIT_V2_TYPE_IDS.I2C);
+  assert.equal(i2cValue.native, microbit.i2c);
+});
+
+test("I2C.writeBuffer routes the address and bytes through the native bus receiver", () => {
+  const env = createMicroBitV2Environment();
+  const microbit = new MicroBit();
+  const ctx = createExecutionContext(env, microbit);
+  const receiver = mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.I2C, microbit.i2c);
+
+  const status = getSyncFunction(env, "I2C.writeBuffer").exec(
+    ctx,
+    List.from([receiver, mkNumberValue(0x10), mkBufferValueFromHex("0102030405")])
+  );
+
+  assert.equal(extractNumberValue(status), 0);
+  const writes = microbit.i2c.recordedWrites();
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0]?.address, 0x10);
+  assert.deepEqual(Array.from(writes[0]?.bytes ?? []), [1, 2, 3, 4, 5]);
 });
 
 test("MicroBitDisplay host methods route through the native display receiver", () => {

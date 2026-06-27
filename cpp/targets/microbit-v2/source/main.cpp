@@ -79,9 +79,10 @@ int main()
     MicroBitPixelDisplayPort display(uBit);
     MicroBitButtonInputPort buttons(uBit);
     MicroBitAccelerometerInputPort accelerometer(uBit);
+    MicroBitI2CPort i2c(uBit);
     MicroBitMonotonicClockPort clock;
     MicroBitFaultDisplayPort faultDisplay(uBit);
-    DevicePorts ports{&display, &buttons, &faultDisplay, &clock, &accelerometer};
+    DevicePorts ports{&display, &buttons, &faultDisplay, &clock, &accelerometer, &i2c};
 
     // Read the brain image from the reserved on-flash region.
     const Result<ByteSpan, RegionError> region = readRegionProgram(programFlashRegion());
@@ -123,6 +124,10 @@ int main()
     // struct and a managed pixel buffer), and the program (to resolve a borrowed
     // pixel buffer); its heap is filled once the heap exists.
     MicroBitV2DrawImageEnv drawEnv{&display, nullptr, &image};
+    // The I2C write body reaches the bus port, the heap (to resolve a managed
+    // Buffer argument), and the program (to resolve a borrowed one); its heap is
+    // filled once the heap exists.
+    MicroBitV2I2CWriteEnv i2cEnv{&i2c, nullptr, &image};
     // The button sensors poll the button port and back their per-callsite state
     // on the heap; the heap and roots are filled once the scheduler exists.
     MicroBitV2ButtonSensorEnv buttonEnv{&buttons, nullptr, nullptr};
@@ -138,7 +143,7 @@ int main()
     {
         actions[coreBindings.size() + i] = mbBindings[i];
     }
-    auto hostFuncs = makeMicroBitV2HostFuncBindings(ports, &drawEnv);
+    auto hostFuncs = makeMicroBitV2HostFuncBindings(ports, &drawEnv, &i2cEnv);
     ManagedHeap heap(arena, &image);
     TypeRegistry types(image);
     auto nativeStructs = makeMicroBitV2NativeStructBindings(types);
@@ -158,6 +163,7 @@ int main()
     coreEnv.roots = &scheduler;
     scrollEnv.heap = &heap;
     drawEnv.heap = &heap;
+    i2cEnv.heap = &heap;
     buttonEnv.heap = &heap;
     buttonEnv.roots = &scheduler;
 

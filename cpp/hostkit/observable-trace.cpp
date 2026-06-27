@@ -97,6 +97,17 @@ void ObservableTraceWriter::displayDraw(uint32_t width, uint32_t height, const u
   w_.nl();
 }
 
+void ObservableTraceWriter::i2cWrite(uint32_t address, const uint8_t* bytes, uint32_t length) {
+  w_.text("port i2c write ");
+  w_.hex(address);
+  w_.ch(' ');
+  for (uint32_t i = 0; i < length; i++) {
+    w_.hexDigit(static_cast<uint8_t>(bytes[i] >> 4));
+    w_.hexDigit(static_cast<uint8_t>(bytes[i] & 0xf));
+  }
+  w_.nl();
+}
+
 void ObservableTraceWriter::fiberFault(uint32_t fiberId, ErrorCode code) {
   w_.text("fault ");
   w_.hex(fiberId);

@@ -52,7 +52,8 @@ TEST_CASE("MicroBitV2HostFuncId values are wire-stable") {
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::SensorGesture) == 1047);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorDrawImage) == 1048);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::DisplayDrawImage) == 1049);
-  CHECK(kMicroBitV2HostFuncIdCount == 26);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::I2CWriteBuffer) == 1050);
+  CHECK(kMicroBitV2HostFuncIdCount == 27);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::DisplaySetPixelValue) == TARGET_FUNC_ID_BASE);
 }
 
@@ -62,7 +63,8 @@ TEST_CASE("MicroBitV2TypeAtomId values are wire-stable") {
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::TouchButton) == 1026);
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::MicroBit) == 1027);
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::Accelerometer) == 1028);
-  CHECK(kMicroBitV2TypeAtomIdCount == 5);
+  CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::I2C) == 1029);
+  CHECK(kMicroBitV2TypeAtomIdCount == 6);
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::MicroBitDisplay) == TARGET_TYPE_ATOM_BASE);
 }
 
@@ -114,7 +116,8 @@ TEST_CASE("MicroBitField values are wire-stable") {
   CHECK(static_cast<uint8_t>(MicroBitField::ButtonB) == 2);
   CHECK(static_cast<uint8_t>(MicroBitField::Logo) == 3);
   CHECK(static_cast<uint8_t>(MicroBitField::Accelerometer) == 4);
-  CHECK(kMicroBitFieldCount == 5);
+  CHECK(static_cast<uint8_t>(MicroBitField::I2C) == 5);
+  CHECK(kMicroBitFieldCount == 6);
 }
 
 TEST_CASE("the Context.microbit extension id sits just above the core Context fields") {

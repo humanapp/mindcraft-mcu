@@ -1,5 +1,6 @@
 import { Accelerometer } from "../../core/accelerometer";
 import { Button, type ButtonSnapshot } from "../../core/button";
+import { I2CBus } from "../../core/i2c-bus";
 import { MessageBus, type MessageBusSnapshot } from "../../core/message-bus";
 import { toUint32 } from "../../core/numeric";
 import { Timer } from "../../core/timer";
@@ -68,6 +69,9 @@ export class MicroBit {
   /** Three-axis accelerometer model. */
   public readonly accelerometer = new Accelerometer();
 
+  /** External I2C bus on the edge connector (pins P19/P20). */
+  public readonly i2c = new I2CBus();
+
   private initialized = false;
 
   /** Completes device initialization. Returns 0 on first call and -1 afterward. */
@@ -105,7 +109,7 @@ export class MicroBit {
 
   /**
    * Resets the device to a fresh power-on state: clears the display, releases the buttons and logo,
-   * resets the accelerometer, timer, message bus, and serial buffers, and marks the device
+   * resets the accelerometer, I2C bus, timer, message bus, and serial buffers, and marks the device
    * uninitialized. Persistent flash storage is not reset.
    */
   clear(): void {
@@ -117,6 +121,7 @@ export class MicroBit {
     this.buttonB.reset();
     this.logo.reset();
     this.accelerometer.reset();
+    this.i2c.reset();
     this.initialized = false;
   }
 

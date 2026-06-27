@@ -21,8 +21,10 @@ import {
   type Value,
   VOID_VALUE,
 } from "@mindcraft-lang/core/app";
+import { bufferByteAt, bufferLength, isBufferValue } from "@mindcraft-lang/core/runtime";
 import { Accelerometer } from "../../../core/accelerometer";
 import { Button } from "../../../core/button";
+import { I2CBus } from "../../../core/i2c-bus";
 import { toNonNegativeInteger } from "../../../core/numeric";
 import { TouchButton } from "../../../core/touch-button";
 import { WODAL_SHARED_TYPE_IDS } from "../../../mindcraft/shared-type-ids";
@@ -59,6 +61,9 @@ export const WODAL_MICROBIT_V2_TYPE_IDS = {
 
   /** Native-backed accelerometer facade for the simulated device. */
   Accelerometer: mkTypeId(NativeType.Struct, "Accelerometer"),
+
+  /** Native-backed I2C bus facade for the simulated device. */
+  I2C: mkTypeId(NativeType.Struct, "I2C"),
 } as const;
 
 /**
@@ -72,6 +77,7 @@ export enum MicroBitField {
   ButtonB = 2,
   Logo = 3,
   Accelerometer = 4,
+  I2C = 5,
 }
 
 /**
@@ -89,6 +95,7 @@ export function createMicroBitV2Module(): MindcraftModule {
       registerMicroBitDisplayFunctions(api);
       registerButtonFunctions(api);
       registerAccelerometerFunctions(api);
+      registerI2CFunctions(api);
       registerBrainTiles(api);
     },
   };
@@ -198,6 +205,22 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
     ]),
   });
 
+  types.addStructType("I2C", {
+    atomId: MicroBitV2TypeAtomId.I2C,
+    fields: List.empty(),
+    fieldGetter: () => undefined,
+    methods: List.from([
+      {
+        name: "writeBuffer",
+        params: List.from([
+          { name: "address", typeId: CoreTypeIds.Number },
+          { name: "data", typeId: CoreTypeIds.Buffer },
+        ]),
+        returnTypeId: CoreTypeIds.Number,
+      },
+    ]),
+  });
+
   types.addStructType("MicroBit", {
     atomId: MicroBitV2TypeAtomId.MicroBit,
     fields: List.from([
@@ -210,6 +233,7 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
         typeId: WODAL_MICROBIT_V2_TYPE_IDS.Accelerometer,
         fieldIndex: MicroBitField.Accelerometer,
       },
+      { name: "i2c", typeId: WODAL_MICROBIT_V2_TYPE_IDS.I2C, fieldIndex: MicroBitField.I2C },
     ]),
     fieldGetter: (source, fieldId) => {
       const microbit = getNativeMicroBit(source);
@@ -227,6 +251,8 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
           return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.TouchButton, microbit.logo);
         case MicroBitField.Accelerometer:
           return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.Accelerometer, microbit.accelerometer);
+        case MicroBitField.I2C:
+          return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.I2C, microbit.i2c);
         default:
           return undefined;
       }
@@ -423,6 +449,25 @@ function registerAccelerometerFunctions(api: MindcraftModuleApi): void {
   }
 }
 
+function registerI2CFunctions(api: MindcraftModuleApi): void {
+  const emptyCallDef = mkCallDef({ type: "bag", items: [] });
+
+  api.registerFunction({
+    id: MicroBitV2HostFuncId.I2CWriteBuffer,
+    name: "I2C.writeBuffer",
+    isAsync: false,
+    fn: {
+      exec: (_ctx: ExecutionContext, args: ReadonlyList<Value>) => {
+        const bus = getI2CReceiver(args);
+        const address = toNonNegativeInteger(numberArg(args, 1));
+        const bytes = bufferArgBytes(args.get(2));
+        return mkNumberValue(bus ? bus.write(address, bytes) : 0);
+      },
+    },
+    callDef: emptyCallDef,
+  });
+}
+
 function registerBrainTiles(api: MindcraftModuleApi): void {
   api.registerHostSensor(createHostSensor(buttonASensor));
   api.registerHostSensor(createHostSensor(buttonBSensor));
@@ -490,6 +535,27 @@ function getAccelerometerReceiver(args: ReadonlyList<Value>): Accelerometer | un
     return undefined;
   }
   return receiver.native instanceof Accelerometer ? receiver.native : undefined;
+}
+
+function getI2CReceiver(args: ReadonlyList<Value>): I2CBus | undefined {
+  const receiver = args.get(0);
+  if (!isStructNative(receiver, WODAL_MICROBIT_V2_TYPE_IDS.I2C)) {
+    return undefined;
+  }
+  return receiver.native instanceof I2CBus ? receiver.native : undefined;
+}
+
+/** The bytes of a `Buffer` argument, in order; an empty array when the value is not a buffer. */
+function bufferArgBytes(value: Value | undefined): Uint8Array {
+  if (!isBufferValue(value)) {
+    return new Uint8Array(0);
+  }
+  const length = bufferLength(value);
+  const bytes = new Uint8Array(length);
+  for (let i = 0; i < length; i++) {
+    bytes[i] = bufferByteAt(value, i) ?? 0;
+  }
+  return bytes;
 }
 
 function getNativeMicroBit(value: StructValue): MicroBit | undefined {

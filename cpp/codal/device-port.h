@@ -133,6 +133,22 @@ public:
 };
 
 /**
+ * External I2C bus on the board's edge connector (pins P19/P20 on a micro:bit
+ * v2). The controller side of the bus a peripheral library drives.
+ */
+class I2CPort {
+public:
+  virtual ~I2CPort() = default;
+
+  /**
+   * Write `len` bytes from `data` to the 7-bit `address` in one complete
+   * START/STOP transaction. A zero `len` is an address-only transaction (`data`
+   * may be null only then). Returns 0 on success, nonzero on a bus error.
+   */
+  virtual int write(uint16_t address, const uint8_t* data, int len) = 0;
+};
+
+/**
  * Board-side rendering primitives for the device fault mode. The fault-mode
  * policy (stop ticking the brain, then show-the-error in a loop) lives with
  * the host loop; implementations only render. Both calls may block for the
@@ -169,6 +185,7 @@ struct DevicePorts {
   FaultDisplayPort* faultDisplay;
   MonotonicClockPort* clock;
   AccelerometerInputPort* accelerometer;
+  I2CPort* i2c;
 };
 
 } // namespace mindcraft

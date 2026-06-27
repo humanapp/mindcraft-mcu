@@ -91,6 +91,13 @@ public:
    */
   void displayDraw(uint32_t width, uint32_t height, const uint8_t* frame);
 
+  /**
+   * Records one buffer write crossing the I2C device port: the 7-bit `address`
+   * in hex and the `length` written bytes (two lowercase hex digits each, in
+   * transmission order).
+   */
+  void i2cWrite(uint32_t address, const uint8_t* bytes, uint32_t length);
+
   /** Records one fiber fault: the fiber id and the numeric `ErrorCode`. */
   void fiberFault(uint32_t fiberId, ErrorCode code);
 

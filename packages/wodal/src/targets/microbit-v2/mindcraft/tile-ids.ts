@@ -45,6 +45,7 @@ export enum MicroBitV2HostFuncId {
   SensorGesture = 1047,
   ActuatorDrawImage = 1048,
   DisplayDrawImage = 1049,
+  I2CWriteBuffer = 1050,
 }
 
 /**
@@ -59,6 +60,7 @@ export enum MicroBitV2TypeAtomId {
   TouchButton = 1026,
   MicroBit = 1027,
   Accelerometer = 1028,
+  I2C = 1029,
 }
 
 /**

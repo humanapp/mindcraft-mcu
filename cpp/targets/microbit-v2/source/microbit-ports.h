@@ -255,6 +255,24 @@ private:
     MicroBit &uBit_;
 };
 
+/** Drives the external I2C bus through CODAL's `MicroBitI2C`. */
+class MicroBitI2CPort : public I2CPort
+{
+public:
+    explicit MicroBitI2CPort(MicroBit &uBit) : uBit_(uBit) {}
+
+    int write(uint16_t address, const uint8_t *data, int len) override
+    {
+        // CODAL's I2C::write takes the 8-bit address: the 7-bit address shifted up
+        // one, with the R/W bit clear.
+        return uBit_.i2c.write(static_cast<uint16_t>(address << 1), const_cast<uint8_t *>(data),
+                               len, false);
+    }
+
+private:
+    MicroBit &uBit_;
+};
+
 /** Monotonic millisecond clock backed by the CODAL system timer. */
 class MicroBitMonotonicClockPort : public MonotonicClockPort
 {
