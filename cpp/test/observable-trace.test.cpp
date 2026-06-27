@@ -109,12 +109,20 @@ TEST_CASE("port and fault lines render their fixed shapes") {
   const uint8_t i2cRead[3] = {0xaa, 0xbb, 0xcc};
   writer.i2cRead(0x42, 3, i2cRead, 3);
   writer.i2cRead(0x55, 2, i2cRead, 0);
+  writer.gpioDigitalRead(0xd, 1);
+  writer.gpioDigitalWrite(0x2, 1);
+  writer.gpioSetPull(0xd, 0);
+  writer.gpioServoWrite(0x1, 0x5a);
   writer.fiberFault(3, ErrorCode::StackUnderflow);
   const std::string expected = "mctrace 1\nprofile 0\nprecision f32\n"
                                "port display set-pixel 00000000 40000000 437f0000\n"
                                "port i2c write 10 0102030405\n"
                                "port i2c read 42 3 aabbcc\n"
                                "port i2c read 55 2 \n"
+                               "port gpio digital-read d 1\n"
+                               "port gpio digital-write 2 1\n"
+                               "port gpio set-pull d 0\n"
+                               "port gpio servo-write 1 5a\n"
                                "fault 3 6\n";
   CHECK(sink.text() == expected);
 }

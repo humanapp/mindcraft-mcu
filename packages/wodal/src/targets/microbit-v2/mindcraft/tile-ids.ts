@@ -47,6 +47,10 @@ export enum MicroBitV2HostFuncId {
   DisplayDrawImage = 1049,
   I2CWriteBuffer = 1050,
   I2CReadBuffer = 1051,
+  GpioDigitalRead = 1052,
+  GpioDigitalWrite = 1053,
+  GpioSetPull = 1054,
+  GpioServoWrite = 1055,
 }
 
 /**
@@ -62,6 +66,7 @@ export enum MicroBitV2TypeAtomId {
   MicroBit = 1027,
   Accelerometer = 1028,
   I2C = 1029,
+  GPIO = 1030,
 }
 
 /**

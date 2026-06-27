@@ -279,6 +279,88 @@ private:
     MicroBit &uBit_;
 };
 
+/**
+ * Drives the edge-connector GPIO pins through CODAL's `MicroBitIO`: simple
+ * synchronous digital read/write, pull configuration, and servo output. Pins are
+ * addressed by number 0-20 and resolved to their `NRF52Pin` through a lookup
+ * table; a pin outside 0-20 is a no-op (a read returns 0).
+ */
+class MicroBitGPIOPort : public GPIOPort
+{
+public:
+    explicit MicroBitGPIOPort(MicroBit &uBit)
+        : pins_{&uBit.io.P0,  &uBit.io.P1,  &uBit.io.P2,  &uBit.io.P3,  &uBit.io.P4,
+                &uBit.io.P5,  &uBit.io.P6,  &uBit.io.P7,  &uBit.io.P8,  &uBit.io.P9,
+                &uBit.io.P10, &uBit.io.P11, &uBit.io.P12, &uBit.io.P13, &uBit.io.P14,
+                &uBit.io.P15, &uBit.io.P16, &uBit.io.P17, &uBit.io.P18, &uBit.io.P19,
+                &uBit.io.P20}
+    {
+    }
+
+    int digitalRead(int pin) override
+    {
+        NRF52Pin *p = pinFor(pin);
+        return p != nullptr ? p->getDigitalValue() : 0;
+    }
+
+    int digitalWrite(int pin, int value) override
+    {
+        NRF52Pin *p = pinFor(pin);
+        if (p != nullptr)
+        {
+            p->setDigitalValue(value != 0 ? 1 : 0);
+        }
+        return 0;
+    }
+
+    int setPull(int pin, int mode) override
+    {
+        NRF52Pin *p = pinFor(pin);
+        if (p == nullptr)
+        {
+            return 0;
+        }
+        switch (mode)
+        {
+        case 0:
+            p->setPull(codal::PullMode::None);
+            break;
+        case 1:
+            p->setPull(codal::PullMode::Up);
+            break;
+        case 2:
+            p->setPull(codal::PullMode::Down);
+            break;
+        default:
+            // An unrecognized mode is a no-op.
+            break;
+        }
+        return 0;
+    }
+
+    int setServo(int pin, int angle) override
+    {
+        NRF52Pin *p = pinFor(pin);
+        if (p != nullptr)
+        {
+            p->setServoValue(angle);
+        }
+        return 0;
+    }
+
+private:
+    /** Highest addressable pin number; the lookup-table bound. */
+    static constexpr int kMaxPin = 20;
+
+    NRF52Pin *pins_[kMaxPin + 1];
+
+    /** The `NRF52Pin` for `pin` (0-20), or nullptr when `pin` is out of range. */
+    NRF52Pin *pinFor(int pin)
+    {
+        return pin >= 0 && pin <= kMaxPin ? pins_[pin] : nullptr;
+    }
+};
+
 /** Monotonic millisecond clock backed by the CODAL system timer. */
 class MicroBitMonotonicClockPort : public MonotonicClockPort
 {

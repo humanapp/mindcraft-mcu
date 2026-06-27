@@ -122,6 +122,38 @@ void ObservableTraceWriter::i2cRead(uint32_t address, uint32_t length, const uin
   w_.nl();
 }
 
+void ObservableTraceWriter::gpioDigitalWrite(uint32_t pin, uint32_t value) {
+  w_.text("port gpio digital-write ");
+  w_.hex(pin);
+  w_.ch(' ');
+  w_.hex(value);
+  w_.nl();
+}
+
+void ObservableTraceWriter::gpioDigitalRead(uint32_t pin, uint32_t value) {
+  w_.text("port gpio digital-read ");
+  w_.hex(pin);
+  w_.ch(' ');
+  w_.hex(value);
+  w_.nl();
+}
+
+void ObservableTraceWriter::gpioSetPull(uint32_t pin, uint32_t mode) {
+  w_.text("port gpio set-pull ");
+  w_.hex(pin);
+  w_.ch(' ');
+  w_.hex(mode);
+  w_.nl();
+}
+
+void ObservableTraceWriter::gpioServoWrite(uint32_t pin, uint32_t angle) {
+  w_.text("port gpio servo-write ");
+  w_.hex(pin);
+  w_.ch(' ');
+  w_.hex(angle);
+  w_.nl();
+}
+
 void ObservableTraceWriter::fiberFault(uint32_t fiberId, ErrorCode code) {
   w_.text("fault ");
   w_.hex(fiberId);

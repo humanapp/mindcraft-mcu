@@ -158,6 +158,41 @@ public:
 };
 
 /**
+ * GPIO pins on the board's edge connector (P0-P20 on a micro:bit v2). Pins are
+ * addressed by number 0-20; a pin outside that range is a no-op (a read returns
+ * 0). The simple synchronous pin I/O a peripheral library drives for line
+ * sensors, outputs, pull configuration, and servos.
+ */
+class GPIOPort {
+public:
+  virtual ~GPIOPort() = default;
+
+  /**
+   * Read the digital level of `pin` (0-20): 0 for low, 1 for high. A pin outside
+   * 0-20 returns 0.
+   */
+  virtual int digitalRead(int pin) = 0;
+
+  /**
+   * Write `value` (0 low, nonzero high) to `pin` (0-20). A pin outside 0-20 is a
+   * no-op. Returns 0 on success.
+   */
+  virtual int digitalWrite(int pin, int value) = 0;
+
+  /**
+   * Set the pull mode of `pin` (0-20): `mode` is 0 none, 1 up, 2 down. A pin
+   * outside 0-20 or an unrecognized mode is a no-op. Returns 0 on success.
+   */
+  virtual int setPull(int pin, int mode) = 0;
+
+  /**
+   * Write a servo `angle` in degrees (0-180) to `pin` (0-20). A pin outside 0-20
+   * is a no-op. Returns 0 on success.
+   */
+  virtual int setServo(int pin, int angle) = 0;
+};
+
+/**
  * Board-side rendering primitives for the device fault mode. The fault-mode
  * policy (stop ticking the brain, then show-the-error in a loop) lives with
  * the host loop; implementations only render. Both calls may block for the
@@ -195,6 +230,7 @@ struct DevicePorts {
   MonotonicClockPort* clock;
   AccelerometerInputPort* accelerometer;
   I2CPort* i2c;
+  GPIOPort* gpio;
 };
 
 } // namespace mindcraft

@@ -296,6 +296,75 @@ struct HostMicroBit {
     }
   };
 
+  // Injectable GPIO pins: records each write, pull, and servo and serves digital
+  // reads from a per-pin level a test injects, emitting the port trace line at
+  // each call. A pin outside 0-20 is a no-op (a read returns 0) but still traces,
+  // mirroring the wodal Gpio sim model.
+  struct TracingGpio : mindcraft::GPIOPort {
+    struct DigitalWrite {
+      int pin;
+      int value;
+    };
+    struct Pull {
+      int pin;
+      int mode;
+    };
+    struct Servo {
+      int pin;
+      int angle;
+    };
+    static constexpr int kMaxPin = 20;
+    ObservableTraceWriter* writer = nullptr;
+    std::vector<DigitalWrite> writes;
+    std::vector<Pull> pulls;
+    std::vector<Servo> servos;
+    std::map<int, int> levels;
+
+    static bool validPin(int pin) { return pin >= 0 && pin <= kMaxPin; }
+
+    int digitalRead(int pin) override {
+      int value = 0;
+      if (validPin(pin)) {
+        const auto it = levels.find(pin);
+        value = it == levels.end() ? 0 : it->second;
+      }
+      if (writer != nullptr) {
+        writer->gpioDigitalRead(static_cast<uint32_t>(pin), static_cast<uint32_t>(value));
+      }
+      return value;
+    }
+
+    int digitalWrite(int pin, int value) override {
+      if (writer != nullptr) {
+        writer->gpioDigitalWrite(static_cast<uint32_t>(pin), static_cast<uint32_t>(value));
+      }
+      if (validPin(pin)) {
+        writes.push_back({pin, value});
+      }
+      return 0;
+    }
+
+    int setPull(int pin, int mode) override {
+      if (writer != nullptr) {
+        writer->gpioSetPull(static_cast<uint32_t>(pin), static_cast<uint32_t>(mode));
+      }
+      if (validPin(pin)) {
+        pulls.push_back({pin, mode});
+      }
+      return 0;
+    }
+
+    int setServo(int pin, int angle) override {
+      if (writer != nullptr) {
+        writer->gpioServoWrite(static_cast<uint32_t>(pin), static_cast<uint32_t>(angle));
+      }
+      if (validPin(pin)) {
+        servos.push_back({pin, angle});
+      }
+      return 0;
+    }
+  };
+
   struct NullFaultDisplay : mindcraft::FaultDisplayPort {
     void showFaultFace() override {}
     void scrollFaultCode(const char*) override {}
@@ -311,10 +380,12 @@ struct HostMicroBit {
   SettableButtons buttons;
   SettableAccelerometer accelerometer;
   TracingI2C i2c;
+  TracingGpio gpio;
   NullFaultDisplay faultDisplay;
   FixedClock clock;
 
-  mindcraft::DevicePorts ports{&display, &buttons, &faultDisplay, &clock, &accelerometer, &i2c};
+  mindcraft::DevicePorts ports{&display,       &buttons, &faultDisplay, &clock,
+                               &accelerometer, &i2c,     &gpio};
 };
 
 /** Forwards the VM's host-binding events into the observable trace. */
@@ -1517,6 +1588,81 @@ TEST_CASE("the user-tile i2c-read fixture byte-matches the golden observable tra
     CHECK(microbit.i2c.writes[i].bytes == std::vector<uint8_t>{0xaa, 0xbb, 0xcc});
     CHECK(microbit.i2c.writes[i + 1].address == 0x11);
     CHECK(microbit.i2c.writes[i + 1].bytes.empty());
+  }
+}
+
+TEST_CASE("the user-tile gpio fixture byte-matches the golden observable trace") {
+  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-gpio";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.gpio.writer = &writer;
+  // Inject the line-sensor level the actuator reads. Mirrors the injected level
+  // in wodal packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-gpio.spec.ts.
+  microbit.gpio.levels[13] = 1;
+  TraceTap tap(writer);
+
+  // The actuator reads ctx.microbit.gpio through the native struct field getter
+  // and drives the four pin ops; the gpio bodies bind over the port in ports.
+  mindcraft::ManagedHeap heap(arena, &image);
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  ExecutionContext ctx;
+  mindcraft::TypeRegistry types(image);
+  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+  surface.types = &types;
+  surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Two 16ms thinks mirror SCHEDULE in wodal
+  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-gpio.spec.ts.
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 2; i++) {
+    const float timeMs = lastThinkTimeMs + 16;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+  // The injectable model records the in-range writes/pull/servo and served the
+  // injected read; the out-of-range pin recorded nothing.
+  REQUIRE(microbit.gpio.writes.size() == 2);
+  for (const auto& write : microbit.gpio.writes) {
+    CHECK(write.pin == 2);
+    CHECK(write.value == 1);
+  }
+  REQUIRE(microbit.gpio.pulls.size() == 2);
+  for (const auto& pull : microbit.gpio.pulls) {
+    CHECK(pull.pin == 13);
+    CHECK(pull.mode == 0);
+  }
+  REQUIRE(microbit.gpio.servos.size() == 2);
+  for (const auto& servo : microbit.gpio.servos) {
+    CHECK(servo.pin == 1);
+    CHECK(servo.angle == 90);
   }
 }
 

@@ -6,6 +6,7 @@ declare module "mindcraft" {
     TouchButton: TouchButton;
     Accelerometer: Accelerometer;
     I2C: I2C;
+    GPIO: GPIO;
     MicroBit: MicroBit;
   }
 
@@ -49,6 +50,13 @@ declare module "mindcraft" {
     writeBuffer(address: number, data: Buffer): number;
     readBuffer(address: number, length: number): Buffer;
   }
+  export interface GPIO {
+    readonly __brand: unique symbol;
+    digitalRead(pin: number): number;
+    digitalWrite(pin: number, value: number): number;
+    setPull(pin: number, mode: number): number;
+    servoWrite(pin: number, angle: number): number;
+  }
   export interface MicroBit {
     readonly __brand: unique symbol;
     readonly display: MicroBitDisplay;
@@ -57,6 +65,7 @@ declare module "mindcraft" {
     readonly logo: TouchButton;
     readonly accelerometer: Accelerometer;
     readonly i2c: I2C;
+    readonly gpio: GPIO;
   }
   export interface Context {
     readonly microbit: MicroBit;

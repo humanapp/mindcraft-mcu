@@ -57,6 +57,11 @@ test("Context.microbit exposes the native WODAL microbit device", () => {
   assert.ok(isStructValue(i2cValue));
   assert.equal(i2cValue.typeId, WODAL_MICROBIT_V2_TYPE_IDS.I2C);
   assert.equal(i2cValue.native, microbit.i2c);
+
+  const gpioValue = microbitDef.fieldGetter?.(microbitValue, MicroBitField.GPIO, ctx);
+  assert.ok(isStructValue(gpioValue));
+  assert.equal(gpioValue.typeId, WODAL_MICROBIT_V2_TYPE_IDS.GPIO);
+  assert.equal(gpioValue.native, microbit.gpio);
 });
 
 test("I2C.writeBuffer routes the address and bytes through the native bus receiver", () => {
@@ -98,6 +103,56 @@ test("I2C.readBuffer returns the injected response bytes for the address as a Bu
   );
   assert.ok(isBufferValue(empty));
   assert.equal(bufferToHex(empty), "");
+});
+
+test("GPIO host methods route through the native pin receiver", () => {
+  const env = createMicroBitV2Environment();
+  const microbit = new MicroBit();
+  const ctx = createExecutionContext(env, microbit);
+  const receiver = mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.GPIO, microbit.gpio);
+  microbit.gpio.setDigitalRead(13, 1);
+
+  const level = getSyncFunction(env, "GPIO.digitalRead").exec(ctx, List.from([receiver, mkNumberValue(13)]));
+  assert.equal(extractNumberValue(level), 1);
+
+  const writeStatus = getSyncFunction(env, "GPIO.digitalWrite").exec(
+    ctx,
+    List.from([receiver, mkNumberValue(2), mkNumberValue(1)])
+  );
+  assert.equal(extractNumberValue(writeStatus), 0);
+
+  const pullStatus = getSyncFunction(env, "GPIO.setPull").exec(
+    ctx,
+    List.from([receiver, mkNumberValue(13), mkNumberValue(0)])
+  );
+  assert.equal(extractNumberValue(pullStatus), 0);
+
+  const servoStatus = getSyncFunction(env, "GPIO.servoWrite").exec(
+    ctx,
+    List.from([receiver, mkNumberValue(1), mkNumberValue(90)])
+  );
+  assert.equal(extractNumberValue(servoStatus), 0);
+
+  assert.deepEqual(
+    microbit.gpio.recordedDigitalWrites().map((w) => ({ pin: w.pin, value: w.value })),
+    [{ pin: 2, value: 1 }]
+  );
+  assert.deepEqual(
+    microbit.gpio.recordedPulls().map((p) => ({ pin: p.pin, mode: p.mode })),
+    [{ pin: 13, mode: 0 }]
+  );
+  assert.deepEqual(
+    microbit.gpio.recordedServos().map((s) => ({ pin: s.pin, angle: s.angle })),
+    [{ pin: 1, angle: 90 }]
+  );
+
+  // A pin outside 0-20 is a no-op: nothing recorded, a benign 0 returned.
+  const oob = getSyncFunction(env, "GPIO.digitalWrite").exec(
+    ctx,
+    List.from([receiver, mkNumberValue(99), mkNumberValue(1)])
+  );
+  assert.equal(extractNumberValue(oob), 0);
+  assert.equal(microbit.gpio.recordedDigitalWrites().length, 1);
 });
 
 test("MicroBitDisplay host methods route through the native display receiver", () => {

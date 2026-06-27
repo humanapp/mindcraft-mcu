@@ -3,6 +3,7 @@
 #include "codal/accelerometer-gesture.h"
 #include "codal/device-port.h"
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -95,6 +96,45 @@ struct SteppingClock : mindcraft::MonotonicClockPort {
   uint32_t uptimeMillis() override { return now; }
 };
 
+struct RecordingGpio : mindcraft::GPIOPort {
+  struct DigitalWrite {
+    int pin;
+    int value;
+  };
+  struct Pull {
+    int pin;
+    int mode;
+  };
+  struct Servo {
+    int pin;
+    int angle;
+  };
+  std::vector<DigitalWrite> writes;
+  std::vector<Pull> pulls;
+  std::vector<Servo> servos;
+  std::map<int, int> levels;
+
+  int digitalRead(int pin) override {
+    const auto it = levels.find(pin);
+    return it == levels.end() ? 0 : it->second;
+  }
+
+  int digitalWrite(int pin, int value) override {
+    writes.push_back({pin, value});
+    return 0;
+  }
+
+  int setPull(int pin, int mode) override {
+    pulls.push_back({pin, mode});
+    return 0;
+  }
+
+  int setServo(int pin, int angle) override {
+    servos.push_back({pin, angle});
+    return 0;
+  }
+};
+
 } // namespace
 
 TEST_CASE("a host stub can implement every device port") {
@@ -104,8 +144,10 @@ TEST_CASE("a host stub can implement every device port") {
   SteppingClock clock;
   SettableAccelerometer accelerometer;
   RecordingI2C i2c;
+  RecordingGpio gpio;
 
-  mindcraft::DevicePorts ports{&display, &buttons, &faultDisplay, &clock, &accelerometer, &i2c};
+  mindcraft::DevicePorts ports{&display,       &buttons, &faultDisplay, &clock,
+                               &accelerometer, &i2c,     &gpio};
 
   ports.display->setPixel(2, 3, 255);
   REQUIRE(display.calls.size() == 1);
@@ -152,6 +194,22 @@ TEST_CASE("a host stub can implement every device port") {
   uint8_t readBuf[3] = {0, 0, 0};
   CHECK(ports.i2c->read(0x42, readBuf, 3) == 0);
   CHECK(std::vector<uint8_t>(readBuf, readBuf + 3) == std::vector<uint8_t>{0xaa, 0xbb, 0xcc});
+
+  gpio.levels[13] = 1;
+  CHECK(ports.gpio->digitalRead(13) == 1);
+  CHECK(ports.gpio->digitalRead(14) == 0);
+  CHECK(ports.gpio->digitalWrite(2, 1) == 0);
+  CHECK(ports.gpio->setPull(13, 0) == 0);
+  CHECK(ports.gpio->setServo(1, 90) == 0);
+  REQUIRE(gpio.writes.size() == 1);
+  CHECK(gpio.writes[0].pin == 2);
+  CHECK(gpio.writes[0].value == 1);
+  REQUIRE(gpio.pulls.size() == 1);
+  CHECK(gpio.pulls[0].pin == 13);
+  CHECK(gpio.pulls[0].mode == 0);
+  REQUIRE(gpio.servos.size() == 1);
+  CHECK(gpio.servos[0].pin == 1);
+  CHECK(gpio.servos[0].angle == 90);
 }
 
 TEST_CASE("AccelerometerGesture codes match the CODAL accelerometer gesture values") {

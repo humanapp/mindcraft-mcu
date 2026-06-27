@@ -105,6 +105,30 @@ public:
    */
   void i2cRead(uint32_t address, uint32_t length, const uint8_t* bytes, uint32_t byteCount);
 
+  /**
+   * Records one digital write crossing the GPIO device port: the `pin` number
+   * and the written `value` (0 low, nonzero high), each in hex.
+   */
+  void gpioDigitalWrite(uint32_t pin, uint32_t value);
+
+  /**
+   * Records one digital read crossing the GPIO device port: the `pin` number and
+   * the `value` read back (0 low, nonzero high), each in hex.
+   */
+  void gpioDigitalRead(uint32_t pin, uint32_t value);
+
+  /**
+   * Records one pull-mode configuration crossing the GPIO device port: the `pin`
+   * number and the pull `mode` (0 none, 1 up, 2 down), each in hex.
+   */
+  void gpioSetPull(uint32_t pin, uint32_t mode);
+
+  /**
+   * Records one servo write crossing the GPIO device port: the `pin` number and
+   * the servo `angle` in degrees (0-180), each in hex.
+   */
+  void gpioServoWrite(uint32_t pin, uint32_t angle);
+
   /** Records one fiber fault: the fiber id and the numeric `ErrorCode`. */
   void fiberFault(uint32_t fiberId, ErrorCode code);
 

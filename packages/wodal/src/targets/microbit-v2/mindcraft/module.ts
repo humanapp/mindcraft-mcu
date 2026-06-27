@@ -25,6 +25,7 @@ import {
 import { bufferByteAt, bufferLength, isBufferValue, mkBufferValue } from "@mindcraft-lang/core/runtime";
 import { Accelerometer } from "../../../core/accelerometer";
 import { Button } from "../../../core/button";
+import { Gpio } from "../../../core/gpio";
 import { I2CBus } from "../../../core/i2c-bus";
 import { toNonNegativeInteger } from "../../../core/numeric";
 import { TouchButton } from "../../../core/touch-button";
@@ -65,6 +66,9 @@ export const WODAL_MICROBIT_V2_TYPE_IDS = {
 
   /** Native-backed I2C bus facade for the simulated device. */
   I2C: mkTypeId(NativeType.Struct, "I2C"),
+
+  /** Native-backed GPIO pin facade for the simulated device. */
+  GPIO: mkTypeId(NativeType.Struct, "GPIO"),
 } as const;
 
 /**
@@ -79,6 +83,7 @@ export enum MicroBitField {
   Logo = 3,
   Accelerometer = 4,
   I2C = 5,
+  GPIO = 6,
 }
 
 /**
@@ -97,6 +102,7 @@ export function createMicroBitV2Module(): MindcraftModule {
       registerButtonFunctions(api);
       registerAccelerometerFunctions(api);
       registerI2CFunctions(api);
+      registerGPIOFunctions(api);
       registerBrainTiles(api);
     },
   };
@@ -230,6 +236,43 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
     ]),
   });
 
+  types.addStructType("GPIO", {
+    atomId: MicroBitV2TypeAtomId.GPIO,
+    fields: List.empty(),
+    fieldGetter: () => undefined,
+    methods: List.from([
+      {
+        name: "digitalRead",
+        params: List.from([{ name: "pin", typeId: CoreTypeIds.Number }]),
+        returnTypeId: CoreTypeIds.Number,
+      },
+      {
+        name: "digitalWrite",
+        params: List.from([
+          { name: "pin", typeId: CoreTypeIds.Number },
+          { name: "value", typeId: CoreTypeIds.Number },
+        ]),
+        returnTypeId: CoreTypeIds.Number,
+      },
+      {
+        name: "setPull",
+        params: List.from([
+          { name: "pin", typeId: CoreTypeIds.Number },
+          { name: "mode", typeId: CoreTypeIds.Number },
+        ]),
+        returnTypeId: CoreTypeIds.Number,
+      },
+      {
+        name: "servoWrite",
+        params: List.from([
+          { name: "pin", typeId: CoreTypeIds.Number },
+          { name: "angle", typeId: CoreTypeIds.Number },
+        ]),
+        returnTypeId: CoreTypeIds.Number,
+      },
+    ]),
+  });
+
   types.addStructType("MicroBit", {
     atomId: MicroBitV2TypeAtomId.MicroBit,
     fields: List.from([
@@ -243,6 +286,7 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
         fieldIndex: MicroBitField.Accelerometer,
       },
       { name: "i2c", typeId: WODAL_MICROBIT_V2_TYPE_IDS.I2C, fieldIndex: MicroBitField.I2C },
+      { name: "gpio", typeId: WODAL_MICROBIT_V2_TYPE_IDS.GPIO, fieldIndex: MicroBitField.GPIO },
     ]),
     fieldGetter: (source, fieldId) => {
       const microbit = getNativeMicroBit(source);
@@ -262,6 +306,8 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
           return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.Accelerometer, microbit.accelerometer);
         case MicroBitField.I2C:
           return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.I2C, microbit.i2c);
+        case MicroBitField.GPIO:
+          return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.GPIO, microbit.gpio);
         default:
           return undefined;
       }
@@ -493,6 +539,69 @@ function registerI2CFunctions(api: MindcraftModuleApi): void {
   });
 }
 
+function registerGPIOFunctions(api: MindcraftModuleApi): void {
+  const emptyCallDef = mkCallDef({ type: "bag", items: [] });
+
+  api.registerFunction({
+    id: MicroBitV2HostFuncId.GpioDigitalRead,
+    name: "GPIO.digitalRead",
+    isAsync: false,
+    fn: {
+      exec: (_ctx: ExecutionContext, args: ReadonlyList<Value>) => {
+        const gpio = getGPIOReceiver(args);
+        const pin = toNonNegativeInteger(numberArg(args, 1));
+        return mkNumberValue(gpio ? gpio.digitalRead(pin) : 0);
+      },
+    },
+    callDef: emptyCallDef,
+  });
+
+  api.registerFunction({
+    id: MicroBitV2HostFuncId.GpioDigitalWrite,
+    name: "GPIO.digitalWrite",
+    isAsync: false,
+    fn: {
+      exec: (_ctx: ExecutionContext, args: ReadonlyList<Value>) => {
+        const gpio = getGPIOReceiver(args);
+        const pin = toNonNegativeInteger(numberArg(args, 1));
+        const value = toNonNegativeInteger(numberArg(args, 2));
+        return mkNumberValue(gpio ? gpio.digitalWrite(pin, value) : 0);
+      },
+    },
+    callDef: emptyCallDef,
+  });
+
+  api.registerFunction({
+    id: MicroBitV2HostFuncId.GpioSetPull,
+    name: "GPIO.setPull",
+    isAsync: false,
+    fn: {
+      exec: (_ctx: ExecutionContext, args: ReadonlyList<Value>) => {
+        const gpio = getGPIOReceiver(args);
+        const pin = toNonNegativeInteger(numberArg(args, 1));
+        const mode = toNonNegativeInteger(numberArg(args, 2));
+        return mkNumberValue(gpio ? gpio.setPull(pin, mode) : 0);
+      },
+    },
+    callDef: emptyCallDef,
+  });
+
+  api.registerFunction({
+    id: MicroBitV2HostFuncId.GpioServoWrite,
+    name: "GPIO.servoWrite",
+    isAsync: false,
+    fn: {
+      exec: (_ctx: ExecutionContext, args: ReadonlyList<Value>) => {
+        const gpio = getGPIOReceiver(args);
+        const pin = toNonNegativeInteger(numberArg(args, 1));
+        const angle = toNonNegativeInteger(numberArg(args, 2));
+        return mkNumberValue(gpio ? gpio.setServo(pin, angle) : 0);
+      },
+    },
+    callDef: emptyCallDef,
+  });
+}
+
 function registerBrainTiles(api: MindcraftModuleApi): void {
   api.registerHostSensor(createHostSensor(buttonASensor));
   api.registerHostSensor(createHostSensor(buttonBSensor));
@@ -568,6 +677,14 @@ function getI2CReceiver(args: ReadonlyList<Value>): I2CBus | undefined {
     return undefined;
   }
   return receiver.native instanceof I2CBus ? receiver.native : undefined;
+}
+
+function getGPIOReceiver(args: ReadonlyList<Value>): Gpio | undefined {
+  const receiver = args.get(0);
+  if (!isStructNative(receiver, WODAL_MICROBIT_V2_TYPE_IDS.GPIO)) {
+    return undefined;
+  }
+  return receiver.native instanceof Gpio ? receiver.native : undefined;
 }
 
 /** The bytes of a `Buffer` argument, in order; an empty array when the value is not a buffer. */

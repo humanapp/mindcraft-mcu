@@ -45,12 +45,16 @@ enum class MicroBitV2HostFuncId : uint32_t
     DisplayDrawImage = 1049,
     I2CWriteBuffer = 1050,
     I2CReadBuffer = 1051,
+    GpioDigitalRead = 1052,
+    GpioDigitalWrite = 1053,
+    GpioSetPull = 1054,
+    GpioServoWrite = 1055,
 };
 
 /**
  * Number of declared {@link MicroBitV2HostFuncId} members; ids are dense
  * from 1024.
  */
-inline constexpr uint32_t kMicroBitV2HostFuncIdCount = 28;
+inline constexpr uint32_t kMicroBitV2HostFuncIdCount = 32;
 
 } // namespace mindcraft

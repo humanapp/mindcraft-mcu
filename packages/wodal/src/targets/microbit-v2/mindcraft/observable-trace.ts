@@ -50,6 +50,10 @@
  * port display draw <width> <height> <hex>
  * port i2c write <address> <hex>
  * port i2c read <address> <len> <hex>
+ * port gpio digital-write <pin> <value>
+ * port gpio digital-read <pin> <value>
+ * port gpio set-pull <pin> <mode>
+ * port gpio servo-write <pin> <angle>
  * fault <fiberId> <errorCode>
  * ```
  *
@@ -89,6 +93,17 @@
  *   is the 7-bit device address in hex, `<len>` is the requested byte count in
  *   hex, and `<hex>` is the bytes returned (in receive order, two lowercase hex
  *   digits per byte, no separators; empty for a no-device read).
+ * - `port gpio digital-write`: one digital write crossing the GPIO device port.
+ *   `<pin>` is the pin number and `<value>` the written level (0 low, nonzero
+ *   high), each in hex.
+ * - `port gpio digital-read`: one digital read crossing the GPIO device port.
+ *   `<pin>` is the pin number and `<value>` the level read back, each in hex.
+ * - `port gpio set-pull`: one pull-mode configuration crossing the GPIO device
+ *   port. `<pin>` is the pin number and `<mode>` the pull mode (0 none, 1 up, 2
+ *   down), each in hex.
+ * - `port gpio servo-write`: one servo write crossing the GPIO device port.
+ *   `<pin>` is the pin number and `<angle>` the servo angle in degrees (0-180),
+ *   each in hex.
  * - `fault`: one fiber fault. `<errorCode>` is the numeric wire-stable
  *   `ErrorCode`. Fault messages are implementation-defined and never render.
  */
@@ -306,6 +321,46 @@ export class ObservableTraceWriter {
       hex += hexPadded((bytes[i] ?? 0) & 0xff, 2);
     }
     this.line(`port i2c read ${hexU32(address)} ${hexU32(length)} ${hex}`);
+  }
+
+  /**
+   * Records one digital write crossing the GPIO device port.
+   *
+   * @param pin - Pin number the value was written to.
+   * @param value - Level written: 0 low, nonzero high.
+   */
+  gpioDigitalWrite(pin: number, value: number): void {
+    this.line(`port gpio digital-write ${hexU32(pin)} ${hexU32(value)}`);
+  }
+
+  /**
+   * Records one digital read crossing the GPIO device port.
+   *
+   * @param pin - Pin number read.
+   * @param value - Level read back: 0 low, nonzero high.
+   */
+  gpioDigitalRead(pin: number, value: number): void {
+    this.line(`port gpio digital-read ${hexU32(pin)} ${hexU32(value)}`);
+  }
+
+  /**
+   * Records one pull-mode configuration crossing the GPIO device port.
+   *
+   * @param pin - Pin number the pull mode was set on.
+   * @param mode - Pull mode: 0 none, 1 up, 2 down.
+   */
+  gpioSetPull(pin: number, mode: number): void {
+    this.line(`port gpio set-pull ${hexU32(pin)} ${hexU32(mode)}`);
+  }
+
+  /**
+   * Records one servo write crossing the GPIO device port.
+   *
+   * @param pin - Pin number the angle was written to.
+   * @param angle - Servo angle in degrees, 0-180.
+   */
+  gpioServoWrite(pin: number, angle: number): void {
+    this.line(`port gpio servo-write ${hexU32(pin)} ${hexU32(angle)}`);
   }
 
   /**
