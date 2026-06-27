@@ -4,8 +4,8 @@ A device-runtime mechanism, not a `ctx.microbit.*` peripheral. It runs the measu
 that **cannot be measured synchronously inside the VM** - sensors needing microsecond pulse timing or
 a continuous decode - on a **device-owned background CODAL fiber**, and exposes each as a **cached
 value the VM reads synchronously**, **keyed by the sensor's pins** (the argument is the identity,
-exactly like `gpio`/`i2c`). Consumers: the **ultrasonic** distance sensor (`docs/specs/gpio.md`) and
-the **NEC IR-receive** decoder (its own spec, TBD). New sensors of this shape register here.
+exactly like `gpio`/`i2c`). Consumers: the **sonar** ultrasonic distance sensor (`docs/specs/sonar.md`)
+and the **NEC IR-receive** decoder (its own spec, TBD). New sensors of this shape register here.
 
 ## Why this exists
 
@@ -13,22 +13,23 @@ Some measurements can't be a plain sync host-function:
 
 - They need **microsecond timing** the round-based VM cannot do in bytecode (an SR04 echo width; the
   NEC bit timing).
-- Done **synchronously** (CODAL `getPulseUs` busy-wait, or a tight decode loop), they would block the
-  **entire VM** - host-functions run inside the single-entry loop and a busy-wait does not yield, so
-  no other rule/fiber runs for the measurement's duration. For an active ping that is also per-reader:
-  N readers would block N times and **corrupt each other** (overlapping measurement windows).
+- Done **synchronously on the VM fiber** (a host-function that waits for the echo / decode), they would
+  stall the **entire VM** - host-functions run inside the single-entry loop, so `think()` cannot proceed
+  until the call returns, no matter how the wait is implemented. For an active ping that is also
+  per-reader: N readers would stall N times and **corrupt each other** (overlapping measurement windows).
 
-So the measurement moves off the VM onto a background fiber, event-driven so it yields, and the VM
-reads a cached result instead of performing the measurement itself.
+So the measurement moves off the VM onto a **background fiber**, whose wait **yields to the scheduler**
+(CODAL's pulse measurement `getPulseUs` fiber-blocks - it yields, it does not busy-wait), so the VM
+fiber keeps running; the VM reads a cached result instead of performing the measurement itself.
 
 ## The mechanism
 
-- **One device-owned background CODAL fiber** (the *sensor driver*) services all registered sensors.
-  Each cycle it refreshes each sensor's cached value via an **event-driven** measurement: it uses
-  CODAL pin/peripheral **events** (e.g. `eventOn(ON_PULSE)` -> `PULSE_HI/LO` on the message bus) and
-  **yields** (`fiber_wait_for_event` / sleeps) during the wait - it never busy-waits. So the VM fiber
-  keeps running while a measurement is in flight; only a negligible active-trigger blip (~10 us) is
-  synchronous.
+- **One device-owned background CODAL fiber** (the *sensor driver*) services all registered sensors
+  (one shared fiber, never a fiber per measurement - respect the `.bss` VM-region constraint). Each
+  cycle it refreshes each sensor's cached value: it emits the trigger, then performs CODAL's
+  **fiber-blocking** pulse measurement (`getPulseUs`), which **yields to the scheduler** during the
+  echo wait (it does not busy-wait). So the VM fiber keeps running while a measurement is in flight;
+  only a negligible active-trigger blip (~10 us) is synchronous.
 - **The VM reads the cached value with a plain SYNC host-function** - the same shape as a passive
   onboard sensor read (`getGesture`, `isPressed`). There is **no async handle and no `AWAIT`**: the
   async lives entirely inside the driver fiber; the VM-facing surface is a synchronous poll of a
@@ -47,8 +48,9 @@ init, so an allocate-and-hold factory would build a second sensor on the same pi
 Instead the VM-facing surface is a **flat host-function keyed by the sensor's pins**, identical in
 shape to `gpio.digitalRead(pin)` / `i2c.writeBuffer(addr, ...)`:
 
-- `microbit.sonarDistance(trig, echo)` names a sonar by its pins; `microbit.irLastCode(pin)` names an
-  IR receiver by its pin. The **pins are the identity** - one physical wiring, one sensor.
+- `ctx.microbit.sonar.distance(trig, echo)` names a sonar by its pins; `ctx.microbit.ir.lastCode(pin)`
+  (its spec TBD) names an IR receiver by its pin. The **pins are the identity** - one physical wiring,
+  one sensor.
 - **No construction, no holding.** Any callsite, from any module init, that names the same pins
   reaches the **same** sensor. Pins vary by chassis, so the per-chassis library supplies them (pin
   constants are stable across re-init; only stateful *instances* would not have been).
@@ -68,8 +70,8 @@ is the upgrade path - not warranted while the per-sensor surface is one read.
 A registered sensor is one of:
 
 - **Active** (e.g. ultrasonic): the driver must **trigger** a measurement each cycle (emit the trigger
-  pulse, then event-wait the echo), then cache the result. Triggered per cycle while the sensor stays
-  registered (from first reference until program reset).
+  pulse, then measure the echo with the fiber-blocking pulse measurement), then cache the result.
+  Triggered per cycle while the sensor stays registered (from first reference until program reset).
 - **Passive** (e.g. NEC IR-receive): the signal arrives on its own; the driver's event handler
   **decodes continuously** and caches the last value (the "last code"). Always listening from
   registration; no trigger.
@@ -80,7 +82,9 @@ Both expose the identical VM-facing surface: a pin-keyed sync read of the cached
 
 - **A read returns the most-recent COMPLETED measurement**, i.e. the value from the **previous driver
   cycle** - a deterministic, fixed **one-cycle lag**. (For a robot or a remote, one `think()`
-  (~16 ms) of latency is immaterial.)
+  (~16 ms) of latency is immaterial.) The driver cycle runs **once per tick, immediately after
+  `think()`**, over a single-buffer cache - so a read at think N returns the cycle-(N-1) measurement,
+  and the registering (first) read returns the initial value. Both VMs run the cycle at the same point.
 - **Shared.** All readers of a given sensor in a `think()` get the **same** cached value - one
   measurement per sensor per cycle, regardless of how many rules read it (no overlapping-ping
   corruption; bounded cost).
@@ -114,12 +118,3 @@ A sensor's measurement is observable as a deterministic trace line when its valu
 read (the exact line is each sensor's, defined in its feature spec + `docs/specs/contracts/observable-trace.md`,
 format-version pinned). Because the value and the lag are deterministic, the trace is reproducible and
 byte-matched across both VMs under the injected schedule; no wall-clock timing appears in the trace.
-
-## Open questions
-
-- **Host-loop ordering.** The precise point in the host loop where the driver cycle runs relative to
-  VM `think()` (which fixes exactly what "previous cycle" means) - must be deterministic and identical
-  on both VMs.
-- **Driver-fiber resource cost** on device (one long-lived fiber's stack; respect the `.bss` VM-region
-  constraint - a single shared driver fiber, never a fiber per measurement).
-- **Trace line shape** for a background measurement (per consumer).

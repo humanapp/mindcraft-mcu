@@ -50,6 +50,9 @@ change `vm-contract.md`.
   hex; an out-of-range pin (outside 0-20) is a no-op effect but **still emits the
   line** with the raw pin (mirroring `display set-pixel` - the trace records the
   value as passed to the port, before the device clamps/discards).
+- `port sonar distance <trig> <echo> <cm>` - one ultrasonic distance read; the
+  trig/echo pins + the returned cm (the cached, one-cycle-lagged measurement), all
+  minimal lowercase hex. Emitted on each read (mirrors the gpio read lines).
 - `fault <fiberId> <errorCode>` - a fiber fault.
 
 Host-action ids and call-site ids render as minimal lowercase hex.
