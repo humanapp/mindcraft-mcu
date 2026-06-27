@@ -193,6 +193,27 @@ public:
 };
 
 /**
+ * Background sonar reads for an SR04-style ultrasonic, keyed by the sensor's
+ * (trigger, echo) pin pair. A background driver runs the measurement off the VM
+ * and a read returns the latest cached distance. The first reference to a pin
+ * pair registers that sonar; later references to the same pins read its shared
+ * cache. A read returns the previous driver cycle's measurement (a fixed
+ * one-cycle lag), the defined maximum distance before any measurement has
+ * completed, and the maximum distance on a timeout / no echo.
+ */
+class SonarPort {
+public:
+  virtual ~SonarPort() = default;
+
+  /**
+   * Read the cached distance in centimeters of the sonar wired to `trig`/`echo`,
+   * registering it on the first reference. Returns the previous driver cycle's
+   * measurement (or the defined maximum distance before one has completed).
+   */
+  virtual int distance(int trig, int echo) = 0;
+};
+
+/**
  * Board-side rendering primitives for the device fault mode. The fault-mode
  * policy (stop ticking the brain, then show-the-error in a loop) lives with
  * the host loop; implementations only render. Both calls may block for the
@@ -231,6 +252,7 @@ struct DevicePorts {
   AccelerometerInputPort* accelerometer;
   I2CPort* i2c;
   GPIOPort* gpio;
+  SonarPort* sonar;
 };
 
 } // namespace mindcraft

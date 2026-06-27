@@ -51,6 +51,7 @@ export enum MicroBitV2HostFuncId {
   GpioDigitalWrite = 1053,
   GpioSetPull = 1054,
   GpioServoWrite = 1055,
+  SonarDistance = 1056,
 }
 
 /**
@@ -67,6 +68,7 @@ export enum MicroBitV2TypeAtomId {
   Accelerometer = 1028,
   I2C = 1029,
   GPIO = 1030,
+  Sonar = 1031,
 }
 
 /**

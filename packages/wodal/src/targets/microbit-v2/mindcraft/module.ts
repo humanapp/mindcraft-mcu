@@ -28,6 +28,7 @@ import { Button } from "../../../core/button";
 import { Gpio } from "../../../core/gpio";
 import { I2CBus } from "../../../core/i2c-bus";
 import { toNonNegativeInteger } from "../../../core/numeric";
+import { SensorDriver } from "../../../core/sensor-driver";
 import { TouchButton } from "../../../core/touch-button";
 import { WODAL_SHARED_TYPE_IDS } from "../../../mindcraft/shared-type-ids";
 import { MicroBit } from "../microbit";
@@ -69,6 +70,9 @@ export const WODAL_MICROBIT_V2_TYPE_IDS = {
 
   /** Native-backed GPIO pin facade for the simulated device. */
   GPIO: mkTypeId(NativeType.Struct, "GPIO"),
+
+  /** Native-backed sonar facade for the simulated device's background sensor driver. */
+  Sonar: mkTypeId(NativeType.Struct, "Sonar"),
 } as const;
 
 /**
@@ -84,6 +88,7 @@ export enum MicroBitField {
   Accelerometer = 4,
   I2C = 5,
   GPIO = 6,
+  Sonar = 7,
 }
 
 /**
@@ -103,6 +108,7 @@ export function createMicroBitV2Module(): MindcraftModule {
       registerAccelerometerFunctions(api);
       registerI2CFunctions(api);
       registerGPIOFunctions(api);
+      registerSonarFunctions(api);
       registerBrainTiles(api);
     },
   };
@@ -273,6 +279,22 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
     ]),
   });
 
+  types.addStructType("Sonar", {
+    atomId: MicroBitV2TypeAtomId.Sonar,
+    fields: List.empty(),
+    fieldGetter: () => undefined,
+    methods: List.from([
+      {
+        name: "distance",
+        params: List.from([
+          { name: "trig", typeId: CoreTypeIds.Number },
+          { name: "echo", typeId: CoreTypeIds.Number },
+        ]),
+        returnTypeId: CoreTypeIds.Number,
+      },
+    ]),
+  });
+
   types.addStructType("MicroBit", {
     atomId: MicroBitV2TypeAtomId.MicroBit,
     fields: List.from([
@@ -287,6 +309,7 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
       },
       { name: "i2c", typeId: WODAL_MICROBIT_V2_TYPE_IDS.I2C, fieldIndex: MicroBitField.I2C },
       { name: "gpio", typeId: WODAL_MICROBIT_V2_TYPE_IDS.GPIO, fieldIndex: MicroBitField.GPIO },
+      { name: "sonar", typeId: WODAL_MICROBIT_V2_TYPE_IDS.Sonar, fieldIndex: MicroBitField.Sonar },
     ]),
     fieldGetter: (source, fieldId) => {
       const microbit = getNativeMicroBit(source);
@@ -308,6 +331,8 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
           return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.I2C, microbit.i2c);
         case MicroBitField.GPIO:
           return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.GPIO, microbit.gpio);
+        case MicroBitField.Sonar:
+          return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.Sonar, microbit.sensorDriver);
         default:
           return undefined;
       }
@@ -602,6 +627,25 @@ function registerGPIOFunctions(api: MindcraftModuleApi): void {
   });
 }
 
+function registerSonarFunctions(api: MindcraftModuleApi): void {
+  const emptyCallDef = mkCallDef({ type: "bag", items: [] });
+
+  api.registerFunction({
+    id: MicroBitV2HostFuncId.SonarDistance,
+    name: "Sonar.distance",
+    isAsync: false,
+    fn: {
+      exec: (_ctx: ExecutionContext, args: ReadonlyList<Value>) => {
+        const driver = getSonarReceiver(args);
+        const trig = toNonNegativeInteger(numberArg(args, 1));
+        const echo = toNonNegativeInteger(numberArg(args, 2));
+        return mkNumberValue(driver ? driver.sonarDistance(trig, echo) : 0);
+      },
+    },
+    callDef: emptyCallDef,
+  });
+}
+
 function registerBrainTiles(api: MindcraftModuleApi): void {
   api.registerHostSensor(createHostSensor(buttonASensor));
   api.registerHostSensor(createHostSensor(buttonBSensor));
@@ -685,6 +729,14 @@ function getGPIOReceiver(args: ReadonlyList<Value>): Gpio | undefined {
     return undefined;
   }
   return receiver.native instanceof Gpio ? receiver.native : undefined;
+}
+
+function getSonarReceiver(args: ReadonlyList<Value>): SensorDriver | undefined {
+  const receiver = args.get(0);
+  if (!isStructNative(receiver, WODAL_MICROBIT_V2_TYPE_IDS.Sonar)) {
+    return undefined;
+  }
+  return receiver.native instanceof SensorDriver ? receiver.native : undefined;
 }
 
 /** The bytes of a `Buffer` argument, in order; an empty array when the value is not a buffer. */

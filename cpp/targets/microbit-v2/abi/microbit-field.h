@@ -22,10 +22,11 @@ enum class MicroBitField : uint8_t
     Accelerometer = 4,
     I2C = 5,
     GPIO = 6,
+    Sonar = 7,
 };
 
 /** Number of declared {@link MicroBitField} members; ids are dense from 0. */
-inline constexpr uint32_t kMicroBitFieldCount = 7;
+inline constexpr uint32_t kMicroBitFieldCount = 8;
 
 /**
  * Field id of the `microbit` field this profile adds to the core `Context`

@@ -365,6 +365,64 @@ struct HostMicroBit {
     }
   };
 
+  // Injectable sonar driver (logical time): registers a sonar on the first
+  // reference to its (trig, echo) pins, serves the cached distance, and refreshes
+  // each registered sonar's cache from an injected echo width once per cycle()
+  // with a fixed one-cycle lag. Mirrors the wodal SensorDriver model.
+  struct TracingSonar : mindcraft::SonarPort {
+    static constexpr int kMaxDistanceCm = 200;
+    static constexpr int kNoEcho = -1;
+    struct Sonar {
+      int trig;
+      int echo;
+      int echoMicros;
+      int cache;
+    };
+    ObservableTraceWriter* writer = nullptr;
+    std::vector<Sonar> sonars;
+
+    static int distanceCm(int echoMicros) {
+      if (echoMicros < 0) {
+        return kMaxDistanceCm;
+      }
+      const int cm = echoMicros * 34 / 2 / 1000;
+      return cm > kMaxDistanceCm ? kMaxDistanceCm : cm;
+    }
+
+    Sonar& sonarFor(int trig, int echo) {
+      for (auto& s : sonars) {
+        if (s.trig == trig && s.echo == echo) {
+          return s;
+        }
+      }
+      sonars.push_back({trig, echo, kNoEcho, kMaxDistanceCm});
+      return sonars.back();
+    }
+
+    int distance(int trig, int echo) override {
+      const int cm = sonarFor(trig, echo).cache;
+      if (writer != nullptr) {
+        writer->sonarDistance(static_cast<uint32_t>(trig), static_cast<uint32_t>(echo),
+                              static_cast<uint32_t>(cm));
+      }
+      return cm;
+    }
+
+    // Inject the echo width the next cycle() measures for the (trig, echo) sonar.
+    void setEchoMicros(int trig, int echo, int echoMicros) {
+      sonarFor(trig, echo).echoMicros = echoMicros;
+    }
+
+    // One driver cycle: refresh each registered sonar's cache from its injected
+    // echo width. Called after each think so the next think reads this cycle's
+    // measurement (the one-cycle lag).
+    void cycle() {
+      for (auto& s : sonars) {
+        s.cache = distanceCm(s.echoMicros);
+      }
+    }
+  };
+
   struct NullFaultDisplay : mindcraft::FaultDisplayPort {
     void showFaultFace() override {}
     void scrollFaultCode(const char*) override {}
@@ -381,11 +439,12 @@ struct HostMicroBit {
   SettableAccelerometer accelerometer;
   TracingI2C i2c;
   TracingGpio gpio;
+  TracingSonar sonar;
   NullFaultDisplay faultDisplay;
   FixedClock clock;
 
   mindcraft::DevicePorts ports{&display,       &buttons, &faultDisplay, &clock,
-                               &accelerometer, &i2c,     &gpio};
+                               &accelerometer, &i2c,     &gpio,         &sonar};
 };
 
 /** Forwards the VM's host-binding events into the observable trace. */
@@ -1664,6 +1723,72 @@ TEST_CASE("the user-tile gpio fixture byte-matches the golden observable trace")
     CHECK(servo.pin == 1);
     CHECK(servo.angle == 90);
   }
+}
+
+TEST_CASE("the user-tile sonar fixture byte-matches the golden observable trace") {
+  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-sonar";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.sonar.writer = &writer;
+  // Inject the echo width the background driver measures. Mirrors the injected
+  // width in wodal packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-sonar.spec.ts.
+  microbit.sonar.setEchoMicros(8, 12, 5000);
+  TraceTap tap(writer);
+
+  // The actuator reads ctx.microbit.sonar through the native struct field getter
+  // and reads the same sonar twice; the sonar body binds over the port in ports.
+  mindcraft::ManagedHeap heap(arena, &image);
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  ExecutionContext ctx;
+  mindcraft::TypeRegistry types(image);
+  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+  surface.types = &types;
+  surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Two 16ms thinks mirror SCHEDULE in wodal
+  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-sonar.spec.ts. The
+  // driver cycle runs after each think (mirroring the wodal runtime), so the next
+  // think reads the previous cycle's measurement (the fixed one-cycle lag).
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 2; i++) {
+    const float timeMs = lastThinkTimeMs + 16;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    microbit.sonar.cycle();
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+  // The two reads per think reference the same pin pair, so the driver registers
+  // exactly one sonar.
+  REQUIRE(microbit.sonar.sonars.size() == 1);
+  CHECK(microbit.sonar.sonars[0].trig == 8);
+  CHECK(microbit.sonar.sonars[0].echo == 12);
 }
 
 TEST_CASE("the user-tile pixel-conversion fixture byte-matches the golden observable trace") {

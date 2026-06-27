@@ -13,12 +13,13 @@
 #include "targets/microbit-v2/abi/host-functions/gpio.h"
 #include "targets/microbit-v2/abi/host-functions/i2c-read.h"
 #include "targets/microbit-v2/abi/host-functions/i2c-write.h"
+#include "targets/microbit-v2/abi/host-functions/sonar.h"
 
 namespace mindcraft
 {
 
 /** Number of microbit-v2 target host-function bindings the slice registers. */
-inline constexpr uint32_t kMicroBitV2HostFuncBindingCount = 18;
+inline constexpr uint32_t kMicroBitV2HostFuncBindingCount = 19;
 
 /**
  * Builds the microbit-v2 target host-function binding table over `ports`, one
@@ -28,9 +29,10 @@ inline constexpr uint32_t kMicroBitV2HostFuncBindingCount = 18;
  * `DisplayDrawImage` body uses `drawEnv` (its display port, heap, and program);
  * the `I2CWriteBuffer` body uses `i2cWriteEnv` (its I2C port, heap, and
  * program); the `I2CReadBuffer` body uses `i2cReadEnv` (its I2C port, heap, and
- * roots); the four `Gpio*` bodies each bind over the GPIO port in `ports`. Pass
- * null for an env when the table will never dispatch its body. `ports` and any
- * supplied env must outlive every dispatch through the table.
+ * roots); the four `Gpio*` bodies each bind over the GPIO port in `ports`; the
+ * `SonarDistance` body binds over the sonar port in `ports`. Pass null for an env
+ * when the table will never dispatch its body. `ports` and any supplied env must
+ * outlive every dispatch through the table.
  */
 inline std::array<TargetHostFuncBinding, kMicroBitV2HostFuncBindingCount>
 makeMicroBitV2HostFuncBindings(DevicePorts &ports, MicroBitV2DrawImageEnv *drawEnv = nullptr,
@@ -72,6 +74,7 @@ makeMicroBitV2HostFuncBindings(DevicePorts &ports, MicroBitV2DrawImageEnv *drawE
          &ports},
         {static_cast<uint32_t>(MicroBitV2HostFuncId::GpioSetPull), &execGpioSetPull, &ports},
         {static_cast<uint32_t>(MicroBitV2HostFuncId::GpioServoWrite), &execGpioServoWrite, &ports},
+        {static_cast<uint32_t>(MicroBitV2HostFuncId::SonarDistance), &execSonarDistance, &ports},
     }};
 }
 

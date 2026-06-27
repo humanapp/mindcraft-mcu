@@ -4,6 +4,7 @@ import { Gpio } from "../../core/gpio";
 import { I2CBus } from "../../core/i2c-bus";
 import { MessageBus, type MessageBusSnapshot } from "../../core/message-bus";
 import { toUint32 } from "../../core/numeric";
+import { SensorDriver } from "../../core/sensor-driver";
 import { Timer } from "../../core/timer";
 import { TouchButton, type TouchButtonSnapshot } from "../../core/touch-button";
 import { NRF52FlashManager, type NRF52FlashSnapshot } from "../../nrf52/nrf52-flash-manager";
@@ -76,6 +77,9 @@ export class MicroBit {
   /** GPIO pins on the edge connector (P0-P20). */
   public readonly gpio = new Gpio();
 
+  /** Background sensor driver backing the pin-keyed sonar reads. */
+  public readonly sensorDriver = new SensorDriver();
+
   private initialized = false;
 
   /** Completes device initialization. Returns 0 on first call and -1 afterward. */
@@ -113,8 +117,8 @@ export class MicroBit {
 
   /**
    * Resets the device to a fresh power-on state: clears the display, releases the buttons and logo,
-   * resets the accelerometer, I2C bus, GPIO pins, timer, message bus, and serial buffers, and marks
-   * the device uninitialized. Persistent flash storage is not reset.
+   * resets the accelerometer, I2C bus, GPIO pins, sensor driver, timer, message bus, and serial
+   * buffers, and marks the device uninitialized. Persistent flash storage is not reset.
    */
   clear(): void {
     this.timer.reset();
@@ -127,6 +131,7 @@ export class MicroBit {
     this.accelerometer.reset();
     this.i2c.reset();
     this.gpio.reset();
+    this.sensorDriver.reset();
     this.initialized = false;
   }
 

@@ -292,7 +292,7 @@ public:
         : pins_{&uBit.io.P0,  &uBit.io.P1,  &uBit.io.P2,  &uBit.io.P3,  &uBit.io.P4,
                 &uBit.io.P5,  &uBit.io.P6,  &uBit.io.P7,  &uBit.io.P8,  &uBit.io.P9,
                 &uBit.io.P10, &uBit.io.P11, &uBit.io.P12, &uBit.io.P13, &uBit.io.P14,
-                &uBit.io.P15, &uBit.io.P16, &uBit.io.P17, &uBit.io.P18, &uBit.io.P19,
+                &uBit.io.P15, &uBit.io.P16, nullptr,      nullptr,      &uBit.io.P19,
                 &uBit.io.P20}
     {
     }
@@ -354,10 +354,186 @@ private:
 
     NRF52Pin *pins_[kMaxPin + 1];
 
-    /** The `NRF52Pin` for `pin` (0-20), or nullptr when `pin` is out of range. */
+    /**
+     * The `NRF52Pin` for `pin` (0-20), or nullptr when `pin` is out of range or is
+     * P17/P18 (the board's 3V power pins, which are not GPIO).
+     */
     NRF52Pin *pinFor(int pin)
     {
         return pin >= 0 && pin <= kMaxPin ? pins_[pin] : nullptr;
+    }
+};
+
+/**
+ * Drives SR04-style ultrasonic sonars through one shared background CODAL fiber.
+ * Sonars are addressed by their (trigger, echo) pins: {@link distance} registers
+ * a sonar on the first reference to a pin pair (appending a node and starting the
+ * shared fiber on the first registration) and returns its cached distance; later
+ * references to the same pins read the same cache. The fiber services each
+ * registered sonar in turn - it pulses the trigger (a ~10 us synchronous blip),
+ * then measures the echo's HIGH-pulse width with `NRF52Pin::getPulseUs`, which
+ * blocks (yields) the fiber until the pulse completes or the timeout caps it, so
+ * the VM keeps running during the wait. A lone echo dropout (common while a target
+ * moves) holds the last good distance; the cache reports the maximum only after
+ * several consecutive timeouts. Valid readings feed an exponential moving average
+ * that smooths per-ping jitter. It writes the cached distance and never re-enters
+ * the VM.
+ */
+class MicroBitSonarPort : public SonarPort
+{
+public:
+    explicit MicroBitSonarPort(MicroBit &uBit)
+        : pins_{&uBit.io.P0,  &uBit.io.P1,  &uBit.io.P2,  &uBit.io.P3,  &uBit.io.P4,
+                &uBit.io.P5,  &uBit.io.P6,  &uBit.io.P7,  &uBit.io.P8,  &uBit.io.P9,
+                &uBit.io.P10, &uBit.io.P11, &uBit.io.P12, &uBit.io.P13, &uBit.io.P14,
+                &uBit.io.P15, &uBit.io.P16, nullptr,      nullptr,      &uBit.io.P19,
+                &uBit.io.P20}
+    {
+    }
+
+    int distance(int trig, int echo) override
+    {
+        Sonar *sonar = registerSonar(trig, echo);
+        return sonar != nullptr ? sonar->cacheCm : kMaxDistanceCm;
+    }
+
+private:
+    /** Highest addressable pin number; the lookup-table bound. */
+    static constexpr int kMaxPin = 20;
+
+    /** Distance reported before a measurement completes, on timeout, and as the clamp ceiling. */
+    static constexpr int kMaxDistanceCm = 200;
+
+    /** Echo timeout in microseconds: the cap that bounds the usable range to ~200 cm. */
+    static constexpr int kEchoTimeoutUs = 12000;
+
+    /** Delay between measurement sweeps in milliseconds; lets echoes settle between pings. */
+    static constexpr int kSettleMs = 30;
+
+    /** Consecutive echo timeouts before a sonar reports max distance; rejects lone dropouts. */
+    static constexpr int kMaxMisses = 3;
+
+    /** Exponential-moving-average weight on each new reading (0-1); smaller is smoother but laggier. */
+    static constexpr float kEmaAlpha = 0.7f;
+
+    /**
+     * A registered sonar: its pins, the cached distance the VM reads, the smoothed
+     * distance the average tracks, and the consecutive-miss count.
+     */
+    struct Sonar
+    {
+        int trig;
+        int echo;
+        NRF52Pin *trigPin;
+        NRF52Pin *echoPin;
+        volatile int cacheCm;
+        float smoothCm;
+        int missCount;
+        Sonar *next;
+    };
+
+    NRF52Pin *pins_[kMaxPin + 1];
+    Sonar *head_ = nullptr;
+    bool fiberStarted_ = false;
+
+    /**
+     * The `NRF52Pin` for `pin` (0-20), or nullptr when `pin` is out of range or is
+     * P17/P18 (the board's 3V power pins, which are not GPIO).
+     */
+    NRF52Pin *pinFor(int pin) { return pin >= 0 && pin <= kMaxPin ? pins_[pin] : nullptr; }
+
+    /** Distance in centimeters for an echo width (us), clamped to the maximum. */
+    static int distanceCm(int echoMicros)
+    {
+        const int cm = echoMicros * 34 / 2 / 1000;
+        return cm > kMaxDistanceCm ? kMaxDistanceCm : cm;
+    }
+
+    /** Find-or-register the sonar wired to `trig`/`echo`, starting the fiber on the first one. */
+    Sonar *registerSonar(int trig, int echo)
+    {
+        for (Sonar *s = head_; s != nullptr; s = s->next)
+        {
+            if (s->trig == trig && s->echo == echo)
+            {
+                return s;
+            }
+        }
+        NRF52Pin *trigPin = pinFor(trig);
+        NRF52Pin *echoPin = pinFor(echo);
+        if (trigPin == nullptr || echoPin == nullptr)
+        {
+            return nullptr;
+        }
+        // Measure the echo's HIGH-pulse width. getPulseUs reads the polarity once on
+        // its first call, so set it before the fiber takes its first measurement.
+        echoPin->setPolarity(1);
+        Sonar *sonar = new Sonar{
+            trig, echo, trigPin, echoPin, kMaxDistanceCm, static_cast<float>(kMaxDistanceCm), 0,
+            head_};
+        head_ = sonar;
+        if (!fiberStarted_)
+        {
+            fiberStarted_ = true;
+            create_fiber(&MicroBitSonarPort::fiberEntry, this);
+        }
+        return sonar;
+    }
+
+    /** Trampoline into {@link run} for `create_fiber`. */
+    static void fiberEntry(void *param) { static_cast<MicroBitSonarPort *>(param)->run(); }
+
+    /** The shared background loop: measure each registered sonar in turn, forever. */
+    [[noreturn]] void run()
+    {
+        while (true)
+        {
+            for (Sonar *s = head_; s != nullptr; s = s->next)
+            {
+                measure(s);
+            }
+            fiber_sleep(kSettleMs);
+        }
+    }
+
+    /** One measurement for `sonar`: pulse the trigger, time the echo, cache the distance. */
+    void measure(Sonar *sonar)
+    {
+        sonar->trigPin->setPull(codal::PullMode::None);
+        sonar->trigPin->setDigitalValue(0);
+        waitMicros(2);
+        sonar->trigPin->setDigitalValue(1);
+        waitMicros(10);
+        sonar->trigPin->setDigitalValue(0);
+        // getPulseUs yields the fiber until the echo's HIGH pulse completes or the
+        // timeout caps it (returning DEVICE_CANCELLED, a negative value), so the VM
+        // keeps running during the wait. A moving target scatters the ping, so single
+        // echoes drop out; hold the last good distance and only report the maximum
+        // after kMaxMisses consecutive timeouts, rejecting those lone dropouts. A
+        // valid reading feeds the exponential moving average that smooths the
+        // remaining per-ping jitter.
+        const int echoMicros = sonar->echoPin->getPulseUs(kEchoTimeoutUs);
+        if (echoMicros >= 0)
+        {
+            sonar->smoothCm =
+                kEmaAlpha * static_cast<float>(distanceCm(echoMicros)) + (1.0f - kEmaAlpha) * sonar->smoothCm;
+            sonar->cacheCm = static_cast<int>(sonar->smoothCm + 0.5f);
+            sonar->missCount = 0;
+        }
+        else if (++sonar->missCount >= kMaxMisses)
+        {
+            sonar->smoothCm = static_cast<float>(kMaxDistanceCm);
+            sonar->cacheCm = kMaxDistanceCm;
+        }
+    }
+
+    /** Busy-wait `micros` microseconds: the negligible synchronous trigger blip. */
+    static void waitMicros(uint32_t micros)
+    {
+        const CODAL_TIMESTAMP start = system_timer_current_time_us();
+        while (system_timer_current_time_us() - start < micros)
+        {
+        }
     }
 };
 

@@ -135,6 +135,18 @@ struct RecordingGpio : mindcraft::GPIOPort {
   }
 };
 
+struct RecordingSonar : mindcraft::SonarPort {
+  int reported = 0;
+  int lastTrig = -1;
+  int lastEcho = -1;
+
+  int distance(int trig, int echo) override {
+    lastTrig = trig;
+    lastEcho = echo;
+    return reported;
+  }
+};
+
 } // namespace
 
 TEST_CASE("a host stub can implement every device port") {
@@ -145,9 +157,10 @@ TEST_CASE("a host stub can implement every device port") {
   SettableAccelerometer accelerometer;
   RecordingI2C i2c;
   RecordingGpio gpio;
+  RecordingSonar sonar;
 
   mindcraft::DevicePorts ports{&display,       &buttons, &faultDisplay, &clock,
-                               &accelerometer, &i2c,     &gpio};
+                               &accelerometer, &i2c,     &gpio,         &sonar};
 
   ports.display->setPixel(2, 3, 255);
   REQUIRE(display.calls.size() == 1);
@@ -210,6 +223,11 @@ TEST_CASE("a host stub can implement every device port") {
   REQUIRE(gpio.servos.size() == 1);
   CHECK(gpio.servos[0].pin == 1);
   CHECK(gpio.servos[0].angle == 90);
+
+  sonar.reported = 42;
+  CHECK(ports.sonar->distance(8, 12) == 42);
+  CHECK(sonar.lastTrig == 8);
+  CHECK(sonar.lastEcho == 12);
 }
 
 TEST_CASE("AccelerometerGesture codes match the CODAL accelerometer gesture values") {

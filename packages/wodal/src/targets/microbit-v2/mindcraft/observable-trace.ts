@@ -54,6 +54,7 @@
  * port gpio digital-read <pin> <value>
  * port gpio set-pull <pin> <mode>
  * port gpio servo-write <pin> <angle>
+ * port sonar distance <trig> <echo> <cm>
  * fault <fiberId> <errorCode>
  * ```
  *
@@ -104,6 +105,10 @@
  * - `port gpio servo-write`: one servo write crossing the GPIO device port.
  *   `<pin>` is the pin number and `<angle>` the servo angle in degrees (0-180),
  *   each in hex.
+ * - `port sonar distance`: one cached-distance read crossing the background
+ *   sensor driver for the sonar wired to `<trig>`/`<echo>` (the pin numbers in
+ *   hex). `<cm>` is the distance in centimeters read back (the previous driver
+ *   cycle's measurement), in hex.
  * - `fault`: one fiber fault. `<errorCode>` is the numeric wire-stable
  *   `ErrorCode`. Fault messages are implementation-defined and never render.
  */
@@ -361,6 +366,17 @@ export class ObservableTraceWriter {
    */
   gpioServoWrite(pin: number, angle: number): void {
     this.line(`port gpio servo-write ${hexU32(pin)} ${hexU32(angle)}`);
+  }
+
+  /**
+   * Records one cached-distance read crossing the background sensor driver.
+   *
+   * @param trig - Trigger pin number of the sonar read.
+   * @param echo - Echo pin number of the sonar read.
+   * @param cm - Distance in centimeters read back (the previous cycle's measurement).
+   */
+  sonarDistance(trig: number, echo: number, cm: number): void {
+    this.line(`port sonar distance ${hexU32(trig)} ${hexU32(echo)} ${hexU32(cm)}`);
   }
 
   /**

@@ -98,6 +98,10 @@ struct NullGpio : mindcraft::GPIOPort {
   int setServo(int, int) override { return 0; }
 };
 
+struct NullSonar : mindcraft::SonarPort {
+  int distance(int, int) override { return 0; }
+};
+
 /** Clock returning a fixed reading. */
 struct FixedClock : mindcraft::MonotonicClockPort {
   uint32_t now = 0;
@@ -177,8 +181,9 @@ TEST_CASE("the host loop latches fault mode when startup fails") {
   NullAccelerometer accelerometer;
   NullI2C i2c;
   NullGpio gpio;
+  NullSonar sonar;
   mindcraft::DevicePorts ports{&display,       &buttons, &faultDisplay, &clock,
-                               &accelerometer, &i2c,     &gpio};
+                               &accelerometer, &i2c,     &gpio,         &sonar};
 
   HostLoop hostLoop(brain, ports);
   const mindcraft::Status status = hostLoop.startup();

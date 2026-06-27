@@ -129,6 +129,13 @@ public:
    */
   void gpioServoWrite(uint32_t pin, uint32_t angle);
 
+  /**
+   * Records one cached-distance read crossing the background sensor driver: the
+   * `trig` and `echo` pin numbers and the distance `cm` read back (the previous
+   * driver cycle's measurement), each in hex.
+   */
+  void sonarDistance(uint32_t trig, uint32_t echo, uint32_t cm);
+
   /** Records one fiber fault: the fiber id and the numeric `ErrorCode`. */
   void fiberFault(uint32_t fiberId, ErrorCode code);
 

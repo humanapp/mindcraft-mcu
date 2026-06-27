@@ -154,6 +154,16 @@ void ObservableTraceWriter::gpioServoWrite(uint32_t pin, uint32_t angle) {
   w_.nl();
 }
 
+void ObservableTraceWriter::sonarDistance(uint32_t trig, uint32_t echo, uint32_t cm) {
+  w_.text("port sonar distance ");
+  w_.hex(trig);
+  w_.ch(' ');
+  w_.hex(echo);
+  w_.ch(' ');
+  w_.hex(cm);
+  w_.nl();
+}
+
 void ObservableTraceWriter::fiberFault(uint32_t fiberId, ErrorCode code) {
   w_.text("fault ");
   w_.hex(fiberId);

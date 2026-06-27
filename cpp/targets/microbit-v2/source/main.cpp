@@ -81,9 +81,11 @@ int main()
     MicroBitAccelerometerInputPort accelerometer(uBit);
     MicroBitI2CPort i2c(uBit);
     MicroBitGPIOPort gpio(uBit);
+    MicroBitSonarPort sonar(uBit);
     MicroBitMonotonicClockPort clock;
     MicroBitFaultDisplayPort faultDisplay(uBit);
-    DevicePorts ports{&display, &buttons, &faultDisplay, &clock, &accelerometer, &i2c, &gpio};
+    DevicePorts ports{&display, &buttons, &faultDisplay, &clock,
+                      &accelerometer, &i2c, &gpio, &sonar};
 
     // Read the brain image from the reserved on-flash region.
     const Result<ByteSpan, RegionError> region = readRegionProgram(programFlashRegion());

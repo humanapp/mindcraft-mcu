@@ -7,6 +7,7 @@ declare module "mindcraft" {
     Accelerometer: Accelerometer;
     I2C: I2C;
     GPIO: GPIO;
+    Sonar: Sonar;
     MicroBit: MicroBit;
   }
 
@@ -57,6 +58,10 @@ declare module "mindcraft" {
     setPull(pin: number, mode: number): number;
     servoWrite(pin: number, angle: number): number;
   }
+  export interface Sonar {
+    readonly __brand: unique symbol;
+    distance(trig: number, echo: number): number;
+  }
   export interface MicroBit {
     readonly __brand: unique symbol;
     readonly display: MicroBitDisplay;
@@ -66,6 +71,7 @@ declare module "mindcraft" {
     readonly accelerometer: Accelerometer;
     readonly i2c: I2C;
     readonly gpio: GPIO;
+    readonly sonar: Sonar;
   }
   export interface Context {
     readonly microbit: MicroBit;

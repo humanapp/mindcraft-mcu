@@ -148,6 +148,9 @@ export class WodalMicroBitRuntime {
     this.microbit.sleep(toNonNegativeInteger(milliseconds));
     this.microbit.idleCallback();
     this.loadedBrain.think(this.microbit.systemTime());
+    // Run the background sensor driver after the brain thinks, so the next
+    // think's reads observe this cycle's measurement (the fixed one-cycle lag).
+    this.microbit.sensorDriver.cycle();
     // Complete any scroll animations whose time has arrived. A completion
     // resolves its async handle, so the awaiting fiber resumes on the next think.
     this.microbit.display.advanceScroll(this.microbit.systemTime());
