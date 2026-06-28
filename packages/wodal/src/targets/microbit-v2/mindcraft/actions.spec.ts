@@ -488,7 +488,12 @@ function filledArgs(size: number): List<Value> {
 
 function createExecutionContext(env: MindcraftEnvironment, microbit: MicroBit): ExecutionContext {
   return {
-    services: env.brainServices as unknown as ExecutionContext["services"],
+    services: {
+      ...(env.brainServices as unknown as Record<string, unknown>),
+      // Minimal rule-variable surface so actuators that read getWhenResult
+      // (e.g. scroll text) resolve to NIL outside a real rule scope.
+      brain: { ruleVars: { getByName: () => NIL_VALUE, setByName: () => {} } },
+    } as unknown as ExecutionContext["services"],
     getVariableBySlot: () => NIL_VALUE,
     setVariableBySlot: () => {},
     data: { microbit },

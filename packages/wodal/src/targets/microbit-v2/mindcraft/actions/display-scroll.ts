@@ -3,8 +3,12 @@ import {
   bag,
   type CreateHostActuatorOptions,
   type ExecutionContext,
+  extractNumberValue,
   extractStringValue,
+  formatF32,
   getSlotId,
+  getWhenResult,
+  isNilValue,
   mkCallDef,
   optional,
   type ReadonlyList,
@@ -25,8 +29,30 @@ const callDef = mkCallDef(bag(optional(Param.text), optional(Modifier.immediatel
 const kTextSlotId = getSlotId(callDef, Param.text);
 const kImmediatelySlotId = getSlotId(callDef, Modifier.immediately);
 
+/** True when arg slot `slotId` carries a present (non-nil) value. */
+function hasArg(args: ReadonlyList<Value>, slotId: number): boolean {
+  const value = args.get(slotId);
+  return value !== undefined && !isNilValue(value);
+}
+
+/**
+ * Best-effort text for the rule's captured WHEN result: a number renders through
+ * the binary32 formatter and a string passes through; any other value (a
+ * boolean, nil, or container) yields undefined so the caller keeps its default.
+ */
+function whenResultText(ctx: ExecutionContext): string | undefined {
+  const whenResult = getWhenResult(ctx);
+  const num = extractNumberValue(whenResult);
+  if (num !== undefined) {
+    return formatF32(num);
+  }
+  return extractStringValue(whenResult);
+}
+
 function execDisplayScroll(ctx: ExecutionContext, args: ReadonlyList<Value>, handle: AsyncHandle): void {
-  const text = extractStringValue(args.get(kTextSlotId)) ?? DEFAULT_TEXT;
+  const text = hasArg(args, kTextSlotId)
+    ? (extractStringValue(args.get(kTextSlotId)) ?? DEFAULT_TEXT)
+    : (whenResultText(ctx) ?? DEFAULT_TEXT);
   const microbit = getMicroBitContextDevice(ctx);
   if (!microbit) {
     handle.resolve(VOID_VALUE);

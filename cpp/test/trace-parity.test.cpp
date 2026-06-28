@@ -2438,6 +2438,72 @@ TEST_CASE("the display-scroll fixture byte-matches the golden observable trace")
   CHECK(microbit.display.pixels[0][0] == 255);
 }
 
+// Replays a scroll-when-result fixture over one 1100ms think and byte-compares
+// its rendered trace. The single rule has a value-producing WHEN side and a DO
+// that scrolls with no explicit text argument, so the scroll falls back to the
+// captured __whenResult: a numeric WHEN scrolls its number, a boolean WHEN keeps
+// the default text.
+static void checkScrollWhenResultFixture(const std::string& name) {
+  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/" + name;
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  TraceTap tap(writer);
+
+  mindcraft::CoreHostActionEnv coreEnv;
+  mindcraft::VmRng rng;
+  mindcraft::ManagedHeap heap(arena, &image);
+  mindcraft::MicroBitV2DisplayScrollEnv scrollEnv{&microbit.display, &heap};
+  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports, &scrollEnv);
+  auto actions = combineActionTable(coreBindings, mbBindings);
+  ExecutionContext ctx;
+  RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
+  surface.rng = &rng;
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+  coreEnv.brain = &brain;
+  coreEnv.rng = &rng;
+  coreEnv.heap = &heap;
+  coreEnv.roots = &scheduler;
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // One 1100ms think mirrors the wodal schedule: the scroll dispatches async on
+  // tick 1 and the rule parks awaiting the animation.
+  const float timeMs = 1100;
+  microbit.clock.now = static_cast<uint32_t>(timeMs);
+  writer.tick(1, timeMs, 0);
+  microbit.display.advanceScroll(timeMs);
+  hostLoop.tick();
+  REQUIRE_FALSE(hostLoop.faulted());
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+}
+
+TEST_CASE("the scroll-when-result fixture byte-matches the golden observable trace") {
+  checkScrollWhenResultFixture("scroll-when-result");
+}
+
+TEST_CASE("the scroll-when-result-bool fixture byte-matches the golden observable trace") {
+  checkScrollWhenResultFixture("scroll-when-result-bool");
+}
+
 TEST_CASE("the draw-image-forget fixture byte-matches the golden observable trace") {
   checkDrawFixture("draw-image-forget", 3, 100.0f);
 }

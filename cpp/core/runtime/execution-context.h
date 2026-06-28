@@ -5,6 +5,7 @@
 
 #include "core/platform/span.h"
 #include "core/runtime/mc-number.h"
+#include "core/runtime/program.h"
 #include "core/runtime/region-arena.h"
 #include "core/runtime/value.h"
 
@@ -44,6 +45,12 @@ struct ExecutionContext {
    * outside one. Bound by the VM before invoking a host-action body.
    */
   uint32_t currentCallSiteId = kNoCallSiteId;
+
+  /**
+   * Rule funcId of the in-flight host-action dispatch, or {@link kNoFuncId}
+   * outside one. Bound by the VM before invoking a host-action body.
+   */
+  uint32_t currentRuleFuncId = kNoFuncId;
 
   /** Brain variable slots, nil until stored. Sized by {@link bindSlots}. */
   Span<Value> variables{};

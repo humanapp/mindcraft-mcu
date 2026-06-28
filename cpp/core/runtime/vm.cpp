@@ -9,6 +9,7 @@
 #include "core/runtime/managed-heap.h"
 #include "core/runtime/stack-region.h"
 #include "core/runtime/type-registry.h"
+#include "core/runtime/when-result.h"
 
 namespace mindcraft {
 
@@ -1086,6 +1087,7 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       }
       ExecutionContext& ctx = *surface.context;
       ctx.currentCallSiteId = ins.c;
+      ctx.currentRuleFuncId = resolveFrameRuleFuncId(program, frame);
       const Span<const Value> args(state.stack + (state.stackDepth - argc), argc);
       const Value result = action->execSync(action->hostData, ctx, args);
       if (surface.observer != nullptr) {
@@ -1093,6 +1095,7 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       }
       state.stackDepth -= argc;
       ctx.currentCallSiteId = kNoCallSiteId;
+      ctx.currentRuleFuncId = kNoFuncId;
       if (!pushValue(state, result)) {
         return fault(ErrorCode::StackOverflow);
       }
@@ -1171,6 +1174,7 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       }
       ExecutionContext& ctx = *surface.context;
       ctx.currentCallSiteId = ins.c;
+      ctx.currentRuleFuncId = resolveFrameRuleFuncId(program, frame);
       const uint32_t handleId = surface.handles->createPending();
       if (handleId == kNoHandleId) {
         return fault(ErrorCode::StackOverflow);
@@ -1179,6 +1183,7 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       const Status status =
           action->execAsync(action->hostData, ctx, args, AsyncHandle{surface.handles, handleId});
       ctx.currentCallSiteId = kNoCallSiteId;
+      ctx.currentRuleFuncId = kNoFuncId;
       if (!status.isOk()) {
         surface.handles->deleteHandle(handleId);
         return fault(status.error());
@@ -1251,10 +1256,18 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
     case Op::WHEN_END: {
       // The WHEN section leaves exactly one value: truthy falls through into
       // the DO section, falsy jumps past it by the signed `a` offset.
-      Value value;
-      if (!popValue(state, value)) {
+      if (state.stackDepth == 0) {
         return fault(ErrorCode::StackUnderflow);
       }
+      // Capture the WHEN result into the rule's reserved __whenResult variable.
+      // Peek (not pop) so the value stays rooted on the operand stack across the
+      // rule-var allocation. Best-effort: a missing heap or allocation failure
+      // drops the capture without disturbing the truthiness gate. Every rule
+      // captures, regardless of the gate below.
+      const Value value = state.stack[state.stackDepth - 1];
+      ruleVarSet(surface, resolveFrameRuleFuncId(program, frame),
+                 Value::number(kWhenResultRuleVarKey), value);
+      state.stackDepth--;
       frame.pc = isTruthy(value, program, surface.heap) ? frame.pc + 1 : addRel(frame.pc, ins.a);
       break;
     }

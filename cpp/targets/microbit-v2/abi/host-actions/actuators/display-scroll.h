@@ -4,11 +4,13 @@
 
 #include "codal/device-port.h"
 #include "core/platform/span.h"
+#include "core/runtime/binary32-format.h"
 #include "core/runtime/execution-context.h"
 #include "core/runtime/handle-table.h"
 #include "core/runtime/managed-heap.h"
 #include "core/runtime/result.h"
 #include "core/runtime/value.h"
+#include "core/runtime/when-result.h"
 #include "targets/microbit-v2/abi/display-scroll.h"
 
 namespace mindcraft
@@ -55,14 +57,43 @@ inline Status execScrollText(void *hostData, ExecutionContext &ctx, Span<const V
     MicroBitV2DisplayScrollEnv &env = *static_cast<MicroBitV2DisplayScrollEnv *>(hostData);
     const char *bytes = kDisplayScrollDefaultText;
     uint32_t length = sizeof(kDisplayScrollDefaultText) - 1;
-    if (kDisplayScrollTextArgSlot < args.size() && args[kDisplayScrollTextArgSlot].isString())
+    // Holds a numeric WHEN result rendered to text; must outlive the scrollText
+    // call below (the display port copies the bytes up front).
+    char whenResultBuffer[32];
+    const bool hasText =
+        kDisplayScrollTextArgSlot < args.size() && !args[kDisplayScrollTextArgSlot].isNil();
+    if (hasText)
     {
         const char *argBytes = nullptr;
         uint32_t argLength = 0;
-        if (env.heap->stringContent(args[kDisplayScrollTextArgSlot], argBytes, argLength))
+        if (args[kDisplayScrollTextArgSlot].isString() &&
+            env.heap->stringContent(args[kDisplayScrollTextArgSlot], argBytes, argLength))
         {
             bytes = argBytes;
             length = argLength;
+        }
+    }
+    else
+    {
+        // No explicit text argument: fall back to the rule's captured WHEN
+        // result. A number renders through the binary32 formatter and a string
+        // passes through; any other value (a boolean, nil, or container) keeps
+        // the default text.
+        const Value whenResult = getWhenResult(ctx, *env.heap);
+        if (whenResult.isNumber())
+        {
+            length = binary32::formatNumber(whenResult.asNumber(), whenResultBuffer);
+            bytes = whenResultBuffer;
+        }
+        else if (whenResult.isString())
+        {
+            const char *wb = nullptr;
+            uint32_t wl = 0;
+            if (env.heap->stringContent(whenResult, wb, wl))
+            {
+                bytes = wb;
+                length = wl;
+            }
         }
     }
     if (kDisplayScrollImmediatelyArgSlot < args.size() &&
