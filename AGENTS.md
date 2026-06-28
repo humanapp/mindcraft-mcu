@@ -15,6 +15,22 @@ index unless explicitly instructed by the user in that specific turn.
 
 The agent must not emit staging directives.
 
+## Never Kill Processes You Do Not Own
+
+Never kill, signal, or otherwise terminate a process you did not start in the
+current session. This is an absolute rule.
+
+- A port being in use is NOT evidence the listener is stale, orphaned, or yours.
+  A dev server matching this repo's app and working directory may well be the
+  user's own running server. Same app, same cwd, same port does NOT mean "safe
+  to kill."
+- Do not run `kill`, `pkill`, `killall`, `kill -9`, or any equivalent against a
+  process you cannot prove you launched this session.
+- If a port you want is occupied, pick a different port, or stop and ask the
+  user whether to free it -- do not free it yourself.
+- This applies to dev servers, watchers, language servers, databases, and any
+  other long-running process.
+
 ## Command Approvals
 
 - When requesting escalated command approval, include a narrow `prefix_rule`
