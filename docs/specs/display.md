@@ -149,7 +149,11 @@ lease are silently dropped (each completes immediately with its paste discarded)
 ## Member: scroll text
 
 - An async actuator placed in `do`. One optional, anonymous **String** to scroll across the
-  display; when the slot is absent or nil, a target default string is scrolled.
+  display. When the text slot is absent, it falls back to the rule's **WHEN-side result** (the value the
+  WHEN side left on the stack, captured per-rule into the reserved `__whenResult` rule variable): a
+  Number is formatted to text, a String is used as-is, and any other value (boolean, nil, container)
+  scrolls the **target default string**. (A bare unconditional rule's WHEN result is the boolean `true`,
+  so it takes the default path.)
 - Clears the display, then scrolls the text across it, right to left; the text scrolls in from a
   blank display so any prior content (an earlier draw) does not linger under the animation. The
   rule awaits the animation and parks until it completes (it does not re-fire while parked). On
