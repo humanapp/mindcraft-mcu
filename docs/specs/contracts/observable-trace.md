@@ -31,6 +31,9 @@ change `vm-contract.md`.
   brightness bytes, row-major, two lowercase hex digits per byte with no
   separators (empty for a zero-size frame). A draw silently dropped by the display
   lease writes nothing and emits no such line.
+- `port display clear` - one `clear()` call (no args). Cancels any held display
+  lease (preempting an in-flight scroll/draw, resolving its awaiting rule) and
+  zeros all LEDs. Emitted on every `clear()`, with or without a lease held.
 - `port i2c write <address> <hex>` - one buffer write crossing the I2C device
   port. `<address>` is the 7-bit device address in minimal lowercase hex; `<hex>`
   is the bytes written, in transmission order, two lowercase hex digits per byte

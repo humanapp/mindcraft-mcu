@@ -88,7 +88,7 @@ display, tracking the device / `PixelDisplayPort` shape rather than the tile sem
 | ------------------------ | ------- | ----- |
 | `setPixelValue(x, y, brightness)` | void | instantaneous per-pixel write (sync; **not gated by the display lease**) |
 | `getPixelValue(x, y)` | number | per-pixel read (sync) |
-| `clear()` | void | clears the display (sync) |
+| `clear()` | void | **cancels any active display lease** (preempts an in-flight scroll/draw, resolving its awaiting rule) **and zeros all LEDs** (sync; emits `port display clear`) |
 | `drawImage(image, duration?)` | `Promise<void>` | the awaited (op 41) draw actuator - see Member: draw image (duration in seconds, default 1 s, `0` = fire-and-forget; same lease as the `draw image` tile) |
 
 - **`scroll` is tile-only** today (a temporal actuator, the `scroll text`); expose an
@@ -117,6 +117,10 @@ is the arbitration mechanism when more than one rule wants the display.
   and the modified operation takes the display at once. On device the preempt also stops CODAL's
   in-flight scroll animation; CODAL's animation code holds no locks and runs on the cooperative
   scheduler, so stopping and restarting it within one `think()` is race-free.
+- **`clear()` cancels the lease and blanks the display.** `ctx.microbit.display.clear()` preempts any
+  held lease (the in-flight scroll/draw's awaiting rule resumes as if finished, never faulting - the same
+  preempt path as the `immediately` modifier) and then zeros all LEDs. It is the explicit way to stop an
+  in-flight animation and blank the display; a `clear()` with no lease held just zeros the LEDs.
 - The lease spans the **whole temporal family**: a scroll lease blocks a draw-image and vice
   versa, because they share one physical display.
 - A **zero-duration draw takes no lease** - it paints and completes immediately (see draw image).
