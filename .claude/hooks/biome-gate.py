@@ -119,8 +119,11 @@ def main():
     failures = []
     for biome, files in groups.items():
         package_dir = os.path.dirname(os.path.dirname(os.path.dirname(biome)))
+        # --no-errors-on-unmatched: a changed file that Biome itself ignores
+        # (e.g. a generated .d.ts under an ignored path) must not fail the gate;
+        # real diagnostics on checked files still set a nonzero exit.
         result = subprocess.run(
-            [biome, "check", *sorted(files)],
+            [biome, "check", "--no-errors-on-unmatched", *sorted(files)],
             cwd=package_dir,
             capture_output=True,
             text=True,
