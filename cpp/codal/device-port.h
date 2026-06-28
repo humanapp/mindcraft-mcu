@@ -78,6 +78,14 @@ public:
    * left as-is; the next operation overwrites it.
    */
   virtual void preempt() = 0;
+
+  /**
+   * Cancel any held display lease and blank the matrix: a held scroll or timed
+   * draw is preempted (its handle resolved, so its awaiting rule resumes as if
+   * it had finished) before every pixel is zeroed. A no-op lease-wise when none
+   * is held.
+   */
+  virtual void clear() = 0;
 };
 
 /**

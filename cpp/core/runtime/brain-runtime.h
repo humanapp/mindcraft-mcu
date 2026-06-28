@@ -116,8 +116,10 @@ private:
   const ProgramImage& program_;
   FiberScheduler& scheduler_;
   RuntimeSurface surface_;
-  /** Per-root-rule tracking for the active page, allocated from the region at
-   * activation and sized to the page's root-rule count. */
+  /** Per-root-rule tracking for the active page. Allocated once for the brain's
+   * lifetime in startup and reused on every activation; its capacity covers the
+   * page with the most root rules. {@link ruleFiberCount_} is the active page's
+   * count. */
   RuleFiber* ruleFibers_ = nullptr;
   uint32_t ruleFiberCount_ = 0;
   bool pageActive_ = false;

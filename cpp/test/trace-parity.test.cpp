@@ -222,6 +222,19 @@ struct HostMicroBit {
       seqHeights.clear();
       held.resolve(mindcraft::kVoidValue);
     }
+
+    // Cancel any held lease and blank the matrix (no per-pixel port lines).
+    void clear() override {
+      if (writer != nullptr) {
+        writer->displayClear();
+      }
+      preempt();
+      for (auto& row : pixels) {
+        for (auto& pixel : row) {
+          pixel = 0;
+        }
+      }
+    }
   };
 
   struct SettableButtons : mindcraft::ButtonInputPort {
@@ -2069,6 +2082,119 @@ TEST_CASE("the timer-brain fixture byte-matches the golden observable trace") {
   CHECK(microbit.display.pixels[0][0] == 255);
 }
 
+TEST_CASE("the timeout-bounce fixture byte-matches the golden observable trace") {
+  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/timeout-bounce";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  TraceTap tap(writer);
+
+  mindcraft::CoreHostActionEnv coreEnv;
+  mindcraft::VmRng rng;
+  mindcraft::ManagedHeap heap(arena, &image);
+  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto actions = combineActionTable(coreBindings, mbBindings);
+  ExecutionContext ctx;
+  RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
+  surface.rng = &rng;
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+  coreEnv.brain = &brain;
+  coreEnv.rng = &rng;
+  coreEnv.heap = &heap;
+  coreEnv.roots = &scheduler;
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Ten 600ms thinks mirror the TS oracle schedule: page 0's timeout fires and
+  // switches to page 1, whose own timeout must re-arm and fire to switch back --
+  // the pages bounce, so each page's timeout fires across the run.
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 10; i++) {
+    const float timeMs = lastThinkTimeMs + 600;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+}
+
+TEST_CASE("a multi-rule page switching mid-round runs fault-free") {
+  const std::string base =
+      std::string(mindcraft::test::kWodalFixturesDir) + "/multi-rule-page-switch";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  TraceTap tap(writer);
+
+  mindcraft::CoreHostActionEnv coreEnv;
+  mindcraft::VmRng rng;
+  mindcraft::ManagedHeap heap(arena, &image);
+  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto actions = combineActionTable(coreBindings, mbBindings);
+  ExecutionContext ctx;
+  RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
+  surface.rng = &rng;
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+  coreEnv.brain = &brain;
+  coreEnv.rng = &rng;
+  coreEnv.heap = &heap;
+  coreEnv.roots = &scheduler;
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Each think, rule 0 switches pages while its sibling rule 1 is still queued,
+  // exercising two regressions: the active-page root-rule buffer is allocated
+  // once (a per-activation allocation would leak the bump region and fault), and
+  // the switch's cancellation of the queued sibling drains the round's queue
+  // (the scheduler must stop the round when it empties).
+  bool faulted = false;
+  for (int i = 0; i < 20000; i++) {
+    microbit.clock.now = static_cast<uint32_t>(i + 1);
+    hostLoop.tick();
+    if (hostLoop.faulted()) {
+      faulted = true;
+      break;
+    }
+  }
+  CHECK_FALSE(faulted);
+}
+
 TEST_CASE("the restart-interrupt fixture byte-matches the golden observable trace") {
   const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/restart-interrupt";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
@@ -2303,6 +2429,14 @@ TEST_CASE("the user-tile-draw-forget fixture byte-matches the golden observable 
 
 TEST_CASE("the user-tile-draw-icon fixture byte-matches the golden observable trace") {
   checkUserTileDrawFixture("user-tile-draw-icon", 2, 100.0f);
+}
+
+TEST_CASE("the user-tile-display-clear fixture byte-matches the golden observable trace") {
+  checkUserTileDrawFixture("user-tile-display-clear", 2, 100.0f);
+}
+
+TEST_CASE("the display-clear-preempts fixture byte-matches the golden observable trace") {
+  checkUserTileDrawFixture("display-clear-preempts", 3, 100.0f);
 }
 
 TEST_CASE("the display-scroll-drop fixture byte-matches the golden observable trace") {

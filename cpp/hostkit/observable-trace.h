@@ -91,6 +91,9 @@ public:
    */
   void displayDraw(uint32_t width, uint32_t height, const uint8_t* frame);
 
+  /** Records one clear crossing the display device port (no arguments). */
+  void displayClear();
+
   /**
    * Records one buffer write crossing the I2C device port: the 7-bit `address`
    * in hex and the `length` written bytes (two lowercase hex digits each, in

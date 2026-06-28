@@ -97,6 +97,11 @@ void ObservableTraceWriter::displayDraw(uint32_t width, uint32_t height, const u
   w_.nl();
 }
 
+void ObservableTraceWriter::displayClear() {
+  w_.text("port display clear");
+  w_.nl();
+}
+
 void ObservableTraceWriter::i2cWrite(uint32_t address, const uint8_t* bytes, uint32_t length) {
   w_.text("port i2c write ");
   w_.hex(address);

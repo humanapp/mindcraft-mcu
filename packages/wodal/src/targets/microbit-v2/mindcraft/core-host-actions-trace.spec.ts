@@ -55,6 +55,8 @@ const RESTART_INTERRUPT_BIN_PATH = fileURLToPath(
 const RESTART_INTERRUPT_TRACE_PATH = fileURLToPath(
   new URL("./__fixtures__/restart-interrupt.ticks.trace", import.meta.url)
 );
+const TIMEOUT_BOUNCE_BIN_PATH = fileURLToPath(new URL("./__fixtures__/timeout-bounce.mcprogram.bin", import.meta.url));
+const TIMEOUT_BOUNCE_TRACE_PATH = fileURLToPath(new URL("./__fixtures__/timeout-bounce.ticks.trace", import.meta.url));
 
 /**
  * A two-page timer brain. Page 0's rule fires a one-second timeout and switches
@@ -248,6 +250,77 @@ function buildRestartInterruptBrainJson(): LinkedBrainProgramJson {
   };
 }
 
+/**
+ * A two-page brain where each page carries a one-second timeout that switches to
+ * the other page: page 0 switches to page 2, page 1 switches to page 1 (back).
+ * Exercises a timeout on a page entered via a page switch -- the timeout must
+ * re-arm and fire on each page it lands on, so the pages bounce back and forth.
+ */
+function buildBounceBrainJson(): LinkedBrainProgramJson {
+  const page0Rule = [
+    { op: Op.PUSH_CONST_VAL, a: 0 }, // timeout delay slot: nil (default 1 second)
+    { op: Op.HOST_ACTION_CALL, a: TIMEOUT, b: 1, c: 0 },
+    { op: Op.JMP_IF_FALSE, a: 5 },
+    { op: Op.PUSH_CONST_NUM, a: 0 }, // switch-page number slot: page 2 (1-based)
+    { op: Op.PUSH_CONST_VAL, a: 0 }, // switch-page string slot: nil
+    { op: Op.HOST_ACTION_CALL, a: SWITCH_PAGE, b: 2, c: 1 },
+    { op: Op.POP },
+    { op: Op.PUSH_CONST_VAL, a: 0 },
+    { op: Op.RET },
+  ];
+
+  const page1Rule = [
+    { op: Op.PUSH_CONST_VAL, a: 0 }, // timeout delay slot: nil (default 1 second)
+    { op: Op.HOST_ACTION_CALL, a: TIMEOUT, b: 1, c: 2 },
+    { op: Op.JMP_IF_FALSE, a: 5 },
+    { op: Op.PUSH_CONST_NUM, a: 1 }, // switch-page number slot: page 1 (1-based)
+    { op: Op.PUSH_CONST_VAL, a: 0 }, // switch-page string slot: nil
+    { op: Op.HOST_ACTION_CALL, a: SWITCH_PAGE, b: 2, c: 3 },
+    { op: Op.POP },
+    { op: Op.PUSH_CONST_VAL, a: 0 },
+    { op: Op.RET },
+  ];
+
+  return {
+    program: {
+      version: 1,
+      functions: [
+        { code: page0Rule, numParams: 0, numLocals: 0 },
+        { code: page1Rule, numParams: 0, numLocals: 0 },
+      ],
+      constantPools: { numbers: [2, 1], strings: [], values: [{ t: 1 }] },
+      types: [],
+      variableNames: [],
+      entryPoint: 0,
+      actions: [],
+      ruleFuncIds: [0, 1],
+      ruleAncestors: [],
+    },
+    pages: [
+      {
+        pageIndex: 0,
+        pageId: "bounce-page-0",
+        pageName: "Bounce Page 0",
+        rootRuleFuncIds: [0],
+        actionCallSites: [
+          { binding: "host", callSiteId: 0, actionId: TIMEOUT },
+          { binding: "host", callSiteId: 1, actionId: SWITCH_PAGE },
+        ],
+      },
+      {
+        pageIndex: 1,
+        pageId: "bounce-page-1",
+        pageName: "Bounce Page 1",
+        rootRuleFuncIds: [1],
+        actionCallSites: [
+          { binding: "host", callSiteId: 2, actionId: TIMEOUT },
+          { binding: "host", callSiteId: 3, actionId: SWITCH_PAGE },
+        ],
+      },
+    ],
+  };
+}
+
 function serializeBrainBytes(json: LinkedBrainProgramJson): Uint8Array {
   const environment = createMicroBitV2Environment();
   const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
@@ -364,6 +437,41 @@ test("the committed timer-brain binary and observable trace golden are byte-stab
     writeFileSync(TIMER_TRACE_PATH, first.trace);
   }
   assert.equal(readFileSync(TIMER_TRACE_PATH, "utf8"), first.trace, "timer-brain.ticks.trace is not byte-stable");
+});
+
+test("a timeout on a page entered via switch re-arms and fires (pages bounce)", () => {
+  if (!existsSync(TIMEOUT_BOUNCE_BIN_PATH)) {
+    writeFileSync(TIMEOUT_BOUNCE_BIN_PATH, serializeBrainBytes(buildBounceBrainJson()));
+  }
+  const bin = new Uint8Array(readFileSync(TIMEOUT_BOUNCE_BIN_PATH));
+  assert.deepEqual(bin, serializeBrainBytes(buildBounceBrainJson()), "timeout-bounce.mcprogram.bin is not byte-stable");
+
+  const tapped = [TIMEOUT, SWITCH_PAGE];
+  const first = runTrace(bin, tapped, 10);
+  const second = runTrace(bin, tapped, 10);
+  assert.equal(second.trace, first.trace, "two fresh runs must render byte-identical traces");
+
+  const lines = first.trace.split("\n");
+  // Page 0's timeout (call site 0) fires, then page 1's timeout (call site 2)
+  // must also fire once landed -- the pages bounce, so each timeout fires.
+  assert.ok(
+    lines.some((line) => new RegExp(`^action ${TIMEOUT} site 0 .+ result bool 1$`).test(line)),
+    "page 0 timeout should fire"
+  );
+  assert.ok(
+    lines.some((line) => new RegExp(`^action ${TIMEOUT} site 2 .+ result bool 1$`).test(line)),
+    "page 1 timeout (entered via switch) should fire"
+  );
+  assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
+
+  if (!existsSync(TIMEOUT_BOUNCE_TRACE_PATH)) {
+    writeFileSync(TIMEOUT_BOUNCE_TRACE_PATH, first.trace);
+  }
+  assert.equal(
+    readFileSync(TIMEOUT_BOUNCE_TRACE_PATH, "utf8"),
+    first.trace,
+    "timeout-bounce.ticks.trace is not byte-stable"
+  );
 });
 
 test("the committed core-host-actions binary and observable trace golden are byte-stable", () => {

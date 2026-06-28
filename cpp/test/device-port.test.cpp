@@ -28,6 +28,8 @@ struct RecordingDisplay : mindcraft::PixelDisplayPort {
                   mindcraft::AsyncHandle) override {}
 
   void preempt() override {}
+
+  void clear() override {}
 };
 
 struct FixedButtons : mindcraft::ButtonInputPort {

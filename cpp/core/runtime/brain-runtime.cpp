@@ -43,6 +43,21 @@ Status BrainRuntime::startup() {
   if (program_.pages.empty()) {
     return Status::ok();
   }
+  // Program-sized, allocated once for the brain's lifetime and reused on every
+  // activation (never re-allocated per activation): one entry per root rule of
+  // the brain's largest page, so any active page's root rules fit.
+  uint32_t maxRootRuleCount = 0;
+  for (const PageMetadata& page : program_.pages) {
+    if (page.rootRuleFuncIdsCount > maxRootRuleCount) {
+      maxRootRuleCount = page.rootRuleFuncIdsCount;
+    }
+  }
+  if (maxRootRuleCount > 0) {
+    ruleFibers_ = scheduler_.arena().allocate<RuleFiber>(maxRootRuleCount);
+    if (ruleFibers_ == nullptr) {
+      return Status::fail(ErrorCode::StackOverflow);
+    }
+  }
   currentPageIndex_ = 0;
   desiredPageIndex_ = 0;
   return activatePage(0);
@@ -52,11 +67,8 @@ Status BrainRuntime::activatePage(uint32_t pageIndex) {
   const PageMetadata& page = program_.pages[pageIndex];
   ExecutionContext& ctx = *surface_.context;
 
-  // One tracking entry per root rule, sized to the page from the shared region.
-  ruleFibers_ = scheduler_.arena().allocate<RuleFiber>(page.rootRuleFuncIdsCount);
-  if (page.rootRuleFuncIdsCount > 0 && ruleFibers_ == nullptr) {
-    return Status::fail(ErrorCode::StackOverflow);
-  }
+  // ruleFibers_ is the brain-lifetime buffer allocated once in startup; every
+  // page's root-rule count fits within it.
 
   for (uint32_t i = 0; i < page.callSitesCount; i++) {
     const ActionCallSite& site = program_.callSites[page.callSitesOffset + i];

@@ -8,6 +8,7 @@
 #include "targets/microbit-v2/abi/host-func-id.h"
 #include "targets/microbit-v2/abi/host-functions/accelerometer-read.h"
 #include "targets/microbit-v2/abi/host-functions/button-is-pressed.h"
+#include "targets/microbit-v2/abi/host-functions/display-clear.h"
 #include "targets/microbit-v2/abi/host-functions/display-draw-image.h"
 #include "targets/microbit-v2/abi/host-functions/display-set-pixel-value.h"
 #include "targets/microbit-v2/abi/host-functions/gpio.h"
@@ -19,7 +20,7 @@ namespace mindcraft
 {
 
 /** Number of microbit-v2 target host-function bindings the slice registers. */
-inline constexpr uint32_t kMicroBitV2HostFuncBindingCount = 19;
+inline constexpr uint32_t kMicroBitV2HostFuncBindingCount = 20;
 
 /**
  * Builds the microbit-v2 target host-function binding table over `ports`, one
@@ -46,6 +47,7 @@ makeMicroBitV2HostFuncBindings(DevicePorts &ports, MicroBitV2DrawImageEnv *drawE
          &ports},
         {static_cast<uint32_t>(MicroBitV2HostFuncId::DisplaySetPixelValue),
          &execDisplaySetPixelValue, &ports},
+        {static_cast<uint32_t>(MicroBitV2HostFuncId::DisplayClear), &execDisplayClear, &ports},
         {static_cast<uint32_t>(MicroBitV2HostFuncId::AccelerometerGetX), &execAccelerometerGetX,
          &ports},
         {static_cast<uint32_t>(MicroBitV2HostFuncId::AccelerometerGetY), &execAccelerometerGetY,

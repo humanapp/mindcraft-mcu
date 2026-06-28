@@ -1,10 +1,12 @@
 #include "doctest/doctest.h"
 
+#include "codal/device-port.h"
 #include "codal/shared-type-atom-id.h"
 #include "core/runtime/context-field.h"
 #include "core/runtime/core-type-atom-id.h"
 #include "targets/microbit-v2/abi/host-actions.h"
 #include "targets/microbit-v2/abi/host-func-id.h"
+#include "targets/microbit-v2/abi/host-functions/host-func-bindings.h"
 #include "targets/microbit-v2/abi/microbit-field.h"
 #include "targets/microbit-v2/abi/type-atom-id.h"
 
@@ -61,6 +63,25 @@ TEST_CASE("MicroBitV2HostFuncId values are wire-stable") {
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::SonarDistance) == 1056);
   CHECK(kMicroBitV2HostFuncIdCount == 33);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::DisplaySetPixelValue) == TARGET_FUNC_ID_BASE);
+}
+
+TEST_CASE("the host-function binding table binds every declared device-API host function") {
+  // The binding table closes the declared-but-unbound gap: a host function declared
+  // in MicroBitV2HostFuncId but absent from the table faults at dispatch. Pin the
+  // count and that DisplayClear (the device-API clear) resolves to a sync body.
+  mindcraft::DevicePorts ports{};
+  const auto bindings = mindcraft::makeMicroBitV2HostFuncBindings(ports);
+  CHECK(bindings.size() == mindcraft::kMicroBitV2HostFuncBindingCount);
+  CHECK(mindcraft::kMicroBitV2HostFuncBindingCount == 20);
+  const mindcraft::TargetHostFuncBinding* clearBinding = nullptr;
+  for (const auto& binding : bindings) {
+    if (binding.funcId == static_cast<uint32_t>(MicroBitV2HostFuncId::DisplayClear)) {
+      clearBinding = &binding;
+    }
+  }
+  REQUIRE(clearBinding != nullptr);
+  CHECK(clearBinding->exec != nullptr);
+  CHECK(clearBinding->execAsync == nullptr);
 }
 
 TEST_CASE("MicroBitV2TypeAtomId values are wire-stable") {

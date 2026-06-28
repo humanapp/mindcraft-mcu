@@ -148,6 +148,12 @@ public:
         held.resolve(kVoidValue);
     }
 
+    void clear() override
+    {
+        preempt();
+        uBit_.display.image.clear();
+    }
+
 private:
     /** Pixels in the 5x5 matrix; the per-frame storage stride. */
     static constexpr uint32_t kPixelCount = 25;

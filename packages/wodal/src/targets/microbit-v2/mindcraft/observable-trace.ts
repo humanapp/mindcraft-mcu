@@ -48,6 +48,7 @@
  * port display set-pixel <xBits> <yBits> <brightnessBits>
  * port display scroll "<bytes>"
  * port display draw <width> <height> <hex>
+ * port display clear
  * port i2c write <address> <hex>
  * port i2c read <address> <len> <hex>
  * port gpio digital-write <pin> <value>
@@ -86,6 +87,9 @@
  *   (at most the display size), and `<hex>` is the clipped frame's brightness
  *   bytes (row-major, two lowercase hex digits per byte, no separators). A
  *   draw silently dropped by the lease writes nothing and emits no such line.
+ * - `port display clear`: one clear crossing the display device port. Carries
+ *   no arguments. Emitted on every clear, which cancels any held display lease
+ *   and blanks the matrix.
  * - `port i2c write`: one buffer write crossing the I2C device port.
  *   `<address>` is the 7-bit device address in hex, and `<hex>` is the bytes
  *   written (in transmission order, two lowercase hex digits per byte, no
@@ -297,6 +301,11 @@ export class ObservableTraceWriter {
       hex += hexPadded((frame[i] ?? 0) & 0xff, 2);
     }
     this.line(`port display draw ${hexU32(width)} ${hexU32(height)} ${hex}`);
+  }
+
+  /** Records one clear crossing the display device port. */
+  displayClear(): void {
+    this.line("port display clear");
   }
 
   /**

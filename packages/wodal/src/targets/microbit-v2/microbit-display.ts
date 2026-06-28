@@ -265,11 +265,12 @@ export class MicroBitDisplay {
   }
 
   /**
-   * Resets the display to its power-on state: blanks the matrix and drops the
-   * scroll in progress. Call whenever the device timer resets.
+   * Resets the display to its power-on state: blanks the matrix and drops any
+   * held scroll or timed draw without resolving its handle (the whole runtime is
+   * resetting). Call whenever the device timer resets.
    */
   reset(): void {
-    this.clear();
+    this.matrix.clear();
     this.activeScroll = undefined;
     this.activeDraw = undefined;
   }
@@ -353,8 +354,14 @@ export class MicroBitDisplay {
     return this.matrix.getPixelValue(x, y);
   }
 
-  /** Clears the display. */
+  /**
+   * Cancels any held display lease and blanks the matrix. A held scroll or timed
+   * draw is preempted (its handle resolved, so its awaiting rule resumes as if it
+   * had finished) before every pixel is zeroed; a no-op lease-wise when none is
+   * held.
+   */
   clear(): void {
+    this.preempt();
     this.matrix.clear();
   }
 

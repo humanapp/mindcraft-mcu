@@ -5,18 +5,27 @@
 #include "core/runtime/execution-context.h"
 #include "core/runtime/host-action.h"
 #include "core/runtime/host-actions/core-host-action-bindings.h"
+#include "core/runtime/managed-heap.h"
+#include "core/runtime/mc-number.h"
+#include "core/runtime/region-arena.h"
 #include "core/runtime/value.h"
 
 #include <cstdint>
 #include <iterator>
+#include <vector>
 
 using mindcraft::CoreFuncId;
 using mindcraft::CoreHostActionEnv;
 using mindcraft::ExecutionContext;
 using mindcraft::findHostActionById;
+using mindcraft::GcMarker;
+using mindcraft::GcRoots;
 using mindcraft::HostActionBinding;
 using mindcraft::kCoreHostActions;
 using mindcraft::makeCoreHostActionBindings;
+using mindcraft::ManagedHeap;
+using mindcraft::mc_number_t;
+using mindcraft::RegionArena;
 using mindcraft::Span;
 using mindcraft::TARGET_ACTION_ID_BASE;
 using mindcraft::Value;
@@ -56,6 +65,74 @@ TEST_CASE("record table covers every action densely in action-id order") {
     CHECK(kCoreHostActions[i].actionId == i);
     CHECK(kCoreHostActions[i].actionId < TARGET_ACTION_ID_BASE);
   }
+}
+
+namespace {
+
+/** Roots covering one execution context's per-callsite host-state slots. */
+struct CtxRoots : GcRoots {
+  ExecutionContext* ctx = nullptr;
+
+  void enumerateRoots(GcMarker& marker) override {
+    for (size_t i = 0; i < ctx->callSiteStates.size(); i++) {
+      if (ctx->callSiteStatePresent[i]) {
+        marker.mark(ctx->callSiteStates[i]);
+      }
+    }
+  }
+};
+
+/** Drives the timeout sensor over `tickCount` thinks at `tickMs` each from base
+ *  uptime `baseMs`, collecting the heap each tick (as the device host loop does),
+ *  and returns the 1-based ticks on which it fired. */
+std::vector<int> runTimeoutTicks(mc_number_t baseMs, mc_number_t tickMs, int tickCount) {
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  ManagedHeap heap(arena);
+
+  ExecutionContext ctx;
+  std::vector<uint8_t> ctxStorage(4 * 1024);
+  RegionArena ctxArena(Span<uint8_t>(ctxStorage.data(), ctxStorage.size()));
+  REQUIRE(ctx.bindSlots(ctxArena, 0, 1, 0));
+  ctx.currentCallSiteId = 0;
+
+  CtxRoots roots;
+  roots.ctx = &ctx;
+  CoreHostActionEnv env;
+  env.heap = &heap;
+  env.roots = &roots;
+
+  auto bindings = makeCoreHostActionBindings(env);
+  const HostActionBinding* timeout =
+      findHostActionById({bindings.data(), bindings.size()}, CoreHostActions::Timeout.actionId);
+  REQUIRE(timeout != nullptr);
+  REQUIRE(timeout->onPageEntered != nullptr);
+  REQUIRE(timeout->execSync != nullptr);
+
+  timeout->onPageEntered(timeout->hostData, ctx);
+
+  std::vector<int> fired;
+  for (int i = 0; i < tickCount; i++) {
+    ctx.time = baseMs + static_cast<mc_number_t>(i + 1) * tickMs;
+    ctx.currentTick++;
+    const Value result = timeout->execSync(timeout->hostData, ctx, Span<const Value>{});
+    if (result.isBoolean() && result.asBoolean()) {
+      fired.push_back(i + 1);
+    }
+    heap.collect(roots);
+  }
+  return fired;
+}
+
+} // namespace
+
+TEST_CASE("the timeout sensor fires at the device tick cadence (16 ms thinks)") {
+  // Mirrors the firmware host loop: 16 ms thinks from boot. A default 1 s timeout
+  // should fire once each second (first cross of the 1000 ms mark), never on entry.
+  const std::vector<int> fired = runTimeoutTicks(0, 16, 130);
+  REQUIRE(fired.size() == 2);
+  CHECK(fired[0] == 64);
+  CHECK(fired[1] == 127);
 }
 
 TEST_CASE("the random sensor yields the surface rng stream") {

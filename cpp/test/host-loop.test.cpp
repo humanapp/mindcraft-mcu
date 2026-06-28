@@ -67,6 +67,7 @@ struct NullDisplay : mindcraft::PixelDisplayPort {
   void drawFrames(mindcraft::DrawFrameSource&, uint32_t, mindcraft::mc_number_t,
                   mindcraft::AsyncHandle) override {}
   void preempt() override {}
+  void clear() override {}
 };
 
 /** No-op buttons: never pressed. */

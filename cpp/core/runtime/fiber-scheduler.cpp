@@ -265,6 +265,13 @@ uint32_t FiberScheduler::tick() {
   // stay queued for the next round.
   const uint32_t roundSize = queueCount_;
   for (uint32_t i = 0; i < roundSize; i++) {
+    // A running fiber can cancel still-queued siblings (a page switch / restart
+    // cancels the page's other rule fibers), draining the queue below roundSize.
+    // Once empty it stays empty for the rest of the round, since only a running
+    // fiber re-enqueues.
+    if (runHead_ == nullptr) {
+      break;
+    }
     FiberRecord* record = dequeue();
     if (record->state != FiberState::Runnable) {
       continue;
