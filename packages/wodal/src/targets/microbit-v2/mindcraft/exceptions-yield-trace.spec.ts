@@ -1,4 +1,9 @@
 /**
+ * Hand-constructed synthetic conformance fixture, not recreatable from a real
+ * compile: the ts-compiler rejects try/catch ("Unsupported statement") and a
+ * cooperative yield is not a user-TS construct, so these control-flow opcodes are
+ * unreachable from user TS.
+ *
  * Golden observable trace for a hand-authored exceptions/yield brain. The root
  * rule exercises the three control-flow opcodes whose semantics the C++ VM
  * mirrors: a cooperative `YIELD` that splits the rule across a round

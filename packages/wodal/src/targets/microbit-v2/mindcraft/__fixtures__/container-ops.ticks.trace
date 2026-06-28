@@ -2,23 +2,6 @@ mctrace 1
 profile 1
 precision f32
 tick 1 time 41800000 dt 00000000
-port display set-pixel 40400000 41a00000 41f00000
-action 401 site 0 args 3 number 40400000 number 41a00000 number 41f00000 result void
-port display set-pixel 40800000 40000000 437f0000
-action 401 site 0 args 3 number 40800000 number 40000000 bool 1 result void
-port display set-pixel 00000000 00000000 437f0000
-action 401 site 0 args 3 bool 1 bool 0 bool 0 result void
+port i2c write 20 03141e040100
 tick 2 time 42000000 dt 41800000
-port display set-pixel 40400000 41a00000 41f00000
-action 401 site 0 args 3 number 40400000 number 41a00000 number 41f00000 result void
-port display set-pixel 40800000 40000000 437f0000
-action 401 site 0 args 3 number 40800000 number 40000000 bool 1 result void
-port display set-pixel 00000000 00000000 437f0000
-action 401 site 0 args 3 bool 1 bool 0 bool 0 result void
-tick 3 time 42400000 dt 41800000
-port display set-pixel 40400000 41a00000 41f00000
-action 401 site 0 args 3 number 40400000 number 41a00000 number 41f00000 result void
-port display set-pixel 40800000 40000000 437f0000
-action 401 site 0 args 3 number 40800000 number 40000000 bool 1 result void
-port display set-pixel 00000000 00000000 437f0000
-action 401 site 0 args 3 bool 1 bool 0 bool 0 result void
+port i2c write 20 03141e040100

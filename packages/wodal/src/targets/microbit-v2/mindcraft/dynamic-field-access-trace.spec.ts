@@ -1,4 +1,9 @@
 /**
+ * Hand-constructed synthetic conformance fixture, not recreatable from a real
+ * compile: the ts-compiler rejects computed-key struct writes (`obj[expr] = v`)
+ * and does not emit STRUCT_COPY_EXCEPT for object rest (`{...obj}`), so its
+ * distinctive opcodes are unreachable from user TS.
+ *
  * Golden observable trace for a hand-authored brain that accesses a named-field
  * struct through the dynamic computed-key opcodes: GET_FIELD (`obj[expr]`),
  * SET_FIELD (`obj[expr] = v`), and STRUCT_COPY_EXCEPT (`{...obj}` with an

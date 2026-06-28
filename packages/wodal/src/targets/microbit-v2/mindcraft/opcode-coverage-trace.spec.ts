@@ -1,9 +1,12 @@
 /**
- * Golden observable trace for a conformance brain that exercises the bytecode
- * opcodes no other behavioral golden reaches: DUP, SWAP, STACK_SET_REL,
- * unconditional JMP, JMP_IF_TRUE, END_TRY (a try block that exits normally), and
- * the in-place list operations LIST_SET, LIST_INSERT, LIST_REMOVE, LIST_SHIFT,
- * and LIST_SWAP. The rule builds a list, mutates it through those operations, and
+ * Hand-constructed synthetic conformance probe, not recreatable from a real
+ * compile: it is the deliberate catch-all that exercises the bytecode opcodes no
+ * other behavioral golden reaches, several of which neither compiler emits from
+ * valid source. The rule covers DUP, SWAP, STACK_SET_REL, unconditional JMP,
+ * JMP_IF_TRUE, END_TRY (a try block that exits normally), the in-place list
+ * operations LIST_SET, LIST_INSERT, LIST_REMOVE, LIST_SHIFT, and LIST_SWAP, and
+ * the struct/closure opcodes STRUCT_DEEP_COPY, INSTANCE_OF, and
+ * CALL_INDIRECT_ARGS. It builds a list, mutates it through those operations, and
  * lights a pixel whose coordinates and brightness read back the final list state,
  * so the trace proves the operations produced the same result on both VMs.
  *
@@ -101,6 +104,16 @@ function buildOpcodeCoverageBrainJson(): LinkedBrainProgramJson {
     { op: Op.POP }, // 47: dead
     { op: Op.TRY, a: 2 }, // 48: catch target 50
     { op: Op.END_TRY }, // 49: try block exits normally
+    // Struct and closure opcodes no real-compiled golden reaches: build a Point,
+    // deep-copy it, type-check the copy, then call a closure with a surplus arg.
+    { op: Op.STRUCT_NEW, a: 0, b: 0 }, // [Point]
+    { op: Op.STRUCT_DEEP_COPY }, // [copy]
+    { op: Op.INSTANCE_OF, a: 0 }, // [true]
+    { op: Op.POP },
+    { op: Op.MAKE_CLOSURE, a: 1, b: 0 }, // [closure of identity]
+    { op: Op.PUSH_CONST_NUM, a: N1 }, // [closure, 1]
+    { op: Op.CALL_INDIRECT_ARGS, a: 1 }, // [identity(1) = 1]
+    { op: Op.POP },
     { op: Op.LOAD_VAR_SLOT, a: 0 }, // 50: [L]
     { op: Op.PUSH_CONST_NUM, a: N0 }, // 51: index 0
     { op: Op.LIST_GET }, // 52: [list[0] = 1]
@@ -116,9 +129,12 @@ function buildOpcodeCoverageBrainJson(): LinkedBrainProgramJson {
   return {
     program: {
       version: 1,
-      functions: [{ code: rule, numParams: 0, numLocals: 0 }],
+      functions: [
+        { code: rule, numParams: 0, numLocals: 0 },
+        { code: [{ op: Op.LOAD_LOCAL, a: 0 }, { op: Op.RET }], numParams: 1, numLocals: 1 }, // identity
+      ],
       constantPools: { numbers: [0, 1, 2, 7, 255], strings: [], values: [{ t: 1 }] },
-      types: [],
+      types: [{ tag: "struct", typeId: "struct:Point", name: "Point", maxFieldId: 1 }],
       variableNames: ["items"],
       entryPoint: 0,
       actions: [],

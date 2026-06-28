@@ -1,4 +1,9 @@
 /**
+ * Hand-constructed synthetic conformance fixture, not recreatable from a real
+ * compile: its distinctive coverage (ancestor-chain rule-variable inheritance
+ * across child rules plus a sync action) needs multi-rule structure the brain
+ * compiler does not emit per rule.
+ *
  * Golden observable trace for a hand-authored brain that exercises the by-name
  * context-variable host functions: ctx.brain.getVariable/setVariable (slot
  * backed) and ctx.rule.getVariable/setVariable (per-rule stores with

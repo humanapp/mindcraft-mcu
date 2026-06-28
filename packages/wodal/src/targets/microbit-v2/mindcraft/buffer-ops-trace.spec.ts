@@ -1,162 +1,155 @@
 /**
- * Golden observable trace for a hand-authored brain that exercises the buffer
- * value type and its builtin host functions. One root rule constructs three
- * buffers - from a number list, from a hex string, and from a latin1 string -
- * reads each back through length() and get(i), and dispatches the display
- * set-pixel host action with the read scalars plus the buffer itself, so a
- * buffer value crosses the observable host-binding surface and renders as a
- * `buffer <hex>` token. The serialized binary and its rendered trace are pinned
- * beside this spec as the cross-VM buffer conformance fixture: the C++ VM parity
- * test (cpp/test/trace-parity.test.cpp) loads the same binary and byte-compares.
+ * Golden observable trace for the Buffer value type and its builtin host
+ * functions, exercised through a real user-tile TS program. The actuator
+ * constructs three buffers - from a number list, from a hex string, and from a
+ * latin1 string - reads two of them back through `length()` and `get(i)`, packs
+ * those reads into a fourth buffer, and surfaces every buffer by writing it to a
+ * distinct I2C address, so each managed buffer crosses the observable I2C port
+ * and renders as its bytes. The buffer opcodes are emitted by real expression
+ * compilation (the ts-compiler), not hand-authored. The serialized binary and
+ * its rendered trace are pinned beside this spec as the cross-VM buffer
+ * conformance fixture: the C++ VM parity test (cpp/test/trace-parity.test.cpp)
+ * loads the same binary, replays the schedule, and byte-compares.
  */
 
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import type { MindcraftEnvironment } from "@mindcraft-lang/core/app";
+import type { IBrainTileDef } from "@mindcraft-lang/core/brain";
+import { BrainDef } from "@mindcraft-lang/core/brain/model";
 import {
   CoreFuncId,
-  type LinkedBrainProgramJson,
-  linkedBrainProgramFromJson,
+  type LinkedBrainProgram,
+  linkedBrainProgramToJson,
   Op,
   type VmEvents,
 } from "@mindcraft-lang/core/runtime";
+import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@mindcraft-lang/ts-compiler";
+import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
-import { parseWodalProgramImageBytes, serializeWodalProgramImageBytes } from "../../../mindcraft/program-image-binary";
+import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../../mindcraft/program-image";
+import { parseWodalProgramImageBytes, wodalProgramBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Environment } from "./environment";
 import { ObservableTraceWriter } from "./observable-trace";
 import { WodalMicroBitRuntime } from "./runtime";
-import { MicroBitV2HostActions } from "./tile-ids";
 
+const JSON_PATH = fileURLToPath(new URL("./__fixtures__/buffer-ops.mcprogram", import.meta.url));
 const BIN_PATH = fileURLToPath(new URL("./__fixtures__/buffer-ops.mcprogram.bin", import.meta.url));
 const TRACE_PATH = fileURLToPath(new URL("./__fixtures__/buffer-ops.ticks.trace", import.meta.url));
 
-const DISPLAY_SET_PIXEL = MicroBitV2HostActions.DisplaySetPixel.actionId;
+/** Buffers each think writes, keyed by their target I2C address. */
+const EXPECTED_WRITES: readonly { address: number; hex: string }[] = [
+  { address: 0x10, hex: "0a141e" }, // Buffer.from([10, 20, 30])
+  { address: 0x11, hex: "00ff7f" }, // Buffer.fromHex("00ff7f")
+  { address: 0x12, hex: "4869" }, // Buffer.fromString("Hi")
+  { address: 0x13, hex: "03140048" }, // [list.length(), list.get(1), hex.get(0), str.get(0)]
+];
 
-// Number constant-pool indices.
-const N10 = 0;
-const N20 = 1;
-const N30 = 2;
-const N_IDX1 = 3; // the value 1 (get index)
-const N_IDX0 = 4; // the value 0 (get index)
+// A trigger that fires every think, so the actuator writes each tick.
+const SENSOR_SOURCE = `import { Sensor, type Context } from "mindcraft";
 
-// String constant-pool indices.
-const S_HEX = 0; // "00ff7f"
-const S_HI = 1; // "Hi"
+export default Sensor({
+  name: "user-always",
+  onExecute(ctx: Context): boolean {
+    return ctx.microbit.buttonA.isPressed() >= 0;
+  },
+});
+`;
 
-// Value constant-pool index of the nil placeholder (the function's return value).
-const NIL = 0;
+// Builds buffers three ways, reads two back, and surfaces each through I2C.
+const ACTUATOR_SOURCE = `import { Actuator, type Context } from "mindcraft";
 
-// Local slots.
-const L_LIST = 0;
-const L_BUF_LIST = 1;
-const L_BUF_HEX = 2;
-const L_BUF_STR = 3;
+export default Actuator({
+  name: "user-buffer-ops",
+  onExecute(ctx: Context): void {
+    const fromList = Buffer.from([10, 20, 30]);
+    const fromHex = Buffer.fromHex("00ff7f");
+    const fromStr = Buffer.fromString("Hi");
+    const probe = Buffer.from([fromList.length(), fromList.get(1), fromHex.get(0), fromStr.get(0)]);
+    ctx.microbit.i2c.writeBuffer(0x10, fromList);
+    ctx.microbit.i2c.writeBuffer(0x11, fromHex);
+    ctx.microbit.i2c.writeBuffer(0x12, fromStr);
+    ctx.microbit.i2c.writeBuffer(0x13, probe);
+  },
+});
+`;
 
-/**
- * Surfaces one buffer in local `bufLocal`: dispatches set-pixel with x =
- * length(), y = get(getIdx), and the buffer itself as the brightness arg, so the
- * buffer renders as a value token in the trace.
- */
-function surfaceBuffer(bufLocal: number, getIdx: number) {
-  return [
-    { op: Op.LOAD_LOCAL, a: bufLocal },
-    { op: Op.HOST_CALL, a: CoreFuncId.BufferLength, b: 1, c: 0 }, // x = length()
-    { op: Op.LOAD_LOCAL, a: bufLocal },
-    { op: Op.PUSH_CONST_NUM, a: getIdx },
-    { op: Op.HOST_CALL, a: CoreFuncId.BufferGet, b: 2, c: 0 }, // y = get(i)
-    { op: Op.LOAD_LOCAL, a: bufLocal }, // brightness arg = the buffer value
-    { op: Op.HOST_ACTION_CALL, a: DISPLAY_SET_PIXEL, b: 3, c: 0 },
-    { op: Op.POP },
-  ];
+/** One scheduled think per entry: only the time advance (the brain ignores all input). */
+const SCHEDULE: readonly number[] = [16, 16];
+
+function readText(relativePath: string): string {
+  return readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), "utf8");
 }
 
-/** Builds local `listLocal` as the number list `[10, 20, 30]`. */
-function buildList(listLocal: number) {
+function wodalAmbientFiles(): readonly AmbientFile[] {
   return [
-    { op: Op.LIST_NEW, a: 0 },
-    { op: Op.STORE_LOCAL, a: listLocal },
-    { op: Op.LOAD_LOCAL, a: listLocal },
-    { op: Op.PUSH_CONST_NUM, a: N10 },
-    { op: Op.LIST_PUSH },
-    { op: Op.POP },
-    { op: Op.LOAD_LOCAL, a: listLocal },
-    { op: Op.PUSH_CONST_NUM, a: N20 },
-    { op: Op.LIST_PUSH },
-    { op: Op.POP },
-    { op: Op.LOAD_LOCAL, a: listLocal },
-    { op: Op.PUSH_CONST_NUM, a: N30 },
-    { op: Op.LIST_PUSH },
-    { op: Op.POP },
-  ];
-}
-
-/**
- * One root rule that constructs a buffer from a list, from a hex string, and
- * from a latin1 string, then surfaces each through display set-pixel.
- */
-function buildBufferBrainJson(): LinkedBrainProgramJson {
-  const code = [
-    ...buildList(L_LIST),
-    // buffer from list [10, 20, 30]
-    { op: Op.LOAD_LOCAL, a: L_LIST },
-    { op: Op.HOST_CALL, a: CoreFuncId.BufferFrom, b: 1, c: 0 },
-    { op: Op.STORE_LOCAL, a: L_BUF_LIST },
-    ...surfaceBuffer(L_BUF_LIST, N_IDX1), // length 3, get(1) -> 20, buffer 0a141e
-    // buffer from hex "00ff7f"
-    { op: Op.PUSH_CONST_STR, a: S_HEX },
-    { op: Op.HOST_CALL, a: CoreFuncId.BufferFromHex, b: 1, c: 0 },
-    { op: Op.STORE_LOCAL, a: L_BUF_HEX },
-    ...surfaceBuffer(L_BUF_HEX, N_IDX1), // length 3, get(1) -> 255, buffer 00ff7f
-    // buffer from string "Hi"
-    { op: Op.PUSH_CONST_STR, a: S_HI },
-    { op: Op.HOST_CALL, a: CoreFuncId.BufferFromString, b: 1, c: 0 },
-    { op: Op.STORE_LOCAL, a: L_BUF_STR },
-    ...surfaceBuffer(L_BUF_STR, N_IDX0), // length 2, get(0) -> 72, buffer 4869
-    { op: Op.PUSH_CONST_VAL, a: NIL },
-    { op: Op.RET },
-  ];
-
-  return {
-    program: {
-      version: 1,
-      functions: [{ code, numParams: 0, numLocals: 4 }],
-      constantPools: {
-        numbers: [10, 20, 30, 1, 0],
-        strings: ["00ff7f", "Hi"],
-        values: [{ t: 1 }],
-      },
-      types: [],
-      variableNames: [],
-      entryPoint: 0,
-      actions: [],
-      ruleFuncIds: [0],
-      ruleAncestors: [],
+    {
+      path: "mindcraft.core.d.ts",
+      content: readText("../../../../../../external/mindcraft-lang/packages/core/ambient/mindcraft.core.d.ts"),
     },
-    pages: [
-      {
-        pageIndex: 0,
-        pageId: "buffer-ops-page",
-        pageName: "Buffer Ops",
-        rootRuleFuncIds: [0],
-        actionCallSites: [{ binding: "host", callSiteId: 0, actionId: DISPLAY_SET_PIXEL }],
-      },
-    ],
-  };
+    { path: "mindcraft.microbit-v2.d.ts", content: readText("../../../../ambient/mindcraft.microbit-v2.d.ts") },
+  ];
 }
 
-/** Serializes the hand-authored brain to its binary `.mcprogram` payload. */
-function serializeBufferBrainBytes(): Uint8Array {
+function findBundleTile(tiles: readonly IBrainTileDef[], kind: "actuator" | "sensor"): IBrainTileDef {
+  const tile = tiles.find((candidate) => candidate.kind === kind);
+  assert.ok(tile);
+  return tile;
+}
+
+/** Compiles the user tiles, installs them, and builds the trigger -> buffer-ops rule. */
+function buildImage(environment: MindcraftEnvironment): WodalProgramImage<LinkedBrainProgram> {
+  const project = new UserTileProject({ ambientFiles: wodalAmbientFiles(), services: environment.brainServices });
+  project.setFiles(
+    new Map([
+      ["user-always.ts", SENSOR_SOURCE],
+      ["user-buffer-ops.ts", ACTUATOR_SOURCE],
+    ])
+  );
+  const compileResult = project.compileAll();
+  assert.equal(
+    compileResult.tsErrors.size,
+    0,
+    `Unexpected TypeScript diagnostics: ${JSON.stringify([...compileResult.tsErrors])}`
+  );
+  const bundle = buildCompiledActionBundle(compileResult, { services: environment.brainServices });
+  assert.ok(bundle);
+  environment.replaceActionBundle(bundle);
+
+  const brainDef = BrainDef.emptyBrainDef(environment.brainServices, "user-tile buffer ops brain");
+  const rule = brainDef.pages().get(0)!.children().get(0)!;
+  rule.when().appendTile(findBundleTile(bundle.tiles, "sensor"));
+  rule.do().appendTile(findBundleTile(bundle.tiles, "actuator"));
+
+  const built = buildWodalProgramImage({
+    brainDef,
+    environment,
+    deviceProfile: getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2),
+  });
+  if (!built.ok) {
+    assert.fail(`expected a successful build: ${JSON.stringify(built.errors)}`);
+  }
+  return built.image;
+}
+
+/** Writes the JSON `.mcprogram` golden if missing, freezing the brain's generated id. */
+function ensureJsonGolden(): void {
+  if (existsSync(JSON_PATH)) {
+    return;
+  }
   const environment = createMicroBitV2Environment();
-  const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
-  const linked = linkedBrainProgramFromJson(buildBufferBrainJson());
-  const image = profile.createProgramImage(linked);
-  return serializeWodalProgramImageBytes(image, environment.brainServices.runtime.types);
+  const image = buildImage(environment);
+  writeFileSync(
+    JSON_PATH,
+    serializeWodalProgramImageJson({ ...image, program: linkedBrainProgramToJson(image.program) })
+  );
 }
 
-/** Runs the committed binary over a fixed tick schedule with the trace taps installed. */
-function runBufferTrace(bin: Uint8Array): string {
+/** Runs the committed binary over the schedule with the I2C-port tap installed. */
+function runTrace(bin: Uint8Array): { trace: string; microbit: MicroBit } {
   const environment = createMicroBitV2Environment();
   const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
   const decoded = parseWodalProgramImageBytes(
@@ -164,69 +157,90 @@ function runBufferTrace(bin: Uint8Array): string {
     WodalDeviceProfileId.MICROBIT_V2,
     environment.brainServices.runtime.types
   );
-  const writer = new ObservableTraceWriter({
-    profileId: profile.numericProfileId,
-    precision: profile.numberPrecision,
-  });
-
-  const action = environment.brainServices.runtime.actions.getById(DISPLAY_SET_PIXEL);
-  assert.ok(action !== undefined && action.binding === "host");
-  const exec = action.execSync;
-  assert.ok(exec !== undefined);
-  action.execSync = (ctx, args) => {
-    const result = exec(ctx, args);
-    const callSiteId = ctx.currentCallSiteId;
-    assert.ok(callSiteId !== undefined);
-    writer.hostActionCall(DISPLAY_SET_PIXEL, callSiteId, args, result);
-    return result;
-  };
+  const writer = new ObservableTraceWriter({ profileId: profile.numericProfileId, precision: profile.numberPrecision });
 
   const microbit = new MicroBit();
-  const deviceSetPixelValue = microbit.display.setPixelValue.bind(microbit.display);
-  microbit.display.setPixelValue = (x, y, brightness) => {
-    writer.displaySetPixel(x, y, brightness);
-    deviceSetPixelValue(x, y, brightness);
+  const deviceWrite = microbit.i2c.write.bind(microbit.i2c);
+  microbit.i2c.write = (address, data) => {
+    writer.i2cWrite(address, data);
+    return deviceWrite(address, data);
   };
 
-  const vmEvents: VmEvents = {
-    onFiberFault: (payload) => writer.fiberFault(payload.fiberId, payload.err.code),
-  };
+  const vmEvents: VmEvents = { onFiberFault: (payload) => writer.fiberFault(payload.fiberId, payload.err.code) };
   const runtime = new WodalMicroBitRuntime({ environment, microbit, vmEvents });
   assert.deepEqual(runtime.loadWodalProgramImage(profile.createProgramImage(decoded.program)), { ok: true });
 
   let lastThinkTimeMs = 0;
-  for (let i = 0; i < 3; i++) {
-    const timeMs = lastThinkTimeMs + 16;
-    writer.tick(i + 1, timeMs, lastThinkTimeMs === 0 ? 0 : timeMs - lastThinkTimeMs);
-    runtime.tick(16);
+  for (const [index, advanceMs] of SCHEDULE.entries()) {
+    const timeMs = lastThinkTimeMs + advanceMs;
+    writer.tick(index + 1, timeMs, lastThinkTimeMs === 0 ? 0 : timeMs - lastThinkTimeMs);
+    runtime.tick(advanceMs);
     lastThinkTimeMs = timeMs;
   }
-  return writer.render();
+  return { trace: writer.render(), microbit };
 }
 
 test("the committed buffer-ops binary and observable trace golden are byte-stable", () => {
+  ensureJsonGolden();
+  const generated = wodalProgramBytes(new Uint8Array(readFileSync(JSON_PATH)));
   if (!existsSync(BIN_PATH)) {
-    writeFileSync(BIN_PATH, serializeBufferBrainBytes());
+    writeFileSync(BIN_PATH, generated);
   }
   const bin = new Uint8Array(readFileSync(BIN_PATH));
-  assert.deepEqual(bin, serializeBufferBrainBytes(), "buffer-ops.mcprogram.bin is not byte-stable");
+  assert.deepEqual(bin, generated, "buffer-ops.mcprogram.bin is not byte-stable");
 
-  const first = runBufferTrace(bin);
-  const second = runBufferTrace(bin);
-  assert.equal(second, first, "two fresh runs must render byte-identical traces");
+  // Real expression compilation emits the buffer builtins this fixture pins.
+  const golden = JSON.parse(readFileSync(JSON_PATH, "utf8")) as {
+    program: { program: { functions: { code: { op: number; a?: number }[] }[] } };
+  };
+  const hostCallFuncIds = new Set<number>();
+  for (const fn of golden.program.program.functions) {
+    for (const ins of fn.code) {
+      if (ins.op === Op.HOST_CALL && ins.a !== undefined) {
+        hostCallFuncIds.add(ins.a);
+      }
+    }
+  }
+  for (const funcId of [
+    CoreFuncId.BufferFrom,
+    CoreFuncId.BufferFromHex,
+    CoreFuncId.BufferFromString,
+    CoreFuncId.BufferLength,
+    CoreFuncId.BufferGet,
+  ]) {
+    assert.ok(hostCallFuncIds.has(funcId), `compiled bytecode should call buffer builtin ${funcId}`);
+  }
 
-  const lines = first.split("\n");
-  assert.equal(lines.filter((line) => line.startsWith("tick ")).length, 3);
-  // Three buffers surfaced per tick, run thrice, each carrying a buffer token.
-  assert.equal(lines.filter((line) => line.startsWith("action 401 ")).length, 9);
-  assert.equal(lines.filter((line) => line.startsWith("port display set-pixel ")).length, 9);
+  const first = runTrace(bin);
+  const second = runTrace(bin);
+  assert.equal(second.trace, first.trace, "two fresh runs must render byte-identical traces");
+
+  const lines = first.trace.split("\n");
+  assert.equal(lines.filter((line) => line.startsWith("tick ")).length, SCHEDULE.length);
+  // Four buffers written per think, no host-action lines, no faults.
+  assert.equal(
+    lines.filter((line) => line.startsWith("port i2c write ")).length,
+    SCHEDULE.length * EXPECTED_WRITES.length
+  );
+  assert.equal(lines.filter((line) => line.startsWith("action ")).length, 0);
   assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
-  assert.equal(lines.filter((line) => line.includes(" buffer 0a141e ")).length, 3);
-  assert.equal(lines.filter((line) => line.includes(" buffer 00ff7f ")).length, 3);
-  assert.equal(lines.filter((line) => line.includes(" buffer 4869 ")).length, 3);
+
+  // The injectable bus records the exact address and bytes each buffer carried.
+  const writes = first.microbit.i2c.recordedWrites();
+  assert.equal(writes.length, SCHEDULE.length * EXPECTED_WRITES.length);
+  for (const [index, write] of writes.entries()) {
+    const expected = EXPECTED_WRITES[index % EXPECTED_WRITES.length];
+    assert.equal(write.address, expected.address);
+    assert.equal(
+      Array.from(write.bytes)
+        .map((byte) => byte.toString(16).padStart(2, "0"))
+        .join(""),
+      expected.hex
+    );
+  }
 
   if (!existsSync(TRACE_PATH)) {
-    writeFileSync(TRACE_PATH, first);
+    writeFileSync(TRACE_PATH, first.trace);
   }
-  assert.equal(readFileSync(TRACE_PATH, "utf8"), first, "buffer-ops.ticks.trace is not byte-stable");
+  assert.equal(readFileSync(TRACE_PATH, "utf8"), first.trace, "buffer-ops.ticks.trace is not byte-stable");
 });

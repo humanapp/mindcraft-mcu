@@ -1,4 +1,9 @@
 /**
+ * Hand-constructed synthetic conformance fixture, not recreatable from a real
+ * compile: it relies on per-callsite action lifecycle hooks and rules that issue
+ * several surfacing calls in one body, neither of which the brain compiler emits
+ * (a rule's do() compiles a single action).
+ *
  * Golden observable trace for a hand-authored two-page brain that exercises the
  * bytecode-action calling convention, per-callsite state, and the page
  * lifecycle. Each page's root rule calls a sync bytecode action that surfaces

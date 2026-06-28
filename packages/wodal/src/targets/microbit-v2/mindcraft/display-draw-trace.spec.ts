@@ -1,4 +1,10 @@
 /**
+ * Hand-constructed synthetic conformance fixtures, not recreatable from a real
+ * compile: each rule draws and then writes a marker pixel (two actions in one
+ * rule, while the brain compiler emits one action per rule). The two built-in
+ * image fixtures (draw-image-builtins, draw-image-sequence-compiled) ARE built
+ * through the real brain compiler.
+ *
  * Golden observable traces for hand-authored brains that paste an `Image` to the
  * display through the asynchronous draw-image actuator. Three fixtures pin the
  * display-lease behavior:

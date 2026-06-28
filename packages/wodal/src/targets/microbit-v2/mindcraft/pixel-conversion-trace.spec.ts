@@ -1,4 +1,8 @@
 /**
+ * Hand-constructed synthetic conformance fixture, not recreatable from a real
+ * compile: the single rule issues five set-pixel writes (many actions in one
+ * rule, while the brain compiler emits one action per rule).
+ *
  * Golden observable trace pinning the f32 -> u8 conversion the display set-pixel
  * write applies at the device port. A rule writes pixels with a valid integer
  * coordinate, a fractional coordinate, an out-of-range coordinate, an

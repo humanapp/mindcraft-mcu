@@ -1,238 +1,168 @@
 /**
- * Golden observable trace for a hand-authored struct/closure brain. The brain
- * builds a closed struct, exercises the id-based field opcodes plus the
- * value-semantics deep-copy sites (STRUCT_DEEP_COPY, STORE_VAR_SLOT), the
- * name-keyed fallback opcodes (which degrade on the de-stringed binary path),
- * INSTANCE_OF, a direct CALL, and closures (MAKE_CLOSURE / LOAD_CAPTURE /
- * CALL_INDIRECT / CALL_INDIRECT_ARGS). Each computed value crosses the
- * observable host-binding surface as a display set-pixel arg. The serialized
- * binary and its rendered trace are pinned beside this spec as the cross-VM
- * struct/closure conformance fixture: the C++ VM parity test
- * (cpp/test/trace-parity.test.cpp) loads the same binary and byte-compares.
+ * Golden observable trace for the struct and closure opcodes, exercised through a
+ * real user-tile TS program. The actuator builds a struct, writes and reads its
+ * fields by name, calls a plain helper directly, builds a capturing closure and
+ * calls it indirectly, then packs every computed scalar into a buffer and
+ * surfaces it by writing it to an I2C address. The struct and closure opcodes are
+ * emitted by real expression compilation (the ts-compiler), not hand-authored.
+ * The serialized binary and its rendered trace are pinned beside this spec as the
+ * cross-VM conformance fixture: the C++ VM parity test
+ * (cpp/test/trace-parity.test.cpp) loads the same binary, replays the schedule,
+ * and byte-compares.
  */
 
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import {
-  type LinkedBrainProgramJson,
-  linkedBrainProgramFromJson,
-  Op,
-  type VmEvents,
-} from "@mindcraft-lang/core/runtime";
+import type { MindcraftEnvironment } from "@mindcraft-lang/core/app";
+import type { IBrainTileDef } from "@mindcraft-lang/core/brain";
+import { BrainDef } from "@mindcraft-lang/core/brain/model";
+import { type LinkedBrainProgram, linkedBrainProgramToJson, Op, type VmEvents } from "@mindcraft-lang/core/runtime";
+import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@mindcraft-lang/ts-compiler";
+import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
-import { parseWodalProgramImageBytes, serializeWodalProgramImageBytes } from "../../../mindcraft/program-image-binary";
+import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../../mindcraft/program-image";
+import { parseWodalProgramImageBytes, wodalProgramBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Environment } from "./environment";
 import { ObservableTraceWriter } from "./observable-trace";
 import { WodalMicroBitRuntime } from "./runtime";
-import { MicroBitV2HostActions } from "./tile-ids";
 
+const JSON_PATH = fileURLToPath(new URL("./__fixtures__/struct-closure.mcprogram", import.meta.url));
 const BIN_PATH = fileURLToPath(new URL("./__fixtures__/struct-closure.mcprogram.bin", import.meta.url));
 const TRACE_PATH = fileURLToPath(new URL("./__fixtures__/struct-closure.ticks.trace", import.meta.url));
 
-const DISPLAY_SET_PIXEL = MicroBitV2HostActions.DisplaySetPixel.actionId;
+/** I2C address the packed-result buffer is written to each think. */
+const PROBE_ADDRESS = 0x10;
 
-// Number constant-pool indices.
-const N3 = 0;
-const N4 = 1;
-const N255 = 2;
-const N9 = 3;
-const N5 = 4;
-const N7 = 5;
-const N2 = 6;
-const N8 = 7;
-const N42 = 8;
+/** Bytes of the packed result buffer: p.x after a field write (9), p.y (4), identity(42), and the closure's captured value (7). */
+const PROBE_HEX = "09042a07";
 
-/**
- * One root-rule function plus three callees. The rule builds a `Point` struct,
- * reads its fields back by id, deep-copies it two ways (the explicit opcode and
- * STORE_VAR_SLOT) to confirm value semantics, runs the name-keyed fallback
- * opcodes (which degrade to nil / no-op on the binary path), checks
- * INSTANCE_OF, calls a helper directly, and builds and calls a closure. Each
- * surfaced scalar is dispatched through display set-pixel so it crosses the
- * observable surface.
- */
-function buildStructClosureBrainJson(): LinkedBrainProgramJson {
-  const setPixel = { op: Op.HOST_ACTION_CALL, a: DISPLAY_SET_PIXEL, b: 3, c: 0 };
+// A trigger that fires every think, so the actuator runs each tick.
+const SENSOR_SOURCE = `import { Sensor, type Context } from "mindcraft";
 
-  // func 0: the root rule (locals: 0 = working struct, 1 = deep copy, 2 = closure)
-  const rule = [
-    // --- struct new / set (pure store) / get ---
-    { op: Op.STRUCT_NEW, a: 0, b: 0 }, // [p] typed Point (slotCount 2)
-    { op: Op.STORE_LOCAL, a: 0 },
-    { op: Op.LOAD_LOCAL, a: 0 },
-    { op: Op.PUSH_CONST_NUM, a: N3 },
-    { op: Op.STRUCT_SET_FIELD, a: 0 },
-    { op: Op.POP },
-    { op: Op.LOAD_LOCAL, a: 0 },
-    { op: Op.PUSH_CONST_NUM, a: N4 },
-    { op: Op.STRUCT_SET_FIELD, a: 1 },
-    { op: Op.POP },
-    // surface: setPixel(p.0 = 3, p.1 = 4, p instanceof Point = true)
-    { op: Op.LOAD_LOCAL, a: 0 },
-    { op: Op.STRUCT_GET_FIELD, a: 0 },
-    { op: Op.LOAD_LOCAL, a: 0 },
-    { op: Op.STRUCT_GET_FIELD, a: 1 },
-    { op: Op.LOAD_LOCAL, a: 0 },
-    { op: Op.INSTANCE_OF, a: 0 },
-    setPixel,
-    { op: Op.POP },
+export default Sensor({
+  name: "user-always",
+  onExecute(ctx: Context): boolean {
+    return ctx.microbit.buttonA.isPressed() >= 0;
+  },
+});
+`;
 
-    // --- explicit deep copy breaks struct aliasing ---
-    { op: Op.LOAD_LOCAL, a: 0 },
-    { op: Op.STRUCT_DEEP_COPY },
-    { op: Op.STORE_LOCAL, a: 1 }, // q = copy of p
-    { op: Op.LOAD_LOCAL, a: 0 },
-    { op: Op.PUSH_CONST_NUM, a: N9 },
-    { op: Op.STRUCT_SET_FIELD, a: 0 },
-    { op: Op.POP }, // p.0 = 9
-    // surface: setPixel(q.0 = 3 unchanged, p.0 = 9, (number) instanceof Point = false)
-    { op: Op.LOAD_LOCAL, a: 1 },
-    { op: Op.STRUCT_GET_FIELD, a: 0 },
-    { op: Op.LOAD_LOCAL, a: 0 },
-    { op: Op.STRUCT_GET_FIELD, a: 0 },
-    { op: Op.PUSH_CONST_NUM, a: N2 },
-    { op: Op.INSTANCE_OF, a: 0 },
-    setPixel,
-    { op: Op.POP },
+// Builds a struct, writes/reads its fields, calls a helper directly, builds and
+// calls a capturing closure, then surfaces the computed scalars via I2C.
+const ACTUATOR_SOURCE = `import { Actuator, type Context } from "mindcraft";
 
-    // --- STORE_VAR_SLOT deep-copies on store ---
-    { op: Op.LOAD_LOCAL, a: 0 },
-    { op: Op.STORE_VAR_SLOT, a: 0 }, // saved = copy of p (.0 = 9)
-    { op: Op.LOAD_LOCAL, a: 0 },
-    { op: Op.PUSH_CONST_NUM, a: N5 },
-    { op: Op.STRUCT_SET_FIELD, a: 0 },
-    { op: Op.POP }, // p.0 = 5
-    // surface: setPixel(saved.0 = 9 unchanged, p.0 = 5, 255)
-    { op: Op.LOAD_VAR_SLOT, a: 0 },
-    { op: Op.STRUCT_GET_FIELD, a: 0 },
-    { op: Op.LOAD_LOCAL, a: 0 },
-    { op: Op.STRUCT_GET_FIELD, a: 0 },
-    { op: Op.PUSH_CONST_NUM, a: N255 },
-    setPixel,
-    { op: Op.POP },
+interface Point {
+  x: number;
+  y: number;
+}
 
-    // --- name-keyed fallback degrades on the binary path ---
-    { op: Op.LOAD_LOCAL, a: 0 },
-    { op: Op.PUSH_CONST_STR, a: 0 },
-    { op: Op.GET_FIELD }, // -> nil
-    { op: Op.LOAD_LOCAL, a: 0 },
-    { op: Op.PUSH_CONST_STR, a: 0 },
-    { op: Op.PUSH_CONST_NUM, a: N8 },
-    { op: Op.SET_FIELD },
-    { op: Op.POP }, // no-op write
-    // surface: setPixel(GET_FIELD = nil, p.0 = 5 unchanged by SET_FIELD, 255)
-    { op: Op.LOAD_LOCAL, a: 0 },
-    { op: Op.STRUCT_GET_FIELD, a: 0 },
-    { op: Op.PUSH_CONST_NUM, a: N255 },
-    setPixel,
-    { op: Op.POP },
+function identity(n: number): number {
+  return n;
+}
 
-    // --- STRUCT_COPY_EXCEPT degrades to an all-nil struct of the operand type ---
-    { op: Op.LOAD_LOCAL, a: 0 },
-    { op: Op.PUSH_CONST_STR, a: 0 },
-    { op: Op.STRUCT_COPY_EXCEPT, a: 1, b: 0 }, // [c]
-    { op: Op.STRUCT_GET_FIELD, a: 0 }, // c.0 -> nil
-    { op: Op.PUSH_CONST_NUM, a: N5 },
-    { op: Op.PUSH_CONST_NUM, a: N255 },
-    setPixel,
-    { op: Op.POP },
+export default Actuator({
+  name: "user-struct-closure",
+  onExecute(ctx: Context): void {
+    const p: Point = { x: 3, y: 4 };
+    p.x = 9;
+    const px = p.x;
+    const py = p.y;
+    const id = identity(42);
+    const cap = 7;
+    const captured = (): number => cap;
+    const fc = captured();
+    ctx.microbit.i2c.writeBuffer(0x10, Buffer.from([px, py, id, fc]));
+  },
+});
+`;
 
-    // --- direct CALL ---
-    { op: Op.PUSH_CONST_NUM, a: N42 },
-    { op: Op.CALL, a: 1, b: 1 }, // identity(42) -> 42
-    { op: Op.PUSH_CONST_NUM, a: N3 },
-    { op: Op.PUSH_CONST_NUM, a: N255 },
-    setPixel,
-    { op: Op.POP },
+/** One scheduled think per entry: only the time advance (the brain ignores all input). */
+const SCHEDULE: readonly number[] = [16, 16];
 
-    // --- closure: capture, load capture, call indirect ---
-    { op: Op.PUSH_CONST_NUM, a: N7 },
-    { op: Op.MAKE_CLOSURE, a: 2, b: 1 },
-    { op: Op.STORE_LOCAL, a: 2 }, // capture [7]
-    { op: Op.LOAD_LOCAL, a: 2 },
-    { op: Op.CALL_INDIRECT, a: 0 }, // -> 7
-    { op: Op.PUSH_CONST_NUM, a: N4 },
-    { op: Op.PUSH_CONST_NUM, a: N255 },
-    setPixel,
-    { op: Op.POP },
+/** Struct and closure opcodes the real compile must emit for this fixture to cover them. */
+const REQUIRED_OPCODES: readonly number[] = [
+  Op.STRUCT_NEW,
+  Op.STRUCT_SET_FIELD,
+  Op.STRUCT_GET_FIELD,
+  Op.CALL,
+  Op.MAKE_CLOSURE,
+  Op.LOAD_CAPTURE,
+  Op.CALL_INDIRECT,
+];
 
-    // --- CALL_INDIRECT_ARGS truncates surplus args ---
-    { op: Op.LOAD_LOCAL, a: 2 },
-    { op: Op.PUSH_CONST_NUM, a: N3 },
-    { op: Op.PUSH_CONST_NUM, a: N4 },
-    { op: Op.CALL_INDIRECT_ARGS, a: 2 }, // closure takes 0 params; 2 args dropped -> capture 7
-    { op: Op.PUSH_CONST_NUM, a: N5 },
-    { op: Op.PUSH_CONST_NUM, a: N255 },
-    setPixel,
-    { op: Op.POP },
+function readText(relativePath: string): string {
+  return readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), "utf8");
+}
 
-    // --- CALL_INDIRECT_ARGS nil-pads missing args ---
-    { op: Op.MAKE_CLOSURE, a: 3, b: 0 },
-    { op: Op.PUSH_CONST_NUM, a: N3 },
-    { op: Op.CALL_INDIRECT_ARGS, a: 1 }, // func 3 takes 2 params; second padded nil and returned -> nil
-    { op: Op.PUSH_CONST_NUM, a: N5 },
-    { op: Op.PUSH_CONST_NUM, a: N255 },
-    setPixel,
-    { op: Op.POP },
-
-    { op: Op.PUSH_CONST_VAL, a: 0 }, // void
-    { op: Op.RET },
-  ];
-
-  // func 1: identity(x) -> x
-  const identity = [{ op: Op.LOAD_LOCAL, a: 0 }, { op: Op.RET }];
-  // func 2: closure body -> first capture
-  const captureBody = [{ op: Op.LOAD_CAPTURE, a: 0 }, { op: Op.RET }];
-  // func 3: second(a, b) -> b (exercises CALL_INDIRECT_ARGS nil padding)
-  const second = [{ op: Op.LOAD_LOCAL, a: 1 }, { op: Op.RET }];
-
-  return {
-    program: {
-      version: 1,
-      functions: [
-        { code: rule, numParams: 0, numLocals: 3 },
-        { code: identity, numParams: 1, numLocals: 1 },
-        { code: captureBody, numParams: 0, numLocals: 0 },
-        { code: second, numParams: 2, numLocals: 2 },
-      ],
-      constantPools: {
-        numbers: [3, 4, 255, 9, 5, 7, 2, 8, 42],
-        strings: ["x"],
-        values: [{ t: 1 }],
-      },
-      types: [{ tag: "struct", typeId: "struct:Point", name: "Point", maxFieldId: 1 }],
-      variableNames: ["saved"],
-      entryPoint: 0,
-      actions: [],
-      ruleFuncIds: [0],
-      ruleAncestors: [],
+function wodalAmbientFiles(): readonly AmbientFile[] {
+  return [
+    {
+      path: "mindcraft.core.d.ts",
+      content: readText("../../../../../../external/mindcraft-lang/packages/core/ambient/mindcraft.core.d.ts"),
     },
-    pages: [
-      {
-        pageIndex: 0,
-        pageId: "struct-closure-page",
-        pageName: "Struct Closure",
-        rootRuleFuncIds: [0],
-        actionCallSites: [{ binding: "host", callSiteId: 0, actionId: DISPLAY_SET_PIXEL }],
-      },
-    ],
-  };
+    { path: "mindcraft.microbit-v2.d.ts", content: readText("../../../../ambient/mindcraft.microbit-v2.d.ts") },
+  ];
 }
 
-/** Serializes the hand-authored brain to its binary `.mcprogram` payload. */
-function serializeStructClosureBrainBytes(): Uint8Array {
+function findBundleTile(tiles: readonly IBrainTileDef[], kind: "actuator" | "sensor"): IBrainTileDef {
+  const tile = tiles.find((candidate) => candidate.kind === kind);
+  assert.ok(tile);
+  return tile;
+}
+
+/** Compiles the user tiles, installs them, and builds the trigger -> struct-closure rule. */
+function buildImage(environment: MindcraftEnvironment): WodalProgramImage<LinkedBrainProgram> {
+  const project = new UserTileProject({ ambientFiles: wodalAmbientFiles(), services: environment.brainServices });
+  project.setFiles(
+    new Map([
+      ["user-always.ts", SENSOR_SOURCE],
+      ["user-struct-closure.ts", ACTUATOR_SOURCE],
+    ])
+  );
+  const compileResult = project.compileAll();
+  assert.equal(
+    compileResult.tsErrors.size,
+    0,
+    `Unexpected TypeScript diagnostics: ${JSON.stringify([...compileResult.tsErrors])}`
+  );
+  const bundle = buildCompiledActionBundle(compileResult, { services: environment.brainServices });
+  assert.ok(bundle);
+  environment.replaceActionBundle(bundle);
+
+  const brainDef = BrainDef.emptyBrainDef(environment.brainServices, "user-tile struct closure brain");
+  const rule = brainDef.pages().get(0)!.children().get(0)!;
+  rule.when().appendTile(findBundleTile(bundle.tiles, "sensor"));
+  rule.do().appendTile(findBundleTile(bundle.tiles, "actuator"));
+
+  const built = buildWodalProgramImage({
+    brainDef,
+    environment,
+    deviceProfile: getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2),
+  });
+  if (!built.ok) {
+    assert.fail(`expected a successful build: ${JSON.stringify(built.errors)}`);
+  }
+  return built.image;
+}
+
+/** Writes the JSON `.mcprogram` golden if missing, freezing the brain's generated id. */
+function ensureJsonGolden(): void {
+  if (existsSync(JSON_PATH)) {
+    return;
+  }
   const environment = createMicroBitV2Environment();
-  const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
-  const linked = linkedBrainProgramFromJson(buildStructClosureBrainJson());
-  const image = profile.createProgramImage(linked);
-  return serializeWodalProgramImageBytes(image, environment.brainServices.runtime.types);
+  const image = buildImage(environment);
+  writeFileSync(
+    JSON_PATH,
+    serializeWodalProgramImageJson({ ...image, program: linkedBrainProgramToJson(image.program) })
+  );
 }
 
-/** Runs the committed binary over a fixed tick schedule with the trace taps installed. */
-function runStructClosureTrace(bin: Uint8Array): { trace: string; microbit: MicroBit } {
+/** Runs the committed binary over the schedule with the I2C-port tap installed. */
+function runTrace(bin: Uint8Array): { trace: string; microbit: MicroBit } {
   const environment = createMicroBitV2Environment();
   const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
   const decoded = parseWodalProgramImageBytes(
@@ -240,63 +170,75 @@ function runStructClosureTrace(bin: Uint8Array): { trace: string; microbit: Micr
     WodalDeviceProfileId.MICROBIT_V2,
     environment.brainServices.runtime.types
   );
-  const writer = new ObservableTraceWriter({
-    profileId: profile.numericProfileId,
-    precision: profile.numberPrecision,
-  });
-
-  const action = environment.brainServices.runtime.actions.getById(DISPLAY_SET_PIXEL);
-  assert.ok(action !== undefined && action.binding === "host");
-  const exec = action.execSync;
-  assert.ok(exec !== undefined);
-  action.execSync = (ctx, args) => {
-    const result = exec(ctx, args);
-    const callSiteId = ctx.currentCallSiteId;
-    assert.ok(callSiteId !== undefined);
-    writer.hostActionCall(DISPLAY_SET_PIXEL, callSiteId, args, result);
-    return result;
-  };
+  const writer = new ObservableTraceWriter({ profileId: profile.numericProfileId, precision: profile.numberPrecision });
 
   const microbit = new MicroBit();
-  const deviceSetPixelValue = microbit.display.setPixelValue.bind(microbit.display);
-  microbit.display.setPixelValue = (x, y, brightness) => {
-    writer.displaySetPixel(x, y, brightness);
-    deviceSetPixelValue(x, y, brightness);
+  const deviceWrite = microbit.i2c.write.bind(microbit.i2c);
+  microbit.i2c.write = (address, data) => {
+    writer.i2cWrite(address, data);
+    return deviceWrite(address, data);
   };
 
-  const vmEvents: VmEvents = {
-    onFiberFault: (payload) => writer.fiberFault(payload.fiberId, payload.err.code),
-  };
+  const vmEvents: VmEvents = { onFiberFault: (payload) => writer.fiberFault(payload.fiberId, payload.err.code) };
   const runtime = new WodalMicroBitRuntime({ environment, microbit, vmEvents });
   assert.deepEqual(runtime.loadWodalProgramImage(profile.createProgramImage(decoded.program)), { ok: true });
 
   let lastThinkTimeMs = 0;
-  for (let i = 0; i < 3; i++) {
-    const timeMs = lastThinkTimeMs + 16;
-    writer.tick(i + 1, timeMs, lastThinkTimeMs === 0 ? 0 : timeMs - lastThinkTimeMs);
-    runtime.tick(16);
+  for (const [index, advanceMs] of SCHEDULE.entries()) {
+    const timeMs = lastThinkTimeMs + advanceMs;
+    writer.tick(index + 1, timeMs, lastThinkTimeMs === 0 ? 0 : timeMs - lastThinkTimeMs);
+    runtime.tick(advanceMs);
     lastThinkTimeMs = timeMs;
   }
   return { trace: writer.render(), microbit };
 }
 
 test("the committed struct-closure binary and observable trace golden are byte-stable", () => {
+  ensureJsonGolden();
+  const generated = wodalProgramBytes(new Uint8Array(readFileSync(JSON_PATH)));
   if (!existsSync(BIN_PATH)) {
-    writeFileSync(BIN_PATH, serializeStructClosureBrainBytes());
+    writeFileSync(BIN_PATH, generated);
   }
   const bin = new Uint8Array(readFileSync(BIN_PATH));
-  assert.deepEqual(bin, serializeStructClosureBrainBytes(), "struct-closure.mcprogram.bin is not byte-stable");
+  assert.deepEqual(bin, generated, "struct-closure.mcprogram.bin is not byte-stable");
 
-  const first = runStructClosureTrace(bin);
-  const second = runStructClosureTrace(bin);
+  // Real expression compilation emits the struct and closure opcodes this fixture pins.
+  const golden = JSON.parse(readFileSync(JSON_PATH, "utf8")) as {
+    program: { program: { functions: { code: { op: number }[] }[] } };
+  };
+  const opcodes = new Set<number>();
+  for (const fn of golden.program.program.functions) {
+    for (const ins of fn.code) {
+      opcodes.add(ins.op);
+    }
+  }
+  for (const opcode of REQUIRED_OPCODES) {
+    assert.ok(opcodes.has(opcode), `compiled bytecode should carry opcode ${opcode}`);
+  }
+
+  const first = runTrace(bin);
+  const second = runTrace(bin);
   assert.equal(second.trace, first.trace, "two fresh runs must render byte-identical traces");
 
   const lines = first.trace.split("\n");
-  assert.equal(lines.filter((line) => line.startsWith("tick ")).length, 3);
-  // Nine set-pixel dispatches per tick, run thrice, with no faults.
-  assert.equal(lines.filter((line) => line.startsWith("action 401 ")).length, 27);
-  assert.equal(lines.filter((line) => line.startsWith("port display set-pixel ")).length, 27);
+  assert.equal(lines.filter((line) => line.startsWith("tick ")).length, SCHEDULE.length);
+  // One packed result buffer written per think, no host-action lines, no faults.
+  assert.equal(lines.filter((line) => line.startsWith("port i2c write ")).length, SCHEDULE.length);
+  assert.equal(lines.filter((line) => line.startsWith("action ")).length, 0);
   assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
+
+  // The injectable bus records the struct reads, the direct call, and the closure call.
+  const writes = first.microbit.i2c.recordedWrites();
+  assert.equal(writes.length, SCHEDULE.length);
+  for (const write of writes) {
+    assert.equal(write.address, PROBE_ADDRESS);
+    assert.equal(
+      Array.from(write.bytes)
+        .map((byte) => byte.toString(16).padStart(2, "0"))
+        .join(""),
+      PROBE_HEX
+    );
+  }
 
   if (!existsSync(TRACE_PATH)) {
     writeFileSync(TRACE_PATH, first.trace);

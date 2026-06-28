@@ -1,152 +1,176 @@
 /**
- * Golden observable trace for a hand-authored list/map brain. The brain builds
- * a list and a map, exercises the container opcodes, type-guards the results,
- * and surfaces the computed scalars by dispatching the display set-pixel host
- * action. The serialized binary and its rendered trace are pinned beside this
- * spec as the cross-VM container conformance fixture: the C++ VM parity test
- * (cpp/test/trace-parity.test.cpp) loads the same binary and byte-compares.
+ * Golden observable trace for the list and map container opcodes, exercised
+ * through a real user-tile TS program. The actuator builds a list and a map,
+ * mutates and reads them back through the container operations, type-guards both
+ * handles, packs every computed scalar into a buffer, and surfaces that buffer by
+ * writing it to an I2C address, so the results cross the observable I2C port. The
+ * container opcodes are emitted by real expression compilation (the ts-compiler),
+ * not hand-authored. The serialized binary and its rendered trace are pinned
+ * beside this spec as the cross-VM container conformance fixture: the C++ VM
+ * parity test (cpp/test/trace-parity.test.cpp) loads the same binary, replays the
+ * schedule, and byte-compares.
  */
 
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import {
-  type LinkedBrainProgramJson,
-  linkedBrainProgramFromJson,
-  Op,
-  type VmEvents,
-} from "@mindcraft-lang/core/runtime";
+import type { MindcraftEnvironment } from "@mindcraft-lang/core/app";
+import type { IBrainTileDef } from "@mindcraft-lang/core/brain";
+import { BrainDef } from "@mindcraft-lang/core/brain/model";
+import { type LinkedBrainProgram, linkedBrainProgramToJson, Op, type VmEvents } from "@mindcraft-lang/core/runtime";
+import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@mindcraft-lang/ts-compiler";
+import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
-import { parseWodalProgramImageBytes, serializeWodalProgramImageBytes } from "../../../mindcraft/program-image-binary";
+import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../../mindcraft/program-image";
+import { parseWodalProgramImageBytes, wodalProgramBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Environment } from "./environment";
 import { ObservableTraceWriter } from "./observable-trace";
 import { WodalMicroBitRuntime } from "./runtime";
-import { MicroBitV2HostActions } from "./tile-ids";
 
+const JSON_PATH = fileURLToPath(new URL("./__fixtures__/container-ops.mcprogram", import.meta.url));
 const BIN_PATH = fileURLToPath(new URL("./__fixtures__/container-ops.mcprogram.bin", import.meta.url));
 const TRACE_PATH = fileURLToPath(new URL("./__fixtures__/container-ops.ticks.trace", import.meta.url));
 
-const DISPLAY_SET_PIXEL = MicroBitV2HostActions.DisplaySetPixel.actionId;
-
-// NativeType tag operands for TYPE_CHECK.
-const TYPE_LIST = 6;
+/** I2C address the packed-result buffer is written to each think. */
+const PROBE_ADDRESS = 0x20;
 
 /**
- * One root-rule function: builds list `[10, 20, 30]` and map `{1: 4, 2: 2}`,
- * reads them back through the container opcodes, type-guards both handles, and
- * dispatches display set-pixel three times with the computed scalars so every
- * value crosses the observable host-binding surface.
+ * Bytes of the packed result buffer: list length (3), list[1] (20), popped tail
+ * via `?? 0` (30), map.get(1) via `?? 0` (4), map.has(2) (1), map.has(1) after
+ * delete (0). The `?? 0` nil-guards emit the TYPE_CHECK opcode.
  */
-function buildContainerBrainJson(): LinkedBrainProgramJson {
-  const setPixel = { op: Op.HOST_ACTION_CALL, a: DISPLAY_SET_PIXEL, b: 3, c: 0 };
-  const code = [
-    // local 0 = list; push 10, 20, 30
-    { op: Op.LIST_NEW, a: 0 },
-    { op: Op.STORE_LOCAL, a: 0 },
-    { op: Op.LOAD_LOCAL, a: 0 },
-    { op: Op.PUSH_CONST_NUM, a: 0 },
-    { op: Op.LIST_PUSH },
-    { op: Op.POP },
-    { op: Op.LOAD_LOCAL, a: 0 },
-    { op: Op.PUSH_CONST_NUM, a: 1 },
-    { op: Op.LIST_PUSH },
-    { op: Op.POP },
-    { op: Op.LOAD_LOCAL, a: 0 },
-    { op: Op.PUSH_CONST_NUM, a: 2 },
-    { op: Op.LIST_PUSH },
-    { op: Op.POP },
-    // call A: x = len (3), y = get[1] (20), brightness = pop (30)
-    { op: Op.LOAD_LOCAL, a: 0 },
-    { op: Op.LIST_LEN },
-    { op: Op.LOAD_LOCAL, a: 0 },
-    { op: Op.PUSH_CONST_NUM, a: 3 },
-    { op: Op.LIST_GET },
-    { op: Op.LOAD_LOCAL, a: 0 },
-    { op: Op.LIST_POP },
-    setPixel,
-    { op: Op.POP },
-    // local 1 = map; set 1->4, 2->2
-    { op: Op.MAP_NEW, a: 0 },
-    { op: Op.STORE_LOCAL, a: 1 },
-    { op: Op.LOAD_LOCAL, a: 1 },
-    { op: Op.PUSH_CONST_NUM, a: 3 },
-    { op: Op.PUSH_CONST_NUM, a: 4 },
-    { op: Op.MAP_SET },
-    { op: Op.POP },
-    { op: Op.LOAD_LOCAL, a: 1 },
-    { op: Op.PUSH_CONST_NUM, a: 5 },
-    { op: Op.PUSH_CONST_NUM, a: 5 },
-    { op: Op.MAP_SET },
-    { op: Op.POP },
-    // call B: x = get(1) (4), y = get(2) (2), brightness = has(2) (true)
-    { op: Op.LOAD_LOCAL, a: 1 },
-    { op: Op.PUSH_CONST_NUM, a: 3 },
-    { op: Op.MAP_GET },
-    { op: Op.LOAD_LOCAL, a: 1 },
-    { op: Op.PUSH_CONST_NUM, a: 5 },
-    { op: Op.MAP_GET },
-    { op: Op.LOAD_LOCAL, a: 1 },
-    { op: Op.PUSH_CONST_NUM, a: 5 },
-    { op: Op.MAP_HAS },
-    setPixel,
-    { op: Op.POP },
-    // call C: x = isList(list) (true), y = isList(map) (false), delete key 1,
-    //          brightness = has(1) after delete (false)
-    { op: Op.LOAD_LOCAL, a: 0 },
-    { op: Op.TYPE_CHECK, a: TYPE_LIST },
-    { op: Op.LOAD_LOCAL, a: 1 },
-    { op: Op.TYPE_CHECK, a: TYPE_LIST },
-    { op: Op.LOAD_LOCAL, a: 1 },
-    { op: Op.PUSH_CONST_NUM, a: 3 },
-    { op: Op.MAP_DELETE },
-    { op: Op.POP },
-    { op: Op.LOAD_LOCAL, a: 1 },
-    { op: Op.PUSH_CONST_NUM, a: 3 },
-    { op: Op.MAP_HAS },
-    setPixel,
-    { op: Op.POP },
-    // return void
-    { op: Op.PUSH_CONST_VAL, a: 0 },
-    { op: Op.RET },
-  ];
+const PROBE_HEX = "03141e040100";
 
-  return {
-    program: {
-      version: 1,
-      functions: [{ code, numParams: 0, numLocals: 2 }],
-      constantPools: { numbers: [10, 20, 30, 1, 4, 2], strings: [], values: [{ t: 1 }] },
-      types: [],
-      variableNames: [],
-      entryPoint: 0,
-      actions: [],
-      ruleFuncIds: [0],
-      ruleAncestors: [],
+// A trigger that fires every think, so the actuator runs each tick.
+const SENSOR_SOURCE = `import { Sensor, type Context } from "mindcraft";
+
+export default Sensor({
+  name: "user-always",
+  onExecute(ctx: Context): boolean {
+    return ctx.microbit.buttonA.isPressed() >= 0;
+  },
+});
+`;
+
+// Exercises the list and map opcodes, then surfaces the computed scalars via I2C.
+const ACTUATOR_SOURCE = `import { Actuator, type Context } from "mindcraft";
+
+export default Actuator({
+  name: "user-container-ops",
+  onExecute(ctx: Context): void {
+    const list: number[] = [];
+    list.push(10);
+    list.push(20);
+    list.push(30);
+    const len = list.length;
+    const at1 = list[1];
+    const poppedVal = list.pop() ?? 0;
+
+    const map = new Map<number, number>();
+    map.set(1, 4);
+    map.set(2, 2);
+    const g1Val = map.get(1) ?? 0;
+    const has2 = map.has(2);
+    map.delete(1);
+    const has1 = map.has(1);
+
+    const probe = Buffer.from([len, at1, poppedVal, g1Val, has2 ? 1 : 0, has1 ? 1 : 0]);
+    ctx.microbit.i2c.writeBuffer(0x20, probe);
+  },
+});
+`;
+
+/** One scheduled think per entry: only the time advance (the brain ignores all input). */
+const SCHEDULE: readonly number[] = [16, 16];
+
+// Container opcodes the real compile must emit for this fixture to cover them.
+// Element reads (`list[i]`) lower to a host-function call, so LIST_GET is not
+// reachable from user TS and is not pinned here.
+const REQUIRED_OPCODES: readonly number[] = [
+  Op.LIST_NEW,
+  Op.LIST_PUSH,
+  Op.LIST_LEN,
+  Op.LIST_POP,
+  Op.MAP_NEW,
+  Op.MAP_SET,
+  Op.MAP_GET,
+  Op.MAP_HAS,
+  Op.MAP_DELETE,
+  Op.TYPE_CHECK,
+];
+
+function readText(relativePath: string): string {
+  return readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), "utf8");
+}
+
+function wodalAmbientFiles(): readonly AmbientFile[] {
+  return [
+    {
+      path: "mindcraft.core.d.ts",
+      content: readText("../../../../../../external/mindcraft-lang/packages/core/ambient/mindcraft.core.d.ts"),
     },
-    pages: [
-      {
-        pageIndex: 0,
-        pageId: "container-ops-page",
-        pageName: "Container Ops",
-        rootRuleFuncIds: [0],
-        actionCallSites: [{ binding: "host", callSiteId: 0, actionId: DISPLAY_SET_PIXEL }],
-      },
-    ],
-  };
+    { path: "mindcraft.microbit-v2.d.ts", content: readText("../../../../ambient/mindcraft.microbit-v2.d.ts") },
+  ];
 }
 
-/** Serializes the hand-authored brain to its binary `.mcprogram` payload. */
-function serializeContainerBrainBytes(): Uint8Array {
+function findBundleTile(tiles: readonly IBrainTileDef[], kind: "actuator" | "sensor"): IBrainTileDef {
+  const tile = tiles.find((candidate) => candidate.kind === kind);
+  assert.ok(tile);
+  return tile;
+}
+
+/** Compiles the user tiles, installs them, and builds the trigger -> container-ops rule. */
+function buildImage(environment: MindcraftEnvironment): WodalProgramImage<LinkedBrainProgram> {
+  const project = new UserTileProject({ ambientFiles: wodalAmbientFiles(), services: environment.brainServices });
+  project.setFiles(
+    new Map([
+      ["user-always.ts", SENSOR_SOURCE],
+      ["user-container-ops.ts", ACTUATOR_SOURCE],
+    ])
+  );
+  const compileResult = project.compileAll();
+  assert.equal(
+    compileResult.tsErrors.size,
+    0,
+    `Unexpected TypeScript diagnostics: ${JSON.stringify([...compileResult.tsErrors])}`
+  );
+  const bundle = buildCompiledActionBundle(compileResult, { services: environment.brainServices });
+  assert.ok(bundle);
+  environment.replaceActionBundle(bundle);
+
+  const brainDef = BrainDef.emptyBrainDef(environment.brainServices, "user-tile container ops brain");
+  const rule = brainDef.pages().get(0)!.children().get(0)!;
+  rule.when().appendTile(findBundleTile(bundle.tiles, "sensor"));
+  rule.do().appendTile(findBundleTile(bundle.tiles, "actuator"));
+
+  const built = buildWodalProgramImage({
+    brainDef,
+    environment,
+    deviceProfile: getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2),
+  });
+  if (!built.ok) {
+    assert.fail(`expected a successful build: ${JSON.stringify(built.errors)}`);
+  }
+  return built.image;
+}
+
+/** Writes the JSON `.mcprogram` golden if missing, freezing the brain's generated id. */
+function ensureJsonGolden(): void {
+  if (existsSync(JSON_PATH)) {
+    return;
+  }
   const environment = createMicroBitV2Environment();
-  const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
-  const linked = linkedBrainProgramFromJson(buildContainerBrainJson());
-  const image = profile.createProgramImage(linked);
-  return serializeWodalProgramImageBytes(image, environment.brainServices.runtime.types);
+  const image = buildImage(environment);
+  writeFileSync(
+    JSON_PATH,
+    serializeWodalProgramImageJson({ ...image, program: linkedBrainProgramToJson(image.program) })
+  );
 }
 
-/** Runs the committed binary over a fixed tick schedule with the trace taps installed. */
-function runContainerTrace(bin: Uint8Array): { trace: string; microbit: MicroBit } {
+/** Runs the committed binary over the schedule with the I2C-port tap installed. */
+function runTrace(bin: Uint8Array): { trace: string; microbit: MicroBit } {
   const environment = createMicroBitV2Environment();
   const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
   const decoded = parseWodalProgramImageBytes(
@@ -154,66 +178,75 @@ function runContainerTrace(bin: Uint8Array): { trace: string; microbit: MicroBit
     WodalDeviceProfileId.MICROBIT_V2,
     environment.brainServices.runtime.types
   );
-  const writer = new ObservableTraceWriter({
-    profileId: profile.numericProfileId,
-    precision: profile.numberPrecision,
-  });
-
-  const action = environment.brainServices.runtime.actions.getById(DISPLAY_SET_PIXEL);
-  assert.ok(action !== undefined && action.binding === "host");
-  const exec = action.execSync;
-  assert.ok(exec !== undefined);
-  action.execSync = (ctx, args) => {
-    const result = exec(ctx, args);
-    const callSiteId = ctx.currentCallSiteId;
-    assert.ok(callSiteId !== undefined);
-    writer.hostActionCall(DISPLAY_SET_PIXEL, callSiteId, args, result);
-    return result;
-  };
+  const writer = new ObservableTraceWriter({ profileId: profile.numericProfileId, precision: profile.numberPrecision });
 
   const microbit = new MicroBit();
-  const deviceSetPixelValue = microbit.display.setPixelValue.bind(microbit.display);
-  microbit.display.setPixelValue = (x, y, brightness) => {
-    writer.displaySetPixel(x, y, brightness);
-    deviceSetPixelValue(x, y, brightness);
+  const deviceWrite = microbit.i2c.write.bind(microbit.i2c);
+  microbit.i2c.write = (address, data) => {
+    writer.i2cWrite(address, data);
+    return deviceWrite(address, data);
   };
 
-  const vmEvents: VmEvents = {
-    onFiberFault: (payload) => writer.fiberFault(payload.fiberId, payload.err.code),
-  };
+  const vmEvents: VmEvents = { onFiberFault: (payload) => writer.fiberFault(payload.fiberId, payload.err.code) };
   const runtime = new WodalMicroBitRuntime({ environment, microbit, vmEvents });
   assert.deepEqual(runtime.loadWodalProgramImage(profile.createProgramImage(decoded.program)), { ok: true });
 
   let lastThinkTimeMs = 0;
-  for (let i = 0; i < 3; i++) {
-    const timeMs = lastThinkTimeMs + 16;
-    writer.tick(i + 1, timeMs, lastThinkTimeMs === 0 ? 0 : timeMs - lastThinkTimeMs);
-    runtime.tick(16);
+  for (const [index, advanceMs] of SCHEDULE.entries()) {
+    const timeMs = lastThinkTimeMs + advanceMs;
+    writer.tick(index + 1, timeMs, lastThinkTimeMs === 0 ? 0 : timeMs - lastThinkTimeMs);
+    runtime.tick(advanceMs);
     lastThinkTimeMs = timeMs;
   }
   return { trace: writer.render(), microbit };
 }
 
 test("the committed container-ops binary and observable trace golden are byte-stable", () => {
+  ensureJsonGolden();
+  const generated = wodalProgramBytes(new Uint8Array(readFileSync(JSON_PATH)));
   if (!existsSync(BIN_PATH)) {
-    writeFileSync(BIN_PATH, serializeContainerBrainBytes());
+    writeFileSync(BIN_PATH, generated);
   }
   const bin = new Uint8Array(readFileSync(BIN_PATH));
-  assert.deepEqual(bin, serializeContainerBrainBytes(), "container-ops.mcprogram.bin is not byte-stable");
+  assert.deepEqual(bin, generated, "container-ops.mcprogram.bin is not byte-stable");
 
-  const first = runContainerTrace(bin);
-  const second = runContainerTrace(bin);
+  // Real expression compilation emits the container opcodes this fixture pins.
+  const golden = JSON.parse(readFileSync(JSON_PATH, "utf8")) as {
+    program: { program: { functions: { code: { op: number }[] }[] } };
+  };
+  const opcodes = new Set<number>();
+  for (const fn of golden.program.program.functions) {
+    for (const ins of fn.code) {
+      opcodes.add(ins.op);
+    }
+  }
+  for (const opcode of REQUIRED_OPCODES) {
+    assert.ok(opcodes.has(opcode), `compiled bytecode should carry container opcode ${opcode}`);
+  }
+
+  const first = runTrace(bin);
+  const second = runTrace(bin);
   assert.equal(second.trace, first.trace, "two fresh runs must render byte-identical traces");
 
-  // Each of the three ticks runs the rule once, dispatching set-pixel three
-  // times and writing three pixels, with no faults.
   const lines = first.trace.split("\n");
-  assert.equal(lines.filter((line) => line.startsWith("tick ")).length, 3);
-  assert.equal(lines.filter((line) => line.startsWith("action 401 ")).length, 9);
-  assert.equal(lines.filter((line) => line.startsWith("port display set-pixel ")).length, 9);
+  assert.equal(lines.filter((line) => line.startsWith("tick ")).length, SCHEDULE.length);
+  // One packed result buffer written per think, no host-action lines, no faults.
+  assert.equal(lines.filter((line) => line.startsWith("port i2c write ")).length, SCHEDULE.length);
+  assert.equal(lines.filter((line) => line.startsWith("action ")).length, 0);
   assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
-  // Call C drives pixel (0,0) to full brightness through bool-typed args.
-  assert.equal(first.microbit.display.getPixelValue(0, 0), 255);
+
+  // The injectable bus records the exact address and packed bytes each think wrote.
+  const writes = first.microbit.i2c.recordedWrites();
+  assert.equal(writes.length, SCHEDULE.length);
+  for (const write of writes) {
+    assert.equal(write.address, PROBE_ADDRESS);
+    assert.equal(
+      Array.from(write.bytes)
+        .map((byte) => byte.toString(16).padStart(2, "0"))
+        .join(""),
+      PROBE_HEX
+    );
+  }
 
   if (!existsSync(TRACE_PATH)) {
     writeFileSync(TRACE_PATH, first.trace);

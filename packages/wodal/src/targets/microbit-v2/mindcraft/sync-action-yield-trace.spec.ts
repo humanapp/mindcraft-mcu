@@ -1,4 +1,8 @@
 /**
+ * Hand-constructed synthetic negative fixture, not recreatable from a real
+ * compile: it deliberately yields inside a sync action, which is illegal and
+ * faults the fiber - a valid compile never emits it.
+ *
  * Golden observable trace for a hand-authored brain that exercises the sync
  * bytecode-action suspension boundary. The root rule yields cooperatively (it
  * has no enclosing action frame, so the yield is legal and splits the rule

@@ -1,8 +1,10 @@
 /**
- * Page-switch resource + scheduler regression. A two-page brain where each page
- * has two rules: rule 0 unconditionally switches to the other page, and rule 1
- * (still queued for the round when rule 0 fires) writes a pixel. This pins two
- * C++-port regressions the TS oracle never had:
+ * Page-switch resource + scheduler regression. A real-compiled two-page brain
+ * where each page has two rules that both fire on page entry: rule 0
+ * unconditionally switches to the other page, and rule 1 (still queued for the
+ * round when rule 0 fires) writes a pixel. Because the brain ping-pongs between
+ * its two pages, every think re-enters a page and re-arms the switch, so the
+ * mid-round switch repeats indefinitely. This pins two C++-port regressions:
  *
  * - Region leak: the active page's root-rule tracking is allocated once for the
  *   brain's lifetime; a per-activation allocation would leak the bump region and
@@ -11,109 +13,105 @@
  *   queued for the round, draining the run queue below the round's snapshot size;
  *   the scheduler must stop the round when the queue empties.
  *
- * The fixture is pinned for the C++ parity test, which replays many thousands of
- * switches and asserts the runtime never faults. The TS oracle here confirms the
- * same brain runs fault-free as the byte-identical reference.
+ * The fixture is built through the real brain compiler, so the bytecode carries
+ * the WHEN/DO boundary opcodes and the multi-rule page structure the hand-rolled
+ * shape-alike never had. It is pinned for the C++ parity test, which replays many
+ * thousands of switches and asserts the runtime never faults.
  */
 
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import type { MindcraftEnvironment } from "@mindcraft-lang/core/app";
+import { type MindcraftEnvironment, mkActuatorTileId, mkSensorTileId } from "@mindcraft-lang/core/app";
+import { type IBrainPageDef, type IBrainTileDef, mkPageTileId } from "@mindcraft-lang/core/brain";
+import { BrainDef } from "@mindcraft-lang/core/brain/model";
 import {
   BrainRuntime,
   CoreHostActions,
-  type LinkedBrainProgramJson,
-  linkedBrainProgramFromJson,
-  NativeType,
+  type LinkedBrainProgram,
+  linkedBrainProgramToJson,
   Op,
   type PlatformServices,
   type VmEvents,
 } from "@mindcraft-lang/core/runtime";
+import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
-import { serializeWodalProgramImageBytes } from "../../../mindcraft/program-image-binary";
+import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../../mindcraft/program-image";
+import { parseWodalProgramImageBytes, wodalProgramBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Environment } from "./environment";
 import { MicroBitV2HostActions } from "./tile-ids";
 
-const SWITCH_PAGE = CoreHostActions.SwitchPage.actionId;
-const DISPLAY_SET_PIXEL = MicroBitV2HostActions.DisplaySetPixel.actionId;
-
+const JSON_PATH = fileURLToPath(new URL("./__fixtures__/multi-rule-page-switch.mcprogram", import.meta.url));
 const BIN_PATH = fileURLToPath(new URL("./__fixtures__/multi-rule-page-switch.mcprogram.bin", import.meta.url));
 
 /**
- * A two-page brain where each page has a switch rule (rule 0) followed by a
- * sibling set-pixel rule (rule 1). Rule 0 switches every think while rule 1 is
- * still queued, so the switch's fiber cancellation drains the round's queue.
+ * Fills one page with a switch rule ahead of a set-pixel sibling rule, both
+ * triggered by page entry. The switch rule (rule 0) targets `targetPageTile`
+ * through the switch-page actuator's page-reference slot; the set-pixel rule
+ * (rule 1) runs with the actuator's defaults (x=0, y=0, brightness=255).
  */
-function buildMultiRuleSwitchBrainJson(): LinkedBrainProgramJson {
-  const switchTo = (numberIndex: number, callSiteId: number) => [
-    { op: Op.PUSH_CONST_NUM, a: numberIndex }, // switch-page number (1-based)
-    { op: Op.PUSH_CONST_VAL, a: 0 }, // switch-page string slot: nil
-    { op: Op.HOST_ACTION_CALL, a: SWITCH_PAGE, b: 2, c: callSiteId },
-    { op: Op.POP },
-    { op: Op.PUSH_CONST_VAL, a: 0 },
-    { op: Op.RET },
-  ];
-  const setPixel = (callSiteId: number) => [
-    { op: Op.PUSH_CONST_NUM, a: 2 }, // x = 0
-    { op: Op.PUSH_CONST_NUM, a: 2 }, // y = 0
-    { op: Op.PUSH_CONST_NUM, a: 3 }, // brightness = 255
-    { op: Op.HOST_ACTION_CALL, a: DISPLAY_SET_PIXEL, b: 3, c: callSiteId },
-    { op: Op.POP },
-    { op: Op.PUSH_CONST_VAL, a: 0 },
-    { op: Op.RET },
-  ];
+function fillSwitchPage(env: MindcraftEnvironment, page: IBrainPageDef, targetPageTile: IBrainTileDef): void {
+  const tiles = env.brainServices.edit.tiles;
+  const onPageEntered = tiles.get(mkSensorTileId(CoreHostActions.OnPageEntered.key));
+  const switchPage = tiles.get(mkActuatorTileId(CoreHostActions.SwitchPage.key));
+  const setPixel = tiles.get(mkActuatorTileId(MicroBitV2HostActions.DisplaySetPixel.key));
+  assert.ok(onPageEntered && switchPage && setPixel);
 
-  return {
-    program: {
-      version: 1,
-      functions: [
-        { code: switchTo(0, 0), numParams: 0, numLocals: 0 }, // page 0 -> page 2
-        { code: setPixel(1), numParams: 0, numLocals: 0 },
-        { code: switchTo(1, 2), numParams: 0, numLocals: 0 }, // page 1 -> page 1
-        { code: setPixel(3), numParams: 0, numLocals: 0 },
-      ],
-      constantPools: { numbers: [2, 1, 0, 255], strings: [], values: [{ t: NativeType.Nil }] },
-      types: [],
-      variableNames: [],
-      entryPoint: 0,
-      actions: [],
-      ruleFuncIds: [0, 1, 2, 3],
-      ruleAncestors: [],
-    },
-    pages: [
-      {
-        pageIndex: 0,
-        pageId: "mrps-page-0",
-        pageName: "MRPS Page 0",
-        rootRuleFuncIds: [0, 1],
-        actionCallSites: [
-          { binding: "host", callSiteId: 0, actionId: SWITCH_PAGE },
-          { binding: "host", callSiteId: 1, actionId: DISPLAY_SET_PIXEL },
-        ],
-      },
-      {
-        pageIndex: 1,
-        pageId: "mrps-page-1",
-        pageName: "MRPS Page 1",
-        rootRuleFuncIds: [2, 3],
-        actionCallSites: [
-          { binding: "host", callSiteId: 2, actionId: SWITCH_PAGE },
-          { binding: "host", callSiteId: 3, actionId: DISPLAY_SET_PIXEL },
-        ],
-      },
-    ],
-  } as LinkedBrainProgramJson;
+  const switchRule = page.children().get(0)!;
+  switchRule.when().appendTile(onPageEntered);
+  switchRule.do().appendTile(switchPage);
+  switchRule.do().appendTile(targetPageTile);
+
+  const pixelRule = page.appendNewRule()!;
+  pixelRule.when().appendTile(onPageEntered);
+  pixelRule.do().appendTile(setPixel);
 }
 
-function serializeBrainBytes(json: LinkedBrainProgramJson): Uint8Array {
-  const environment = createMicroBitV2Environment();
-  const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
-  return serializeWodalProgramImageBytes(
-    profile.createProgramImage(linkedBrainProgramFromJson(json)),
-    environment.brainServices.runtime.types
+/**
+ * Builds a two-page brain. Page 0's switch rule targets page 1 and page 1's
+ * switch rule targets page 0, so the brain ping-pongs every think; each page's
+ * switch rule sits ahead of its set-pixel sibling.
+ */
+function buildMultiRuleSwitchBrainDef(env: MindcraftEnvironment): BrainDef {
+  const brainDef = BrainDef.emptyBrainDef(env.brainServices, "multi-rule page switch brain");
+  const page0 = brainDef.pages().get(0)!;
+  const appended = brainDef.appendNewPage();
+  assert.ok(appended.success);
+  const page1 = appended.value.page;
+
+  const page0Tile = brainDef.catalog().get(mkPageTileId(page0.pageId()));
+  const page1Tile = brainDef.catalog().get(mkPageTileId(page1.pageId()));
+  assert.ok(page0Tile && page1Tile);
+
+  fillSwitchPage(env, page0, page1Tile);
+  fillSwitchPage(env, page1, page0Tile);
+  return brainDef;
+}
+
+/** Builds the multi-rule-page-switch image through the standard build path. */
+function buildImage(env: MindcraftEnvironment): WodalProgramImage<LinkedBrainProgram> {
+  const built = buildWodalProgramImage({
+    brainDef: buildMultiRuleSwitchBrainDef(env),
+    environment: env,
+    deviceProfile: getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2),
+  });
+  if (!built.ok) {
+    assert.fail(`expected a successful build: ${JSON.stringify(built.errors)}`);
+  }
+  return built.image;
+}
+
+/** Writes the JSON `.mcprogram` golden if missing, freezing the brain's generated page ids. */
+function ensureJsonGolden(): void {
+  if (existsSync(JSON_PATH)) {
+    return;
+  }
+  const image = buildImage(createMicroBitV2Environment());
+  writeFileSync(
+    JSON_PATH,
+    serializeWodalProgramImageJson({ ...image, program: linkedBrainProgramToJson(image.program) })
   );
 }
 
@@ -123,19 +121,37 @@ function hostServicesOf(environment: MindcraftEnvironment): Omit<PlatformService
 }
 
 test("a multi-rule page that switches mid-round runs fault-free, and the fixture is byte-stable", () => {
+  ensureJsonGolden();
+  const generated = wodalProgramBytes(new Uint8Array(readFileSync(JSON_PATH)));
   if (!existsSync(BIN_PATH)) {
-    writeFileSync(BIN_PATH, serializeBrainBytes(buildMultiRuleSwitchBrainJson()));
+    writeFileSync(BIN_PATH, generated);
   }
   const bin = new Uint8Array(readFileSync(BIN_PATH));
-  assert.deepEqual(
-    bin,
-    serializeBrainBytes(buildMultiRuleSwitchBrainJson()),
-    "multi-rule-page-switch.mcprogram.bin is not byte-stable"
-  );
+  assert.deepEqual(bin, generated, "multi-rule-page-switch.mcprogram.bin is not byte-stable");
+
+  // The real compiler frames each rule's when()/do() with the boundary opcodes
+  // the hand-rolled shape-alike never carried.
+  const golden = JSON.parse(readFileSync(JSON_PATH, "utf8")) as {
+    program: { program: { functions: { code: { op: number }[] }[] } };
+  };
+  const opcodes = new Set<number>();
+  for (const fn of golden.program.program.functions) {
+    for (const ins of fn.code) {
+      opcodes.add(ins.op);
+    }
+  }
+  for (const boundary of [Op.WHEN_START, Op.WHEN_END, Op.DO_START, Op.DO_END]) {
+    assert.ok(opcodes.has(boundary), `compiled bytecode should carry boundary opcode ${boundary}`);
+  }
 
   const environment = createMicroBitV2Environment();
   const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
-  const program = linkedBrainProgramFromJson(buildMultiRuleSwitchBrainJson());
+  const decoded = parseWodalProgramImageBytes(
+    bin,
+    WodalDeviceProfileId.MICROBIT_V2,
+    environment.brainServices.runtime.types
+  );
+  const program = decoded.program;
 
   const faults: number[] = [];
   const vmEvents: VmEvents = { onFiberFault: (payload) => faults.push(payload.err.code) };

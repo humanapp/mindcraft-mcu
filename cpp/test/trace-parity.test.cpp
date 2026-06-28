@@ -891,15 +891,23 @@ TEST_CASE("the container-ops fixture byte-matches the golden observable trace") 
   StringTextSink sink;
   ObservableTraceWriter writer(sink, image);
   HostMicroBit microbit;
-  microbit.display.writer = &writer;
+  microbit.i2c.writer = &writer;
   TraceTap tap(writer);
 
+  // The actuator exercises the list/map opcodes, packs the computed scalars into
+  // a managed buffer, and surfaces it through the writeBuffer host function; the
+  // env resolves the buffer's bytes through the heap.
+  mindcraft::ManagedHeap heap(arena, &image);
+  mindcraft::MicroBitV2I2CWriteEnv i2cEnv{&microbit.i2c, &heap, &image};
   auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cEnv);
   ExecutionContext ctx;
-  // The container opcodes draw from a managed heap; the scheduler is its root
-  // source and wires itself into the surface it runs the dispatch loop against.
-  mindcraft::ManagedHeap heap(arena);
+  mindcraft::TypeRegistry types(image);
+  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+  surface.types = &types;
+  surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
   FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
@@ -907,10 +915,10 @@ TEST_CASE("the container-ops fixture byte-matches the golden observable trace") 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 
-  // The brain ignores input and runs identically each tick; advance 16ms thrice
-  // to mirror the TS oracle schedule.
+  // Two 16ms thinks mirror SCHEDULE in wodal
+  // packages/wodal/src/targets/microbit-v2/mindcraft/container-ops-trace.spec.ts.
   float lastThinkTimeMs = 0;
-  for (int i = 0; i < 3; i++) {
+  for (int i = 0; i < 2; i++) {
     const float timeMs = lastThinkTimeMs + 16;
     microbit.clock.now = static_cast<uint32_t>(timeMs);
     writer.tick(static_cast<uint32_t>(i + 1), timeMs,
@@ -922,7 +930,12 @@ TEST_CASE("the container-ops fixture byte-matches the golden observable trace") 
 
   CHECK(tap.renderable);
   CHECK(sink.text() == golden);
-  CHECK(microbit.display.pixels[0][0] == 255);
+  // Each think writes the packed list/map results to address 0x20.
+  REQUIRE(microbit.i2c.writes.size() == 2);
+  for (const auto& write : microbit.i2c.writes) {
+    CHECK(write.address == 0x20);
+    CHECK(write.bytes == std::vector<uint8_t>{3, 20, 30, 4, 1, 0});
+  }
 }
 
 TEST_CASE("the buffer-ops fixture byte-matches the golden observable trace") {
@@ -941,17 +954,23 @@ TEST_CASE("the buffer-ops fixture byte-matches the golden observable trace") {
   StringTextSink sink;
   ObservableTraceWriter writer(sink, image);
   HostMicroBit microbit;
-  microbit.display.writer = &writer;
+  microbit.i2c.writer = &writer;
   TraceTap tap(writer);
 
-  // The buffer builtins draw managed buffers from the heap; the hex/string
-  // constructors read their borrowed string operands through the program, and
-  // the trace writer resolves each managed buffer's bytes through the heap.
+  // The actuator constructs managed buffers through the buffer builtins and
+  // surfaces each by writing it to an I2C address through the writeBuffer host
+  // function; the env resolves each buffer's bytes through the heap.
   mindcraft::ManagedHeap heap(arena, &image);
-  writer.setHeap(&heap);
+  mindcraft::MicroBitV2I2CWriteEnv i2cEnv{&microbit.i2c, &heap, &image};
   auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cEnv);
   ExecutionContext ctx;
+  mindcraft::TypeRegistry types(image);
+  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+  surface.types = &types;
+  surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
   FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
@@ -959,10 +978,10 @@ TEST_CASE("the buffer-ops fixture byte-matches the golden observable trace") {
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 
-  // The brain ignores input and runs identically each tick; advance 16ms thrice
-  // to mirror the TS oracle schedule.
+  // Two 16ms thinks mirror SCHEDULE in wodal
+  // packages/wodal/src/targets/microbit-v2/mindcraft/buffer-ops-trace.spec.ts.
   float lastThinkTimeMs = 0;
-  for (int i = 0; i < 3; i++) {
+  for (int i = 0; i < 2; i++) {
     const float timeMs = lastThinkTimeMs + 16;
     microbit.clock.now = static_cast<uint32_t>(timeMs);
     writer.tick(static_cast<uint32_t>(i + 1), timeMs,
@@ -974,6 +993,19 @@ TEST_CASE("the buffer-ops fixture byte-matches the golden observable trace") {
 
   CHECK(tap.renderable);
   CHECK(sink.text() == golden);
+  // Each think writes the four buffers the actuator built, in address order.
+  REQUIRE(microbit.i2c.writes.size() == 8);
+  const std::vector<std::pair<uint16_t, std::vector<uint8_t>>> expected = {
+      {0x10, {10, 20, 30}},
+      {0x11, {0, 255, 127}},
+      {0x12, {72, 105}},
+      {0x13, {3, 20, 0, 72}},
+  };
+  for (size_t i = 0; i < microbit.i2c.writes.size(); i++) {
+    const auto& want = expected[i % expected.size()];
+    CHECK(microbit.i2c.writes[i].address == want.first);
+    CHECK(microbit.i2c.writes[i].bytes == want.second);
+  }
 }
 
 TEST_CASE("the dynamic-field-access fixture byte-matches the golden observable trace") {
@@ -1193,16 +1225,23 @@ TEST_CASE("the rule-helper-variables fixture byte-matches the golden observable 
   StringTextSink sink;
   ObservableTraceWriter writer(sink, image);
   HostMicroBit microbit;
-  microbit.display.writer = &writer;
+  microbit.i2c.writer = &writer;
   TraceTap tap(writer);
 
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
-  ExecutionContext ctx;
-  // The root rule calls a plain helper that reads and writes rule variables
-  // through the calling rule's store; the per-rule maps and their borrowed
-  // variable-name keys resolve through the heap configured with the image.
+  // The root rule's actuator calls a plain helper that reads and writes rule
+  // variables through the calling rule's store, then packs both reads into a
+  // managed buffer surfaced through the writeBuffer host function.
   mindcraft::ManagedHeap heap(arena, &image);
+  mindcraft::MicroBitV2I2CWriteEnv i2cEnv{&microbit.i2c, &heap, &image};
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cEnv);
+  ExecutionContext ctx;
+  mindcraft::TypeRegistry types(image);
+  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+  surface.types = &types;
+  surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
   FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
@@ -1210,10 +1249,10 @@ TEST_CASE("the rule-helper-variables fixture byte-matches the golden observable 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 
-  // The brain ignores input and runs identically each tick; advance 16ms thrice
-  // to mirror the TS oracle schedule.
+  // Two 16ms thinks mirror SCHEDULE in wodal
+  // packages/wodal/src/targets/microbit-v2/mindcraft/rule-helper-variables-trace.spec.ts.
   float lastThinkTimeMs = 0;
-  for (int i = 0; i < 3; i++) {
+  for (int i = 0; i < 2; i++) {
     const float timeMs = lastThinkTimeMs + 16;
     microbit.clock.now = static_cast<uint32_t>(timeMs);
     writer.tick(static_cast<uint32_t>(i + 1), timeMs,
@@ -1225,6 +1264,12 @@ TEST_CASE("the rule-helper-variables fixture byte-matches the golden observable 
 
   CHECK(tap.renderable);
   CHECK(sink.text() == golden);
+  // Each think surfaces the inherited read (77) and the helper's write read back (88).
+  REQUIRE(microbit.i2c.writes.size() == 2);
+  for (const auto& write : microbit.i2c.writes) {
+    CHECK(write.address == 0x10);
+    CHECK(write.bytes == std::vector<uint8_t>{77, 88});
+  }
 }
 
 TEST_CASE("the struct-closure fixture byte-matches the golden observable trace") {
@@ -1243,15 +1288,23 @@ TEST_CASE("the struct-closure fixture byte-matches the golden observable trace")
   StringTextSink sink;
   ObservableTraceWriter writer(sink, image);
   HostMicroBit microbit;
-  microbit.display.writer = &writer;
+  microbit.i2c.writer = &writer;
   TraceTap tap(writer);
 
+  // The actuator builds a struct and a capturing closure, packs the reads and
+  // call results into a managed buffer, and surfaces it through the writeBuffer
+  // host function; the env resolves the buffer's bytes through the heap.
+  mindcraft::ManagedHeap heap(arena, &image);
+  mindcraft::MicroBitV2I2CWriteEnv i2cEnv{&microbit.i2c, &heap, &image};
   auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cEnv);
   ExecutionContext ctx;
-  // Structs, closures, and the struct deep-copy sites draw from a managed heap;
-  // the scheduler is its root source and wires itself into the surface.
-  mindcraft::ManagedHeap heap(arena);
+  mindcraft::TypeRegistry types(image);
+  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+  surface.types = &types;
+  surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
   FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
@@ -1259,10 +1312,10 @@ TEST_CASE("the struct-closure fixture byte-matches the golden observable trace")
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 
-  // The brain ignores input and runs identically each tick; advance 16ms thrice
-  // to mirror the TS oracle schedule.
+  // Two 16ms thinks mirror SCHEDULE in wodal
+  // packages/wodal/src/targets/microbit-v2/mindcraft/struct-closure-trace.spec.ts.
   float lastThinkTimeMs = 0;
-  for (int i = 0; i < 3; i++) {
+  for (int i = 0; i < 2; i++) {
     const float timeMs = lastThinkTimeMs + 16;
     microbit.clock.now = static_cast<uint32_t>(timeMs);
     writer.tick(static_cast<uint32_t>(i + 1), timeMs,
@@ -1274,6 +1327,12 @@ TEST_CASE("the struct-closure fixture byte-matches the golden observable trace")
 
   CHECK(tap.renderable);
   CHECK(sink.text() == golden);
+  // Each think surfaces p.x (9), p.y (4), identity(42), and the closure capture (7).
+  REQUIRE(microbit.i2c.writes.size() == 2);
+  for (const auto& write : microbit.i2c.writes) {
+    CHECK(write.address == 0x10);
+    CHECK(write.bytes == std::vector<uint8_t>{9, 4, 42, 7});
+  }
 }
 
 TEST_CASE("the user-tile button-display fixture byte-matches the golden observable trace") {

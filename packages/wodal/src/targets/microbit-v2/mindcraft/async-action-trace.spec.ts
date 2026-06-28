@@ -1,4 +1,9 @@
 /**
+ * Hand-constructed synthetic conformance fixture, not recreatable from a real
+ * compile: the single rule awaits a bytecode action and then reads the current
+ * page (two actions in one rule, while the brain compiler emits one action per
+ * rule).
+ *
  * Golden observable trace for a device-free brain whose rule awaits an async,
  * non-host (bytecode) action. The rule dispatches the action through
  * ACTION_CALL_ASYNC + AWAIT: a child fiber runs the action body, returns a
