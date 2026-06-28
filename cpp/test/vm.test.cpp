@@ -65,6 +65,7 @@ bool isImplementedOp(Op op) {
   case Op::JMP_IF_FALSE:
   case Op::JMP_IF_TRUE:
   case Op::RET:
+  case Op::SPAWN_RULE:
   case Op::WHEN_START:
   case Op::WHEN_END:
   case Op::DO_START:

@@ -21,6 +21,7 @@ class TypeRegistry;
 class HandleTable;
 struct VmRng;
 struct AsyncActionSpawner;
+struct ChildRuleSpawner;
 
 /**
  * Outcome of one dispatch-loop slice. Mirrors `VmStatus` in
@@ -147,6 +148,13 @@ struct RuntimeSurface {
    * faults `ErrorCode::HostError`.
    */
   AsyncActionSpawner* spawner = nullptr;
+
+  /**
+   * Spawns fire-and-forget child-rule fibers for `SPAWN_RULE`. Null when the
+   * dispatch loop runs outside a scheduler; `SPAWN_RULE` then faults
+   * `ErrorCode::HostError`.
+   */
+  ChildRuleSpawner* childRuleSpawner = nullptr;
 };
 
 /**

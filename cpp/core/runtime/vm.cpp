@@ -3,6 +3,7 @@
 #include <cstring>
 
 #include "core/runtime/async-action-spawner.h"
+#include "core/runtime/child-rule-spawner.h"
 #include "core/runtime/core-func-id.h"
 #include "core/runtime/core-host-functions.h"
 #include "core/runtime/handle-table.h"
@@ -1657,6 +1658,21 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       }
       state.frames[state.frameDepth - 1].ruleFuncId = calleeRuleFuncId;
       // The caller pc was advanced inside pushCallFrame; the callee runs next.
+      break;
+    }
+
+    case Op::SPAWN_RULE: {
+      // Operand layout: a = child rule funcId. Spawns a fire-and-forget child
+      // rule fiber and continues; nothing is pushed. The child runs in a later
+      // round (the round-tick rule). Mirrors execSpawnRule in vm.ts.
+      if (surface.childRuleSpawner == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      ErrorCode err = ErrorCode::HostError;
+      if (!surface.childRuleSpawner->spawnChildRule(ins.a, err)) {
+        return fault(err);
+      }
+      frame.pc++;
       break;
     }
 

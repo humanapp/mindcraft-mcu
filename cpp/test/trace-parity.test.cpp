@@ -2684,6 +2684,214 @@ TEST_CASE("the async-action fixture byte-matches the golden observable trace") {
   CHECK(microbit.display.pixels[0][0] == 0);
 }
 
+TEST_CASE("the sibling-rule-fibers fixture byte-matches the golden observable trace") {
+  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/sibling-rule-fibers";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  TraceTap tap(writer);
+
+  // The root rule spawns two child rules (SPAWN_RULE); each awaits a bytecode
+  // action (ACTION_CALL_ASYNC) and surfaces a set-pixel before and after.
+  mindcraft::ManagedHeap heap(arena, &image);
+  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  ExecutionContext ctx;
+  RuntimeSurface surface{&ctx, {mbBindings.data(), mbBindings.size()}, &tap, &heap};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Six 16ms thinks mirror the wodal schedule: both children dispatch their
+  // async action in the same think and resume together a later think.
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 6; i++) {
+    const float timeMs = lastThinkTimeMs + 16;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+}
+
+TEST_CASE("the parent-quiesce fixture byte-matches the golden observable trace") {
+  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/parent-quiesce";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  TraceTap tap(writer);
+
+  // The parent rule lights a marker pixel and spawns one child rule that awaits
+  // a bytecode action; the parent must not re-fire while the child is in flight.
+  mindcraft::ManagedHeap heap(arena, &image);
+  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  ExecutionContext ctx;
+  RuntimeSurface surface{&ctx, {mbBindings.data(), mbBindings.size()}, &tap, &heap};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 8; i++) {
+    const float timeMs = lastThinkTimeMs + 16;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+}
+
+TEST_CASE("the async-parent-sequencing fixture byte-matches the golden observable trace") {
+  const std::string base =
+      std::string(mindcraft::test::kWodalFixturesDir) + "/async-parent-sequencing";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  TraceTap tap(writer);
+
+  // The parent rule fires once on page entry, scrolls (async), and parks; its
+  // child rule lights a pixel after the scroll resolves (SPAWN_RULE at the tail).
+  mindcraft::CoreHostActionEnv coreEnv;
+  mindcraft::VmRng rng;
+  mindcraft::ManagedHeap heap(arena, &image);
+  mindcraft::MicroBitV2DisplayScrollEnv scrollEnv{&microbit.display, &heap};
+  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports, &scrollEnv);
+  auto actions = combineActionTable(coreBindings, mbBindings);
+  ExecutionContext ctx;
+  RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
+  surface.rng = &rng;
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+  coreEnv.brain = &brain;
+  coreEnv.rng = &rng;
+  coreEnv.heap = &heap;
+  coreEnv.roots = &scheduler;
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 12; i++) {
+    const float timeMs = lastThinkTimeMs + 1100;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    microbit.display.advanceScroll(timeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+}
+
+TEST_CASE("the non-firing-parent fixture byte-matches the golden observable trace") {
+  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/non-firing-parent";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  TraceTap tap(writer);
+
+  // A control rule lights a pixel every think; a parent rule gated on button A
+  // (never pressed) has a child rule that scrolls. The parent never fires, so
+  // its child never runs and no scroll crosses the trace.
+  mindcraft::ManagedHeap heap(arena, &image);
+  mindcraft::MicroBitV2DisplayScrollEnv scrollEnv{&microbit.display, &heap};
+  mindcraft::MicroBitV2ButtonSensorEnv buttonEnv{&microbit.buttons, &heap, nullptr};
+  auto bindings =
+      mindcraft::makeMicroBitV2HostActionBindings(microbit.ports, &scrollEnv, &buttonEnv);
+  ExecutionContext ctx;
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  buttonEnv.roots = &scheduler;
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Three 16ms thinks with the button never pressed.
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 3; i++) {
+    const float timeMs = lastThinkTimeMs + 16;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+}
+
 TEST_CASE("the pixel-conversion fixture byte-matches the golden observable trace") {
   const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/pixel-conversion";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");

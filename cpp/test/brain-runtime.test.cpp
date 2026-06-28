@@ -55,6 +55,17 @@ struct CountingObserver : VmObserver {
 
 Value execNoop(void*, ExecutionContext&, Span<const Value>) { return mindcraft::kVoidValue; }
 
+/** Host-action env carrying the brain so an action body can restart its page. */
+struct RestartEnv {
+  BrainRuntime* brain = nullptr;
+};
+
+/** A host action that restarts the active page mid-round (cancels its fibers). */
+Value execRestartPage(void* hostData, ExecutionContext&, Span<const Value>) {
+  static_cast<RestartEnv*>(hostData)->brain->requestPageRestart();
+  return mindcraft::kVoidValue;
+}
+
 void markStateOnPageEntered(void*, ExecutionContext& ctx) {
   ctx.setCallSiteState(Value::boolean(true));
 }
@@ -278,4 +289,44 @@ TEST_CASE("requesting the active page restarts its rules from their entry") {
   brain.requestPageChange(0);
   REQUIRE(brain.think(32.0f).isOk());
   CHECK(observer.actionCalls == 2);
+}
+
+TEST_CASE("a page restart cancels a firing child-rule subtree without orphaning it") {
+  ProgramBuilder b;
+  b.poolString("page-id");
+  b.valueNil(); // value pool 0: the RET value
+  // funcId 0: a parent rule that spawns a child rule (funcId 1).
+  b.beginFunction().instr(Op::SPAWN_RULE, 1).instr(Op::PUSH_CONST_VAL, 0).instr(Op::RET);
+  // funcId 1: the child rule (trivial body).
+  b.beginFunction().instr(Op::PUSH_CONST_VAL, 0).instr(Op::RET);
+  // funcId 2: a sibling root rule that restarts the page mid-round, cancelling
+  // the still-queued child the parent just spawned.
+  b.beginFunction().instr(Op::HOST_ACTION_CALL, 1, 0, 0).instr(Op::RET);
+  b.ruleFunc(0);
+  b.ruleFunc(1);
+  b.ruleFunc(2);
+  b.beginPage(0).pageRoot(0).pageRoot(2).pageHostCallSite(0, 1);
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  RestartEnv env;
+  const HostActionBinding bindings[1] = {{1, &execRestartPage, nullptr, &env}};
+  ExecutionContext ctx;
+  CountingObserver observer;
+  RuntimeSurface surface{&ctx, {bindings, 1}, &observer};
+  SchedulerStorage pools;
+  FiberScheduler scheduler(image, surface, pools.arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+  env.brain = &brain;
+  REQUIRE(brain.startup().isOk());
+
+  // Each think the parent spawns a child fiber and the sibling rule restarts the
+  // page mid-round, cancelling the still-queued child subtree. A leak or orphan
+  // would grow liveCount without bound across thinks; a mid-round-cancel crash
+  // would fault or abort.
+  for (int i = 1; i <= 50; i++) {
+    REQUIRE(brain.think(16.0f * static_cast<float>(i)).isOk());
+    CHECK(scheduler.liveCount() <= 4);
+  }
+  CHECK(observer.faultedFibers.empty());
 }

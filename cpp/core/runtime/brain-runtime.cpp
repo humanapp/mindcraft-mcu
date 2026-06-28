@@ -162,6 +162,9 @@ void BrainRuntime::cancelActiveFibers() {
   for (uint32_t i = 0; i < ruleFiberCount_; i++) {
     scheduler_.cancel(ruleFibers_[i].fiberId);
   }
+  // Cascade: cancel every in-flight child-rule fiber spawned beneath the page's
+  // roots, so a page switch or restart leaves no orphaned child fiber.
+  scheduler_.cancelChildRuleFibers();
 }
 
 void BrainRuntime::requestPageChange(uint32_t pageIndex) {
@@ -244,9 +247,12 @@ Status BrainRuntime::think(mc_number_t currentTimeMs) {
   for (uint32_t i = 0; i < ruleFiberCount_; i++) {
     RuleFiber& entry = ruleFibers_[i];
     const FiberRecord* record = scheduler_.fiber(entry.fiberId);
-    const bool needsRespawn = record == nullptr || record->state == FiberState::Done ||
-                              record->state == FiberState::Fault ||
-                              record->state == FiberState::Cancelled;
+    const bool dead = record == nullptr || record->state == FiberState::Done ||
+                      record->state == FiberState::Fault || record->state == FiberState::Cancelled;
+    // A root rule re-fires only once it is dead and no descendant child-rule
+    // fiber is still in flight (the rule quiesces while a child it spawned is
+    // parked).
+    const bool needsRespawn = dead && !scheduler_.hasLiveDescendantOfRoot(entry.funcId);
     if (needsRespawn) {
       const Result<uint32_t> spawned = scheduler_.spawn(entry.funcId);
       if (!spawned.isOk()) {

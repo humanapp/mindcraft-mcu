@@ -18,6 +18,7 @@ TEST_CASE("Op values are wire-stable at the group boundaries") {
   CHECK(static_cast<uint8_t>(Op::LOAD_VAR_SLOT) == 10);
   CHECK(static_cast<uint8_t>(Op::JMP) == 20);
   CHECK(static_cast<uint8_t>(Op::CALL) == 30);
+  CHECK(static_cast<uint8_t>(Op::SPAWN_RULE) == 32);
   CHECK(static_cast<uint8_t>(Op::HOST_CALL) == 40);
   CHECK(static_cast<uint8_t>(Op::ACTION_CALL) == 42);
   CHECK(static_cast<uint8_t>(Op::HOST_ACTION_CALL) == 44);
@@ -69,6 +70,12 @@ TEST_CASE("schema rows for known opcodes match the TS operand layout") {
   CHECK(call->operands[0].encoding == OperandEncoding::UVar);
   CHECK(call->operands[1].encoding == OperandEncoding::UVar);
   CHECK_FALSE(call->operands[1].optional);
+
+  const OpOperandSchema* spawnRule = operandSchemaFor(Op::SPAWN_RULE);
+  REQUIRE(spawnRule != nullptr);
+  CHECK(spawnRule->operandCount == 1);
+  CHECK(spawnRule->operands[0].encoding == OperandEncoding::UVar);
+  CHECK_FALSE(spawnRule->operands[0].optional);
 
   const OpOperandSchema* hostCall = operandSchemaFor(Op::HOST_CALL);
   REQUIRE(hostCall != nullptr);

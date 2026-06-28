@@ -15,6 +15,8 @@ FiberScheduler::FiberScheduler(const ProgramImage& program, const RuntimeSurface
   surface_.handles = &handles_;
   // ACTION_CALL_ASYNC spawns its child fiber through the same surface.
   surface_.spawner = this;
+  // SPAWN_RULE spawns its child-rule fiber through the same surface.
+  surface_.childRuleSpawner = this;
 }
 
 void FiberScheduler::enumerateRoots(GcMarker& marker) {
@@ -101,6 +103,8 @@ FiberRecord* FiberScheduler::allocFiber(uint32_t funcId, bool inlineId, Span<con
   record->id = inlineId ? nextInlineFiberId_-- : nextFiberId_++;
   record->state = FiberState::Runnable;
   record->exec = exec;
+  // Only SPAWN_RULE child fibers carry a subtree root; all others leave it unset.
+  record->rootRuleFuncId = kNoFuncId;
   return record;
 }
 
@@ -142,6 +146,44 @@ uint32_t FiberScheduler::spawnAsyncActionChild(uint32_t entryFuncId, uint32_t ac
   record->exec.dispatchTime = surface_.context != nullptr ? surface_.context->time : 0;
   enqueue(record);
   return handleId;
+}
+
+bool FiberScheduler::spawnChildRule(uint32_t funcId, ErrorCode& err) {
+  // Tag the child with this subtree's root rule: the spawner's root when the
+  // spawner is itself a child, or the spawner's own rule funcId when it is the
+  // root.
+  uint32_t subtreeRoot = funcId;
+  if (running_ != nullptr) {
+    subtreeRoot = running_->rootRuleFuncId != kNoFuncId ? running_->rootRuleFuncId
+                                                        : running_->exec.frames[0].funcId;
+  }
+  FiberRecord* record = allocFiber(funcId, false, {}, err);
+  if (record == nullptr) {
+    return false;
+  }
+  record->rootRuleFuncId = subtreeRoot;
+  enqueue(record);
+  return true;
+}
+
+bool FiberScheduler::hasLiveDescendantOfRoot(uint32_t rootRuleFuncId) {
+  bool found = false;
+  records_.forEachLive([&](FiberRecord& record) {
+    if (record.rootRuleFuncId == rootRuleFuncId &&
+        (record.state == FiberState::Runnable || record.state == FiberState::Waiting)) {
+      found = true;
+    }
+  });
+  return found;
+}
+
+void FiberScheduler::cancelChildRuleFibers() {
+  records_.forEachLive([&](FiberRecord& record) {
+    if (record.rootRuleFuncId != kNoFuncId &&
+        (record.state == FiberState::Runnable || record.state == FiberState::Waiting)) {
+      cancelRecord(record);
+    }
+  });
 }
 
 Status FiberScheduler::runActionHook(uint32_t funcId, uint32_t actionId, uint32_t callSiteId) {
@@ -194,25 +236,29 @@ void FiberScheduler::cancel(uint32_t fiberId) {
       (record->state != FiberState::Runnable && record->state != FiberState::Waiting)) {
     return;
   }
+  cancelRecord(*record);
+}
+
+void FiberScheduler::cancelRecord(FiberRecord& record) {
   // A waiting fiber must leave its handle's waiter list so a later settle does
   // not try to resume a cancelled fiber.
-  if (record->state == FiberState::Waiting && record->exec.awaiting) {
-    handles_.removeWaiter(record->exec.await.handleId, record->id);
-    record->exec.awaiting = false;
+  if (record.state == FiberState::Waiting && record.exec.awaiting) {
+    handles_.removeWaiter(record.exec.await.handleId, record.id);
+    record.exec.awaiting = false;
   }
-  record->state = FiberState::Cancelled;
+  record.state = FiberState::Cancelled;
   // A cancelled async-action child cancels its pending result handle; the
   // awaiting parent resumes on the next drain with a Cancelled throw. Mirrors
   // cancelAsyncActionHandle in vm.ts.
-  if (record->exec.asyncResultHandleId != kNoHandleId) {
-    handles_.cancel(record->exec.asyncResultHandleId);
-    record->exec.asyncResultHandleId = kNoHandleId;
+  if (record.exec.asyncResultHandleId != kNoHandleId) {
+    handles_.cancel(record.exec.asyncResultHandleId);
+    record.exec.asyncResultHandleId = kNoHandleId;
   }
   // Signal an in-flight dispatch slice (a self-cancel from a host body) to stop
   // at its next instruction boundary.
-  record->exec.cancelled = true;
+  record.exec.cancelled = true;
   // A cancelled record must leave the run queue before a sweep can free it.
-  removeFromQueue(record);
+  removeFromQueue(&record);
 }
 
 void FiberScheduler::resumeFiberFromHandle(FiberRecord& record, const Handle& h) {
@@ -287,7 +333,11 @@ uint32_t FiberScheduler::tick() {
     if (stampDispatchTime) {
       surface_.context->time = record->exec.dispatchTime;
     }
+    // Expose the running fiber so a SPAWN_RULE in its slice can link the child
+    // back to it. Cleared after the slice returns.
+    running_ = record;
     const RunResult result = runExecution(record->exec, program_, surface_);
+    running_ = nullptr;
     if (stampDispatchTime) {
       surface_.context->time = liveTime;
     }

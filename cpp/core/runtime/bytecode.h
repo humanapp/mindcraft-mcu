@@ -34,6 +34,7 @@ enum class Op : uint8_t {
   // Function calls
   CALL = 30,
   RET = 31,
+  SPAWN_RULE = 32,
 
   // Host calls
   HOST_CALL = 40,
@@ -116,7 +117,7 @@ enum class Op : uint8_t {
 };
 
 /** Number of declared {@link Op} members, including the reserved opcodes. */
-inline constexpr uint32_t kOpCount = 63;
+inline constexpr uint32_t kOpCount = 64;
 
 /**
  * Var-int encoding of a single instruction operand: `UVar` is an unsigned
@@ -180,6 +181,7 @@ inline constexpr OpOperandSchema kOperandSchema[] = {
     {Op::JMP_IF_TRUE, 1, {detail::kSVar}},
     {Op::CALL, 2, {detail::kUVar, detail::kUVar}},
     {Op::RET, 0, {}},
+    {Op::SPAWN_RULE, 1, {detail::kUVar}},
     {Op::HOST_CALL, 3, {detail::kUVar, detail::kUVar, detail::kUVar}},
     {Op::HOST_CALL_ASYNC, 3, {detail::kUVar, detail::kUVar, detail::kUVar}},
     {Op::ACTION_CALL, 3, {detail::kUVar, detail::kUVar, detail::kUVar}},

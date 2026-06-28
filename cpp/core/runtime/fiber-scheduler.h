@@ -4,6 +4,7 @@
 
 #include "core/platform/span.h"
 #include "core/runtime/async-action-spawner.h"
+#include "core/runtime/child-rule-spawner.h"
 #include "core/runtime/device-profile-caps.h"
 #include "core/runtime/execution-state.h"
 #include "core/runtime/handle-table.h"
@@ -62,6 +63,13 @@ struct FiberRecord {
   ExecutionState exec;
   /** Next fiber in the run queue (intrusive FIFO), or nullptr at the tail. */
   FiberRecord* nextRunnable;
+  /**
+   * Func id of the root rule whose subtree this child-rule fiber belongs to, set
+   * when spawned by `SPAWN_RULE`. {@link kNoFuncId} for root-rule, async-action
+   * child, and hook fibers, so its presence marks a child-rule fiber. Mirrors
+   * `Fiber.rootRuleFuncId` in vm.ts.
+   */
+  uint32_t rootRuleFuncId;
 };
 
 /**
@@ -85,7 +93,7 @@ struct FiberRecord {
  * fibers' operand stacks and locals plus the bound execution context's brain
  * variables and per-callsite state.
  */
-class FiberScheduler : public GcRoots, public AsyncActionSpawner {
+class FiberScheduler : public GcRoots, public AsyncActionSpawner, public ChildRuleSpawner {
 public:
   /**
    * A scheduler executing `program` against `surface` under `caps`. The caps
@@ -130,6 +138,30 @@ public:
   uint32_t spawnAsyncActionChild(uint32_t entryFuncId, uint32_t actionId, uint32_t callSiteId,
                                  uint32_t ruleFuncId, Span<const Value> args,
                                  ErrorCode& err) override;
+
+  /**
+   * Spawns a fire-and-forget child-rule fiber for `funcId`, linked to the fiber
+   * currently executing this round, and enqueues it for the next round.
+   * Implements {@link ChildRuleSpawner}; the dispatch loop calls it through
+   * {@link RuntimeSurface::childRuleSpawner} for `SPAWN_RULE`.
+   */
+  bool spawnChildRule(uint32_t funcId, ErrorCode& err) override;
+
+  /**
+   * Cancels every live child-rule fiber (those carrying a subtree root). The
+   * page-scoped cancellation cascade: exactly one page is active, so every live
+   * child-rule fiber descends from one of its root rules. Each cancel removes
+   * the fiber from the run queue, so the cascade is safe mid-round. Root-rule,
+   * async-action child, and hook fibers are left untouched.
+   */
+  void cancelChildRuleFibers();
+
+  /**
+   * Returns true when a live (runnable or waiting) child-rule fiber belongs to
+   * the subtree of root rule `rootRuleFuncId`. Lets a root rule hold its re-fire
+   * while any of its descendant child rules is still in flight.
+   */
+  bool hasLiveDescendantOfRoot(uint32_t rootRuleFuncId);
 
   /** Cancels the fiber holding `fiberId`; a no-op when it is not live. */
   void cancel(uint32_t fiberId);
@@ -197,6 +229,10 @@ private:
   FiberRecord* allocFiber(uint32_t funcId, bool inlineId, Span<const Value> args, ErrorCode& err);
 
   FiberRecord* findFiber(uint32_t fiberId);
+  // Cancels a live (runnable or waiting) record: detaches it from any awaited
+  // handle, cancels a pending async-action result handle, marks it Cancelled,
+  // and removes it from the run queue. Shared by cancel() and the cascade.
+  void cancelRecord(FiberRecord& record);
   void enqueue(FiberRecord* record);
   FiberRecord* dequeue();
   void removeFromQueue(FiberRecord* record);
@@ -224,6 +260,9 @@ private:
   FiberRecord* runHead_ = nullptr;
   FiberRecord* runTail_ = nullptr;
   uint32_t queueCount_ = 0;
+  // The fiber whose slice is currently running in tick(), or nullptr outside a
+  // slice. SPAWN_RULE reads it to link a child fiber to its parent.
+  FiberRecord* running_ = nullptr;
   // Ascending id space for root/rule fibers, starting at 1.
   uint32_t nextFiberId_ = 1;
   // Descending id space for synchronous hook fibers, starting at (uint32_t)-1
