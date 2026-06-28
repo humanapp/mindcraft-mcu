@@ -9,7 +9,7 @@ import {
   ProjectManager,
   type ProjectManifest,
 } from "@mindcraft-lang/app-host";
-import { type AppBridgeState, AppEnvironmentHost } from "@mindcraft-lang/bridge-app";
+import { type AppBridgeState, AppEnvironmentHost, type UserTileApplyResult } from "@mindcraft-lang/bridge-app";
 import { BrainDef, coreModule, createMindcraftEnvironment, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
 import { createProfileNumerics } from "@mindcraft-lang/core/runtime";
 import { isCompilerControlledPath } from "@mindcraft-lang/ts-compiler";
@@ -33,6 +33,7 @@ import {
   SIMULATOR_STATE_KEY,
 } from "./project-io";
 import { MicrobitSimulator } from "./simulator";
+import { UserCodeReflasher } from "./user-code-reflasher";
 import { initVfsServiceWorker } from "./vfs-service-worker";
 
 /** Parses the persisted simulator fleet; returns undefined when absent or malformed. */
@@ -177,6 +178,9 @@ export class MicrobitSimEnvironmentStore {
   /** The device profile this app instance runs: drives the environment module, builds, import, and export. */
   readonly activeDeviceProfile: WodalDeviceProfile;
 
+  /** Reflashes flashed instances when a user-code recompile changes an action their brain uses. */
+  private readonly _userCodeReflasher: UserCodeReflasher;
+
   private _brainIds: readonly string[] = [];
   private _brains: readonly BrainRecord[] = [];
   private _selectedBrainId: string | undefined;
@@ -196,6 +200,17 @@ export class MicrobitSimEnvironmentStore {
     this.host = host;
     this.activeDeviceProfile = activeDeviceProfile;
     this.simulator = new MicrobitSimulator(host.env);
+    this._userCodeReflasher = new UserCodeReflasher({
+      flashedBrainIds: () =>
+        this.simulator
+          .getInstances()
+          .map((instance) => instance.flashedBrainId)
+          .filter((id): id is string => id !== undefined),
+      getBrainDef: (brainId) => this.host.getCachedBrain(brainId),
+      reflashBrain: (brainId) => {
+        void this.reflashBrain(brainId);
+      },
+    });
     // The instance-list listener fires on fleet changes (add/remove/flash), not on per-tick device updates.
     this.simulator.subscribeToInstances(() => {
       void this.persistSimulatorState();
@@ -215,6 +230,7 @@ export class MicrobitSimEnvironmentStore {
     const activeProfile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
     const appSettings = loadAppSettings();
     const projectStore = await createIdbProjectStore(appName);
+    let instanceRef: MicrobitSimEnvironmentStore | undefined;
     const host = new AppEnvironmentHost({
       projectManager: new ProjectManager(projectStore, {
         filesystemOptions: {
@@ -234,8 +250,12 @@ export class MicrobitSimEnvironmentStore {
       // Minted ids (brain id, page id) must be unique across sessions; the deterministic MathOps.random
       // LCG repeats every load and would collide.
       rng: { next: () => Math.random() },
+      onDidCompile: (_result, tileResult) => {
+        instanceRef?.handleProjectCompiled(tileResult);
+      },
     });
     const instance = new MicrobitSimEnvironmentStore(host, activeProfile);
+    instanceRef = instance;
     instance._appSettings = appSettings;
     return instance;
   }
@@ -502,6 +522,14 @@ export class MicrobitSimEnvironmentStore {
     this.simulator.reflash(brainId, input);
   }
 
+  /**
+   * Reacts to a finished project compile by reflashing flashed instances whose brains use a user
+   * action the compile changed.
+   */
+  private handleProjectCompiled(tileResult: UserTileApplyResult | undefined): void {
+    this._userCodeReflasher.onActionsChanged(tileResult?.changedActionKeys ?? []);
+  }
+
   /** Subscribes to brain-list or selection changes for `useSyncExternalStore`. */
   subscribeToBrains = (listener: () => void): (() => void) => {
     this._brainsListeners.add(listener);
@@ -636,6 +664,7 @@ export class MicrobitSimEnvironmentStore {
 
   /** Releases host resources owned by this store. */
   dispose(): void {
+    this._userCodeReflasher.cancelPending();
     this.host.dispose();
   }
 
@@ -709,6 +738,8 @@ export class MicrobitSimEnvironmentStore {
       // Persist the freshly minted default fleet so its id is reused on the next load.
       await this.persistSimulatorState();
     }
+    // Drop any reflash the load-time compile queued.
+    this._userCodeReflasher.cancelPending();
   }
 
   /** The current fleet as a persistable snapshot: ordered instance ids and the brain each is flashed with. */
