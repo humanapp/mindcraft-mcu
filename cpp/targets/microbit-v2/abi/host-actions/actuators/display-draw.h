@@ -28,6 +28,12 @@ inline constexpr uint32_t kDrawImageDurationArgSlot = 1;
 /** Arg slot of the `immediately` modifier: when present, the draw preempts the current lease. */
 inline constexpr uint32_t kDrawImageImmediatelyArgSlot = 2;
 
+/**
+ * Arg slot of the `in background` modifier: when present, the draw keeps its
+ * lease but resolves at dispatch so the issuing rule does not await it.
+ */
+inline constexpr uint32_t kDrawImageInBackgroundArgSlot = 3;
+
 /** Field ids and storage slots of the `Image` struct, mirroring ImageField in tile-ids.ts. */
 inline constexpr uint32_t kImageWidthFieldId = 0;
 inline constexpr uint32_t kImageHeightFieldId = 1;
@@ -253,7 +259,9 @@ private:
  * zero-duration draw resolves at dispatch (no lease; with multiple images only
  * the last is painted), a positive duration holds the display for the whole
  * sequence, and a draw dispatched while the display is busy is dropped and
- * resolves at once. `hostData` is the bound {@link MicroBitV2DrawImageEnv}.
+ * resolves at once. With the `in background` modifier present the draw keeps its
+ * lease but `handle` resolves at dispatch, so the issuing rule continues this
+ * round without parking on the hold. `hostData` is the bound {@link MicroBitV2DrawImageEnv}.
  * Mirrors wodal `actions/display-draw.ts`.
  */
 inline Status execDrawImage(void *hostData, ExecutionContext &ctx, Span<const Value> args,
@@ -275,6 +283,12 @@ inline Status execDrawImage(void *hostData, ExecutionContext &ctx, Span<const Va
     }
     DrawImageFrameSource source(env, slot);
     env.display->drawFrames(source, durationMs, ctx.time, handle);
+    if (kDrawImageInBackgroundArgSlot < args.size() && !args[kDrawImageInBackgroundArgSlot].isNil())
+    {
+        // The draw keeps its lease and resolves on tick time as above; resolving
+        // now releases the issuing rule so it does not park.
+        handle.resolve(kVoidValue);
+    }
     return Status::ok();
 }
 

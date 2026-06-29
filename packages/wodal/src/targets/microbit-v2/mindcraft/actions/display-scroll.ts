@@ -24,10 +24,11 @@ import { MicroBitV2HostActions } from "../tile-ids";
 /** Text scrolled when the call omits the optional text argument. */
 const DEFAULT_TEXT = "hello";
 
-const callDef = mkCallDef(bag(optional(Param.text), optional(Modifier.immediately)));
+const callDef = mkCallDef(bag(optional(Param.text), optional(Modifier.immediately), optional(Modifier.inBackground)));
 
 const kTextSlotId = getSlotId(callDef, Param.text);
 const kImmediatelySlotId = getSlotId(callDef, Modifier.immediately);
+const kInBackgroundSlotId = getSlotId(callDef, Modifier.inBackground);
 
 /** True when arg slot `slotId` carries a present (non-nil) value. */
 function hasArg(args: ReadonlyList<Value>, slotId: number): boolean {
@@ -63,6 +64,11 @@ function execDisplayScroll(ctx: ExecutionContext, args: ReadonlyList<Value>, han
   }
   const durationMs = scrollDurationMs(text.length, SCROLL_DEFAULT_DELAY_MS);
   microbit.display.scrollText(text, durationMs, ctx.time, () => handle.resolve(VOID_VALUE));
+  if (hasModifier(args, kInBackgroundSlotId)) {
+    // The scroll keeps its lease and resolves on tick time as above; resolving
+    // now releases the issuing rule so it does not park on the animation.
+    handle.resolve(VOID_VALUE);
+  }
 }
 
 /**
@@ -70,7 +76,9 @@ function execDisplayScroll(ctx: ExecutionContext, args: ReadonlyList<Value>, han
  * calling fiber awaits the returned handle and resumes when the scroll
  * animation completes. With the `immediately` modifier the current display lease
  * is preempted so the scroll starts at once; otherwise a scroll requested while
- * the display is busy is dropped.
+ * the display is busy is dropped. With the `in background` modifier the scroll
+ * keeps its lease but the handle resolves at dispatch, so the issuing rule
+ * continues this round without parking on the animation.
  */
 export default {
   ...MicroBitV2HostActions.DisplayScroll,

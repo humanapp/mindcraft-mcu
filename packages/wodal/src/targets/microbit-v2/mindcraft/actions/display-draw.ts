@@ -31,12 +31,18 @@ export const DEFAULT_DURATION_MS = 1000;
 export const DEFAULT_IMAGE: ClippedFrame = builtInImageFrame(getBuiltInImage(DEFAULT_BUILT_IN_IMAGE_NAME));
 
 const callDef = mkCallDef(
-  bag(optional(repeated(Param.image, { min: 0 })), optional(Param.duration), optional(Modifier.immediately))
+  bag(
+    optional(repeated(Param.image, { min: 0 })),
+    optional(Param.duration),
+    optional(Modifier.immediately),
+    optional(Modifier.inBackground)
+  )
 );
 
 const kImageSlotId = getSlotId(callDef, Param.image);
 const kDurationSlotId = getSlotId(callDef, Param.duration);
 const kImmediatelySlotId = getSlotId(callDef, Modifier.immediately);
+const kInBackgroundSlotId = getSlotId(callDef, Modifier.inBackground);
 
 /** A draw frame clipped to the display: packed brightness bytes plus its clipped size. */
 export interface ClippedFrame {
@@ -124,6 +130,11 @@ function execDrawImage(ctx: ExecutionContext, args: ReadonlyList<Value>, handle:
   const durationMs =
     durationSeconds === undefined ? DEFAULT_DURATION_MS : toNonNegativeInteger(Math.fround(durationSeconds * 1000));
   microbit.display.drawImage(frames, durationMs, ctx.time, () => handle.resolve(VOID_VALUE));
+  if (hasModifier(args, kInBackgroundSlotId)) {
+    // The draw keeps its lease and resolves on tick time as above; resolving now
+    // releases the issuing rule so it does not park on the hold.
+    handle.resolve(VOID_VALUE);
+  }
 }
 
 /**
@@ -138,7 +149,9 @@ function execDrawImage(ctx: ExecutionContext, args: ReadonlyList<Value>, handle:
  * display lease for the whole sequence and resolves when it elapses, with the
  * awaiting fiber parked until then. With the `immediately` modifier the current
  * display lease is preempted so the draw runs at once; otherwise a draw
- * dispatched while the display is busy is silently dropped.
+ * dispatched while the display is busy is silently dropped. With the
+ * `in background` modifier the draw keeps its lease but the handle resolves at
+ * dispatch, so the issuing rule continues this round without parking on the hold.
  */
 export default {
   ...MicroBitV2HostActions.DrawImage,

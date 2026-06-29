@@ -2524,6 +2524,15 @@ TEST_CASE("the draw-image-preempt fixture byte-matches the golden observable tra
   checkDrawFixture("draw-image-preempt", 3, 100.0f);
 }
 
+TEST_CASE("the draw-image-background fixture byte-matches the golden observable trace") {
+  checkDrawFixture("draw-image-background", 8, 1100.0f);
+}
+
+TEST_CASE(
+    "the draw-image-background-immediately fixture byte-matches the golden observable trace") {
+  checkDrawFixture("draw-image-background-immediately", 5, 1100.0f);
+}
+
 TEST_CASE("the draw-image-builtins fixture byte-matches the golden observable trace") {
   checkDrawFixture("draw-image-builtins", 2, 100.0f);
 }
@@ -2622,6 +2631,67 @@ TEST_CASE("the display-scroll-drop fixture byte-matches the golden observable tr
   CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   CHECK(microbit.display.pixels[0][0] == 255);
+}
+
+TEST_CASE("the display-scroll-background fixture byte-matches the golden observable trace") {
+  const std::string base =
+      std::string(mindcraft::test::kWodalFixturesDir) + "/display-scroll-background";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  TraceTap tap(writer);
+
+  mindcraft::CoreHostActionEnv coreEnv;
+  mindcraft::VmRng rng;
+  mindcraft::ManagedHeap heap(arena, &image);
+  mindcraft::MicroBitV2DisplayScrollEnv scrollEnv{&microbit.display, &heap};
+  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports, &scrollEnv);
+  auto actions = combineActionTable(coreBindings, mbBindings);
+  ExecutionContext ctx;
+  RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
+  surface.rng = &rng;
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+  coreEnv.brain = &brain;
+  coreEnv.rng = &rng;
+  coreEnv.heap = &heap;
+  coreEnv.roots = &scheduler;
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Eight 1100ms thinks: the parent rule scrolls with the in-background modifier
+  // and takes the lease on tick 1; its handle resolves at dispatch, so the parent
+  // does not park and its child rule (SPAWN_RULE at the tail) lights a pixel on
+  // the next think, while the scroll animation still holds the lease.
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 8; i++) {
+    const float timeMs = lastThinkTimeMs + 1100;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    microbit.display.advanceScroll(timeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
 }
 
 TEST_CASE("the async-action fixture byte-matches the golden observable trace") {

@@ -28,6 +28,12 @@ inline constexpr uint32_t kDisplayScrollTextArgSlot = 0;
 /** Arg slot of the `immediately` modifier: when present, the scroll preempts the current lease. */
 inline constexpr uint32_t kDisplayScrollImmediatelyArgSlot = 1;
 
+/**
+ * Arg slot of the `in background` modifier: when present, the scroll keeps its
+ * lease but resolves at dispatch so the issuing rule does not await it.
+ */
+inline constexpr uint32_t kDisplayScrollInBackgroundArgSlot = 2;
+
 /** Text scrolled when the call omits the optional text argument. */
 inline constexpr char kDisplayScrollDefaultText[] = "hello";
 
@@ -48,7 +54,9 @@ struct MicroBitV2DisplayScrollEnv
  * modifier present it preempts the current display lease so the scroll starts at
  * once. Starts the scroll on the display port at the current think time and
  * leaves `handle` for the port to resolve when the animation completes; the
- * calling fiber awaits it. `hostData` is the bound
+ * calling fiber awaits it. With the `in background` modifier present the scroll
+ * keeps its lease but `handle` resolves at dispatch, so the issuing rule
+ * continues this round without parking on the animation. `hostData` is the bound
  * {@link MicroBitV2DisplayScrollEnv}. Mirrors wodal `actions/display-scroll.ts`.
  */
 inline Status execScrollText(void *hostData, ExecutionContext &ctx, Span<const Value> args,
@@ -103,6 +111,13 @@ inline Status execScrollText(void *hostData, ExecutionContext &ctx, Span<const V
     }
     env.display->scrollText(reinterpret_cast<const uint8_t *>(bytes), length, kScrollDefaultDelayMs,
                             ctx.time, handle);
+    if (kDisplayScrollInBackgroundArgSlot < args.size() &&
+        !args[kDisplayScrollInBackgroundArgSlot].isNil())
+    {
+        // The scroll keeps its lease and resolves on tick time as above;
+        // resolving now releases the issuing rule so it does not park.
+        handle.resolve(kVoidValue);
+    }
     return Status::ok();
 }
 

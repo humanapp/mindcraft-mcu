@@ -170,6 +170,9 @@ export const WodalMicroBitV2ModifierId = {
 
   /** Preempt the current display lease so the draw or scroll runs at once. */
   Immediately: "microbit-v2.immediately",
+
+  /** Run the draw or scroll under its display lease without the issuing rule awaiting it. */
+  InBackground: "microbit-v2.in-background",
 } as const;
 
 /** Parameter tile ids consumed by the actuators. */

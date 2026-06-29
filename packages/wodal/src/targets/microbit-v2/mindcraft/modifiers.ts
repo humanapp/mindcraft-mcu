@@ -27,6 +27,7 @@ export const Modifier = {
   faceDown: mod(WodalMicroBitV2ModifierId.FaceDown),
   freefall: mod(WodalMicroBitV2ModifierId.Freefall),
   immediately: mod(WodalMicroBitV2ModifierId.Immediately),
+  inBackground: mod(WodalMicroBitV2ModifierId.InBackground),
 };
 
 /** Modifier tiles registered once with the module. */
@@ -46,4 +47,5 @@ export const MICROBIT_V2_MODIFIERS: readonly ModifierTileInput[] = [
   { id: WodalMicroBitV2ModifierId.FaceDown, label: "face down" },
   { id: WodalMicroBitV2ModifierId.Freefall, label: "freefall" },
   { id: WodalMicroBitV2ModifierId.Immediately, label: "immediately" },
+  { id: WodalMicroBitV2ModifierId.InBackground, label: "in background" },
 ];
