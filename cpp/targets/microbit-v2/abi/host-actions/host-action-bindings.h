@@ -8,14 +8,17 @@
 #include "targets/microbit-v2/abi/host-actions/actuators/display-draw.h"
 #include "targets/microbit-v2/abi/host-actions/actuators/display-scroll.h"
 #include "targets/microbit-v2/abi/host-actions/actuators/display-set-pixel.h"
+#include "targets/microbit-v2/abi/host-actions/actuators/radio-send.h"
+#include "targets/microbit-v2/abi/host-actions/actuators/set-radio-group.h"
 #include "targets/microbit-v2/abi/host-actions/sensors/button-sensor.h"
 #include "targets/microbit-v2/abi/host-actions/sensors/gesture-sensor.h"
+#include "targets/microbit-v2/abi/host-actions/sensors/radio-receive.h"
 
 namespace mindcraft
 {
 
 /** Number of microbit-v2 host-action bindings the slice registers. */
-inline constexpr uint32_t kMicroBitV2HostActionBindingCount = 8;
+inline constexpr uint32_t kMicroBitV2HostActionBindingCount = 12;
 
 /**
  * Builds the microbit-v2 host-action binding table over `ports`, one entry per
@@ -31,7 +34,9 @@ inline std::array<HostActionBinding, kMicroBitV2HostActionBindingCount>
 makeMicroBitV2HostActionBindings(DevicePorts &ports,
                                  MicroBitV2DisplayScrollEnv *scrollEnv = nullptr,
                                  MicroBitV2ButtonSensorEnv *buttonEnv = nullptr,
-                                 MicroBitV2DrawImageEnv *drawEnv = nullptr)
+                                 MicroBitV2DrawImageEnv *drawEnv = nullptr,
+                                 MicroBitV2RadioSendEnv *radioSendEnv = nullptr,
+                                 MicroBitV2RadioSensorEnv *radioSensorEnv = nullptr)
 {
     return {{
         {MicroBitV2HostActions::ButtonA.actionId, &execButtonA, &buttonSensorPageEntered,
@@ -47,6 +52,12 @@ makeMicroBitV2HostActionBindings(DevicePorts &ports,
          buttonEnv},
         {MicroBitV2HostActions::Gesture.actionId, &execGestureSensor, nullptr, &ports},
         {MicroBitV2HostActions::DrawImage.actionId, nullptr, nullptr, drawEnv, &execDrawImage},
+        {MicroBitV2HostActions::RadioSend.actionId, &execRadioSend, nullptr, radioSendEnv},
+        {MicroBitV2HostActions::RadioReceiveNumber.actionId, &execRadioReceiveNumber,
+         &radioReceivePageEntered, radioSensorEnv},
+        {MicroBitV2HostActions::RadioReceiveString.actionId, &execRadioReceiveString,
+         &radioReceivePageEntered, radioSensorEnv},
+        {MicroBitV2HostActions::SetRadioGroup.actionId, &execSetRadioGroup, nullptr, &ports},
     }};
 }
 

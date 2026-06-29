@@ -222,6 +222,86 @@ public:
 };
 
 /**
+ * A typed packet handed to {@link RadioPort::send}. Unused fields carry their
+ * empty value. `type` is a MakeCode packet type (0-5) or -1 for a raw datagram;
+ * `value` is the numeric payload; `name`/`text`/`bytes` are borrowed spans valid
+ * only for the duration of the send call.
+ */
+struct RadioSendView {
+  int type;
+  uint32_t group;
+  mc_number_t value;
+  const uint8_t* name;
+  uint32_t nameLen;
+  const uint8_t* text;
+  uint32_t textLen;
+  const uint8_t* bytes;
+  uint32_t bytesLen;
+};
+
+/**
+ * A decoded packet read from the receive ring. `name`/`text`/`bytes` are
+ * borrowed spans owned by the port, valid until the ring is next mutated. `seq`
+ * is the monotonic arrival sequence (from 1); `type` is a MakeCode packet type
+ * (0-5) or -1 for a raw datagram.
+ */
+struct RadioPacketView {
+  int seq;
+  int type;
+  uint32_t group;
+  mc_number_t value;
+  const uint8_t* name;
+  uint32_t nameLen;
+  const uint8_t* text;
+  uint32_t textLen;
+  const uint8_t* bytes;
+  uint32_t bytesLen;
+  int rssi;
+  int serial;
+  int time;
+};
+
+/**
+ * 2.4 GHz packet radio. Send is a synchronous port write (on device CODAL
+ * `datagram.send` blocks until TX). Received packets land in a bounded ring
+ * (depth {@link RADIO_RX_RING_DEPTH}); receive callsites scan the ring by
+ * sequence number. The typed receive sensors keep their own per-callsite
+ * cursors; the Device-API `receive(since)` is stateless (the caller passes its
+ * last-seen sequence).
+ */
+class RadioPort {
+public:
+  /** Receive ring depth, the CODAL radio's maximum-RX-buffers protocol bound. */
+  static constexpr uint32_t RADIO_RX_RING_DEPTH = 4;
+
+  virtual ~RadioPort() = default;
+
+  /** Transmit a typed packet on its group. */
+  virtual void send(const RadioSendView& packet) = 0;
+
+  /** The current group (0-255). */
+  virtual uint8_t group() = 0;
+
+  /** Set the radio group (0-255). */
+  virtual void setGroup(int group) = 0;
+
+  /** Set the transmit power level (0-7). */
+  virtual void setTransmitPower(int power) = 0;
+
+  /** Set the frequency band (0-83). */
+  virtual void setFrequencyBand(int band) = 0;
+
+  /** Number of packets currently present in the ring. */
+  virtual uint32_t ringSize() = 0;
+
+  /** The packet at ring `index` (0-based, in arrival order); `index < ringSize()`. */
+  virtual const RadioPacketView& ringAt(uint32_t index) = 0;
+
+  /** The highest arrival sequence assigned so far (0 when nothing has arrived). */
+  virtual int headSequence() = 0;
+};
+
+/**
  * Board-side rendering primitives for the device fault mode. The fault-mode
  * policy (stop ticking the brain, then show-the-error in a loop) lives with
  * the host loop; implementations only render. Both calls may block for the
@@ -261,6 +341,7 @@ struct DevicePorts {
   I2CPort* i2c;
   GPIOPort* gpio;
   SonarPort* sonar;
+  RadioPort* radio;
 };
 
 } // namespace mindcraft

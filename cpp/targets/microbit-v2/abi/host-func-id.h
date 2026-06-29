@@ -50,12 +50,26 @@ enum class MicroBitV2HostFuncId : uint32_t
     GpioSetPull = 1054,
     GpioServoWrite = 1055,
     SonarDistance = 1056,
+    RadioSendNumber = 1057,
+    RadioSendString = 1058,
+    RadioSendValue = 1059,
+    RadioSendBuffer = 1060,
+    RadioSendRawBuffer = 1061,
+    RadioSetGroup = 1062,
+    RadioSetTransmitPower = 1063,
+    RadioSetFrequencyBand = 1064,
+    RadioReceive = 1065,
+    ActuatorRadioSend = 1066,
+    SensorRadioReceiveNumber = 1067,
+    SensorRadioReceiveString = 1068,
+    ActuatorSetRadioGroup = 1069,
+    RadioCurrentSeq = 1070,
 };
 
 /**
  * Number of declared {@link MicroBitV2HostFuncId} members; ids are dense
  * from 1024.
  */
-inline constexpr uint32_t kMicroBitV2HostFuncIdCount = 33;
+inline constexpr uint32_t kMicroBitV2HostFuncIdCount = 47;
 
 } // namespace mindcraft

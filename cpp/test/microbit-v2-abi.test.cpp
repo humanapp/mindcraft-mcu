@@ -61,7 +61,21 @@ TEST_CASE("MicroBitV2HostFuncId values are wire-stable") {
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::GpioSetPull) == 1054);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::GpioServoWrite) == 1055);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::SonarDistance) == 1056);
-  CHECK(kMicroBitV2HostFuncIdCount == 33);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::RadioSendNumber) == 1057);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::RadioSendString) == 1058);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::RadioSendValue) == 1059);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::RadioSendBuffer) == 1060);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::RadioSendRawBuffer) == 1061);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::RadioSetGroup) == 1062);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::RadioSetTransmitPower) == 1063);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::RadioSetFrequencyBand) == 1064);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::RadioReceive) == 1065);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorRadioSend) == 1066);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::SensorRadioReceiveNumber) == 1067);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::SensorRadioReceiveString) == 1068);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorSetRadioGroup) == 1069);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::RadioCurrentSeq) == 1070);
+  CHECK(kMicroBitV2HostFuncIdCount == 47);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::DisplaySetPixelValue) == TARGET_FUNC_ID_BASE);
 }
 
@@ -72,7 +86,7 @@ TEST_CASE("the host-function binding table binds every declared device-API host 
   mindcraft::DevicePorts ports{};
   const auto bindings = mindcraft::makeMicroBitV2HostFuncBindings(ports);
   CHECK(bindings.size() == mindcraft::kMicroBitV2HostFuncBindingCount);
-  CHECK(mindcraft::kMicroBitV2HostFuncBindingCount == 20);
+  CHECK(mindcraft::kMicroBitV2HostFuncBindingCount == 30);
   const mindcraft::TargetHostFuncBinding* clearBinding = nullptr;
   for (const auto& binding : bindings) {
     if (binding.funcId == static_cast<uint32_t>(MicroBitV2HostFuncId::DisplayClear)) {
@@ -93,7 +107,10 @@ TEST_CASE("MicroBitV2TypeAtomId values are wire-stable") {
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::I2C) == 1029);
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::GPIO) == 1030);
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::Sonar) == 1031);
-  CHECK(kMicroBitV2TypeAtomIdCount == 8);
+  CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::Radio) == 1032);
+  CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::RadioPacket) == 1033);
+  CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::RadioPacketList) == 1034);
+  CHECK(kMicroBitV2TypeAtomIdCount == 11);
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::MicroBitDisplay) == TARGET_TYPE_ATOM_BASE);
 }
 
@@ -132,8 +149,20 @@ TEST_CASE("microbit-v2 host-action ids are wire-stable") {
   CHECK(MicroBitV2HostActions::DrawImage.actionId == 1031);
   CHECK(MicroBitV2HostActions::DrawImage.fnId ==
         static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorDrawImage));
+  CHECK(MicroBitV2HostActions::RadioSend.actionId == 1032);
+  CHECK(MicroBitV2HostActions::RadioSend.fnId ==
+        static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorRadioSend));
+  CHECK(MicroBitV2HostActions::RadioReceiveNumber.actionId == 1033);
+  CHECK(MicroBitV2HostActions::RadioReceiveNumber.fnId ==
+        static_cast<uint32_t>(MicroBitV2HostFuncId::SensorRadioReceiveNumber));
+  CHECK(MicroBitV2HostActions::RadioReceiveString.actionId == 1034);
+  CHECK(MicroBitV2HostActions::RadioReceiveString.fnId ==
+        static_cast<uint32_t>(MicroBitV2HostFuncId::SensorRadioReceiveString));
+  CHECK(MicroBitV2HostActions::SetRadioGroup.actionId == 1035);
+  CHECK(MicroBitV2HostActions::SetRadioGroup.fnId ==
+        static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorSetRadioGroup));
 
-  REQUIRE(std::size(kMicroBitV2HostActions) == 8);
+  REQUIRE(std::size(kMicroBitV2HostActions) == 12);
   for (uint32_t i = 0; i < std::size(kMicroBitV2HostActions); i++) {
     CHECK(kMicroBitV2HostActions[i].actionId == TARGET_ACTION_ID_BASE + i);
   }
@@ -148,7 +177,8 @@ TEST_CASE("MicroBitField values are wire-stable") {
   CHECK(static_cast<uint8_t>(MicroBitField::I2C) == 5);
   CHECK(static_cast<uint8_t>(MicroBitField::GPIO) == 6);
   CHECK(static_cast<uint8_t>(MicroBitField::Sonar) == 7);
-  CHECK(kMicroBitFieldCount == 8);
+  CHECK(static_cast<uint8_t>(MicroBitField::Radio) == 8);
+  CHECK(kMicroBitFieldCount == 9);
 }
 
 TEST_CASE("the Context.microbit extension id sits just above the core Context fields") {

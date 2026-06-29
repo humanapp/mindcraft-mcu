@@ -89,9 +89,8 @@ function execRadioSend(ctx: ExecutionContext, args: ReadonlyList<Value>): Value 
 /**
  * Host actuator: broadcast a radio packet. With an explicit value (String,
  * Number, or Boolean) it sends that; with no argument it falls back to the
- * rule's WHEN-result, the same convention as `scroll`. A non-sendable value is
- * a silent no-op. The group is the device's current radio group, not an
- * argument.
+ * rule's WHEN-result. A non-sendable value is a silent no-op. The group is the
+ * device's current radio group, not an argument.
  */
 export default {
   ...MicroBitV2HostActions.RadioSend,

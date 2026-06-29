@@ -169,6 +169,55 @@ void ObservableTraceWriter::sonarDistance(uint32_t trig, uint32_t echo, uint32_t
   w_.nl();
 }
 
+void ObservableTraceWriter::radioSend(int type, uint32_t group, mc_number_t value,
+                                      const uint8_t* name, uint32_t nameLen, const uint8_t* text,
+                                      uint32_t textLen, const uint8_t* bytes, uint32_t bytesLen) {
+  w_.text("port radio send group ");
+  w_.hex(group);
+  w_.ch(' ');
+  switch (type) {
+  case 0: // NUMBER
+    w_.text("number ");
+    w_.numberBits(value);
+    break;
+  case 4: // DOUBLE
+    w_.text("double ");
+    w_.numberBits(value);
+    break;
+  case 2: // STRING
+    w_.text("string ");
+    quoteBytes(w_, text, textLen);
+    break;
+  case 1: // VALUE
+    w_.text("value ");
+    quoteBytes(w_, name, nameLen);
+    w_.text(" number ");
+    w_.numberBits(value);
+    break;
+  case 5: // DOUBLE_VALUE
+    w_.text("value ");
+    quoteBytes(w_, name, nameLen);
+    w_.text(" double ");
+    w_.numberBits(value);
+    break;
+  case 3: // BUFFER
+    w_.text("buffer ");
+    for (uint32_t i = 0; i < bytesLen; i++) {
+      w_.hexDigit(static_cast<uint8_t>(bytes[i] >> 4));
+      w_.hexDigit(static_cast<uint8_t>(bytes[i] & 0xf));
+    }
+    break;
+  default: // raw datagram (-1)
+    w_.text("raw ");
+    for (uint32_t i = 0; i < bytesLen; i++) {
+      w_.hexDigit(static_cast<uint8_t>(bytes[i] >> 4));
+      w_.hexDigit(static_cast<uint8_t>(bytes[i] & 0xf));
+    }
+    break;
+  }
+  w_.nl();
+}
+
 void ObservableTraceWriter::fiberFault(uint32_t fiberId, ErrorCode code) {
   w_.text("fault ");
   w_.hex(fiberId);

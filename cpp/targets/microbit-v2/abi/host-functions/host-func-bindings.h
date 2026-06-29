@@ -14,13 +14,14 @@
 #include "targets/microbit-v2/abi/host-functions/gpio.h"
 #include "targets/microbit-v2/abi/host-functions/i2c-read.h"
 #include "targets/microbit-v2/abi/host-functions/i2c-write.h"
+#include "targets/microbit-v2/abi/host-functions/radio.h"
 #include "targets/microbit-v2/abi/host-functions/sonar.h"
 
 namespace mindcraft
 {
 
 /** Number of microbit-v2 target host-function bindings the slice registers. */
-inline constexpr uint32_t kMicroBitV2HostFuncBindingCount = 20;
+inline constexpr uint32_t kMicroBitV2HostFuncBindingCount = 30;
 
 /**
  * Builds the microbit-v2 target host-function binding table over `ports`, one
@@ -38,7 +39,9 @@ inline constexpr uint32_t kMicroBitV2HostFuncBindingCount = 20;
 inline std::array<TargetHostFuncBinding, kMicroBitV2HostFuncBindingCount>
 makeMicroBitV2HostFuncBindings(DevicePorts &ports, MicroBitV2DrawImageEnv *drawEnv = nullptr,
                                MicroBitV2I2CWriteEnv *i2cWriteEnv = nullptr,
-                               MicroBitV2I2CReadEnv *i2cReadEnv = nullptr)
+                               MicroBitV2I2CReadEnv *i2cReadEnv = nullptr,
+                               MicroBitV2RadioEnv *radioEnv = nullptr,
+                               MicroBitV2RadioReceiveEnv *radioReceiveEnv = nullptr)
 {
     return {{
         {static_cast<uint32_t>(MicroBitV2HostFuncId::ButtonIsPressed), &execButtonIsPressed,
@@ -77,6 +80,25 @@ makeMicroBitV2HostFuncBindings(DevicePorts &ports, MicroBitV2DrawImageEnv *drawE
         {static_cast<uint32_t>(MicroBitV2HostFuncId::GpioSetPull), &execGpioSetPull, &ports},
         {static_cast<uint32_t>(MicroBitV2HostFuncId::GpioServoWrite), &execGpioServoWrite, &ports},
         {static_cast<uint32_t>(MicroBitV2HostFuncId::SonarDistance), &execSonarDistance, &ports},
+        {static_cast<uint32_t>(MicroBitV2HostFuncId::RadioSendNumber), &execRadioSendNumber,
+         radioEnv},
+        {static_cast<uint32_t>(MicroBitV2HostFuncId::RadioSendString), &execRadioSendString,
+         radioEnv},
+        {static_cast<uint32_t>(MicroBitV2HostFuncId::RadioSendValue), &execRadioSendValue,
+         radioEnv},
+        {static_cast<uint32_t>(MicroBitV2HostFuncId::RadioSendBuffer), &execRadioSendBuffer,
+         radioEnv},
+        {static_cast<uint32_t>(MicroBitV2HostFuncId::RadioSendRawBuffer), &execRadioSendRawBuffer,
+         radioEnv},
+        {static_cast<uint32_t>(MicroBitV2HostFuncId::RadioSetGroup), &execRadioSetGroup, radioEnv},
+        {static_cast<uint32_t>(MicroBitV2HostFuncId::RadioSetTransmitPower),
+         &execRadioSetTransmitPower, radioEnv},
+        {static_cast<uint32_t>(MicroBitV2HostFuncId::RadioSetFrequencyBand),
+         &execRadioSetFrequencyBand, radioEnv},
+        {static_cast<uint32_t>(MicroBitV2HostFuncId::RadioReceive), &execRadioReceive,
+         radioReceiveEnv},
+        {static_cast<uint32_t>(MicroBitV2HostFuncId::RadioCurrentSeq), &execRadioCurrentSeq,
+         radioEnv},
     }};
 }
 

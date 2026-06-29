@@ -103,6 +103,19 @@ struct NullSonar : mindcraft::SonarPort {
   int distance(int, int) override { return 0; }
 };
 
+/** Radio port that drops sends and never receives. */
+struct NullRadio : mindcraft::RadioPort {
+  mindcraft::RadioPacketView empty{};
+  void send(const mindcraft::RadioSendView&) override {}
+  uint8_t group() override { return 0; }
+  void setGroup(int) override {}
+  void setTransmitPower(int) override {}
+  void setFrequencyBand(int) override {}
+  uint32_t ringSize() override { return 0; }
+  const mindcraft::RadioPacketView& ringAt(uint32_t) override { return empty; }
+  int headSequence() override { return 0; }
+};
+
 /** Clock returning a fixed reading. */
 struct FixedClock : mindcraft::MonotonicClockPort {
   uint32_t now = 0;
@@ -183,8 +196,9 @@ TEST_CASE("the host loop latches fault mode when startup fails") {
   NullI2C i2c;
   NullGpio gpio;
   NullSonar sonar;
-  mindcraft::DevicePorts ports{&display,       &buttons, &faultDisplay, &clock,
-                               &accelerometer, &i2c,     &gpio,         &sonar};
+  NullRadio radio;
+  mindcraft::DevicePorts ports{&display, &buttons, &faultDisplay, &clock, &accelerometer,
+                               &i2c,     &gpio,    &sonar,        &radio};
 
   HostLoop hostLoop(brain, ports);
   const mindcraft::Status status = hostLoop.startup();

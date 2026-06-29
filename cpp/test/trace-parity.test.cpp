@@ -28,6 +28,7 @@
 
 #include <array>
 #include <cstdint>
+#include <deque>
 #include <fstream>
 #include <map>
 #include <string>
@@ -436,6 +437,71 @@ struct HostMicroBit {
     }
   };
 
+  struct TracingRadio : mindcraft::RadioPort {
+    struct Packet {
+      int seq;
+      int type;
+      uint32_t group;
+      mindcraft::mc_number_t value;
+      std::string name;
+      std::string text;
+      std::vector<uint8_t> bytes;
+      int rssi;
+      int serial;
+      int time;
+    };
+    ObservableTraceWriter* writer = nullptr;
+    std::deque<Packet> ring;
+    uint8_t groupValue = 0;
+    int powerValue = 6;
+    int bandValue = 7;
+    int lastSeq = 0;
+    mindcraft::RadioPacketView scratch{};
+
+    void send(const mindcraft::RadioSendView& packet) override {
+      if (writer != nullptr) {
+        writer->radioSend(packet.type, packet.group, packet.value, packet.name, packet.nameLen,
+                          packet.text, packet.textLen, packet.bytes, packet.bytesLen);
+      }
+    }
+    uint8_t group() override { return groupValue; }
+    void setGroup(int g) override { groupValue = static_cast<uint8_t>(g); }
+    void setTransmitPower(int p) override { powerValue = p; }
+    void setFrequencyBand(int b) override { bandValue = b; }
+    uint32_t ringSize() override { return static_cast<uint32_t>(ring.size()); }
+    const mindcraft::RadioPacketView& ringAt(uint32_t index) override {
+      const Packet& pk = ring[index];
+      scratch.seq = pk.seq;
+      scratch.type = pk.type;
+      scratch.group = pk.group;
+      scratch.value = pk.value;
+      scratch.name = reinterpret_cast<const uint8_t*>(pk.name.data());
+      scratch.nameLen = static_cast<uint32_t>(pk.name.size());
+      scratch.text = reinterpret_cast<const uint8_t*>(pk.text.data());
+      scratch.textLen = static_cast<uint32_t>(pk.text.size());
+      scratch.bytes = pk.bytes.data();
+      scratch.bytesLen = static_cast<uint32_t>(pk.bytes.size());
+      scratch.rssi = pk.rssi;
+      scratch.serial = pk.serial;
+      scratch.time = pk.time;
+      return scratch;
+    }
+    int headSequence() override { return lastSeq; }
+
+    // Inject a received packet (the golden-injection path): drop a wrong-group
+    // packet, assign the next sequence, overflow-evict the oldest.
+    void deliver(int type, mindcraft::mc_number_t value, const std::string& text) {
+      if (groupValue != 0) {
+        return;
+      }
+      lastSeq++;
+      ring.push_back(Packet{lastSeq, type, 0, value, "", text, {}, -42, 0, 0});
+      if (ring.size() > RADIO_RX_RING_DEPTH) {
+        ring.pop_front();
+      }
+    }
+  };
+
   struct NullFaultDisplay : mindcraft::FaultDisplayPort {
     void showFaultFace() override {}
     void scrollFaultCode(const char*) override {}
@@ -453,11 +519,12 @@ struct HostMicroBit {
   TracingI2C i2c;
   TracingGpio gpio;
   TracingSonar sonar;
+  TracingRadio radio;
   NullFaultDisplay faultDisplay;
   FixedClock clock;
 
-  mindcraft::DevicePorts ports{&display,       &buttons, &faultDisplay, &clock,
-                               &accelerometer, &i2c,     &gpio,         &sonar};
+  mindcraft::DevicePorts ports{&display, &buttons, &faultDisplay, &clock, &accelerometer,
+                               &i2c,     &gpio,    &sonar,        &radio};
 };
 
 /** Forwards the VM's host-binding events into the observable trace. */
@@ -825,6 +892,388 @@ TEST_CASE("the gesture-default fixture byte-matches the golden observable trace"
                                            {16, AccelerometerGesture::Shake},
                                            {16, AccelerometerGesture::TiltUp}};
   runGestureSensorParity("gesture-default", schedule, 3);
+}
+
+/** One injected packet: a MakeCode packet type, numeric payload, and string payload. */
+struct RadioInject {
+  int type;
+  mindcraft::mc_number_t value;
+  std::string text;
+};
+
+/** One scheduled think for a radio receive fixture: packets injected before the time advance. */
+struct RadioReceiveStep {
+  float advanceMs;
+  std::vector<RadioInject> inject;
+};
+
+/** A number packet (NUMBER) carrying `value`. */
+RadioInject radioNumber(mindcraft::mc_number_t value) { return RadioInject{0, value, ""}; }
+
+/** A string packet (STRING) carrying `text`. */
+RadioInject radioString(const std::string& text) { return RadioInject{2, 0, text}; }
+
+/**
+ * Loads a radio-receive fixture binary, replays its injected-packet schedule
+ * through the host loop, and byte-compares the rendered trace against the
+ * committed golden. The typed receive sensors keep per-callsite cursors; their
+ * managed string results render through the heap bound on the writer. Mirrors
+ * the ScheduleStep of wodal
+ * packages/wodal/src/targets/microbit-v2/mindcraft/radio-receive-trace.spec.ts.
+ */
+void runRadioReceiveParity(const std::string& name, const std::vector<RadioReceiveStep>& schedule) {
+  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/" + name;
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  TraceTap tap(writer);
+
+  // The string sensor allocates its managed string result; the writer resolves
+  // it through the bound heap when rendering the action's result token.
+  mindcraft::ManagedHeap heap(arena);
+  writer.setHeap(&heap);
+  mindcraft::MicroBitV2RadioSensorEnv radioSensorEnv{&microbit.radio, &heap, nullptr};
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports, nullptr, nullptr,
+                                                              nullptr, nullptr, &radioSensorEnv);
+  ExecutionContext ctx;
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  radioSensorEnv.roots = &scheduler;
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  float lastThinkTimeMs = 0;
+  for (size_t i = 0; i < schedule.size(); i++) {
+    const RadioReceiveStep& step = schedule[i];
+    for (const RadioInject& packet : step.inject) {
+      microbit.radio.deliver(packet.type, packet.value, packet.text);
+    }
+    const float timeMs = lastThinkTimeMs + step.advanceMs;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+}
+
+TEST_CASE("the radio-receive-number-single fixture byte-matches the golden observable trace") {
+  runRadioReceiveParity("radio-receive-number-single",
+                        {{16, {}}, {16, {radioNumber(7)}}, {16, {}}});
+}
+
+TEST_CASE("the radio-receive-number-zero fixture byte-matches the golden observable trace") {
+  runRadioReceiveParity("radio-receive-number-zero", {{16, {}}, {16, {radioNumber(0)}}, {16, {}}});
+}
+
+TEST_CASE("the radio-receive-string-empty fixture byte-matches the golden observable trace") {
+  runRadioReceiveParity("radio-receive-string-empty",
+                        {{16, {}}, {16, {radioString("")}}, {16, {}}});
+}
+
+TEST_CASE("the radio-receive-number-burst fixture byte-matches the golden observable trace") {
+  runRadioReceiveParity(
+      "radio-receive-number-burst",
+      {{16, {}}, {16, {radioNumber(10), radioNumber(20), radioNumber(30)}}, {16, {}}, {16, {}}});
+}
+
+TEST_CASE("the radio-receive-mixed fixture byte-matches the golden observable trace") {
+  runRadioReceiveParity(
+      "radio-receive-mixed",
+      {{16, {}},
+       {16, {radioNumber(5), radioString("hi"), radioNumber(6), radioString("yo")}},
+       {16, {}},
+       {16, {}}});
+}
+
+TEST_CASE("the radio-receive-both-fire fixture byte-matches the golden observable trace") {
+  runRadioReceiveParity("radio-receive-both-fire", {{16, {}}, {16, {radioNumber(9)}}, {16, {}}});
+}
+
+TEST_CASE("the radio-receive-overflow fixture byte-matches the golden observable trace") {
+  runRadioReceiveParity(
+      "radio-receive-overflow",
+      {{16, {}},
+       {16, {radioNumber(1), radioNumber(2), radioNumber(3), radioNumber(4), radioNumber(5)}},
+       {16, {}},
+       {16, {}},
+       {16, {}},
+       {16, {}}});
+}
+
+TEST_CASE("the radio-receive-freshness fixture byte-matches the golden observable trace") {
+  runRadioReceiveParity("radio-receive-freshness",
+                        {{16, {radioNumber(99)}}, {16, {}}, {16, {radioNumber(7)}}, {16, {}}});
+}
+
+/**
+ * Loads a `radio send` tile fixture binary (button when() -> radio send do()),
+ * replays the scripted button schedule, and byte-compares the rendered trace.
+ * Mirrors the schedule of wodal
+ * packages/wodal/src/targets/microbit-v2/mindcraft/radio-send-tile-trace.spec.ts.
+ */
+void runRadioSendTileParity(const std::string& name) {
+  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/" + name;
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.radio.writer = &writer;
+  TraceTap tap(writer);
+
+  mindcraft::ManagedHeap heap(arena, &image);
+  writer.setHeap(&heap);
+  mindcraft::MicroBitV2ButtonSensorEnv buttonEnv{&microbit.buttons, &heap, nullptr};
+  mindcraft::MicroBitV2RadioSendEnv radioSendEnv{&microbit.radio, &heap};
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports, nullptr, &buttonEnv,
+                                                              nullptr, &radioSendEnv, nullptr);
+  ExecutionContext ctx;
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  buttonEnv.roots = &scheduler;
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Button A pressed at tick 2, released at tick 3.
+  const ButtonScheduleStep schedule[3] = {{16, -1, -1, -1}, {16, 1, -1, -1}, {16, 0, -1, -1}};
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 3; i++) {
+    if (schedule[i].a >= 0) {
+      microbit.buttons.pressed[0] = schedule[i].a == 1;
+    }
+    const float timeMs = lastThinkTimeMs + schedule[i].advanceMs;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+}
+
+TEST_CASE("the radio-send-when-result fixture byte-matches the golden observable trace") {
+  runRadioSendTileParity("radio-send-when-result");
+}
+
+TEST_CASE("the radio-send-explicit fixture byte-matches the golden observable trace") {
+  runRadioSendTileParity("radio-send-explicit");
+}
+
+TEST_CASE("the user-tile radio-send fixture byte-matches the golden observable trace") {
+  const std::string base =
+      std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-radio-send";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.radio.writer = &writer;
+  TraceTap tap(writer);
+
+  // The user-code actuator sends each packet form through ctx.microbit.radio;
+  // the heap (with image) resolves the string and Buffer.fromHex arguments.
+  mindcraft::ManagedHeap heap(arena, &image);
+  writer.setHeap(&heap);
+  mindcraft::MicroBitV2RadioEnv radioEnv{&microbit.radio, &heap};
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, nullptr,
+                                                             nullptr, &radioEnv, nullptr);
+  ExecutionContext ctx;
+  mindcraft::TypeRegistry types(image);
+  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+  surface.types = &types;
+  surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  microbit.clock.now = 16;
+  writer.tick(1, 16, 0);
+  hostLoop.tick();
+  REQUIRE_FALSE(hostLoop.faulted());
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+}
+
+TEST_CASE("the user-tile radio-receive fixture byte-matches the golden observable trace") {
+  const std::string base =
+      std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-radio-receive";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.i2c.writer = &writer;
+  TraceTap tap(writer);
+
+  // The user-code actuator drains every packet new since the cursor and echoes
+  // each packet's value to I2C; the receive env builds the managed RadioPacket[]
+  // and the i2c-write env surfaces the bytes.
+  mindcraft::ManagedHeap heap(arena, &image);
+  writer.setHeap(&heap);
+  mindcraft::MicroBitV2I2CWriteEnv i2cEnv{&microbit.i2c, &heap, &image};
+  ExecutionContext ctx;
+  mindcraft::TypeRegistry types(image);
+  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
+  mindcraft::MicroBitV2RadioReceiveEnv radioReceiveEnv{&microbit.radio, &heap, nullptr, &types};
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cEnv,
+                                                             nullptr, nullptr, &radioReceiveEnv);
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+  surface.types = &types;
+  surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  radioReceiveEnv.roots = &scheduler;
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Inject 3 packets before think 2; the drain returns the whole batch then.
+  const RadioReceiveStep schedule[3] = {
+      {16, {}}, {16, {radioNumber(10), radioNumber(20), radioNumber(30)}}, {16, {}}};
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 3; i++) {
+    for (const RadioInject& packet : schedule[i].inject) {
+      microbit.radio.deliver(packet.type, packet.value, packet.text);
+    }
+    const float timeMs = lastThinkTimeMs + schedule[i].advanceMs;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+}
+
+TEST_CASE("the user-tile radio-current-seq fixture byte-matches the golden observable trace") {
+  const std::string base =
+      std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-radio-current-seq";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.i2c.writer = &writer;
+  TraceTap tap(writer);
+
+  // The user-code actuator arms its cursor to currentSeq() on the first think,
+  // then drains with receive(since); the pre-arm packet is never delivered.
+  mindcraft::ManagedHeap heap(arena, &image);
+  writer.setHeap(&heap);
+  mindcraft::MicroBitV2I2CWriteEnv i2cEnv{&microbit.i2c, &heap, &image};
+  ExecutionContext ctx;
+  mindcraft::TypeRegistry types(image);
+  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
+  mindcraft::MicroBitV2RadioEnv radioEnv{&microbit.radio, &heap};
+  mindcraft::MicroBitV2RadioReceiveEnv radioReceiveEnv{&microbit.radio, &heap, nullptr, &types};
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cEnv,
+                                                             nullptr, &radioEnv, &radioReceiveEnv);
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+  surface.types = &types;
+  surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  radioReceiveEnv.roots = &scheduler;
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // 99 arrives before arming (think 1, never delivered); 7 arrives after (think 2).
+  const RadioReceiveStep schedule[3] = {{16, {radioNumber(99)}}, {16, {radioNumber(7)}}, {16, {}}};
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 3; i++) {
+    for (const RadioInject& packet : schedule[i].inject) {
+      microbit.radio.deliver(packet.type, packet.value, packet.text);
+    }
+    const float timeMs = lastThinkTimeMs + schedule[i].advanceMs;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
 }
 
 TEST_CASE("the exceptions-yield fixture byte-matches the golden observable trace") {

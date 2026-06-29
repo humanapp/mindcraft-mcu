@@ -77,6 +77,9 @@ inline Value microBitFieldGetter(const Value & /*source*/, uint32_t fieldId)
     case MicroBitField::Sonar:
         return Value::structValue(static_cast<uint32_t>(MicroBitV2TypeAtomId::Sonar),
                                   kNativeStructSingleton);
+    case MicroBitField::Radio:
+        return Value::structValue(static_cast<uint32_t>(MicroBitV2TypeAtomId::Radio),
+                                  kNativeStructSingleton);
     default:
         return kNilValue;
     }

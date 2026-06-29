@@ -286,7 +286,6 @@ export class Radio {
   private band = RADIO_DEFAULT_FREQUENCY_BAND;
   private ring: ReceivedRadioPacket[] = [];
   private lastSeq = 0;
-  private drainCursor = 0;
 
   /** The current group (0-255). */
   get group(): number {
@@ -391,25 +390,16 @@ export class Radio {
   }
 
   /**
-   * Returns every packet still present whose sequence is greater than `cursor`,
-   * in arrival order (the drain-all batch). Does not evict.
+   * Returns every packet still present whose sequence is greater than `since`,
+   * in arrival order (the Device-API `receive(since)` batch). Stateless and
+   * non-evicting: the caller passes its last-seen sequence and records the new
+   * one from the batch. A `since` of 0 (the reserved "before any packet"
+   * sentinel) delivers from the first packet (sequence 1).
    *
-   * @param cursor - Highest sequence already passed.
+   * @param since - Exclusive sequence floor; packets with sequence > since are returned.
    */
-  drainAfter(cursor: number): ReceivedRadioPacket[] {
-    return this.ring.filter((packet) => packet.seq > cursor);
-  }
-
-  /**
-   * Drains every packet new since the previous call (the Device-API drain-all
-   * batch), in arrival order, then advances the device drain cursor to the ring
-   * head. The cursor is device-global, so one drainer reads each packet once;
-   * the typed receive tiles keep their own per-callsite cursors instead.
-   */
-  drainAll(): ReceivedRadioPacket[] {
-    const batch = this.drainAfter(this.drainCursor);
-    this.drainCursor = this.lastSeq;
-    return batch;
+  drainAfter(since: number): ReceivedRadioPacket[] {
+    return this.ring.filter((packet) => packet.seq > since);
   }
 
   /** Resets configuration to power-on defaults and empties the receive ring. */
@@ -419,6 +409,5 @@ export class Radio {
     this.band = RADIO_DEFAULT_FREQUENCY_BAND;
     this.ring = [];
     this.lastSeq = 0;
-    this.drainCursor = 0;
   }
 }

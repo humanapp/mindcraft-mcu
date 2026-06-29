@@ -49,6 +49,22 @@ inline constexpr HostActionIds Gesture{1030,
 /** Actuator: paste an image to the 5x5 display, optionally holding it for a duration. */
 inline constexpr HostActionIds DrawImage{
     1031, static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorDrawImage)};
+
+/** Actuator: broadcast the optional value (or the WHEN-result) as a radio packet. */
+inline constexpr HostActionIds RadioSend{
+    1032, static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorRadioSend)};
+
+/** Sensor: the next received NUMBER / DOUBLE packet, delivering its numeric value. */
+inline constexpr HostActionIds RadioReceiveNumber{
+    1033, static_cast<uint32_t>(MicroBitV2HostFuncId::SensorRadioReceiveNumber)};
+
+/** Sensor: the next received STRING packet, delivering its string value. */
+inline constexpr HostActionIds RadioReceiveString{
+    1034, static_cast<uint32_t>(MicroBitV2HostFuncId::SensorRadioReceiveString)};
+
+/** Actuator: set the radio group (0-255). */
+inline constexpr HostActionIds SetRadioGroup{
+    1035, static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorSetRadioGroup)};
 } // namespace MicroBitV2HostActions
 
 /**
@@ -56,10 +72,18 @@ inline constexpr HostActionIds DrawImage{
  * from 1024.
  */
 inline constexpr HostActionIds kMicroBitV2HostActions[] = {
-    MicroBitV2HostActions::ButtonA,       MicroBitV2HostActions::DisplaySetPixel,
-    MicroBitV2HostActions::DisplayScroll, MicroBitV2HostActions::ButtonB,
-    MicroBitV2HostActions::ButtonAB,      MicroBitV2HostActions::ButtonLogo,
-    MicroBitV2HostActions::Gesture,       MicroBitV2HostActions::DrawImage,
+    MicroBitV2HostActions::ButtonA,
+    MicroBitV2HostActions::DisplaySetPixel,
+    MicroBitV2HostActions::DisplayScroll,
+    MicroBitV2HostActions::ButtonB,
+    MicroBitV2HostActions::ButtonAB,
+    MicroBitV2HostActions::ButtonLogo,
+    MicroBitV2HostActions::Gesture,
+    MicroBitV2HostActions::DrawImage,
+    MicroBitV2HostActions::RadioSend,
+    MicroBitV2HostActions::RadioReceiveNumber,
+    MicroBitV2HostActions::RadioReceiveString,
+    MicroBitV2HostActions::SetRadioGroup,
 };
 
 } // namespace mindcraft

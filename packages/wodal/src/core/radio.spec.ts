@@ -177,3 +177,39 @@ test("the receive ring filters by group", () => {
   assert.equal(stored, undefined); // dropped: wrong group
   assert.equal(radio.headSequence(), 0);
 });
+
+test("drainAfter is the exclusive seq>since receive batch; headSequence is currentSeq starting at 1", () => {
+  const radio = new Radio();
+  const deliver = (value: number) =>
+    radio.deliver({
+      type: RadioPacketType.Number,
+      group: 0,
+      value,
+      name: "",
+      text: "",
+      bytes: EMPTY,
+      rssi: 0,
+      serial: 0,
+      time: 0,
+    });
+  // currentSeq() is 0 (the reserved "before any packet" sentinel) when empty.
+  assert.equal(radio.headSequence(), 0);
+  deliver(11);
+  deliver(22);
+  deliver(33);
+  // The first packet is sequence 1, not 0.
+  assert.equal(radio.headSequence(), 3);
+  assert.deepEqual(
+    radio.drainAfter(0).map((p) => p.seq),
+    [1, 2, 3]
+  );
+  // A fresh cursor of 0 still delivers the first packet (exclusive > 0 floor).
+  assert.equal(radio.drainAfter(0)[0]?.value, 11);
+  // since past a packet excludes it.
+  assert.deepEqual(
+    radio.drainAfter(1).map((p) => p.value),
+    [22, 33]
+  );
+  // since at the head delivers nothing new.
+  assert.deepEqual(radio.drainAfter(3), []);
+});

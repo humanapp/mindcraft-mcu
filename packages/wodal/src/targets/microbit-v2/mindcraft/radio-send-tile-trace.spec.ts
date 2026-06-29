@@ -113,6 +113,21 @@ function runFixtureTrace(bin: Uint8Array): string {
   );
   const writer = new ObservableTraceWriter({ profileId: profile.numericProfileId, precision: profile.numberPrecision });
 
+  const actions = environment.brainServices.runtime.actions;
+  for (const { actionId } of [MicroBitV2HostActions.ButtonA, MicroBitV2HostActions.RadioSend]) {
+    const action = actions.getById(actionId);
+    assert.ok(action !== undefined && action.binding === "host");
+    const exec = action.execSync;
+    assert.ok(exec !== undefined);
+    action.execSync = (ctx, args) => {
+      const result = exec(ctx, args);
+      const callSiteId = ctx.currentCallSiteId;
+      assert.ok(callSiteId !== undefined);
+      writer.hostActionCall(actionId, callSiteId, args, result);
+      return result;
+    };
+  }
+
   const microbit = new MicroBit();
   const deviceSend = microbit.radio.send.bind(microbit.radio);
   microbit.radio.send = (record) => {

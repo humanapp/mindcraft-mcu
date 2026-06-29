@@ -149,6 +149,21 @@ struct RecordingSonar : mindcraft::SonarPort {
   }
 };
 
+struct RecordingRadio : mindcraft::RadioPort {
+  int sentType = -2;
+  uint8_t groupValue = 0;
+  mindcraft::RadioPacketView empty{};
+
+  void send(const mindcraft::RadioSendView& packet) override { sentType = packet.type; }
+  uint8_t group() override { return groupValue; }
+  void setGroup(int g) override { groupValue = static_cast<uint8_t>(g); }
+  void setTransmitPower(int) override {}
+  void setFrequencyBand(int) override {}
+  uint32_t ringSize() override { return 0; }
+  const mindcraft::RadioPacketView& ringAt(uint32_t) override { return empty; }
+  int headSequence() override { return 0; }
+};
+
 } // namespace
 
 TEST_CASE("a host stub can implement every device port") {
@@ -160,9 +175,10 @@ TEST_CASE("a host stub can implement every device port") {
   RecordingI2C i2c;
   RecordingGpio gpio;
   RecordingSonar sonar;
+  RecordingRadio radio;
 
-  mindcraft::DevicePorts ports{&display,       &buttons, &faultDisplay, &clock,
-                               &accelerometer, &i2c,     &gpio,         &sonar};
+  mindcraft::DevicePorts ports{&display, &buttons, &faultDisplay, &clock, &accelerometer,
+                               &i2c,     &gpio,    &sonar,        &radio};
 
   ports.display->setPixel(2, 3, 255);
   REQUIRE(display.calls.size() == 1);
@@ -230,6 +246,13 @@ TEST_CASE("a host stub can implement every device port") {
   CHECK(ports.sonar->distance(8, 12) == 42);
   CHECK(sonar.lastTrig == 8);
   CHECK(sonar.lastEcho == 12);
+
+  ports.radio->setGroup(7);
+  CHECK(ports.radio->group() == 7);
+  mindcraft::RadioSendView packet{};
+  packet.type = 0;
+  ports.radio->send(packet);
+  CHECK(radio.sentType == 0);
 }
 
 TEST_CASE("AccelerometerGesture codes match the CODAL accelerometer gesture values") {

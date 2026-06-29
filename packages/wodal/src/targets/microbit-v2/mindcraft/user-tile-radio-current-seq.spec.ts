@@ -1,11 +1,12 @@
 /**
- * Golden for the TS user-code radio drain-all receive (`ctx.microbit.radio.receive()`):
- * a user-tile brain whose actuator drains every packet new since its cursor and
- * echoes each packet's numeric value to the I2C bus, proving the Device-API
- * drain returns the full batch in one think (versus the tile's one-per-think).
- * Packets are injected into the receive ring between thinks. The serialized
- * binary and the rendered trace are pinned beside this spec; the C++ VM parity
- * test loads the same binary, replays the schedule, and byte-compares.
+ * Golden for the TS user-code radio `currentSeq()` arming pattern: a user-tile
+ * brain that arms its cursor to `ctx.microbit.radio.currentSeq()` on the first
+ * think ("from now"), then drains with `receive(since)`. A packet that arrived
+ * before arming is never delivered; one that arrives after is. Proves the
+ * stateless receive surface plus the head-sequence accessor. Packets are
+ * injected into the receive ring between thinks. The serialized binary and the
+ * rendered trace are pinned beside this spec; the C++ VM parity test loads the
+ * same binary, replays the schedule, and byte-compares.
  */
 
 import assert from "node:assert/strict";
@@ -27,9 +28,9 @@ import { createMicroBitV2Environment } from "./environment";
 import { ObservableTraceWriter } from "./observable-trace";
 import { WodalMicroBitRuntime } from "./runtime";
 
-const JSON_PATH = fileURLToPath(new URL("./__fixtures__/user-tile-radio-receive.mcprogram", import.meta.url));
-const BIN_PATH = fileURLToPath(new URL("./__fixtures__/user-tile-radio-receive.mcprogram.bin", import.meta.url));
-const TRACE_PATH = fileURLToPath(new URL("./__fixtures__/user-tile-radio-receive.ticks.trace", import.meta.url));
+const JSON_PATH = fileURLToPath(new URL("./__fixtures__/user-tile-radio-current-seq.mcprogram", import.meta.url));
+const BIN_PATH = fileURLToPath(new URL("./__fixtures__/user-tile-radio-current-seq.mcprogram.bin", import.meta.url));
+const TRACE_PATH = fileURLToPath(new URL("./__fixtures__/user-tile-radio-current-seq.ticks.trace", import.meta.url));
 
 const ECHO_ADDRESS = 0x10;
 
@@ -45,11 +46,14 @@ export default Sensor({
 
 const ACTUATOR_SOURCE = `import { Actuator, type Context } from "mindcraft";
 
-let cursor = 0;
+let cursor = -1;
 
 export default Actuator({
-  name: "user-radio-drain",
+  name: "user-radio-fresh",
   onExecute(ctx: Context): void {
+    if (cursor < 0) {
+      cursor = ctx.microbit.radio.currentSeq();
+    }
     const packets = ctx.microbit.radio.receive(cursor);
     for (const packet of packets) {
       ctx.microbit.i2c.writeBuffer(0x10, Buffer.from([packet.value]));
@@ -73,10 +77,11 @@ function numberPacket(value: number): IncomingRadioPacket {
   };
 }
 
-/** Inject 3 packets in the gap before think 2; drain returns the whole batch then. */
+// Packet 99 arrives before arming (think 1) and is never delivered; packet 7
+// arrives after arming (think 2) and is delivered.
 const SCHEDULE: readonly { advanceMs: number; inject?: readonly IncomingRadioPacket[] }[] = [
-  { advanceMs: 16 },
-  { advanceMs: 16, inject: [numberPacket(10), numberPacket(20), numberPacket(30)] },
+  { advanceMs: 16, inject: [numberPacket(99)] },
+  { advanceMs: 16, inject: [numberPacket(7)] },
   { advanceMs: 16 },
 ];
 
@@ -105,7 +110,7 @@ function buildImage(environment: MindcraftEnvironment): WodalProgramImage<Linked
   project.setFiles(
     new Map([
       ["user-always.ts", SENSOR_SOURCE],
-      ["user-radio-drain.ts", ACTUATOR_SOURCE],
+      ["user-radio-fresh.ts", ACTUATOR_SOURCE],
     ])
   );
   const compileResult = project.compileAll();
@@ -118,7 +123,7 @@ function buildImage(environment: MindcraftEnvironment): WodalProgramImage<Linked
   assert.ok(bundle);
   environment.replaceActionBundle(bundle);
 
-  const brainDef = BrainDef.emptyBrainDef(environment.brainServices, "user-tile radio drain brain");
+  const brainDef = BrainDef.emptyBrainDef(environment.brainServices, "user-tile radio current-seq brain");
   const rule = brainDef.pages().get(0)!.children().get(0)!;
   rule.when().appendTile(findBundleTile(bundle.tiles, "sensor"));
   rule.do().appendTile(findBundleTile(bundle.tiles, "actuator"));
@@ -180,14 +185,14 @@ function runTrace(bin: Uint8Array): string {
   return writer.render();
 }
 
-test("the committed user-tile radio-receive binary and observable trace golden are byte-stable", () => {
+test("the committed user-tile radio-current-seq binary and observable trace golden are byte-stable", () => {
   ensureJsonGolden();
   const generated = wodalProgramBytes(new Uint8Array(readFileSync(JSON_PATH)));
   if (!existsSync(BIN_PATH)) {
     writeFileSync(BIN_PATH, generated);
   }
   const bin = new Uint8Array(readFileSync(BIN_PATH));
-  assert.deepEqual(bin, generated, "user-tile-radio-receive.mcprogram.bin is not byte-stable");
+  assert.deepEqual(bin, generated, "user-tile-radio-current-seq.mcprogram.bin is not byte-stable");
 
   const first = runTrace(bin);
   const second = runTrace(bin);
@@ -195,13 +200,12 @@ test("the committed user-tile radio-receive binary and observable trace golden a
 
   const lines = first.split("\n");
   assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
-  // The drain returns all 3 packets in the one think after they were injected.
-  assert.equal(lines.filter((line) => line === `port i2c write ${ECHO_ADDRESS.toString(16)} 0a`).length, 1);
-  assert.equal(lines.filter((line) => line === `port i2c write ${ECHO_ADDRESS.toString(16)} 14`).length, 1);
-  assert.equal(lines.filter((line) => line === `port i2c write ${ECHO_ADDRESS.toString(16)} 1e`).length, 1);
+  // The pre-arm packet (99) is never delivered; only the post-arm packet (7, 0x07) is echoed.
+  assert.equal(lines.filter((line) => line.startsWith(`port i2c write ${ECHO_ADDRESS.toString(16)} `)).length, 1);
+  assert.equal(lines.filter((line) => line === `port i2c write ${ECHO_ADDRESS.toString(16)} 07`).length, 1);
 
   if (!existsSync(TRACE_PATH)) {
     writeFileSync(TRACE_PATH, first);
   }
-  assert.equal(readFileSync(TRACE_PATH, "utf8"), first, "user-tile-radio-receive.ticks.trace is not byte-stable");
+  assert.equal(readFileSync(TRACE_PATH, "utf8"), first, "user-tile-radio-current-seq.ticks.trace is not byte-stable");
 });

@@ -104,14 +104,15 @@ export const WODAL_MICROBIT_V2_TYPE_IDS = {
  * field's storage slot in the closed struct value the drain-all receive builds.
  */
 enum RadioPacketField {
-  Type = 0,
-  Value = 1,
-  Name = 2,
-  Text = 3,
-  Buffer = 4,
-  Rssi = 5,
-  Serial = 6,
-  Time = 7,
+  Seq = 0,
+  Type = 1,
+  Value = 2,
+  Name = 3,
+  Text = 4,
+  Buffer = 5,
+  Rssi = 6,
+  Serial = 7,
+  Time = 8,
 }
 
 /**
@@ -339,6 +340,7 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
   types.addStructType("RadioPacket", {
     atomId: MicroBitV2TypeAtomId.RadioPacket,
     fields: List.from([
+      { name: "seq", typeId: CoreTypeIds.Number, fieldIndex: RadioPacketField.Seq },
       { name: "type", typeId: CoreTypeIds.Number, fieldIndex: RadioPacketField.Type },
       { name: "value", typeId: CoreTypeIds.Number, fieldIndex: RadioPacketField.Value },
       { name: "name", typeId: CoreTypeIds.String, fieldIndex: RadioPacketField.Name },
@@ -405,8 +407,13 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
       },
       {
         name: "receive",
-        params: List.empty(),
+        params: List.from([{ name: "since", typeId: CoreTypeIds.Number }]),
         returnTypeId: WODAL_MICROBIT_V2_TYPE_IDS.RadioPacketList,
+      },
+      {
+        name: "currentSeq",
+        params: List.empty(),
+        returnTypeId: CoreTypeIds.Number,
       },
     ]),
   });
@@ -922,10 +929,24 @@ function registerRadioFunctions(api: MindcraftModuleApi): void {
         if (!radio) {
           return mkListValue(WODAL_MICROBIT_V2_TYPE_IDS.RadioPacketList, List.empty());
         }
+        const since = toNonNegativeInteger(numberArg(args, 1));
         return mkListValue(
           WODAL_MICROBIT_V2_TYPE_IDS.RadioPacketList,
-          List.from(radio.drainAll().map(radioPacketStructValue))
+          List.from(radio.drainAfter(since).map(radioPacketStructValue))
         );
+      },
+    },
+    callDef: emptyCallDef,
+  });
+
+  api.registerFunction({
+    id: MicroBitV2HostFuncId.RadioCurrentSeq,
+    name: "Radio.currentSeq",
+    isAsync: false,
+    fn: {
+      exec: (_ctx: ExecutionContext, args: ReadonlyList<Value>) => {
+        const radio = getRadioReceiver(args);
+        return mkNumberValue(radio ? radio.headSequence() : 0);
       },
     },
     callDef: emptyCallDef,
@@ -937,6 +958,7 @@ function radioPacketStructValue(packet: ReceivedRadioPacket): Value {
   return mkClosedStructValue(
     WODAL_MICROBIT_V2_TYPE_IDS.RadioPacket,
     List.from([
+      mkNumberValue(packet.seq),
       mkNumberValue(packet.type),
       mkNumberValue(packet.value),
       mkStringValue(packet.name),

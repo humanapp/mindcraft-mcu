@@ -424,7 +424,7 @@ TEST_CASE("a TYPS child at or beyond its parent fails TypeForwardReference") {
 }
 
 TEST_CASE("a TYPS atom outside the core and target ranges fails UnknownTypeAtom") {
-  for (const uint32_t atomId : {12u, 999u, 1032u, 0xffffffffu}) {
+  for (const uint32_t atomId : {12u, 999u, 1035u, 0xffffffffu}) {
     WireBuilder w = programHeader();
     w.varUint(0).varUint(0);            // CSTR
     w.varUint(1).u8(0).varUint(atomId); // TYPS atom

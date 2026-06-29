@@ -84,8 +84,9 @@ int main()
     MicroBitSonarPort sonar(uBit);
     MicroBitMonotonicClockPort clock;
     MicroBitFaultDisplayPort faultDisplay(uBit);
-    DevicePorts ports{&display, &buttons, &faultDisplay, &clock,
-                      &accelerometer, &i2c, &gpio, &sonar};
+    // No radio port is wired; radio tiles no-op on device until a RadioPort is supplied here.
+    DevicePorts ports{&display, &buttons, &faultDisplay, &clock, &accelerometer,
+                      &i2c,     &gpio,    &sonar,        nullptr};
 
     // Read the brain image from the reserved on-flash region.
     const Result<ByteSpan, RegionError> region = readRegionProgram(programFlashRegion());

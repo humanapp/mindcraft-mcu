@@ -139,6 +139,18 @@ public:
    */
   void sonarDistance(uint32_t trig, uint32_t echo, uint32_t cm);
 
+  /**
+   * Records one packet transmitted across the radio device port: the group in
+   * hex, then the typed payload. `type` is a MakeCode packet type (0-5) or -1
+   * for a raw datagram. The payload renders as `number <bits>` / `double <bits>`
+   * (NUMBER / DOUBLE), `string "<bytes>"` (STRING), `value "<name>"
+   * number|double <bits>` (VALUE / DOUBLE_VALUE), `buffer <hex>` (BUFFER), or
+   * `raw <hex>`. The system time and serial in the on-air frame are not
+   * rendered. Unused span arguments may be null with a zero length.
+   */
+  void radioSend(int type, uint32_t group, mc_number_t value, const uint8_t* name, uint32_t nameLen,
+                 const uint8_t* text, uint32_t textLen, const uint8_t* bytes, uint32_t bytesLen);
+
   /** Records one fiber fault: the fiber id and the numeric `ErrorCode`. */
   void fiberFault(uint32_t fiberId, ErrorCode code);
 

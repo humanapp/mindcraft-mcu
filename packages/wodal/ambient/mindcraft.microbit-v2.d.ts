@@ -66,6 +66,7 @@ declare module "mindcraft" {
     distance(trig: number, echo: number): number;
   }
   export interface RadioPacket {
+    seq: number;
     type: number;
     value: number;
     name: string;
@@ -86,7 +87,8 @@ declare module "mindcraft" {
     setGroup(group: number): void;
     setTransmitPower(power: number): void;
     setFrequencyBand(band: number): void;
-    receive(): Array<RadioPacket>;
+    receive(since: number): Array<RadioPacket>;
+    currentSeq(): number;
   }
   export interface MicroBit {
     readonly __brand: unique symbol;

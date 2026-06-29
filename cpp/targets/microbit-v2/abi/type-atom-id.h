@@ -23,12 +23,15 @@ enum class MicroBitV2TypeAtomId : uint32_t
     I2C = 1029,
     GPIO = 1030,
     Sonar = 1031,
+    Radio = 1032,
+    RadioPacket = 1033,
+    RadioPacketList = 1034,
 };
 
 /**
  * Number of declared {@link MicroBitV2TypeAtomId} members; ids are dense
  * from 1024.
  */
-inline constexpr uint32_t kMicroBitV2TypeAtomIdCount = 8;
+inline constexpr uint32_t kMicroBitV2TypeAtomIdCount = 11;
 
 } // namespace mindcraft

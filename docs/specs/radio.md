@@ -108,12 +108,15 @@ arrival order, across all kinds, bounded by a depth-4 buffer; lossy only on the 
 
 - **Arrival.** Packets land enqueue-only into the ring (depth 4), in order, each with a monotonic
   sequence number; the host loop applies them between thinks. Overflow overwrites the oldest.
-- **Per-callsite cursor (tiles).** Each receive **tile** callsite keeps its own **read cursor** (a
-  sequence number), the generalization of the button sensor's per-callsite last-seen counter from a
-  single slot to a buffer. A callsite reads packets with sequence greater than its cursor that are
-  still in the ring; a cursor that falls more than 4 behind loses the overwritten packets
-  (best-effort, the CODAL overflow behavior) and snaps to the oldest still present. (The Device-API
-  drain uses a single **port-global** cursor instead - see Drain policy.)
+- **Cursors are reader-owned; the host holds no Device-API receive cursor.** Each packet carries a
+  monotonic **sequence number**. A reader tracks "where I have read up to" and asks for packets with
+  sequence greater than that. The receive **tiles** have the host manage this per-callsite for them
+  (host-actions get a callSiteId + context on both VMs, so each tile callsite has its own cursor, the
+  generalization of the button sensor's per-callsite last-seen counter). **User code (the Device API)
+  manages its own cursor explicitly** - it passes its last-seen sequence in and stores the new one
+  itself; the host keeps no cursor for it (see Surfaces / Device API). A reader more than 4 behind
+  loses the overwritten packets (best-effort, the CODAL overflow behavior) and resumes from the oldest
+  still present; because sequence numbers are exposed, a Device-API reader can detect that gap.
 - **Non-consuming, so every observer fires.** A cursor read does not evict; the ring evicts only by
   overflow. So two receive sensors on a page, each with its own cursor, both see every packet (exactly
   as two button tiles both see one press). A shared consuming queue would force a consume-owner
@@ -130,15 +133,14 @@ arrival order, across all kinds, bounded by a depth-4 buffer; lossy only on the 
     the oldest unread packet (cursor advances by one). Each firing is one packet with its value -
     clean WHEN/DO ergonomics. A depth-4 ring absorbs a per-frame burst; the cost versus MakeCode is up
     to ~16 ms/packet latency when more than one packet waits.
-  - **Device API: drain-all (port-global cursor).** The Device-API `receive()` returns *all* packets
-    new since the **port-global** drain cursor (a batch), draining to the head with no per-packet
-    latency - the full MakeCode-fidelity path for heavy or no-loss-within-the-window cases. The cursor
-    is port-global, not per-callsite, because a sync host-function receives no execution context on the
-    cpp VM (only host-actions and async functions do), so a per-callsite cursor cannot exist there;
-    port-global keeps both VMs byte-identical. Implication: the Device-API drain is meant for **one
-    receive loop** in user code - multiple drain call sites share (and consume from) the one cursor.
-    The typed receive **tiles** keep their per-callsite cursors (they are host-actions, which get
-    context on both VMs), so the non-consuming / both-fire guarantee holds where the tiles depend on it.
+  - **Device API: user-managed cursor.** `receive(since)` returns *all* packets in the ring with
+    sequence greater than `since` (a batch), with no per-packet latency. There is **no host cursor** -
+    the caller passes its last-seen sequence and records the new one from the batch (each `RadioPacket`
+    carries its `seq`). `currentSeq()` reads the current head so a caller can arm its cursor to "from
+    now" (the user-code analog of the tiles' page-enter arming). Because the cursor lives in user code,
+    every independent consumer gets its own non-consuming cursor for free, and the cpp "sync
+    host-functions get no execution context" constraint is moot - `receive(since)` is a stateless
+    filter (the cursor is an argument), byte-identical on both VMs.
 
 The receive **tiles are typed** - `radio receive number` and `radio receive string` (full design in
 Surfaces). Each is a per-callsite cursor over the shared ring that delivers the next packet **of its
@@ -205,11 +207,23 @@ Two distinct paths, deliberately separated:
   **no metadata tile** (RSSI / serial / time / raw Buffer are Device-API only).
 - **Device API (`ctx.microbit.radio`).** Send (MakeCode-framed): `sendNumber` / `sendString` /
   `sendValue(name, value)` / `sendBuffer`. Send (raw, beyond MakeCode): `sendRawBuffer(buffer)` - the
-  datagram payload with no prefix. Receive: `receive()` is the **drain-all** over the port-global
-  cursor (see Receive) - it returns the batch of packets new since the cursor as a `RadioPacket[]`.
-  Each `RadioPacket` is a value-struct with fields `type`, `value`, `name`, `text`, `buffer`, `rssi`,
-  `serial`, `time` (the typed value, the value-pair name, the string payload, the raw payload Buffer,
-  and the metadata). Config: `setGroup` / `setTransmitPower` / `setFrequencyBand`.
+  datagram payload with no prefix. Receive (user-managed cursor; see Receive):
+  - `receive(since)` returns a `RadioPacket[]` of all ring packets with `seq > since`. The caller owns
+    the cursor: pass the last-seen sequence, then record the new one (`batch[batch.length - 1].seq`).
+    There is no no-argument drain and no host cursor.
+  - `currentSeq()` returns the current head sequence (the most recent packet's `seq`, or 0 if none),
+    so a caller can arm its cursor to "from now" (e.g. on page entry) and ignore packets already in
+    the ring.
+  - **Sequence numbers start at 1; `0` is the reserved "before any packet" sentinel - never a valid
+    packet `seq`.** This is required by the exclusive `> since` floor: a fresh caller arming
+    `cursor = currentSeq()` (which is 0 when empty), or just defaulting `cursor = 0`, must still
+    receive the first packet, so the first packet is `seq 1` (`1 > 0`). A packet numbered 0 would be
+    excluded by `receive(0)` and lost.
+  - Each `RadioPacket` is a value-struct with fields `seq`, `type`, `value`, `name`, `text`, `buffer`,
+    `rssi`, `serial`, `time` (the sequence, the typed value, the value-pair name, the string payload,
+    the raw payload Buffer, and the metadata).
+
+  Config: `setGroup` / `setTransmitPower` / `setFrequencyBand`.
 - **Simulator.** A per-instance radio panel: the group selector, an **inject-packet** control (send
   a number / string / value into this instance - the golden-injection path), and a log of packets
   this instance sent; plus the **multi-instance virtual ether** (`SharedMedium`) that routes sends
@@ -224,10 +238,14 @@ The concrete fill-in:
   - Type-atoms: `Radio = 1032`, `RadioPacket = 1033`, `RadioPacketList = 1034` (count 8 -> 11).
     `RadioPacketList` is the target-owned list type for `receive()`'s `RadioPacket[]` (`addListType`
     requires its own atom id).
-  - Host-fn block 1057-1069: `RadioSendNumber 1057`, `RadioSendString 1058`, `RadioSendValue 1059`,
+  - Host-fn block 1057-1070: `RadioSendNumber 1057`, `RadioSendString 1058`, `RadioSendValue 1059`,
     `RadioSendBuffer 1060`, `RadioSendRawBuffer 1061`, `RadioSetGroup 1062`, `RadioSetTransmitPower
-    1063`, `RadioSetFrequencyBand 1064`, `RadioReceive 1065` (drain-all), `ActuatorRadioSend 1066`,
-    `SensorRadioReceiveNumber 1067`, `SensorRadioReceiveString 1068`, `ActuatorSetRadioGroup 1069`.
+    1063`, `RadioSetFrequencyBand 1064`, `RadioReceive 1065` (`receive(since)`), `ActuatorRadioSend
+    1066`, `SensorRadioReceiveNumber 1067`, `SensorRadioReceiveString 1068`, `ActuatorSetRadioGroup
+    1069`, `RadioCurrentSeq 1070` (`currentSeq()`). `RadioReceive` takes a `since` argument and there
+    is no no-argument drain; the `RadioPacket` struct carries a `seq` field. (The wodal build assigned
+    1057-1069 for the original port-global drain; the user-managed-cursor revision changes
+    `RadioReceive`'s signature and appends `RadioCurrentSeq 1070`.)
   - Action block: `RadioSend 1032`, `RadioReceiveNumber 1033`, `RadioReceiveString 1034`,
     `SetRadioGroup 1035`.
   - The registry index lives in `docs/specs/microbit-context.md`.
@@ -269,10 +287,12 @@ is built is a subset, with each gap marked composable / designed-out / deferred.
 
 ## Open questions
 
-1. ~~**RX model.**~~ RESOLVED: a depth-4 receive ring + per-callsite cursor (matching MakeCode's
-   receive reliability - every packet delivered once, in order, all kinds, bounded buffer, best-effort
-   on overflow); tile drains one packet per think, Device API drains all-new. Supersedes the earlier
-   latest-wins single-slot call.
+1. ~~**RX model.**~~ RESOLVED: a depth-4 receive ring (matching MakeCode's receive reliability - every
+   packet delivered once, in order, all kinds, bounded buffer, best-effort on overflow). Tiles drain
+   one packet per think via host-managed per-callsite cursors. The **Device API uses a user-managed
+   cursor** - `receive(since)` (a stateless filter) + `currentSeq()` + a `seq` on each packet; there is
+   no host cursor and no no-argument drain. Supersedes both the earlier latest-wins single-slot call
+   and the interim port-global drain cursor.
 2. **Value-pair name addressing.** Deferred (see CODAL coverage): the ring delivers every named packet
    in order, so a receiver demuxes by name from the stream; a device-held per-name map is revisited
    only if random-access named reads are needed.

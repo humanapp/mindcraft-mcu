@@ -34,6 +34,7 @@ add_executable(mindcraft-tests
   program-dump.test.cpp
   program-reader.test.cpp
   program.test.cpp
+  radio-wire.test.cpp
   region-arena.test.cpp
   result.test.cpp
   span.test.cpp
