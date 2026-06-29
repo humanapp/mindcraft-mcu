@@ -3,6 +3,7 @@
 #include "MicroBit.h"
 
 #include "codal/device-port.h"
+#include "codal/radio-wire.h"
 #include "targets/microbit-v2/abi/button-index.h"
 #include "targets/microbit-v2/abi/display-scroll.h"
 
@@ -540,6 +541,185 @@ private:
         while (system_timer_current_time_us() - start < micros)
         {
         }
+    }
+};
+
+/**
+ * Drives the 2.4 GHz packet radio through CODAL's `MicroBitRadio`. Send encodes a
+ * typed packet to its MakeCode-compatible on-air frame (or sends raw bytes for a
+ * raw datagram) and calls `datagram.send`, which blocks until transmission
+ * completes. Received packets are drained from CODAL's own RX queue into a
+ * bounded depth-{@link RadioPort::RADIO_RX_RING_DEPTH} ring by {@link pollRx},
+ * which the host loop calls once per tick before the brain thinks (enqueue-only;
+ * the VM reads the ring on its next think). Each ring entry keeps its raw frame
+ * and is decoded on demand by {@link ringAt}. The radio is demand-activated: it
+ * is enabled lazily on the first send, config call, or poll. The nRF radio and
+ * the BLE stack are mutually exclusive; this firmware runs no BLE stack, so
+ * `enable()` succeeds.
+ */
+class MicroBitRadioPort : public RadioPort
+{
+public:
+    explicit MicroBitRadioPort(MicroBit &uBit) : uBit_(uBit) {}
+
+    void send(const RadioSendView &packet) override
+    {
+        ensureEnabled();
+        uint8_t frame[kRadioMaxPacketSize];
+        if (packet.type == kRadioRawPacketType)
+        {
+            uint32_t len = packet.bytesLen < kRadioMaxPacketSize ? packet.bytesLen : kRadioMaxPacketSize;
+            for (uint32_t i = 0; i < len; i++)
+            {
+                frame[i] = packet.bytes[i];
+            }
+            uBit_.radio.datagram.send(frame, static_cast<int>(len));
+            return;
+        }
+        RadioFrameInput in{};
+        in.type = static_cast<RadioPacketType>(packet.type);
+        in.value = packet.value;
+        in.name = packet.name;
+        in.nameLen = packet.nameLen;
+        in.text = packet.text;
+        in.textLen = packet.textLen;
+        in.bytes = packet.bytes;
+        in.bytesLen = packet.bytesLen;
+        // System time is the sender's running time; serial is 0 (transmit-serial
+        // is not enabled), matching the MakeCode wire-format metadata defaults.
+        encodeRadioFrame(in, static_cast<int32_t>(system_timer_current_time()), 0, frame);
+        uBit_.radio.datagram.send(frame, static_cast<int>(kRadioMaxPacketSize));
+    }
+
+    uint8_t group() override { return groupValue_; }
+
+    void setGroup(int group) override
+    {
+        ensureEnabled();
+        groupValue_ = static_cast<uint8_t>(group);
+        uBit_.radio.setGroup(static_cast<uint8_t>(group));
+    }
+
+    void setTransmitPower(int power) override
+    {
+        ensureEnabled();
+        uBit_.radio.setTransmitPower(power);
+    }
+
+    void setFrequencyBand(int band) override
+    {
+        ensureEnabled();
+        uBit_.radio.setFrequencyBand(band);
+    }
+
+    uint32_t ringSize() override { return count_; }
+
+    const RadioPacketView &ringAt(uint32_t index) override
+    {
+        const Slot &slot = ring_[(head_ + index) % RADIO_RX_RING_DEPTH];
+        const RadioDecodedFrame decoded = decodeRadioFrame(slot.frame);
+        scratch_.seq = slot.seq;
+        scratch_.type = decoded.type;
+        scratch_.group = slot.group;
+        scratch_.value = decoded.value;
+        scratch_.name = decoded.name;
+        scratch_.nameLen = decoded.nameLen;
+        scratch_.text = decoded.text;
+        scratch_.textLen = decoded.textLen;
+        scratch_.bytes = decoded.bytes;
+        scratch_.bytesLen = decoded.bytesLen;
+        scratch_.rssi = slot.rssi;
+        scratch_.serial = decoded.serial;
+        scratch_.time = decoded.time;
+        return scratch_;
+    }
+
+    int headSequence() override { return lastSeq_; }
+
+    /**
+     * Drains every packet CODAL has queued into the receive ring, assigning each
+     * the next arrival sequence and stamping its RSSI, evicting the oldest on
+     * overflow. Enqueue-only: it never re-enters the VM. Call once per host-loop
+     * tick before the brain thinks.
+     */
+    void pollRx()
+    {
+        ensureEnabled();
+        // Drain the datagram queue directly. CODAL's `dataReady()` reports the
+        // radio-level queue, which its idle callback empties into the separate
+        // datagram queue between ticks; recv() returns EmptyPacket when drained.
+        while (true)
+        {
+            PacketBuffer packet = uBit_.radio.datagram.recv();
+            if (packet == PacketBuffer::EmptyPacket)
+            {
+                break;
+            }
+            pushPacket(packet.getBytes(), packet.length(), packet.getRSSI());
+        }
+    }
+
+private:
+    /**
+     * One received packet's raw on-air frame plus the fields not carried in it:
+     * the arrival sequence, the received signal strength, and the group it landed
+     * on. The frame is decoded on demand by {@link ringAt}.
+     */
+    struct Slot
+    {
+        uint8_t frame[kRadioMaxPacketSize];
+        int seq;
+        int rssi;
+        uint8_t group;
+    };
+
+    MicroBit &uBit_;
+    bool enabled_ = false;
+    uint8_t groupValue_ = 0;
+    Slot ring_[RADIO_RX_RING_DEPTH];
+    uint32_t head_ = 0;
+    uint32_t count_ = 0;
+    int lastSeq_ = 0;
+    RadioPacketView scratch_{};
+
+    /** Enable the demand-activated CODAL radio on first use. */
+    void ensureEnabled()
+    {
+        if (!enabled_)
+        {
+            uBit_.radio.enable();
+            enabled_ = true;
+        }
+    }
+
+    /** Append a received frame to the ring with the next sequence, evicting the oldest on overflow. */
+    void pushPacket(const uint8_t *bytes, int length, int rssi)
+    {
+        uint32_t slotIndex;
+        if (count_ < RADIO_RX_RING_DEPTH)
+        {
+            slotIndex = (head_ + count_) % RADIO_RX_RING_DEPTH;
+            count_++;
+        }
+        else
+        {
+            slotIndex = head_;
+            head_ = (head_ + 1) % RADIO_RX_RING_DEPTH;
+        }
+        Slot &slot = ring_[slotIndex];
+        uint32_t len = length < 0 ? 0 : static_cast<uint32_t>(length);
+        if (len > kRadioMaxPacketSize)
+        {
+            len = kRadioMaxPacketSize;
+        }
+        std::memset(slot.frame, 0, sizeof(slot.frame));
+        for (uint32_t i = 0; i < len; i++)
+        {
+            slot.frame[i] = bytes[i];
+        }
+        slot.seq = ++lastSeq_;
+        slot.rssi = rssi;
+        slot.group = groupValue_;
     }
 };
 

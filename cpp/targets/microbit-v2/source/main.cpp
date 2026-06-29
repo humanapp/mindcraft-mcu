@@ -82,11 +82,11 @@ int main()
     MicroBitI2CPort i2c(uBit);
     MicroBitGPIOPort gpio(uBit);
     MicroBitSonarPort sonar(uBit);
+    MicroBitRadioPort radio(uBit);
     MicroBitMonotonicClockPort clock;
     MicroBitFaultDisplayPort faultDisplay(uBit);
-    // No radio port is wired; radio tiles no-op on device until a RadioPort is supplied here.
     DevicePorts ports{&display, &buttons, &faultDisplay, &clock, &accelerometer,
-                      &i2c,     &gpio,    &sonar,        nullptr};
+                      &i2c,     &gpio,    &sonar,        &radio};
 
     // Read the brain image from the reserved on-flash region.
     const Result<ByteSpan, RegionError> region = readRegionProgram(programFlashRegion());
@@ -139,8 +139,23 @@ int main()
     // The button sensors poll the button port and back their per-callsite state
     // on the heap; the heap and roots are filled once the scheduler exists.
     MicroBitV2ButtonSensorEnv buttonEnv{&buttons, nullptr, nullptr};
+    // The radio send tile reads a string value off the heap; its heap is filled
+    // once the heap exists.
+    MicroBitV2RadioSendEnv radioSendEnv{&radio, nullptr};
+    // The typed radio receive sensors read the ring and (for the string sensor)
+    // allocate a managed string; their heap and roots are filled once the
+    // scheduler exists.
+    MicroBitV2RadioSensorEnv radioSensorEnv{&radio, nullptr, nullptr};
+    // The radio send / config host functions resolve managed string / buffer
+    // arguments off the heap; its heap is filled once the heap exists.
+    MicroBitV2RadioEnv radioEnv{&radio, nullptr};
+    // The radio receive(since) host function allocates the managed RadioPacket[]
+    // it returns and resolves its struct/list type-atoms; its heap, roots, and
+    // type registry are filled once they exist.
+    MicroBitV2RadioReceiveEnv radioReceiveEnv{&radio, nullptr, nullptr, nullptr};
     auto coreBindings = makeCoreHostActionBindings(coreEnv);
-    auto mbBindings = makeMicroBitV2HostActionBindings(ports, &scrollEnv, &buttonEnv, &drawEnv);
+    auto mbBindings = makeMicroBitV2HostActionBindings(ports, &scrollEnv, &buttonEnv, &drawEnv,
+                                                       &radioSendEnv, &radioSensorEnv);
     std::array<HostActionBinding, kCoreHostActionBindingCount + kMicroBitV2HostActionBindingCount>
         actions{};
     for (size_t i = 0; i < coreBindings.size(); i++)
@@ -151,7 +166,8 @@ int main()
     {
         actions[coreBindings.size() + i] = mbBindings[i];
     }
-    auto hostFuncs = makeMicroBitV2HostFuncBindings(ports, &drawEnv, &i2cWriteEnv, &i2cReadEnv);
+    auto hostFuncs = makeMicroBitV2HostFuncBindings(ports, &drawEnv, &i2cWriteEnv, &i2cReadEnv,
+                                                    &radioEnv, &radioReceiveEnv);
     ManagedHeap heap(arena, &image);
     TypeRegistry types(image);
     auto nativeStructs = makeMicroBitV2NativeStructBindings(types);
@@ -176,6 +192,13 @@ int main()
     i2cReadEnv.roots = &scheduler;
     buttonEnv.heap = &heap;
     buttonEnv.roots = &scheduler;
+    radioSendEnv.heap = &heap;
+    radioSensorEnv.heap = &heap;
+    radioSensorEnv.roots = &scheduler;
+    radioEnv.heap = &heap;
+    radioReceiveEnv.heap = &heap;
+    radioReceiveEnv.roots = &scheduler;
+    radioReceiveEnv.types = &types;
 
     HostLoop hostLoop(brain, ports);
     const mindcraft::Status startupStatus = hostLoop.startup();
@@ -190,9 +213,11 @@ int main()
 
     while (true)
     {
-        // Settle any completed scroll or timed draw before the brain thinks, so
-        // its awaiting rule resumes on this round's drain.
+        // Settle any completed scroll or timed draw, and drain any radio packets
+        // that arrived, before the brain thinks, so an awaiting rule resumes and a
+        // freshly received packet is in the ring on this round's drain.
         display.pollDisplay();
+        radio.pollRx();
         hostLoop.tick();
         uBit.sleep(kTickIntervalMs);
     }
