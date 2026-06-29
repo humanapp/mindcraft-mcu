@@ -28,14 +28,14 @@ differs, so the value (including 0) reaches DO unchanged in both.
 
 ## Mechanism
 
-- **A new opcode `WHEN_END_PRESENT`** mirrors `WHEN_END` (same skip-offset operand) but skips when the
-  WHEN-result is **nil** rather than when it is falsy. `WHEN_END` (truthiness) is unchanged, so
-  existing compiled programs are byte-unchanged. The brain compiler emits `WHEN_END_PRESENT` only for
-  the bare-presence-gated case; every other rule emits `WHEN_END` as today. (A new opcode, not a new
-  operand on `WHEN_END`, precisely so existing `WHEN_END` encodings - and therefore existing golden
-  bytecode - do not change.)
-- **A `PresenceGated` capability** (a `CoreCapabilityBits` bit) marks a sensor as a value-bearing
-  event sensor. One bit, two declaration surfaces:
+- **A new opcode `WHEN_END_PRESENT` (= 74)** mirrors `WHEN_END` (same one signed i16 skip-offset
+  operand) but skips when the WHEN-result is **nil** rather than when it is falsy. `WHEN_END`
+  (truthiness) is unchanged, so existing compiled programs are byte-unchanged. The brain compiler
+  emits `WHEN_END_PRESENT` only for the bare-presence-gated case; every other rule emits `WHEN_END` as
+  today. (A new opcode, not a new operand on `WHEN_END`, precisely so existing `WHEN_END` encodings -
+  and therefore existing golden bytecode - do not change.)
+- **A `PresenceGated` capability (`CoreCapabilityBits.PresenceGated = 2`)** marks a sensor as a
+  value-bearing event sensor. One bit, two declaration surfaces:
   - **Built-in tile sensors** set the bit in the sensor def's `capabilities` BitSet.
   - **TypeScript sensors** declare `capabilities: [PresenceGated]` in the sensor's `SensorConfig`; the
     ts-compiler forwards it onto the generated user-tile def's BitSet. It is **declared, not inferred**
@@ -51,7 +51,15 @@ differs, so the value (including 0) reaches DO unchanged in both.
 A presence-gated sensor returns **nil** when there is no value this think (absent), and the value
 (including 0 / "") when there is. nil means absent and nothing else: the sensor's value domain must
 exclude nil. The capability and this contract are a pair - declare `PresenceGated` **and** return nil
-for absent. (Document this on the capability.)
+for absent.
+
+This pairing is an **author-honored contract, not compiler-enforced** - the same posture as built-in
+host sensors. Declaring `PresenceGated` does not require the TS sensor to declare a nullable return
+type, so a sensor that declares the capability but can never return nil (e.g. a `: number` return)
+simply fires every think (it can never signal absence). This is benign and observable, not corrupting.
+The authoring JSDoc documents "return null for absent." A diagnostic that requires a nullable return
+when `PresenceGated` is declared is a deferred guardrail - revisit only if misuse surfaces (adding it
+re-introduces the return-type analysis the capability declaration was chosen to avoid).
 
 ## `__whenResult` and determinism
 
