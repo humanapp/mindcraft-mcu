@@ -93,6 +93,9 @@ display, tracking the device / `PixelDisplayPort` shape rather than the tile sem
 
 - **`scroll` is tile-only** today (a temporal actuator, the `scroll text`); expose an
   awaited `display.scroll()` here only if a TS-user-code consumer wants it (no consumer today).
+- **`in background` is a tile modifier** today; a background-with-lease form on the Device-API
+  `drawImage` is deferred to a TS-user-code consumer. (The Device API's existing `0` duration is its
+  fire-and-forget, but takes no lease; the tile modifier keeps the lease and skips only the await.)
 - The Device-API host-fn ids + the `Image` / draw-image ids are in the micro:bit-v2 target section.
 
 ## Arbitration: the display lease
@@ -117,6 +120,15 @@ is the arbitration mechanism when more than one rule wants the display.
   and the modified operation takes the display at once. On device the preempt also stops CODAL's
   in-flight scroll animation; CODAL's animation code holds no locks and runs on the cooperative
   scheduler, so stopping and restarting it within one `think()` is race-free.
+- **The `in background` modifier returns without awaiting the lease.** A scroll or draw carrying the
+  `in background` modifier (a tile on the actuator) acquires the lease and runs exactly as a normal
+  temporal draw - the display holds for the full duration, animates, blocks concurrent draws, and
+  persists - but the dispatching rule does **not** park: its handle is resolved at dispatch, so the
+  rule continues in the same round while the lease expires on VM tick time in the background. The
+  lease still governs arbitration (a concurrent draw is dropped while it is held); only the issuing
+  rule's await is skipped. It **composes with `immediately`**: the held lease is preempted, the new
+  lease is acquired, and then the rule resolves at dispatch (preempt -> dispatch -> resolve). On a
+  zero-duration or dropped draw - which already resolve at dispatch - it has no additional effect.
 - **`clear()` cancels the lease and blanks the display.** `ctx.microbit.display.clear()` preempts any
   held lease (the in-flight scroll/draw's awaiting rule resumes as if finished, never faulting - the same
   preempt path as the `immediately` modifier) and then zeros all LEDs. It is the explicit way to stop an
@@ -160,7 +172,8 @@ lease are silently dropped (each completes immediately with its paste discarded)
   completion the handle resolves and the rule resumes on the following `think()`.
 - Holds a display lease for the scroll duration; a concurrent draw is silently dropped per the
   lease policy. The optional **`immediately`** modifier preempts the current lease so the scroll
-  starts at once (see the lease section).
+  starts at once; the optional **`in background`** modifier returns immediately without awaiting the
+  scroll (the lease still runs to completion) - both are described in the lease section.
 - Completion: `start + (displayWidth + spacing) * (charCount + 1) * delay` ms against VM tick
   time, where `displayWidth` is the target's, `spacing` is 1, `charCount` is the text's UTF-16
   code-unit length, and the `+ 1` is the trailing blank cycle that clears the last character. The
@@ -189,7 +202,8 @@ lease are silently dropped (each completes immediately with its paste discarded)
   - **duration 0 with multiple images:** a zero duration is fire-and-forget (no hold), so the
     sequence cannot animate - only the **last** image is painted, fire-and-forget (no lease).
   - The optional **`immediately`** modifier preempts the current display lease so the draw (or the
-    whole sequence) runs at once (see the lease section).
+    whole sequence) runs at once; the optional **`in background`** modifier returns immediately
+    without awaiting the draw (the lease still holds for the full duration) - both in the lease section.
 - At dispatch the image is pasted onto the display **top-left aligned** (the image's `(0,0)` at
   the display's `(0,0)`) and **clipped to the display dimensions**. An image larger than the
   display is **not** an error - off-screen pixels are clipped. (The fixed `(0,0)` offset is the
@@ -395,7 +409,9 @@ The concrete fill-in of the target-parameterized pieces for micro:bit-v2:
   1048 `ActuatorDrawImage`; Device-API host-fn `drawImage` id 1049; `Image` shared type-atom id 2048).
   A **`repeated` anonymous** `Image` slot (zero or more, gathered into a `List<Image>`; default a 5x5
   smiley when none) + an optional **named** `duration` in seconds (default 1 second, **per image**);
-  the `immediately` modifier (`microbit-v2.immediately`) preempts the lease. On device the paste maps
+  the `immediately` modifier (`microbit-v2.immediately`) preempts the lease and the `in background`
+  modifier (`microbit-v2.in-background`) returns without awaiting it. Both modifiers apply to
+  `scroll text` and `draw image`, and compose. On device the paste maps
   to a full-frame buffer write (CODAL `printAsync(Image, delay = 0)` semantics, or a direct buffer
   write) with no CODAL hold timer; an oversize image clips via CODAL's paste; a multi-image sequence
   swaps frames per `duration` from the per-`think()` poll. Goldens `draw-image-forget` /

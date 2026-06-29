@@ -48,6 +48,7 @@ Each `ctx.microbit.*` sub-interface and the feature spec that owns its full desi
 | `i2c` | `writeBuffer` / `readBuffer` (edge-connector, no tile) | `docs/specs/i2c.md` |
 | `gpio` | digital/pull/servo (+ designed: analog/PWM, touch) (edge-connector, no tile) | `docs/specs/gpio.md` |
 | `sonar` | `distance(trig, echo)` ultrasonic, pin-keyed (edge-connector, no tile; via the background sensor driver) | `docs/specs/sonar.md` |
+| `radio` | builtin 2.4 GHz packet radio: send (number/string/value/buffer) + receive (poll, latest-wins) + group/power/band config (has tiles) | `docs/specs/radio.md` |
 
 (Build status, dates, and as-built history live in the build plans, not the specs - specs are
 eternal.)
@@ -58,7 +59,9 @@ Each peripheral adds a feature spec + a registry row here when it lands; the sou
 the device's CODAL surface:
 
 - onboard: `accelerometer`, `thermometer` (getTemperature), `compass` (heading), display light level,
-  microphone sound level, `radio` (send/receive).
+  microphone sound level. `radio` (send/receive) has a dedicated spec (`docs/specs/radio.md`): a
+  builtin bidirectional service with tiles, the receive side modeled on the buttons poll-derived
+  injected-input pattern, and a simulator multi-instance virtual ether over the `SharedMedium` broker.
 - **edge-connector primitives** (Device-API ONLY - no tile counterpart), each with a **dedicated
   spec**: **I2C (`docs/specs/i2c.md`)**, **GPIO (`docs/specs/gpio.md`)**, the native NEC IR-receive
   primitive (spec TBD), **NeoPixel/WS2812 (`docs/specs/neopixel.md`, designed; not built)**, and
