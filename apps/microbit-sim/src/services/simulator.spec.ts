@@ -2,10 +2,14 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   BrainDef,
+  BrainTileLiteralDef,
+  CoreTypeIds,
   coreModule,
   createMindcraftEnvironment,
   type MindcraftEnvironment,
   mkActuatorTileId,
+  mkModifierTileId,
+  mkNumberValue,
   mkSensorTileId,
 } from "@mindcraft-lang/core/app";
 import {
@@ -14,7 +18,11 @@ import {
   type WodalBuildInput,
   WodalDeviceProfileId,
 } from "@mindcraft-lang/wodal";
-import { createMicroBitV2Environment, MicroBitV2HostActions } from "@mindcraft-lang/wodal/targets/microbit-v2";
+import {
+  createMicroBitV2Environment,
+  MicroBitV2HostActions,
+  WodalMicroBitV2ModifierId,
+} from "@mindcraft-lang/wodal/targets/microbit-v2";
 import { MicrobitSimulator } from "./simulator";
 
 function microbitEnvironment(): MindcraftEnvironment {
@@ -41,6 +49,42 @@ function buttonDisplayInput(env: MindcraftEnvironment): WodalBuildInput {
   const sensorTile = services.edit.tiles.get(mkSensorTileId(MicroBitV2HostActions.ButtonA.key))!;
   const actuatorTile = services.edit.tiles.get(mkActuatorTileId(MicroBitV2HostActions.DisplaySetPixel.key))!;
   const brainDef = BrainDef.emptyBrainDef(services, "button display");
+  const rule = brainDef.pages().get(0)!.children().get(0)!;
+  rule.when().appendTile(sensorTile);
+  rule.do().appendTile(actuatorTile);
+  return { brainDef, environment: env, deviceProfile: getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2) };
+}
+
+/** Builds a `WHEN button A held DO radio send <value>` sender brain through the tile API. */
+function radioSenderInput(env: MindcraftEnvironment, value: number): WodalBuildInput {
+  const services = env.brainServices;
+  const sensorTile = services.edit.tiles.get(mkSensorTileId(MicroBitV2HostActions.ButtonA.key))!;
+  const heldTile = services.edit.tiles.get(mkModifierTileId(WodalMicroBitV2ModifierId.Held))!;
+  const sendTile = services.edit.tiles.get(mkActuatorTileId(MicroBitV2HostActions.RadioSend.key))!;
+  const brainDef = BrainDef.emptyBrainDef(services, "radio sender");
+  const rule = brainDef.pages().get(0)!.children().get(0)!;
+  rule.when().appendTile(sensorTile);
+  rule.when().appendTile(heldTile);
+  rule.do().appendTile(sendTile);
+  rule
+    .do()
+    .appendTile(
+      new BrainTileLiteralDef(
+        CoreTypeIds.Number,
+        mkNumberValue(value),
+        { valueLabel: String(value), persist: true },
+        services
+      )
+    );
+  return { brainDef, environment: env, deviceProfile: getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2) };
+}
+
+/** Builds a `WHEN radio receive number DO set pixel (0,0)` receiver brain through the tile API. */
+function radioReceiverInput(env: MindcraftEnvironment): WodalBuildInput {
+  const services = env.brainServices;
+  const sensorTile = services.edit.tiles.get(mkSensorTileId(MicroBitV2HostActions.RadioReceiveNumber.key))!;
+  const actuatorTile = services.edit.tiles.get(mkActuatorTileId(MicroBitV2HostActions.DisplaySetPixel.key))!;
+  const brainDef = BrainDef.emptyBrainDef(services, "radio receiver");
   const rule = brainDef.pages().get(0)!.children().get(0)!;
   rule.when().appendTile(sensorTile);
   rule.do().appendTile(actuatorTile);
@@ -272,5 +316,66 @@ describe("MicrobitSimulator flash", () => {
     assert.equal(a.snapshot().time, 0);
     // b (brain-2) untouched.
     assert.equal(b.flashState, bBefore);
+  });
+});
+
+describe("MicrobitSimulator radio virtual ether", () => {
+  const instanceById = (sim: MicrobitSimulator, id: string) =>
+    sim.getInstances().find((instance) => instance.id === id)!;
+
+  it("routes a send to a same-group instance (read next think) and not to a different group", () => {
+    const env = microbitEnvironment();
+    const sim = new MicrobitSimulator(env);
+    sim.setInstances(["sender", "same", "other"]);
+    sim.flash("sender", radioSenderInput(env, 5), "sender");
+    sim.flash("same", radioReceiverInput(env), "receiver");
+    sim.flash("other", radioReceiverInput(env), "receiver");
+    // Groups are device state, set after the flash that resets the device.
+    instanceById(sim, "sender").microbit.radio.setGroup(1);
+    instanceById(sim, "same").microbit.radio.setGroup(1);
+    instanceById(sim, "other").microbit.radio.setGroup(2);
+    // The sender holds button A, so it transmits on every held think.
+    instanceById(sim, "sender").microbit.setButtonPressed("A", true);
+
+    // tick 1 seeds the sensors (no send / no edge); subsequent ticks send and,
+    // a frame later, the same-group receiver reads the delivered packet.
+    sim.tick(16);
+    sim.tick(16);
+    sim.tick(16);
+
+    assert.equal(instanceById(sim, "same").microbit.display.getPixelValue(0, 0), 255);
+    assert.equal(instanceById(sim, "other").microbit.display.getPixelValue(0, 0), 0);
+  });
+
+  /**
+   * Two same-group senders transmit in one frame; the unloaded observer's ring
+   * holds both. Returns the observer's received values, given the instance order
+   * (which sets the tick order).
+   */
+  function twoSenderRun(order: readonly string[]): number[] {
+    const env = microbitEnvironment();
+    const sim = new MicrobitSimulator(env);
+    sim.setInstances(order);
+    sim.flash("a", radioSenderInput(env, 10), "sender-a");
+    sim.flash("c", radioSenderInput(env, 20), "sender-c");
+    for (const id of ["a", "b", "c"]) {
+      instanceById(sim, id).microbit.radio.setGroup(1);
+    }
+    instanceById(sim, "a").microbit.setButtonPressed("A", true);
+    instanceById(sim, "c").microbit.setButtonPressed("A", true);
+
+    sim.tick(16); // seed the button sensors
+    sim.tick(16); // a and c each send once; delivered at the frame boundary
+    return instanceById(sim, "b")
+      .microbit.radio.drainAfter(0)
+      .map((packet) => packet.value);
+  }
+
+  it("delivers same-frame sends in a fixed sender-id order regardless of tick order", () => {
+    const forward = twoSenderRun(["a", "b", "c"]);
+    const reversed = twoSenderRun(["c", "b", "a"]);
+    // Canonical order is by sender id (a before c), not by tick order.
+    assert.deepEqual(forward, [10, 20]);
+    assert.deepEqual(reversed, [10, 20]);
   });
 });

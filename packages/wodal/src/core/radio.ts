@@ -286,10 +286,23 @@ export class Radio {
   private band = RADIO_DEFAULT_FREQUENCY_BAND;
   private ring: ReceivedRadioPacket[] = [];
   private lastSeq = 0;
+  private sendListener: ((record: RadioSendRecord) => void) | undefined;
 
   /** The current group (0-255). */
   get group(): number {
     return this.groupValue;
+  }
+
+  /**
+   * Registers an observer invoked with each transmitted packet as it crosses the
+   * port, or clears it with undefined. The simulator's virtual ether uses this to
+   * route a send into other instances; it is not device state and survives
+   * {@link reset}.
+   *
+   * @param listener - Observer for each send, or undefined to clear.
+   */
+  setSendListener(listener: ((record: RadioSendRecord) => void) | undefined): void {
+    this.sendListener = listener;
   }
 
   /**
@@ -330,14 +343,15 @@ export class Radio {
   }
 
   /**
-   * Transmits a typed packet on its group. On a single device this has no
-   * observable ring effect; the device port records it for the trace and the
-   * simulator's virtual ether. Returns the record so a port tap can render it.
+   * Transmits a typed packet on its group: notifies the send listener (when set)
+   * and returns the record so a port tap can render it. On a single device the
+   * packet has no observable ring effect.
    *
    * @param record - The typed packet to transmit.
    * @returns The transmitted record.
    */
   send(record: RadioSendRecord): RadioSendRecord {
+    this.sendListener?.(record);
     return record;
   }
 

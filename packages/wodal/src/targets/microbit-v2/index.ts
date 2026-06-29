@@ -1,6 +1,14 @@
 export { AccelerometerGesture, type Sample3D } from "../../core/accelerometer";
 export { GestureInjector, type GestureSampleTarget, IDLE_SAMPLE } from "../../core/gesture-injector";
 export {
+  type IncomingRadioPacket,
+  RADIO_RAW_PACKET_TYPE,
+  Radio,
+  RadioPacketType,
+  type RadioSendRecord,
+  type ReceivedRadioPacket,
+} from "../../core/radio";
+export {
   MICROBIT_ACCELEROMETER_EVT_NONE,
   MICROBIT_BUTTON_EVT_CLICK,
   MICROBIT_BUTTON_EVT_DOUBLE_CLICK,

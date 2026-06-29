@@ -4,9 +4,16 @@ import {
   GestureInjector,
   MicroBit,
   type MicroBitSnapshot,
+  type RadioSendRecord,
   WodalMicroBitRuntime,
 } from "@mindcraft-lang/wodal/targets/microbit-v2";
 import { SharedMedium } from "./shared-medium";
+
+/** One radio send buffered during a frame: its sender and the transmitted packet. */
+interface BufferedSend {
+  readonly fromId: string;
+  readonly record: RadioSendRecord;
+}
 
 /** A classified flash diagnostic, carrying a stable WODAL code verbatim. */
 export interface FlashDiagnostic {
@@ -73,6 +80,7 @@ export class SimulatorInstance {
 export class MicrobitSimulator {
   private readonly environment: MindcraftEnvironment;
   private readonly medium = new SharedMedium();
+  private readonly outbox: BufferedSend[] = [];
   private instances_: readonly SimulatorInstance[] = [];
   private readonly instanceListeners = new Set<() => void>();
   private readonly frameListeners = new Set<() => void>();
@@ -93,7 +101,7 @@ export class MicrobitSimulator {
   /** Creates an instance, registers it into the medium, and returns it. */
   addInstance(): SimulatorInstance {
     const instance = new SimulatorInstance(crypto.randomUUID(), this.environment);
-    this.medium.register(instance.id);
+    this.registerInstance(instance);
     this.instances_ = [...this.instances_, instance];
     this.notifyInstances();
     return instance;
@@ -119,7 +127,7 @@ export class MicrobitSimulator {
     }
     const next = ids.map((id) => {
       const instance = new SimulatorInstance(id, this.environment);
-      this.medium.register(id);
+      this.registerInstance(instance);
       return instance;
     });
     this.instances_ = next;
@@ -176,11 +184,18 @@ export class MicrobitSimulator {
     }
   }
 
-  /** Advances every instance by elapsed simulated time. Unloaded instances no-op. */
+  /**
+   * Advances every instance by elapsed simulated time, then delivers the radio
+   * packets they sent this frame into the other same-group instances' rings.
+   * Unloaded instances no-op. Delivery happens at the frame boundary, so a
+   * recipient reads a packet on its next think, and same-frame sends are
+   * delivered in a fixed sender-id order independent of instance tick order.
+   */
   tick(elapsedMs: number): void {
     for (const instance of this.instances_) {
       instance.tick(elapsedMs);
     }
+    this.deliverOutbox();
     this.frame_++;
     this.notifyFrame();
   }
@@ -234,6 +249,33 @@ export class MicrobitSimulator {
   getFrame = (): number => {
     return this.frame_;
   };
+
+  /**
+   * Registers an instance's radio endpoint into the medium and routes its sends
+   * into the per-frame outbox.
+   */
+  private registerInstance(instance: SimulatorInstance): void {
+    this.medium.register(instance.id, instance.microbit.radio);
+    instance.microbit.radio.setSendListener((record) => {
+      this.outbox.push({ fromId: instance.id, record });
+    });
+  }
+
+  /**
+   * Delivers this frame's buffered sends, in a fixed order independent of the
+   * order instances were ticked: a stable sort by sender id, preserving each
+   * sender's own send order. The per-recipient ring depth and overflow apply.
+   */
+  private deliverOutbox(): void {
+    if (this.outbox.length === 0) {
+      return;
+    }
+    this.outbox.sort((a, b) => (a.fromId < b.fromId ? -1 : a.fromId > b.fromId ? 1 : 0));
+    for (const { fromId, record } of this.outbox) {
+      this.medium.transmit(fromId, record.group, record);
+    }
+    this.outbox.length = 0;
+  }
 
   private applyFlashState(instance: SimulatorInstance, state: FlashState): void {
     instance.flashState = state;

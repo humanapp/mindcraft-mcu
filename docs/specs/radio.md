@@ -224,10 +224,13 @@ Two distinct paths, deliberately separated:
     the raw payload Buffer, and the metadata).
 
   Config: `setGroup` / `setTransmitPower` / `setFrequencyBand`.
-- **Simulator.** A per-instance radio panel: the group selector, an **inject-packet** control (send
-  a number / string / value into this instance - the golden-injection path), and a log of packets
-  this instance sent; plus the **multi-instance virtual ether** (`SharedMedium`) that routes sends
-  between instances on a shared group.
+- **Simulator.** No radio-specific UI. Each instance's group is set by its brain (`set radio group` /
+  `setGroup`), so there is nothing a panel needs to control. The simulator's value is the
+  **multi-instance virtual ether** (`SharedMedium`): a send from one instance is delivered to every
+  other instance on the same group, into the recipient's receive ring via the same injection path the
+  goldens use. Two running brains (one sending, one receiving) demonstrate it directly. (An earlier
+  draft proposed a group selector / inject control / sent-packet log; dropped - the group is brain-set
+  and a peer instance's send is the packet source, so a panel has nothing to show.)
 
 ## micro:bit-v2 target
 
