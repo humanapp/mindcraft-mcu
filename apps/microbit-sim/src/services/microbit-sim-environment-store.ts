@@ -21,6 +21,7 @@ import {
   type WodalDeviceProfile,
   WodalDeviceProfileId,
 } from "@mindcraft-lang/wodal";
+import { loadExamples } from "@/examples";
 import { name as appName, version as appVersion } from "../../package.json";
 import { loadBindingToken, saveBindingToken } from "./binding-token-persistence";
 import { microbitAmbientFiles } from "./microbit-ambient-files";
@@ -243,6 +244,7 @@ export class MicrobitSimEnvironmentStore {
       numerics: createProfileNumerics(activeProfile.numberPrecision),
       ambientFiles: microbitAmbientFiles,
       stdlibFiles: microbitStdlibFiles,
+      examples: loadExamples(),
       host: { name: appName, version: appVersion },
       bridgeUrl: appSettings.vscodeBridgeUrl,
       loadBindingToken,
