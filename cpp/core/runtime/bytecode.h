@@ -62,6 +62,7 @@ enum class Op : uint8_t {
   WHEN_END = 71,
   DO_START = 72,
   DO_END = 73,
+  WHEN_END_PRESENT = 74,
 
   // List operations
   LIST_NEW = 90,
@@ -117,7 +118,7 @@ enum class Op : uint8_t {
 };
 
 /** Number of declared {@link Op} members, including the reserved opcodes. */
-inline constexpr uint32_t kOpCount = 64;
+inline constexpr uint32_t kOpCount = 65;
 
 /**
  * Var-int encoding of a single instruction operand: `UVar` is an unsigned
@@ -159,9 +160,9 @@ inline constexpr OperandSpec kUVarOpt{OperandEncoding::UVar, true};
  * Per-opcode operand layout for binary instruction serialization. Mirrors
  * OPERAND_SCHEMA in
  * external/mindcraft-lang/packages/core/src/runtime/bytecode.ts, one row per
- * declared {@link Op} member in declaration order. `SVar` marks the five
+ * declared {@link Op} member in declaration order. `SVar` marks the six
  * signed rel-offset opcodes (`JMP`, `JMP_IF_FALSE`, `JMP_IF_TRUE`,
- * `WHEN_END`, `TRY`); the optional trailing `b` marks the four
+ * `WHEN_END`, `WHEN_END_PRESENT`, `TRY`); the optional trailing `b` marks the four
  * typeId-carrying constructors (`LIST_NEW`, `MAP_NEW`, `STRUCT_NEW`,
  * `STRUCT_COPY_EXCEPT`); every other operand is `UVar`. `STRUCT_NEW`'s `a`
  * operand is reserved and must be 0.
@@ -197,6 +198,7 @@ inline constexpr OpOperandSchema kOperandSchema[] = {
     {Op::WHEN_END, 1, {detail::kSVar}},
     {Op::DO_START, 0, {}},
     {Op::DO_END, 0, {}},
+    {Op::WHEN_END_PRESENT, 1, {detail::kSVar}},
     {Op::LIST_NEW, 2, {detail::kUVar, detail::kUVarOpt}},
     {Op::LIST_PUSH, 0, {}},
     {Op::LIST_GET, 0, {}},

@@ -56,6 +56,14 @@ change `vm-contract.md`.
 - `port sonar distance <trig> <echo> <cm>` - one ultrasonic distance read; the
   trig/echo pins + the returned cm (the cached, one-cycle-lagged measurement), all
   minimal lowercase hex. Emitted on each read (mirrors the gpio read lines).
+- `port radio send group <g>` followed by one typed-payload token - one radio send
+  crossing the port. The payload token is one of: `number <f32Bits>`,
+  `double <f32Bits>`, `string "<bytes>"`, `value "<name>" number <f32Bits>`,
+  `value "<name>" double <f32Bits>`, `buffer <hex>`, or `raw <hex>`. `number` vs
+  `double` records the integer-vs-non-integer packet-type predicate. The packet's
+  system time and serial number are NOT in the trace (covered by the wire-format
+  unit test). Receive needs no token - a fired receive sensor renders via the
+  existing `action ... result` line.
 - `fault <fiberId> <errorCode>` - a fiber fault.
 
 Host-action ids and call-site ids render as minimal lowercase hex.

@@ -1273,6 +1273,21 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       break;
     }
 
+    case Op::WHEN_END_PRESENT: {
+      // Presence-gated WHEN: a present value (including a falsy 0 / "" / false)
+      // falls through into the DO section; only nil (absent) jumps past it by
+      // the signed `a` offset. Captures __whenResult identically to WHEN_END.
+      if (state.stackDepth == 0) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      const Value value = state.stack[state.stackDepth - 1];
+      ruleVarSet(surface, resolveFrameRuleFuncId(program, frame),
+                 Value::number(kWhenResultRuleVarKey), value);
+      state.stackDepth--;
+      frame.pc = value.isNil() ? addRel(frame.pc, ins.a) : frame.pc + 1;
+      break;
+    }
+
     case Op::LIST_NEW: {
       if (surface.heap == nullptr) {
         return fault(ErrorCode::HostError);

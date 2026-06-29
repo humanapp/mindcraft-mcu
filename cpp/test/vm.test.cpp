@@ -68,6 +68,7 @@ bool isImplementedOp(Op op) {
   case Op::SPAWN_RULE:
   case Op::WHEN_START:
   case Op::WHEN_END:
+  case Op::WHEN_END_PRESENT:
   case Op::DO_START:
   case Op::DO_END:
   case Op::LOAD_LOCAL:
@@ -440,6 +441,52 @@ TEST_CASE("WHEN/DO boundaries gate the DO section on the WHEN result") {
   CHECK(skippedDo.result.tag() == ValueTag::Nil);
 }
 
+TEST_CASE("WHEN_END_PRESENT gates the DO section on presence, not truthiness") {
+  // Same rule shape as WHEN_END: WHEN_START, value, WHEN_END_PRESENT +4,
+  // DO_START, body, RET; the absent (nil) path lands past the DO section. The
+  // present-but-falsy value 0 runs DO; nil skips it.
+  ProgramBuilder b;
+  b.valueNil();    // value pool index 0: nil (absent)
+  b.number(0.0f);  // number pool index 0: 0 (present, falsy)
+  b.number(42.0f); // number pool index 1: DO sentinel
+  // func 0: a present falsy 0 runs DO and returns 42.
+  b.beginFunction()
+      .instr(Op::WHEN_START)
+      .instr(Op::PUSH_CONST_NUM, 0)
+      .instr(Op::WHEN_END_PRESENT, 4)
+      .instr(Op::DO_START)
+      .instr(Op::PUSH_CONST_NUM, 1)
+      .instr(Op::RET)
+      .instr(Op::PUSH_CONST_VAL, 0)
+      .instr(Op::RET);
+  // func 1: nil (absent) skips DO and returns nil.
+  b.beginFunction()
+      .instr(Op::WHEN_START)
+      .instr(Op::PUSH_CONST_VAL, 0)
+      .instr(Op::WHEN_END_PRESENT, 4)
+      .instr(Op::DO_START)
+      .instr(Op::PUSH_CONST_NUM, 1)
+      .instr(Op::RET)
+      .instr(Op::PUSH_CONST_VAL, 0)
+      .instr(Op::RET);
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  Machine present;
+  REQUIRE(startExecution(present.state, image, 0, {}).isOk());
+  present.state.budget = 10;
+  const RunResult ranDo = runExecution(present.state, image);
+  REQUIRE(ranDo.status == RunStatus::Done);
+  CHECK(ranDo.result.asNumber() == 42.0f);
+
+  Machine absent;
+  REQUIRE(startExecution(absent.state, image, 1, {}).isOk());
+  absent.state.budget = 10;
+  const RunResult skippedDo = runExecution(absent.state, image);
+  REQUIRE(skippedDo.status == RunStatus::Done);
+  CHECK(skippedDo.result.tag() == ValueTag::Nil);
+}
+
 TEST_CASE("DO_END is a pure marker") {
   ProgramBuilder b;
   b.number(3.0f);
@@ -603,8 +650,8 @@ TEST_CASE("entering the loop without a positive budget is a host-contract fault"
 }
 
 TEST_CASE("popping opcodes fault StackUnderflow on an empty stack") {
-  const Op poppers[7] = {Op::POP,          Op::DUP,         Op::SWAP,    Op::STACK_SET_REL,
-                         Op::JMP_IF_FALSE, Op::JMP_IF_TRUE, Op::WHEN_END};
+  const Op poppers[8] = {Op::POP,          Op::DUP,         Op::SWAP,     Op::STACK_SET_REL,
+                         Op::JMP_IF_FALSE, Op::JMP_IF_TRUE, Op::WHEN_END, Op::WHEN_END_PRESENT};
   for (const Op op : poppers) {
     CAPTURE(static_cast<int>(op));
     ProgramBuilder b;

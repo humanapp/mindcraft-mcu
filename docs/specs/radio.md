@@ -60,8 +60,9 @@ The fixed prefix is 9 bytes (`PACKET_PREFIX_LENGTH`); the frame is 32 bytes
 | DOUBLE_VALUE | 5 | a Float64LE at offset 9, then a length-prefixed name string at offset 17 |
 
 - **Number encoding follows MakeCode:** an integer value sends as NUMBER / VALUE (Int32LE); a
-  non-integer sends as DOUBLE / DOUBLE_VALUE (Float64LE). Names are length-prefixed UTF-8, truncated
-  (a DOUBLE_VALUE name is capped at 8 bytes; a VALUE name has more room).
+  non-integer sends as DOUBLE / DOUBLE_VALUE (Float64LE). The integer-vs-non-integer predicate is
+  MakeCode's `value === (value | 0)`. Names are length-prefixed UTF-8, truncated; **both VALUE and
+  DOUBLE_VALUE names are capped at 8 bytes** (MakeCode caps both, not just DOUBLE_VALUE).
 - **Metadata:** the **system time** is the sender's running time; the **serial number** is the
   sender's device serial, or 0 unless the sender enabled transmit-serial. Both, plus the **RSSI**, are
   carried on the received packet (see Receive).
@@ -107,11 +108,12 @@ arrival order, across all kinds, bounded by a depth-4 buffer; lossy only on the 
 
 - **Arrival.** Packets land enqueue-only into the ring (depth 4), in order, each with a monotonic
   sequence number; the host loop applies them between thinks. Overflow overwrites the oldest.
-- **Per-callsite cursor.** Each receive callsite keeps its own **read cursor** (a sequence number),
-  the generalization of the button sensor's per-callsite last-seen counter from a single slot to a
-  buffer. A callsite reads packets with sequence greater than its cursor that are still in the ring; a
-  cursor that falls more than 4 behind loses the overwritten packets (best-effort, the CODAL overflow
-  behavior) and snaps to the oldest still present.
+- **Per-callsite cursor (tiles).** Each receive **tile** callsite keeps its own **read cursor** (a
+  sequence number), the generalization of the button sensor's per-callsite last-seen counter from a
+  single slot to a buffer. A callsite reads packets with sequence greater than its cursor that are
+  still in the ring; a cursor that falls more than 4 behind loses the overwritten packets
+  (best-effort, the CODAL overflow behavior) and snaps to the oldest still present. (The Device-API
+  drain uses a single **port-global** cursor instead - see Drain policy.)
 - **Non-consuming, so every observer fires.** A cursor read does not evict; the ring evicts only by
   overflow. So two receive sensors on a page, each with its own cursor, both see every packet (exactly
   as two button tiles both see one press). A shared consuming queue would force a consume-owner
@@ -128,9 +130,15 @@ arrival order, across all kinds, bounded by a depth-4 buffer; lossy only on the 
     the oldest unread packet (cursor advances by one). Each firing is one packet with its value -
     clean WHEN/DO ergonomics. A depth-4 ring absorbs a per-frame burst; the cost versus MakeCode is up
     to ~16 ms/packet latency when more than one packet waits.
-  - **Device API: drain-all.** The Device-API receive returns *all* packets new since this callsite's
-    cursor (a batch), draining to the head with no per-packet latency - the full MakeCode-fidelity
-    path for heavy or no-loss-within-the-window cases.
+  - **Device API: drain-all (port-global cursor).** The Device-API `receive()` returns *all* packets
+    new since the **port-global** drain cursor (a batch), draining to the head with no per-packet
+    latency - the full MakeCode-fidelity path for heavy or no-loss-within-the-window cases. The cursor
+    is port-global, not per-callsite, because a sync host-function receives no execution context on the
+    cpp VM (only host-actions and async functions do), so a per-callsite cursor cannot exist there;
+    port-global keeps both VMs byte-identical. Implication: the Device-API drain is meant for **one
+    receive loop** in user code - multiple drain call sites share (and consume from) the one cursor.
+    The typed receive **tiles** keep their per-callsite cursors (they are host-actions, which get
+    context on both VMs), so the non-consuming / both-fire guarantee holds where the tiles depend on it.
 
 The receive **tiles are typed** - `radio receive number` and `radio receive string` (full design in
 Surfaces). Each is a per-callsite cursor over the shared ring that delivers the next packet **of its
@@ -140,6 +148,12 @@ fully delivered, both-fire preserved. `radio receive number` matches NUMBER / DO
 numbers), **not** VALUE / DOUBLE_VALUE pairs - matching MakeCode's separate handlers. Value-pairs,
 buffers, raw payloads, and the metadata (RSSI, sender serial, system time) are read on the **Device
 API** (the richer surface the chassis examples consume), not the tiles.
+
+A received **falsy** value (the number 0, the empty string) fires the receive tile only because these
+tiles are **presence-gated** (`docs/specs/value-sensor-presence-gate.md`): they carry the
+`PresenceGated` capability, so a bare receive-sensor WHEN gates on packet presence (non-nil) rather
+than on the value's truthiness. Without that capability a received 0 / "" would be dropped by the
+truthiness gate.
 
 **Determinism:** received packets are **injected as input** at specific ticks in a golden schedule -
 the same mechanism as injected button presses. The ring's enqueue order, overflow eviction, and each
@@ -165,7 +179,7 @@ Two distinct paths, deliberately separated:
   routes between devices; it consumes injected packets.
 - **Multi-instance sim (interactive).** The microbit-sim runs many device instances and carries a
   `SharedMedium` broker. A send from one instance enqueues the packet into every **other** registered
-  instance on the **same group**; each receiving instance's cache picks it up on its next think
+  instance on the **same group**; each receiving instance's ring picks it up on its next think
   (enqueue-on-send, poll-on-receive - the same single-entry discipline as buttons). This
   cross-instance routing **reuses the same "inject a received packet" path** the goldens use, so it
   is deterministic within the sim's lockstep tick loop. It is a convenience for live multi-device
@@ -191,11 +205,11 @@ Two distinct paths, deliberately separated:
   **no metadata tile** (RSSI / serial / time / raw Buffer are Device-API only).
 - **Device API (`ctx.microbit.radio`).** Send (MakeCode-framed): `sendNumber` / `sendString` /
   `sendValue(name, value)` / `sendBuffer`. Send (raw, beyond MakeCode): `sendRawBuffer(buffer)` - the
-  datagram payload with no prefix. Receive: a per-callsite read over the receive ring - either the
-  next unread packet (or nil) or a **drain-all** that returns every packet new since this callsite's
-  cursor (a batch). Each returned packet exposes its typed value, its **raw payload Buffer** (for
-  custom decoding), and metadata (RSSI, sender serial, system time). Config: `setGroup` /
-  `setTransmitPower` / `setFrequencyBand`.
+  datagram payload with no prefix. Receive: `receive()` is the **drain-all** over the port-global
+  cursor (see Receive) - it returns the batch of packets new since the cursor as a `RadioPacket[]`.
+  Each `RadioPacket` is a value-struct with fields `type`, `value`, `name`, `text`, `buffer`, `rssi`,
+  `serial`, `time` (the typed value, the value-pair name, the string payload, the raw payload Buffer,
+  and the metadata). Config: `setGroup` / `setTransmitPower` / `setFrequencyBand`.
 - **Simulator.** A per-instance radio panel: the group selector, an **inject-packet** control (send
   a number / string / value into this instance - the golden-injection path), and a log of packets
   this instance sent; plus the **multi-instance virtual ether** (`SharedMedium`) that routes sends
@@ -205,17 +219,23 @@ Two distinct paths, deliberately separated:
 
 The concrete fill-in:
 
-- **ABI anchors.** A new `MicroBitField.Radio`, appended **last** at the next free field id (and
-  `kMicroBitFieldCount` bumped); a `Radio` type-atom; a contiguous **host-function block**
-  (send / receive / config) appended from the next free `MicroBitV2HostFuncId`; and a contiguous
-  **action-id block** appended from the next free `HostActionId`. The exact numeric ids are assigned
-  append-only at build and reconciled into this section (the registry index lives in
-  `docs/specs/microbit-context.md`).
+- **ABI anchors (assigned by the wodal build; cpp mirrors).**
+  - Field: `MicroBitField.Radio = 8` (count 8 -> 9; appended last, position == id).
+  - Type-atoms: `Radio = 1032`, `RadioPacket = 1033`, `RadioPacketList = 1034` (count 8 -> 11).
+    `RadioPacketList` is the target-owned list type for `receive()`'s `RadioPacket[]` (`addListType`
+    requires its own atom id).
+  - Host-fn block 1057-1069: `RadioSendNumber 1057`, `RadioSendString 1058`, `RadioSendValue 1059`,
+    `RadioSendBuffer 1060`, `RadioSendRawBuffer 1061`, `RadioSetGroup 1062`, `RadioSetTransmitPower
+    1063`, `RadioSetFrequencyBand 1064`, `RadioReceive 1065` (drain-all), `ActuatorRadioSend 1066`,
+    `SensorRadioReceiveNumber 1067`, `SensorRadioReceiveString 1068`, `ActuatorSetRadioGroup 1069`.
+  - Action block: `RadioSend 1032`, `RadioReceiveNumber 1033`, `RadioReceiveString 1034`,
+    `SetRadioGroup 1035`.
+  - The registry index lives in `docs/specs/microbit-context.md`.
 - **Ranges + caps.** group 0-255 (default 0); transmit power 0-7 (default 6); frequency band 0-83
   (default 7; channel at `2400 + band` MHz). Frame 32 bytes, 9-byte MakeCode prefix, typed payload
-  <= 20 (BUFFER <= 19, DOUBLE_VALUE name <= 8); over-long strings / buffers **truncate**. RSSI is the
-  last packet's signal strength in -dBm (CODAL `getRSSI`). The send trace token is pinned in
-  `docs/specs/contracts/observable-trace.md`.
+  <= 20 (BUFFER <= 19, VALUE and DOUBLE_VALUE names <= 8); over-long strings / buffers **truncate**.
+  RSSI is the last packet's signal strength in -dBm (CODAL `getRSSI`). The send trace token is pinned
+  in `docs/specs/contracts/observable-trace.md`.
 - **CODAL backing.** `MicroBitRadio` - `setGroup` / `setTransmitPower` / `setFrequencyBand`,
   `datagram.send` / `datagram.recv`, `dataReady`, `getRSSI`; on `MICROBIT_RADIO_EVT_DATAGRAM` the host
   loop drains CODAL's own 4-deep RX queue into the receive ring (enqueue-only; the VM drains the ring

@@ -97,6 +97,18 @@ const FIXTURES: readonly ReceiveFixture[] = [
     schedule: [{ advanceMs: 16 }, { advanceMs: 16, inject: [numberPacket(7)] }, { advanceMs: 16 }],
   },
   {
+    // Presence gate: a delivered 0 is falsy but present, so the rule fires.
+    name: "radio-receive-number-zero",
+    rules: [NUMBER],
+    schedule: [{ advanceMs: 16 }, { advanceMs: 16, inject: [numberPacket(0)] }, { advanceMs: 16 }],
+  },
+  {
+    // Presence gate: a delivered empty string is falsy but present, so the rule fires.
+    name: "radio-receive-string-empty",
+    rules: [STRING],
+    schedule: [{ advanceMs: 16 }, { advanceMs: 16, inject: [stringPacket("")] }, { advanceMs: 16 }],
+  },
+  {
     name: "radio-receive-number-burst",
     rules: [NUMBER],
     schedule: [

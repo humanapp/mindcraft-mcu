@@ -1,4 +1,6 @@
 import {
+  BitSet,
+  CoreCapabilityBits,
   CoreTypeIds,
   type CreateHostSensorOptions,
   clearCallSiteState,
@@ -66,6 +68,7 @@ function makeReceiveSensor(
     isAsync: false,
     outputType,
     metadata: { label },
+    capabilities: new BitSet().set(CoreCapabilityBits.PresenceGated),
   } satisfies CreateHostSensorOptions;
 }
 
