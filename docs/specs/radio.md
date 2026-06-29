@@ -262,9 +262,12 @@ The concrete fill-in:
   RSSI is the last packet's signal strength in -dBm (CODAL `getRSSI`). The send trace token is pinned
   in `docs/specs/contracts/observable-trace.md`.
 - **CODAL backing.** `MicroBitRadio` - `setGroup` / `setTransmitPower` / `setFrequencyBand`,
-  `datagram.send` / `datagram.recv`, `dataReady`, `getRSSI`; on `MICROBIT_RADIO_EVT_DATAGRAM` the host
-  loop drains CODAL's own 4-deep RX queue into the receive ring (enqueue-only; the VM drains the ring
-  on the next think). The ring depth mirrors `MICROBIT_RADIO_MAXIMUM_RX_BUFFERS` (4).
+  `datagram.send` / `datagram.recv`, `getRSSI`. Each host-loop tick, before think, the loop **drains
+  `datagram.recv()` until empty** into the receive ring (enqueue-only; the VM reads the ring on the
+  next think). Drain the datagram queue directly - do NOT gate on `dataReady()`: that counts the
+  radio-level RX queue, but CODAL's `idleCallback` moves packets into the separate datagram queue, so
+  `dataReady()` reads 0 by poll time and the packets strand (this matches MakeCode's `readRawPacket`,
+  which never checks `dataReady`). The ring depth mirrors `MICROBIT_RADIO_MAXIMUM_RX_BUFFERS` (4).
 
 ## CODAL radio capability coverage
 
