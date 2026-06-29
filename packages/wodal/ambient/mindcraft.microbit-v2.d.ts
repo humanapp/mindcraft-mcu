@@ -8,6 +8,9 @@ declare module "mindcraft" {
     I2C: I2C;
     GPIO: GPIO;
     Sonar: Sonar;
+    RadioPacket: RadioPacket;
+    RadioPacketList: RadioPacketList;
+    Radio: Radio;
     MicroBit: MicroBit;
   }
 
@@ -62,6 +65,29 @@ declare module "mindcraft" {
     readonly __brand: unique symbol;
     distance(trig: number, echo: number): number;
   }
+  export interface RadioPacket {
+    type: number;
+    value: number;
+    name: string;
+    text: string;
+    buffer: Buffer;
+    rssi: number;
+    serial: number;
+    time: number;
+  }
+  export type RadioPacketList = Array<RadioPacket>;
+  export interface Radio {
+    readonly __brand: unique symbol;
+    sendNumber(value: number): void;
+    sendString(text: string): void;
+    sendValue(name: string, value: number): void;
+    sendBuffer(buffer: Buffer): void;
+    sendRawBuffer(buffer: Buffer): void;
+    setGroup(group: number): void;
+    setTransmitPower(power: number): void;
+    setFrequencyBand(band: number): void;
+    receive(): Array<RadioPacket>;
+  }
   export interface MicroBit {
     readonly __brand: unique symbol;
     readonly display: MicroBitDisplay;
@@ -72,6 +98,7 @@ declare module "mindcraft" {
     readonly i2c: I2C;
     readonly gpio: GPIO;
     readonly sonar: Sonar;
+    readonly radio: Radio;
   }
   export interface Context {
     readonly microbit: MicroBit;

@@ -8,12 +8,16 @@ import {
   createHostSensor,
   type ExecutionContext,
   extractNumberValue,
+  extractStringValue,
   List,
   type MindcraftModule,
   type MindcraftModuleApi,
   mkCallDef,
+  mkClosedStructValue,
+  mkListValue,
   mkNativeStructValue,
   mkNumberValue,
+  mkStringValue,
   mkTypeId,
   NativeType,
   NIL_VALUE,
@@ -28,6 +32,14 @@ import { Button } from "../../../core/button";
 import { Gpio } from "../../../core/gpio";
 import { I2CBus } from "../../../core/i2c-bus";
 import { toNonNegativeInteger } from "../../../core/numeric";
+import {
+  RADIO_RAW_PACKET_TYPE,
+  Radio,
+  RadioPacketType,
+  type RadioSendRecord,
+  type ReceivedRadioPacket,
+  radioNumberIsInteger,
+} from "../../../core/radio";
 import { SensorDriver } from "../../../core/sensor-driver";
 import { TouchButton } from "../../../core/touch-button";
 import { WODAL_SHARED_TYPE_IDS } from "../../../mindcraft/shared-type-ids";
@@ -39,6 +51,9 @@ import { brightnessToPort, pixelCoordToPort } from "./actions/display-pixel-conv
 import displayScrollActuator from "./actions/display-scroll";
 import displaySetPixelActuator from "./actions/display-set-pixel";
 import { gestureSensor } from "./actions/gesture-sensor";
+import { radioReceiveNumberSensor, radioReceiveStringSensor } from "./actions/radio-receive";
+import radioSendActuator from "./actions/radio-send";
+import setRadioGroupActuator from "./actions/set-radio-group";
 import { BUILT_IN_IMAGES, builtInImageStructValue } from "./built-in-images";
 import { getMicroBitContextDevice } from "./context";
 import { MICROBIT_V2_MODIFIERS } from "./modifiers";
@@ -73,7 +88,31 @@ export const WODAL_MICROBIT_V2_TYPE_IDS = {
 
   /** Native-backed sonar facade for the simulated device's background sensor driver. */
   Sonar: mkTypeId(NativeType.Struct, "Sonar"),
+
+  /** Native-backed radio facade for the simulated device. */
+  Radio: mkTypeId(NativeType.Struct, "Radio"),
+
+  /** Value struct describing one received radio packet (drain-all element). */
+  RadioPacket: mkTypeId(NativeType.Struct, "RadioPacket"),
+
+  /** List of {@link RadioPacket}, the drain-all receive result type. */
+  RadioPacketList: mkTypeId(NativeType.List, "RadioPacketList"),
 } as const;
+
+/**
+ * Field ids of the `RadioPacket` value struct, in declaration order. Each is the
+ * field's storage slot in the closed struct value the drain-all receive builds.
+ */
+enum RadioPacketField {
+  Type = 0,
+  Value = 1,
+  Name = 2,
+  Text = 3,
+  Buffer = 4,
+  Rssi = 5,
+  Serial = 6,
+  Time = 7,
+}
 
 /**
  * Numeric field ids for the `MicroBit` struct. Each value is the field's durable
@@ -89,6 +128,7 @@ export enum MicroBitField {
   I2C = 5,
   GPIO = 6,
   Sonar = 7,
+  Radio = 8,
 }
 
 /**
@@ -109,6 +149,7 @@ export function createMicroBitV2Module(): MindcraftModule {
       registerI2CFunctions(api);
       registerGPIOFunctions(api);
       registerSonarFunctions(api);
+      registerRadioFunctions(api);
       registerBrainTiles(api);
     },
   };
@@ -295,6 +336,81 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
     ]),
   });
 
+  types.addStructType("RadioPacket", {
+    atomId: MicroBitV2TypeAtomId.RadioPacket,
+    fields: List.from([
+      { name: "type", typeId: CoreTypeIds.Number, fieldIndex: RadioPacketField.Type },
+      { name: "value", typeId: CoreTypeIds.Number, fieldIndex: RadioPacketField.Value },
+      { name: "name", typeId: CoreTypeIds.String, fieldIndex: RadioPacketField.Name },
+      { name: "text", typeId: CoreTypeIds.String, fieldIndex: RadioPacketField.Text },
+      { name: "buffer", typeId: CoreTypeIds.Buffer, fieldIndex: RadioPacketField.Buffer },
+      { name: "rssi", typeId: CoreTypeIds.Number, fieldIndex: RadioPacketField.Rssi },
+      { name: "serial", typeId: CoreTypeIds.Number, fieldIndex: RadioPacketField.Serial },
+      { name: "time", typeId: CoreTypeIds.Number, fieldIndex: RadioPacketField.Time },
+    ]),
+  });
+
+  types.addListType("RadioPacketList", {
+    atomId: MicroBitV2TypeAtomId.RadioPacketList,
+    elementTypeId: WODAL_MICROBIT_V2_TYPE_IDS.RadioPacket,
+  });
+
+  types.addStructType("Radio", {
+    atomId: MicroBitV2TypeAtomId.Radio,
+    fields: List.empty(),
+    fieldGetter: () => undefined,
+    methods: List.from([
+      {
+        name: "sendNumber",
+        params: List.from([{ name: "value", typeId: CoreTypeIds.Number }]),
+        returnTypeId: CoreTypeIds.Void,
+      },
+      {
+        name: "sendString",
+        params: List.from([{ name: "text", typeId: CoreTypeIds.String }]),
+        returnTypeId: CoreTypeIds.Void,
+      },
+      {
+        name: "sendValue",
+        params: List.from([
+          { name: "name", typeId: CoreTypeIds.String },
+          { name: "value", typeId: CoreTypeIds.Number },
+        ]),
+        returnTypeId: CoreTypeIds.Void,
+      },
+      {
+        name: "sendBuffer",
+        params: List.from([{ name: "buffer", typeId: CoreTypeIds.Buffer }]),
+        returnTypeId: CoreTypeIds.Void,
+      },
+      {
+        name: "sendRawBuffer",
+        params: List.from([{ name: "buffer", typeId: CoreTypeIds.Buffer }]),
+        returnTypeId: CoreTypeIds.Void,
+      },
+      {
+        name: "setGroup",
+        params: List.from([{ name: "group", typeId: CoreTypeIds.Number }]),
+        returnTypeId: CoreTypeIds.Void,
+      },
+      {
+        name: "setTransmitPower",
+        params: List.from([{ name: "power", typeId: CoreTypeIds.Number }]),
+        returnTypeId: CoreTypeIds.Void,
+      },
+      {
+        name: "setFrequencyBand",
+        params: List.from([{ name: "band", typeId: CoreTypeIds.Number }]),
+        returnTypeId: CoreTypeIds.Void,
+      },
+      {
+        name: "receive",
+        params: List.empty(),
+        returnTypeId: WODAL_MICROBIT_V2_TYPE_IDS.RadioPacketList,
+      },
+    ]),
+  });
+
   types.addStructType("MicroBit", {
     atomId: MicroBitV2TypeAtomId.MicroBit,
     fields: List.from([
@@ -310,6 +426,7 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
       { name: "i2c", typeId: WODAL_MICROBIT_V2_TYPE_IDS.I2C, fieldIndex: MicroBitField.I2C },
       { name: "gpio", typeId: WODAL_MICROBIT_V2_TYPE_IDS.GPIO, fieldIndex: MicroBitField.GPIO },
       { name: "sonar", typeId: WODAL_MICROBIT_V2_TYPE_IDS.Sonar, fieldIndex: MicroBitField.Sonar },
+      { name: "radio", typeId: WODAL_MICROBIT_V2_TYPE_IDS.Radio, fieldIndex: MicroBitField.Radio },
     ]),
     fieldGetter: (source, fieldId) => {
       const microbit = getNativeMicroBit(source);
@@ -333,6 +450,8 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
           return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.GPIO, microbit.gpio);
         case MicroBitField.Sonar:
           return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.Sonar, microbit.sensorDriver);
+        case MicroBitField.Radio:
+          return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.Radio, microbit.radio);
         default:
           return undefined;
       }
@@ -646,12 +765,200 @@ function registerSonarFunctions(api: MindcraftModuleApi): void {
   });
 }
 
+const EMPTY_BYTES = new Uint8Array(0);
+
+function registerRadioFunctions(api: MindcraftModuleApi): void {
+  const emptyCallDef = mkCallDef({ type: "bag", items: [] });
+
+  const sendRecord = (args: ReadonlyList<Value>, record: RadioSendRecord): Value => {
+    const radio = getRadioReceiver(args);
+    if (radio) {
+      radio.send(record);
+    }
+    return VOID_VALUE;
+  };
+
+  api.registerFunction({
+    id: MicroBitV2HostFuncId.RadioSendNumber,
+    name: "Radio.sendNumber",
+    isAsync: false,
+    fn: {
+      exec: (_ctx: ExecutionContext, args: ReadonlyList<Value>) => {
+        const radio = getRadioReceiver(args);
+        const value = numberArg(args, 1);
+        return sendRecord(args, {
+          type: radioNumberIsInteger(value) ? RadioPacketType.Number : RadioPacketType.Double,
+          group: radio ? radio.group : 0,
+          value,
+          name: "",
+          text: "",
+          bytes: EMPTY_BYTES,
+        });
+      },
+    },
+    callDef: emptyCallDef,
+  });
+
+  api.registerFunction({
+    id: MicroBitV2HostFuncId.RadioSendString,
+    name: "Radio.sendString",
+    isAsync: false,
+    fn: {
+      exec: (_ctx: ExecutionContext, args: ReadonlyList<Value>) => {
+        const radio = getRadioReceiver(args);
+        return sendRecord(args, {
+          type: RadioPacketType.String,
+          group: radio ? radio.group : 0,
+          value: 0,
+          name: "",
+          text: extractStringValue(args.get(1)) ?? "",
+          bytes: EMPTY_BYTES,
+        });
+      },
+    },
+    callDef: emptyCallDef,
+  });
+
+  api.registerFunction({
+    id: MicroBitV2HostFuncId.RadioSendValue,
+    name: "Radio.sendValue",
+    isAsync: false,
+    fn: {
+      exec: (_ctx: ExecutionContext, args: ReadonlyList<Value>) => {
+        const radio = getRadioReceiver(args);
+        const value = numberArg(args, 2);
+        return sendRecord(args, {
+          type: radioNumberIsInteger(value) ? RadioPacketType.Value : RadioPacketType.DoubleValue,
+          group: radio ? radio.group : 0,
+          value,
+          name: extractStringValue(args.get(1)) ?? "",
+          text: "",
+          bytes: EMPTY_BYTES,
+        });
+      },
+    },
+    callDef: emptyCallDef,
+  });
+
+  api.registerFunction({
+    id: MicroBitV2HostFuncId.RadioSendBuffer,
+    name: "Radio.sendBuffer",
+    isAsync: false,
+    fn: {
+      exec: (_ctx: ExecutionContext, args: ReadonlyList<Value>) => {
+        const radio = getRadioReceiver(args);
+        return sendRecord(args, {
+          type: RadioPacketType.Buffer,
+          group: radio ? radio.group : 0,
+          value: 0,
+          name: "",
+          text: "",
+          bytes: bufferArgBytes(args.get(1)),
+        });
+      },
+    },
+    callDef: emptyCallDef,
+  });
+
+  api.registerFunction({
+    id: MicroBitV2HostFuncId.RadioSendRawBuffer,
+    name: "Radio.sendRawBuffer",
+    isAsync: false,
+    fn: {
+      exec: (_ctx: ExecutionContext, args: ReadonlyList<Value>) => {
+        const radio = getRadioReceiver(args);
+        return sendRecord(args, {
+          type: RADIO_RAW_PACKET_TYPE,
+          group: radio ? radio.group : 0,
+          value: 0,
+          name: "",
+          text: "",
+          bytes: bufferArgBytes(args.get(1)),
+        });
+      },
+    },
+    callDef: emptyCallDef,
+  });
+
+  const configFns: ReadonlyArray<{ id: MicroBitV2HostFuncId; name: string; apply: (radio: Radio, n: number) => void }> =
+    [
+      { id: MicroBitV2HostFuncId.RadioSetGroup, name: "Radio.setGroup", apply: (radio, n) => radio.setGroup(n) },
+      {
+        id: MicroBitV2HostFuncId.RadioSetTransmitPower,
+        name: "Radio.setTransmitPower",
+        apply: (radio, n) => radio.setTransmitPower(n),
+      },
+      {
+        id: MicroBitV2HostFuncId.RadioSetFrequencyBand,
+        name: "Radio.setFrequencyBand",
+        apply: (radio, n) => radio.setFrequencyBand(n),
+      },
+    ];
+  for (const { id, name, apply } of configFns) {
+    api.registerFunction({
+      id,
+      name,
+      isAsync: false,
+      fn: {
+        exec: (_ctx: ExecutionContext, args: ReadonlyList<Value>) => {
+          const radio = getRadioReceiver(args);
+          if (radio) {
+            apply(radio, numberArg(args, 1));
+          }
+          return VOID_VALUE;
+        },
+      },
+      callDef: emptyCallDef,
+    });
+  }
+
+  api.registerFunction({
+    id: MicroBitV2HostFuncId.RadioReceive,
+    name: "Radio.receive",
+    isAsync: false,
+    fn: {
+      exec: (_ctx: ExecutionContext, args: ReadonlyList<Value>) => {
+        const radio = getRadioReceiver(args);
+        if (!radio) {
+          return mkListValue(WODAL_MICROBIT_V2_TYPE_IDS.RadioPacketList, List.empty());
+        }
+        return mkListValue(
+          WODAL_MICROBIT_V2_TYPE_IDS.RadioPacketList,
+          List.from(radio.drainAll().map(radioPacketStructValue))
+        );
+      },
+    },
+    callDef: emptyCallDef,
+  });
+}
+
+/** Builds a `RadioPacket` value struct from a received packet, in field-index order. */
+function radioPacketStructValue(packet: ReceivedRadioPacket): Value {
+  return mkClosedStructValue(
+    WODAL_MICROBIT_V2_TYPE_IDS.RadioPacket,
+    List.from([
+      mkNumberValue(packet.type),
+      mkNumberValue(packet.value),
+      mkStringValue(packet.name),
+      mkStringValue(packet.text),
+      mkBufferValue(stream.byteArrayFromUint8Array(packet.bytes)),
+      mkNumberValue(packet.rssi),
+      mkNumberValue(packet.serial),
+      mkNumberValue(packet.time),
+    ])
+  );
+}
+
 function registerBrainTiles(api: MindcraftModuleApi): void {
   api.registerHostSensor(createHostSensor(buttonASensor));
   api.registerHostSensor(createHostSensor(buttonBSensor));
   api.registerHostSensor(createHostSensor(buttonABSensor));
   api.registerHostSensor(createHostSensor(buttonLogoSensor));
   api.registerHostSensor(createHostSensor(gestureSensor));
+  api.registerHostSensor(createHostSensor(radioReceiveNumberSensor));
+  api.registerHostSensor(createHostSensor(radioReceiveStringSensor));
+  api.registerHostActuator(createHostActuator(radioSendActuator));
+  api.registerHostActuator(createHostActuator(setRadioGroupActuator));
   api.registerHostActuator(createHostActuator(displaySetPixelActuator));
   api.registerHostActuator(createHostActuator(displayScrollActuator));
   api.registerHostActuator(createHostActuator(displayDrawActuator));
@@ -737,6 +1044,14 @@ function getSonarReceiver(args: ReadonlyList<Value>): SensorDriver | undefined {
     return undefined;
   }
   return receiver.native instanceof SensorDriver ? receiver.native : undefined;
+}
+
+function getRadioReceiver(args: ReadonlyList<Value>): Radio | undefined {
+  const receiver = args.get(0);
+  if (!isStructNative(receiver, WODAL_MICROBIT_V2_TYPE_IDS.Radio)) {
+    return undefined;
+  }
+  return receiver.native instanceof Radio ? receiver.native : undefined;
 }
 
 /** The bytes of a `Buffer` argument, in order; an empty array when the value is not a buffer. */

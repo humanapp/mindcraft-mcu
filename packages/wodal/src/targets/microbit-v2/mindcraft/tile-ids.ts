@@ -52,6 +52,19 @@ export enum MicroBitV2HostFuncId {
   GpioSetPull = 1054,
   GpioServoWrite = 1055,
   SonarDistance = 1056,
+  RadioSendNumber = 1057,
+  RadioSendString = 1058,
+  RadioSendValue = 1059,
+  RadioSendBuffer = 1060,
+  RadioSendRawBuffer = 1061,
+  RadioSetGroup = 1062,
+  RadioSetTransmitPower = 1063,
+  RadioSetFrequencyBand = 1064,
+  RadioReceive = 1065,
+  ActuatorRadioSend = 1066,
+  SensorRadioReceiveNumber = 1067,
+  SensorRadioReceiveString = 1068,
+  ActuatorSetRadioGroup = 1069,
 }
 
 /**
@@ -69,6 +82,9 @@ export enum MicroBitV2TypeAtomId {
   I2C = 1029,
   GPIO = 1030,
   Sonar = 1031,
+  Radio = 1032,
+  RadioPacket = 1033,
+  RadioPacketList = 1034,
 }
 
 /**
@@ -118,6 +134,34 @@ export const MicroBitV2HostActions = {
     key: "microbit-v2.draw-image",
     actionId: 1031,
     fnId: MicroBitV2HostFuncId.ActuatorDrawImage,
+  },
+
+  /** Actuator: broadcast the optional value (or the WHEN-result) as a radio packet. */
+  RadioSend: {
+    key: "microbit-v2.radio-send",
+    actionId: 1032,
+    fnId: MicroBitV2HostFuncId.ActuatorRadioSend,
+  },
+
+  /** Sensor: the next received NUMBER / DOUBLE packet, delivering its numeric value. */
+  RadioReceiveNumber: {
+    key: "microbit-v2.radio-receive-number",
+    actionId: 1033,
+    fnId: MicroBitV2HostFuncId.SensorRadioReceiveNumber,
+  },
+
+  /** Sensor: the next received STRING packet, delivering its string value. */
+  RadioReceiveString: {
+    key: "microbit-v2.radio-receive-string",
+    actionId: 1034,
+    fnId: MicroBitV2HostFuncId.SensorRadioReceiveString,
+  },
+
+  /** Actuator: set the radio group (0-255). */
+  SetRadioGroup: {
+    key: "microbit-v2.set-radio-group",
+    actionId: 1035,
+    fnId: MicroBitV2HostFuncId.ActuatorSetRadioGroup,
   },
 } as const satisfies Record<string, HostActionIds>;
 

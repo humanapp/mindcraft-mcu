@@ -56,6 +56,13 @@
  * port gpio set-pull <pin> <mode>
  * port gpio servo-write <pin> <angle>
  * port sonar distance <trig> <echo> <cm>
+ * port radio send group <g> number <bits>
+ * port radio send group <g> double <bits>
+ * port radio send group <g> string "<bytes>"
+ * port radio send group <g> value "<name>" number <bits>
+ * port radio send group <g> value "<name>" double <bits>
+ * port radio send group <g> buffer <hex>
+ * port radio send group <g> raw <hex>
  * fault <fiberId> <errorCode>
  * ```
  *
@@ -113,12 +120,22 @@
  *   sensor driver for the sonar wired to `<trig>`/`<echo>` (the pin numbers in
  *   hex). `<cm>` is the distance in centimeters read back (the previous driver
  *   cycle's measurement), in hex.
+ * - `port radio send`: one packet transmitted across the radio device port.
+ *   `<g>` is the group in hex. The trailing tokens render the typed payload:
+ *   `number <bits>` (NUMBER, an integer), `double <bits>` (DOUBLE, a
+ *   non-integer); `string "<bytes>"` (STRING); `value "<name>" number <bits>`
+ *   (VALUE) or `value "<name>" double <bits>` (DOUBLE_VALUE); `buffer <hex>`
+ *   (BUFFER); `raw <hex>` (a raw datagram with no MakeCode prefix). `<bits>` is
+ *   the f32 bit pattern of the value; `<hex>` is two lowercase hex digits per
+ *   byte. The system time and serial that ride in the on-air frame are not
+ *   rendered here; the wire layout is pinned by the interop unit test.
  * - `fault`: one fiber fault. `<errorCode>` is the numeric wire-stable
  *   `ErrorCode`. Fault messages are implementation-defined and never render.
  */
 
 import { NativeType, type ReadonlyList, type Value } from "@mindcraft-lang/core/app";
 import { bufferToHex, type NumberPrecision } from "@mindcraft-lang/core/runtime";
+import { RADIO_RAW_PACKET_TYPE, RadioPacketType, type RadioSendRecord } from "../../../core/radio";
 
 /** Current observable trace format version. */
 export const OBSERVABLE_TRACE_FORMAT_VERSION = 1;
@@ -389,6 +406,17 @@ export class ObservableTraceWriter {
   }
 
   /**
+   * Records one packet transmitted across the radio device port, rendering the
+   * typed payload (the system time and serial in the on-air frame are omitted).
+   *
+   * @param record - The transmitted typed packet.
+   */
+  radioSend(record: RadioSendRecord): void {
+    const group = hexU32(record.group);
+    this.line(`port radio send group ${group} ${this.radioPayload(record)}`);
+  }
+
+  /**
    * Records one fiber fault.
    *
    * @param fiberId - Id of the faulted fiber.
@@ -411,7 +439,35 @@ export class ObservableTraceWriter {
     return text;
   }
 
+  private radioPayload(record: RadioSendRecord): string {
+    const bits = numberBits(record.value, this.precision);
+    switch (record.type) {
+      case RadioPacketType.Number:
+        return `number ${bits}`;
+      case RadioPacketType.Double:
+        return `double ${bits}`;
+      case RadioPacketType.String:
+        return `string ${quoted(record.text)}`;
+      case RadioPacketType.Value:
+        return `value ${quoted(record.name)} number ${bits}`;
+      case RadioPacketType.DoubleValue:
+        return `value ${quoted(record.name)} double ${bits}`;
+      case RadioPacketType.Buffer:
+        return `buffer ${bytesToHex(record.bytes)}`;
+      case RADIO_RAW_PACKET_TYPE:
+        return `raw ${bytesToHex(record.bytes)}`;
+    }
+  }
+
   private line(text: string): void {
     this.out += `${text}\n`;
   }
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  let hex = "";
+  for (let i = 0; i < bytes.length; i++) {
+    hex += hexPadded((bytes[i] ?? 0) & 0xff, 2);
+  }
+  return hex;
 }

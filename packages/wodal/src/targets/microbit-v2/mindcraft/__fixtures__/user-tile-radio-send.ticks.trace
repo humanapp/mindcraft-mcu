@@ -1,0 +1,10 @@
+mctrace 1
+profile 1
+precision f32
+tick 1 time 41800000 dt 00000000
+port radio send group 0 number 42280000
+port radio send group 0 double 40600000
+port radio send group 0 string "hi"
+port radio send group 0 value "x" number 40e00000
+port radio send group 0 buffer aabbcc
+port radio send group 0 raw 0102

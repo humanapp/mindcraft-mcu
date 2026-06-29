@@ -4,6 +4,7 @@ import { Gpio } from "../../core/gpio";
 import { I2CBus } from "../../core/i2c-bus";
 import { MessageBus, type MessageBusSnapshot } from "../../core/message-bus";
 import { toUint32 } from "../../core/numeric";
+import { Radio } from "../../core/radio";
 import { SensorDriver } from "../../core/sensor-driver";
 import { Timer } from "../../core/timer";
 import { TouchButton, type TouchButtonSnapshot } from "../../core/touch-button";
@@ -80,6 +81,9 @@ export class MicroBit {
   /** Background sensor driver backing the pin-keyed sonar reads. */
   public readonly sensorDriver = new SensorDriver();
 
+  /** 2.4 GHz packet radio: group/power/band config, typed send, buffered receive ring. */
+  public readonly radio = new Radio();
+
   private initialized = false;
 
   /** Completes device initialization. Returns 0 on first call and -1 afterward. */
@@ -132,6 +136,7 @@ export class MicroBit {
     this.i2c.reset();
     this.gpio.reset();
     this.sensorDriver.reset();
+    this.radio.reset();
     this.initialized = false;
   }
 
