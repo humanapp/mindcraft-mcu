@@ -230,7 +230,11 @@ Two distinct paths, deliberately separated:
   other instance on the same group, into the recipient's receive ring via the same injection path the
   goldens use. Two running brains (one sending, one receiving) demonstrate it directly. (An earlier
   draft proposed a group selector / inject control / sent-packet log; dropped - the group is brain-set
-  and a peer instance's send is the packet source, so a panel has nothing to show.)
+  and a peer instance's send is the packet source, so a panel has nothing to show.) The ether delivers
+  the sender's typed packet directly (the wire encode/decode round-trip is lossless and byte-tested
+  separately, so re-encoding between two simulated micro:bits would add nothing); since there is no
+  real RF, the received metadata is synthetic - RSSI, sender serial, and time are stamped to fixed
+  defaults, so in the simulator every sender appears as serial 0.
 
 ## micro:bit-v2 target
 
