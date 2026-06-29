@@ -20,6 +20,7 @@ add_executable(mindcraft-tests
   display-scroll.test.cpp
   error-code.test.cpp
   fiber-scheduler.test.cpp
+  fiber-stress.test.cpp
   fixture-paths.test.cpp
   host-loop.test.cpp
   load-error.test.cpp
