@@ -112,6 +112,43 @@ defining store; `name` is metadata (display / debug).
 - **Both VMs.** The System namespace + the per-think tick are runtime additions that land in **both**
   the wodal oracle and the cpp VM (byte-identical), like the per-rule fiber model; the access lowering
   is a compiler change (one target-unaware place). Goldens exercise a real System.
+- **Methods behave like native methods over the shared state.** Within `init` / `think` / a method,
+  `this` is the System instance: sibling calls (`think` calling `this.blend()`, `stop()` calling
+  `this.reset()`, including mutual/recursive), field reads/writes, and in-place field operators
+  (`this.field++`, `--this.field`, `this.field += n`) all work. External calls (`Movement.drive(...)`)
+  and field reads work too. The one constraint: a method must be **called, not read as a value** -
+  `const f = Movement.drive` (or `this.drive`) is a diagnostic, not a silent nil.
+
+## ABI anchors
+
+- Opcodes: `LOAD_SYSTEM_VAR` = 12, `STORE_SYSTEM_VAR` = 13 (the Variables band; operand schema
+  `[UVAR]` = the System-store slot). `STORE_SYSTEM_VAR` writes **by reference** (no deep-copy), so a
+  method's `this.field = x` mutates in place; `LOAD_SYSTEM_VAR` of an unwritten/out-of-range slot
+  yields NIL; the store grows lazily.
+- Store: a brain-global `systemStore` on the runtime, separate from `variables`/`variableNames`,
+  reached via the `ExecutionContext` accessors `get/setSystemVarBySlot`.
+- Registry: `Program.systems: List<SystemRegistration>`, where
+  `SystemRegistration = { name, storeSlot, initFuncId?, thinkFuncId? }`.
+- Store key (System identity): the exported-symbol identity `"<declaring-file>::<binding-name>"` -
+  identical in the defining and importing modules. The linker maps each identity to one global store
+  slot and registers each System once (first artifact wins), remapping every artifact's
+  LOAD/STORE_SYSTEM_VAR operands local -> global.
+- Runtime phases: startup-init runs each `initFuncId` once, in registration order, before the first
+  page activates (the init wrapper builds the initial state into the slot, then runs user `init`);
+  the per-think tick runs each `thinkFuncId` after the scheduler tick and before gc, every think,
+  page-independent. Both run the user function in a spawned, run-to-completion (non-suspendable)
+  fiber; `ctx` is passed only when the user function declares the parameter.
+
+## Scope: per-brain inclusion (reachability, not project-global)
+
+In a multi-brain project, a System is **not** automatically included in every brain. A System is
+included in a brain - its `init` runs, its `think` ticks, its store exists - **iff the brain reaches
+it**: the brain uses a tile (or Device-API code) that references the System. Using the tile is the
+opt-in; it is per-System granular (a brain that uses only a line-sensor tile gets the edge-sensor
+System, not `Movement`) and automatic (no separate enable toggle). This rides the brain compiler's
+existing **tree-shaking**: a System's registration (what the runtime inits + ticks) is emitted into a
+brain's program only when the System is reachable from that brain's used code - **per brain, never
+project-global**. A brain that references no code touching a System never inits or ticks it.
 
 ## First consumers
 
@@ -142,7 +179,10 @@ The design is validated against the two subsystems that motivated it:
   callsite-var slots (less new machinery).
 - ~~**Namespace / collision.**~~ RESOLVED: dedicated internal System namespace, separate from the
   (verified-shared) brain-variable pool - collision-proof and not brain-code-reachable.
-- **Config object shape** - exactly how `state`, `init`, `think`, and methods are declared in the
-  `System({...})` config.
-- **Determinism + the cpp mirror** - the per-think tick phase and the brain-var-backed lowering must be
-  byte-identical across both VMs.
+- ~~**Config object shape.**~~ RESOLVED: `const X = System({ name, state, init?(ctx), think?(ctx),
+  ...methods })` - methods top-level, `this` bound to the state shape (`ThisType<S>`); the construct
+  returns `S & M` so external `X.field` / `X.method(...)` typecheck. A module-level binding, co-located
+  or `export`ed.
+- **Determinism + the cpp mirror** - the per-think tick phase and the System-store lowering must be
+  byte-identical across both VMs. Carried to the cpp mirror; the binary program codec must first
+  serialize `Program.systems` (the oracle goldens run in-memory and do not yet exercise the codec).
