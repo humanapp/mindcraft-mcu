@@ -161,6 +161,21 @@ variable, compares `signal strength` against a threshold, routes `sender`, etc.
 - **Compatibility.** An output tile carries its declared `outputType`, so the editor's
   Exact/Conversion/Unchecked compatibility offers it in matching value slots (including struct-field
   conversions) like any other value-producing tile.
+- **`setOutput` coerces to the declared type.** A written value is checked against the output's
+  declared type: an exact-typed value (and nil) passes through unchanged; a single-step-convertible
+  value is converted so the stored value matches the declared type; anything else is a lowering
+  diagnostic, not a silent mistyped store. Exact-typed writes emit no conversion op.
+- **An output tile is not offered in its own provider's WHEN.** A non-inline (trigger) sensor's WHEN
+  evaluates before the sensor has produced, so the existing capability-timing + expression-position
+  behavior already keeps its output tiles out of its own WHEN (no dedicated filter). An inline
+  output-providing sensor would not get that exclusion - but none exist.
+- **Gating is per registration pass.** The `OutputCapabilityAllocator` interns gating bits within one
+  registration pass. Two sensors that share an output identity within the same pass get the same bit
+  (gating merges). The same identity declared across *separate* passes (e.g. a built-in sensor and a
+  user-tile sensor) would get distinct bits, so editor gating would not merge them - but the output
+  tile id and backing key are allocator-free (identity-derived), so the runtime value round-trip and
+  the single shared tile hold across passes regardless. (Radio is a single built-in pass, so this is
+  moot for the first consumer.)
 - **No VM / runtime / codec change.** Writes and reads ride `RuleContextSetVariable` /
   `RuleContextGetVariable`, which both VMs already implement; the new work is the `outputs` authoring
   surface, the `setOutput` helper, the derived output-tile registration, the editor gating + render,
@@ -168,15 +183,25 @@ variable, compares `signal strength` against a threshold, routes `sender`, etc.
 
 ## ABI anchors
 
-- Backing rule-variable key: `__out.<type>.<name>` (rule-scoped; keyed by output identity = type +
-  name; shared across all sensors declaring that identity; same name / different type does not
-  collide).
-- Core host functions reused (no new ids): `RuleContextSetVariable` (write), `RuleContextGetVariable`
-  (read). The output tile lowers to a `RuleContextGetVariable` call with the key as a string constant.
-- Gating: a per-**output-identity** ((type, name)) capability - every sensor declaring that identity
-  provides it; the single output tile for that identity requires it. The bit is an edit-time concern
-  (recomputed from tile defs at registration; not serialized into the saved brain), allocated above
-  the reserved `CoreCapabilityBits` range.
+- Backing rule-variable key: `__out.<typeId>.<name>` (rule-scoped; keyed by output identity = the
+  resolved `TypeId` + name; e.g. `__out.struct:<TargetActor>.it`). Both the write side (lowering) and
+  the read side (registration / tile) resolve the declared type-name to a `TypeId` through the same
+  core type registry, so a shared identity resolves to ONE key. The shared core helper is
+  `mkOutputVarKey(typeId, name)`.
+- Tile: a new `BrainTileKind` "output" (its own `OutputExpr` AST node + `visitOutput` across the
+  `ExprVisitor` implementers); tile id `tile.out-><typeId>.<name>`; output tiles are deduped to one per
+  identity-derived tile id. A placed output tile whose declaring sensor removed/retyped that output
+  becomes a `BrainTileMissingDef` on reload.
+- Core host functions reused (no new ids): `RuleContextSetVariable` (51, write),
+  `RuleContextGetVariable` (50, read) - both read the name from arg slot 1 and the value from slot 2,
+  ignore the receiver at slot 0, and use the executing frame's rule context. The output read lowers to
+  `HOST_CALL(50, argc=2)` with `[nil, CONST_STR(key)]`; `setOutput` lowers to `HOST_CALL(51, argc=3)`
+  with `[nil, CONST_STR(key), value]`. Both VMs already implement these (no VM/cpp/codec change).
+- Gating: a per-**output-identity** ((typeId, name)) capability, interned by an
+  `OutputCapabilityAllocator` from bit offset 64 (above the app capability band at 32). Every sensor
+  declaring that identity provides the bit; the single output tile for that identity requires it. The
+  bit is edit-time only (recomputed from tile defs at registration; never serialized into the saved
+  brain). One allocator per registration pass (see the cross-pass note in Semantics).
 
 ## First consumer
 
@@ -204,12 +229,13 @@ nameless. Exposing `name` therefore depends on a separate radio enhancement: a v
   provides, outputs require), the same mechanism as `see` -> `it`.
 - ~~**Stale values.**~~ RESOLVED: author-managed clear (`setOutput(name, NIL_VALUE)` at the top of
   `onExecute`); no framework auto-clear.
-- **Output tile representation** - whether the auto-generated output tile is a new `BrainTileKind`
-  ("output") or a specialized inline-sensor subtype. Either is brain-compiler/editor only; settle in
-  the impl plan.
-- **Per-output-identity capability allocation** - the exact scheme for minting and wiring the
-  per-(type, name) gating bit at registration (edit-time, non-serialized; every declaring sensor
-  provides it; the one output tile requires it). Settle in the impl plan.
+- ~~**Output tile representation.**~~ RESOLVED: a new `BrainTileKind` "output" with its own
+  `OutputExpr` AST node + `visitOutput` across the `ExprVisitor` implementers (tile id
+  `tile.out-><typeId>.<name>`). See ABI anchors.
+- ~~**Per-output-identity capability allocation.**~~ RESOLVED: an `OutputCapabilityAllocator` interns
+  one bit per `(typeId, name)` from offset 64 (edit-time only, non-serialized); declaring sensors
+  provide, the one tile requires; one allocator per registration pass. See ABI anchors + the
+  registration-pass note in Semantics.
 - ~~**Shared-output staleness.**~~ RESOLVED (author discipline): for shared outputs, write-when-present
   and do not blindly nil at the top of `onExecute`; the nil-at-top clear is for exclusively-owned
   outputs. (An alternative framework clear-per-evaluation was considered and not adopted, to preserve
