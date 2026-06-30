@@ -131,6 +131,18 @@ public:
   Status runActionHook(uint32_t funcId, uint32_t actionId, uint32_t callSiteId);
 
   /**
+   * Runs a System lifecycle function (`init` / `think`) to completion
+   * synchronously, outside the round queue, as a plain bytecode frame with no
+   * action binding. The function gets one {@link DeviceProfileCaps::hookBudget}
+   * slice and must finish in it, receiving the injected `ctx` only when its
+   * bytecode declares the param. Returns ok when it completes; fails with the
+   * fault code when it faults, and with `ErrorCode::ScriptError` when it cannot
+   * finish in one slice (it suspended). Mirrors `runSystemFunction` in
+   * external/mindcraft-lang/packages/core/src/runtime/brain-runtime.ts.
+   */
+  Status runSystemFunction(uint32_t funcId);
+
+  /**
    * Spawns a child fiber for an async bytecode action and returns its pending
    * result handle id. Implements {@link AsyncActionSpawner}; the dispatch loop
    * calls it through {@link RuntimeSurface::spawner} for `ACTION_CALL_ASYNC`.

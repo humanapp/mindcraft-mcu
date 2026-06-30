@@ -18,6 +18,7 @@ constexpr uint8_t kMagic[4] = {0x89, 0x4d, 0x42, 0x50}; // 0x89 "MBP"
 constexpr uint8_t kPresenceActs = 1;
 constexpr uint8_t kPresenceRulf = 2;
 constexpr uint8_t kPresenceRanc = 4;
+constexpr uint8_t kPresenceSyst = 8;
 
 constexpr uint8_t kNumberSmallInt = 0;
 constexpr uint8_t kNumberF32 = 1;
@@ -26,6 +27,9 @@ constexpr uint8_t kNumberF64 = 2;
 constexpr uint8_t kActionFlagInitializer = 1;
 constexpr uint8_t kActionFlagActivation = 2;
 constexpr uint8_t kActionFlagDeactivation = 4;
+
+constexpr uint8_t kSystemFlagInit = 1;
+constexpr uint8_t kSystemFlagThink = 2;
 
 constexpr uint8_t kMaxTypeEntryTag = static_cast<uint8_t>(TypeTag::Enum);
 constexpr uint8_t kMaxCallSiteBindingTag = static_cast<uint8_t>(CallSiteBinding::Bytecode);
@@ -670,6 +674,34 @@ DecodeStatus readRancSection(ByteCursor& cursor, RegionArena& arena, ProgramImag
   return DecodeStatus::ok();
 }
 
+DecodeStatus readSystSection(ByteCursor& cursor, RegionArena& arena, uint32_t stringTotal,
+                             ProgramImage& image) {
+  MC_READ(count, cursor.readVarUint());
+  MC_CHECK(checkCountFits(count, cursor));
+  SystemRegistration* systems = arena.allocate<SystemRegistration>(count);
+  if (systems == nullptr) {
+    return DecodeStatus::fail(LoadError::ArenaExhausted);
+  }
+  for (uint32_t i = 0; i < count; i++) {
+    MC_READ(flags, cursor.readU8());
+    MC_READ(nameIdx, cursor.readVarUint());
+    MC_CHECK(checkStringIndex(nameIdx, stringTotal));
+    MC_READ(storeSlot, cursor.readVarUint());
+    SystemRegistration system{nameIdx, storeSlot, kNoFuncId, kNoFuncId};
+    if ((flags & kSystemFlagInit) != 0) {
+      MC_READ(funcId, cursor.readVarUint());
+      system.initFuncId = funcId;
+    }
+    if ((flags & kSystemFlagThink) != 0) {
+      MC_READ(funcId, cursor.readVarUint());
+      system.thinkFuncId = funcId;
+    }
+    systems[i] = system;
+  }
+  image.systems = {systems, count};
+  return DecodeStatus::ok();
+}
+
 /**
  * Decodes the PAGE bodies. With null `pages`/`roots`/`callSites` the call is
  * a measure pass: it validates every page and reports the shared root-rule
@@ -779,6 +811,10 @@ DecodeStatus decodeProgram(ByteSpan wire, RegionArena& arena, const ProgramReade
   image.hasRuleAncestors = (presence & kPresenceRanc) != 0;
   if (image.hasRuleAncestors) {
     MC_CHECK(readRancSection(cursor, arena, image));
+  }
+  image.hasSystems = (presence & kPresenceSyst) != 0;
+  if (image.hasSystems) {
+    MC_CHECK(readSystSection(cursor, arena, stringTotal, image));
   }
   MC_CHECK(readPageSection(cursor, arena, stringTotal, image));
   return DecodeStatus::ok();

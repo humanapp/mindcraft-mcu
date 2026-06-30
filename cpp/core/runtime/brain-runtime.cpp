@@ -34,12 +34,26 @@ Status BrainRuntime::startup() {
     }
   }
   const uint32_t variableCount = static_cast<uint32_t>(program_.variableNames.size());
+  // The linker assigns each registered System a store slot in
+  // 0..systemCount-1; the store needs one slot per System.
+  uint32_t systemSlotCount = 0;
+  for (const SystemRegistration& system : program_.systems) {
+    if (system.storeSlot + 1 > systemSlotCount) {
+      systemSlotCount = system.storeSlot + 1;
+    }
+  }
   if (!surface_.context->bindSlots(scheduler_.arena(), variableCount, callSiteCount,
-                                   callSiteSlotStride)) {
+                                   callSiteSlotStride, systemSlotCount)) {
     return Status::fail(ErrorCode::HostError);
   }
   lastThinkTime_ = 0;
   previousPageIndex_ = kNoPageIndex;
+  // Every registered System's init runs once before the first page activates,
+  // regardless of whether the program has any pages.
+  const Status inits = runSystemInits();
+  if (!inits.isOk()) {
+    return inits;
+  }
   if (program_.pages.empty()) {
     return Status::ok();
   }
@@ -268,10 +282,43 @@ Status BrainRuntime::think(mc_number_t currentTimeMs) {
   // waiters so they join the next round. An external callback may also have
   // settled a handle out of band before this think; the same drain handles it.
   scheduler_.drainCompletedHandles();
+  // Every registered System's think runs after the scheduler round (and its
+  // handle drain) and before the reclaim sweep, page-independent.
+  const Status thinks = runSystemThinks();
+  if (!thinks.isOk()) {
+    inThink_ = false;
+    return thinks;
+  }
   scheduler_.sweep();
 
   lastThinkTime_ = currentTimeMs;
   inThink_ = false;
+  return Status::ok();
+}
+
+Status BrainRuntime::runSystemInits() {
+  for (const SystemRegistration& system : program_.systems) {
+    if (system.initFuncId == kNoFuncId) {
+      continue;
+    }
+    const Status status = scheduler_.runSystemFunction(system.initFuncId);
+    if (!status.isOk()) {
+      return status;
+    }
+  }
+  return Status::ok();
+}
+
+Status BrainRuntime::runSystemThinks() {
+  for (const SystemRegistration& system : program_.systems) {
+    if (system.thinkFuncId == kNoFuncId) {
+      continue;
+    }
+    const Status status = scheduler_.runSystemFunction(system.thinkFuncId);
+    if (!status.isOk()) {
+      return status;
+    }
+  }
   return Status::ok();
 }
 

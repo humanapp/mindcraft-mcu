@@ -37,9 +37,9 @@ struct ProgramReaderOptions {
  * external/mindcraft-lang/packages/core/src/runtime/brain-program-binary-codec.ts:
  * a 4-byte magic, a format version byte, the profileId var-uint, a presence
  * bitmask, then the positional sections `CSTR`, `TYPS`, `CNUM`, `CVAL`,
- * `FUNC`, `VARS`, the present optional sections (`ACTS`, `RULF`, `RANC`),
- * and `PAGE`. Numbers decode at the f32 device precision; an f64 numeric
- * entry fails with `LoadError::F64OnF32Target`.
+ * `FUNC`, `VARS`, the present optional sections (`ACTS`, `RULF`, `RANC`,
+ * `SYST`), and `PAGE`. Numbers decode at the f32 device precision; an f64
+ * numeric entry fails with `LoadError::F64OnF32Target`.
  *
  * String bytes are borrowed from `wire`, so `wire` and the arena's backing
  * storage must both outlive the returned image.

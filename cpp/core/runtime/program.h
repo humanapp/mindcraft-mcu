@@ -359,6 +359,24 @@ struct RuleAncestor {
   uint32_t parentRuleFuncId;
 };
 
+/**
+ * One registered System (a user-code shared singleton). The runtime runs
+ * {@link initFuncId} once at startup and {@link thinkFuncId} every think, in
+ * registration order. State lives at {@link storeSlot} in the brain-global
+ * System store, addressed by `LOAD_SYSTEM_VAR` / `STORE_SYSTEM_VAR`. An absent
+ * optional lifecycle function holds {@link kNoFuncId}.
+ */
+struct SystemRegistration {
+  /** String-table index of the System's display / debug name. */
+  uint32_t nameStringIdx;
+  /** Slot in the brain-global System store holding this System's state. */
+  uint32_t storeSlot;
+  /** FuncId run once at startup, or {@link kNoFuncId}. */
+  uint32_t initFuncId;
+  /** FuncId run every think, or {@link kNoFuncId}. */
+  uint32_t thinkFuncId;
+};
+
 /** Binding kind of an action call site. The values are the wire call-site
  * binding tags of the binary `.mcprogram` format and are wire-stable. */
 enum class CallSiteBinding : uint8_t {
@@ -460,6 +478,11 @@ struct ProgramImage {
   /** Rule-to-parent-rule edges; a root rule has no entry. */
   Span<const RuleAncestor> ruleAncestors;
 
+  /** True when the program carries a System registry (which may be empty). */
+  bool hasSystems;
+  /** Registered Systems reachable from this brain, in registration order. */
+  Span<const SystemRegistration> systems;
+
   /** The brain's pages. */
   Span<const PageMetadata> pages;
   /** Backing pool for the pages' root-rule funcId runs. */
@@ -481,6 +504,8 @@ static_assert(std::is_trivially_copyable_v<StructFieldRef>,
 static_assert(std::is_trivially_copyable_v<BytecodeAction>,
               "image structures stay trivially copyable");
 static_assert(std::is_trivially_copyable_v<RuleAncestor>,
+              "image structures stay trivially copyable");
+static_assert(std::is_trivially_copyable_v<SystemRegistration>,
               "image structures stay trivially copyable");
 static_assert(std::is_trivially_copyable_v<ActionCallSite>,
               "image structures stay trivially copyable");

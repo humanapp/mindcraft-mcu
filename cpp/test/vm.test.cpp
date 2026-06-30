@@ -75,6 +75,8 @@ bool isImplementedOp(Op op) {
   case Op::STORE_LOCAL:
   case Op::LOAD_VAR_SLOT:
   case Op::STORE_VAR_SLOT:
+  case Op::LOAD_SYSTEM_VAR:
+  case Op::STORE_SYSTEM_VAR:
   case Op::CALL:
   case Op::HOST_CALL:
   case Op::ACTION_CALL:
@@ -1004,6 +1006,46 @@ TEST_CASE("LOAD_VAR_SLOT and STORE_VAR_SLOT round-trip brain variables") {
   mindcraft::RegionArena freshArena(Span<uint8_t>(freshStorage.data(), freshStorage.size()));
   mindcraft::ExecutionContext fresh;
   REQUIRE(fresh.bindSlots(freshArena, 1, 0));
+  surface.context = &fresh;
+  Machine unstored;
+  REQUIRE(startExecution(unstored.state, image, 1, {}).isOk());
+  unstored.state.budget = 10;
+  const RunResult nilLoad = runExecution(unstored.state, image, surface);
+  REQUIRE(nilLoad.status == RunStatus::Done);
+  CHECK(nilLoad.result.tag() == ValueTag::Nil);
+}
+
+TEST_CASE("LOAD_SYSTEM_VAR and STORE_SYSTEM_VAR round-trip the System store") {
+  ProgramBuilder b;
+  b.number(9.0f);
+  b.beginFunction()
+      .instr(Op::PUSH_CONST_NUM, 0)
+      .instr(Op::STORE_SYSTEM_VAR, 0)
+      .instr(Op::LOAD_SYSTEM_VAR, 0)
+      .instr(Op::RET);
+  // An unwritten / out-of-range System slot loads nil.
+  b.beginFunction().instr(Op::LOAD_SYSTEM_VAR, 0).instr(Op::RET);
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  std::array<uint8_t, 256> ctxStorage;
+  mindcraft::RegionArena ctxArena(Span<uint8_t>(ctxStorage.data(), ctxStorage.size()));
+  mindcraft::ExecutionContext ctx;
+  REQUIRE(ctx.bindSlots(ctxArena, 0, 0, 0, 1));
+  mindcraft::RuntimeSurface surface;
+  surface.context = &ctx;
+
+  Machine machine;
+  const RunResult stored = runProgram(machine, image, {}, 1000, surface);
+  REQUIRE(stored.status == RunStatus::Done);
+  CHECK(stored.result.asNumber() == 9.0f);
+  CHECK(ctx.systemStore[0].asNumber() == 9.0f);
+
+  // A context with no System slots reads nil for any slot (out of range).
+  std::array<uint8_t, 256> freshStorage;
+  mindcraft::RegionArena freshArena(Span<uint8_t>(freshStorage.data(), freshStorage.size()));
+  mindcraft::ExecutionContext fresh;
+  REQUIRE(fresh.bindSlots(freshArena, 0, 0, 0, 0));
   surface.context = &fresh;
   Machine unstored;
   REQUIRE(startExecution(unstored.state, image, 1, {}).isOk());

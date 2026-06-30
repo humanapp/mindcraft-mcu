@@ -34,6 +34,9 @@ void FiberScheduler::enumerateRoots(GcMarker& marker) {
     for (size_t i = 0; i < ctx.variables.size(); i++) {
       marker.mark(ctx.variables[i]);
     }
+    for (size_t i = 0; i < ctx.systemStore.size(); i++) {
+      marker.mark(ctx.systemStore[i]);
+    }
     for (size_t i = 0; i < ctx.callSiteStates.size(); i++) {
       if (ctx.callSiteStatePresent[i]) {
         marker.mark(ctx.callSiteStates[i]);
@@ -210,6 +213,38 @@ Status FiberScheduler::runActionHook(uint32_t funcId, uint32_t actionId, uint32_
   case RunStatus::Yielded:
   case RunStatus::Waiting:
     // A hook that did not complete in its single slice cannot suspend.
+    status = Status::fail(ErrorCode::ScriptError);
+    break;
+  }
+
+  releaseRegions(record->exec);
+  records_.free(record);
+  return status;
+}
+
+Status FiberScheduler::runSystemFunction(uint32_t funcId) {
+  ErrorCode err = ErrorCode::StackOverflow;
+  FiberRecord* record = allocFiber(funcId, true, {}, err);
+  if (record == nullptr) {
+    return Status::fail(err);
+  }
+  // A System function runs as a brain-global frame with no action binding. It
+  // receives the injected `ctx` only when its bytecode declares the param (the
+  // entry frame's injectCtx slot).
+  record->exec.budget = caps_.hookBudget;
+  const RunResult result = runExecution(record->exec, program_, surface_);
+
+  Status status = Status::ok();
+  switch (result.status) {
+  case RunStatus::Done:
+    break;
+  case RunStatus::Fault:
+    status = Status::fail(result.error);
+    break;
+  case RunStatus::Yielded:
+  case RunStatus::Waiting:
+    // A System init / think runs to completion in its single slice and cannot
+    // suspend.
     status = Status::fail(ErrorCode::ScriptError);
     break;
   }

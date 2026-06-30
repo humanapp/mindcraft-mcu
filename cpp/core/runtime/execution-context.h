@@ -55,6 +55,15 @@ struct ExecutionContext {
   /** Brain variable slots, nil until stored. Sized by {@link bindSlots}. */
   Span<Value> variables{};
 
+  /**
+   * Brain-global System state slots backing `LOAD_SYSTEM_VAR` /
+   * `STORE_SYSTEM_VAR`: one slot per registered System, indexed by the
+   * linker-assigned store slot. Shared across all callsites, not reachable from
+   * brain code, and written by reference (no deep copy) so a System's state
+   * struct mutates in place. Nil until written; sized by {@link bindSlots}.
+   */
+  Span<Value> systemStore{};
+
   /** Per-callsite host-state slots, keyed by call-site id. */
   Span<Value> callSiteStates{};
 
@@ -95,21 +104,23 @@ struct ExecutionContext {
   /**
    * Allocates the slot tables from `arena`: `variableCount` brain-variable
    * slots (initialized to nil), `callSiteCount` per-callsite host-state slots
-   * (initially absent), and the `callSiteCount` by `callSiteSlotStride`
-   * bytecode callsite-var pad (initialized to nil) plus its allocation flags.
+   * (initially absent), the `callSiteCount` by `callSiteSlotStride` bytecode
+   * callsite-var pad (initialized to nil) plus its allocation flags, and
+   * `systemCount` brain-global System store slots (initialized to nil).
    * Returns false when the arena cannot back them, leaving the tables empty.
    */
   bool bindSlots(RegionArena& arena, uint32_t variableCount, uint32_t callSiteCount,
-                 uint32_t slotStride = 0) {
+                 uint32_t slotStride = 0, uint32_t systemCount = 0) {
     Value* vars = arena.allocate<Value>(variableCount);
     Value* states = arena.allocate<Value>(callSiteCount);
     bool* present = arena.allocate<bool>(callSiteCount);
     const uint32_t slotTotal = callSiteCount * slotStride;
     Value* slots = arena.allocate<Value>(slotTotal);
     bool* allocated = arena.allocate<bool>(callSiteCount);
+    Value* sysSlots = arena.allocate<Value>(systemCount);
     if ((variableCount > 0 && vars == nullptr) ||
         (callSiteCount > 0 && (states == nullptr || present == nullptr || allocated == nullptr)) ||
-        (slotTotal > 0 && slots == nullptr)) {
+        (slotTotal > 0 && slots == nullptr) || (systemCount > 0 && sysSlots == nullptr)) {
       return false;
     }
     for (uint32_t i = 0; i < variableCount; i++) {
@@ -118,12 +129,16 @@ struct ExecutionContext {
     for (uint32_t i = 0; i < slotTotal; i++) {
       slots[i] = kNilValue;
     }
+    for (uint32_t i = 0; i < systemCount; i++) {
+      sysSlots[i] = kNilValue;
+    }
     variables = {vars, variableCount};
     callSiteStates = {states, callSiteCount};
     callSiteStatePresent = {present, callSiteCount};
     callSiteSlots = {slots, slotTotal};
     callSiteSlotStride = slotStride;
     callSiteAllocated = {allocated, callSiteCount};
+    systemStore = {sysSlots, systemCount};
     return true;
   }
 

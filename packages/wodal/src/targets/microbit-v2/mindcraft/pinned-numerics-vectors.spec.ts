@@ -35,6 +35,8 @@ const ctx: ExecutionContext = {
   services: services as unknown as ExecutionContext["services"],
   getVariableBySlot: () => NIL_VALUE,
   setVariableBySlot: () => {},
+  getSystemVarBySlot: () => NIL_VALUE,
+  setSystemVarBySlot: () => {},
   time: 0,
   dt: 0,
   currentTick: 0,

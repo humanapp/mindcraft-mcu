@@ -106,6 +106,12 @@ private:
   Status activatePage(uint32_t pageIndex);
   Status deactivateCurrentPage();
   void cancelActiveFibers();
+  // Runs each registered System's init once, in registration order, before the
+  // first page activates.
+  Status runSystemInits();
+  // Runs each registered System's think once, in registration order, every
+  // think regardless of the active page.
+  Status runSystemThinks();
 
   /** One root rule of the active page and its current fiber. */
   struct RuleFiber {

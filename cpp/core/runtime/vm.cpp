@@ -986,6 +986,42 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       break;
     }
 
+    case Op::LOAD_SYSTEM_VAR: {
+      // An unwritten or out-of-range System slot reads nil; no bound context is
+      // a host-contract violation.
+      if (surface.context == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      const Span<Value>& store = surface.context->systemStore;
+      const Value value = ins.a < store.size() ? store[ins.a] : kNilValue;
+      if (!pushValue(state, value)) {
+        return fault(ErrorCode::StackOverflow);
+      }
+      frame.pc++;
+      break;
+    }
+
+    case Op::STORE_SYSTEM_VAR: {
+      if (surface.context == nullptr) {
+        return fault(ErrorCode::HostError);
+      }
+      Span<Value>& store = surface.context->systemStore;
+      // System store slots are linker-assigned in 0..systemCount-1; an index
+      // past the store is a malformed program.
+      if (ins.a >= store.size()) {
+        return fault(ErrorCode::HostError);
+      }
+      if (state.stackDepth == 0) {
+        return fault(ErrorCode::StackUnderflow);
+      }
+      // Written by reference (no deep copy): a System's state struct mutates in
+      // place across thinks.
+      store[ins.a] = state.stack[state.stackDepth - 1];
+      state.stackDepth--;
+      frame.pc++;
+      break;
+    }
+
     case Op::LOAD_CALLSITE_VAR: {
       // An unwritten or out-of-stride slot reads nil; no bound action is a
       // host-contract violation.

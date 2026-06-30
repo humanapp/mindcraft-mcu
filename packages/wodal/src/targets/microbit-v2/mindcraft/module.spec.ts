@@ -245,6 +245,8 @@ function createExecutionContext(env: MindcraftEnvironment, microbit: MicroBit): 
     services: env.brainServices as unknown as ExecutionContext["services"],
     getVariableBySlot: () => NIL_VALUE,
     setVariableBySlot: () => {},
+    getSystemVarBySlot: () => NIL_VALUE,
+    setSystemVarBySlot: () => {},
     data: { microbit },
     time: 0,
     dt: 0,

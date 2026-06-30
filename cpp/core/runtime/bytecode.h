@@ -26,6 +26,13 @@ enum class Op : uint8_t {
   LOAD_VAR_SLOT = 10,
   STORE_VAR_SLOT = 11,
 
+  // System variables: a brain-global, internal store separate from the
+  // variableNames pool. One value slot per registered System; shared across all
+  // callsites and not reachable from brain code. STORE_SYSTEM_VAR writes by
+  // reference (no deep copy), so a System's state struct mutates in place.
+  LOAD_SYSTEM_VAR = 12,
+  STORE_SYSTEM_VAR = 13,
+
   // Control flow
   JMP = 20,
   JMP_IF_FALSE = 21,
@@ -118,7 +125,7 @@ enum class Op : uint8_t {
 };
 
 /** Number of declared {@link Op} members, including the reserved opcodes. */
-inline constexpr uint32_t kOpCount = 65;
+inline constexpr uint32_t kOpCount = 67;
 
 /**
  * Var-int encoding of a single instruction operand: `UVar` is an unsigned
@@ -177,6 +184,8 @@ inline constexpr OpOperandSchema kOperandSchema[] = {
     {Op::STACK_SET_REL, 1, {detail::kUVar}},
     {Op::LOAD_VAR_SLOT, 1, {detail::kUVar}},
     {Op::STORE_VAR_SLOT, 1, {detail::kUVar}},
+    {Op::LOAD_SYSTEM_VAR, 1, {detail::kUVar}},
+    {Op::STORE_SYSTEM_VAR, 1, {detail::kUVar}},
     {Op::JMP, 1, {detail::kSVar}},
     {Op::JMP_IF_FALSE, 1, {detail::kSVar}},
     {Op::JMP_IF_TRUE, 1, {detail::kSVar}},
