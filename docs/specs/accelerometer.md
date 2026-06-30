@@ -1,16 +1,18 @@
 # Spec: accelerometer
 
-The micro:bit accelerometer feature across both surfaces it is exposed through: the **Tiles** surface
-(the `gesture` sensor tile; Identity ... Device and trace, below) and the **Device API** (the
-continuous `ctx.microbit.accelerometer.*` reads; see Device API). The cross-cutting `ctx.microbit.*`
+The micro:bit accelerometer feature across the surfaces it is exposed through: the **Tiles** surface
+(the `gesture` sensor tile; Identity ... Device and trace, below), the ambient **accelerometer struct**
+(read-only `x`/`y`/`z`/`pitch`/`roll` for brain code; see Accelerometer struct), and the **Device API**
+(the continuous `ctx.microbit.accelerometer.*` reads; see Device API). The cross-cutting `ctx.microbit.*`
 conventions and the Device-API registry index live in `docs/specs/microbit-context.md`.
 
 ## Identity
 
 The accelerometer is a single device (no input family like the four buttons), so its **Tiles**
 surface is **one sensor tile** (`gesture`) with a modifier choosing which gesture fires the rule. The
-continuous readings (x/y/z, pitch/roll) are the **Device API** (TS user code; see Device API below) -
-they are values, not rule triggers.
+continuous readings (x/y/z, pitch/roll) are values, not rule triggers - reached in the brain editor
+through the ambient **accelerometer struct** (read-only fields, via accessor tiles) and in TS user code
+through the **Device API** (see both below).
 
 | Field         | Value |
 | ------------- | ----- |
@@ -142,9 +144,10 @@ gesture; there is no debounce window.
 
 ## Device API (`ctx.microbit.accelerometer`)
 
-The continuous reads for the accelerometer. These are values (not rule triggers), so they have no
-tile; they live only on the Device API (TS user code). They **share the same per-`think()` poll** the
-`gesture` tile consumes (one poll, both surfaces).
+The continuous reads for the accelerometer. These are values (not rule triggers), so they are not a
+rule-trigger tile; in the brain editor they are reached through the ambient **accelerometer struct**
+(below), and in TS user code through the Device API here. They **share the same per-`think()` poll**
+the `gesture` tile consumes (one poll, all surfaces).
 
 | `ctx.microbit.accelerometer.*` | Returns | Notes |
 | ------------------------------ | ------- | ----- |
@@ -166,6 +169,31 @@ tile; they live only on the Device API (TS user code). They **share the same per
   native-struct field-order invariant - see `microbit-context.md`), type-atom `1028`, host-function
   ids `1039-1046` (getX 1039, getY 1040, getZ 1041, getPitchRadians 1042, getRollRadians 1043,
   getPitch 1044, getRoll 1045, getGesture 1046).
+
+## Accelerometer struct (ambient read-only value)
+
+The continuous reads are surfaced in the brain editor as an **ambient read-only struct** - the same
+pattern as the game engine's `me` self-actor: a struct-typed value named `accelerometer`, available in
+**any** expression (no rule trigger, no gating), whose fields are read through the editor's existing
+struct-field **accessor** tiles. This gives brain code direct, always-available access to orientation
+and acceleration - e.g. `accelerometer.pitch` to steer continuously - without a gesture having to fire.
+
+- **Fields (read-only):** `x`, `y`, `z` (mg) and `pitch`, `roll` (whole degrees). The struct exposes
+  live sensor state; the fields have no setter.
+- **Live values via a field getter.** The fields are computed on read by a struct field getter bound to
+  the accelerometer port (`getX/Y/Z`, `getPitch/Roll`), sharing the same per-`think()` poll the
+  `gesture` tile and Device API consume (one poll, all surfaces). Reading a field returns the current
+  sample.
+- **Access via accessor tiles.** `accelerometer` is a struct value, so the editor offers one accessor
+  tile per field (`tile.accessor->{Accelerometer struct}->{field}`) and the type-compatibility system
+  slots each field's number into matching value slots - the existing struct-field mechanism, no new
+  tile kind and no VM change.
+- **Available anywhere.** Unlike the `gesture` tile (a rule trigger), the `accelerometer` struct is an
+  ambient value usable in any rule, WHEN or DO, with no triggering event - the right fit for continuous
+  reads. The radians reads (`getPitchRadians/RollRadians`) and the gesture code stay Device-API-only;
+  acceleration strength (`sqrt(x^2+y^2+z^2)`) is composable from the fields.
+- **ABI:** a registered struct type (id assigned at build, append-only) whose field getter reuses the
+  existing `AccelerometerInputPort` reads; no new host functions beyond those reads.
 
 ## Simulator (apps/microbit-sim)
 
@@ -201,8 +229,9 @@ recognize it (WYSIWYG); it never writes the gesture enum directly.
 Per the full-surface-design principle, the whole CODAL accelerometer capability set is accounted for;
 each item is provided / composable / designed-out / not-built (never silently omitted).
 
-- **Provided:** the `gesture` tile (8 core gestures: shake / 4 tilt / 2 face / freefall);
-  Device-API reads `getX/Y/Z`, `getPitch/Roll` (+ radians), `getGesture()`.
+- **Provided:** the `gesture` tile (8 core gestures: shake / 4 tilt / 2 face / freefall); the ambient
+  `accelerometer` struct (read-only `x`/`y`/`z`/`pitch`/`roll`, via accessor tiles); Device-API reads
+  `getX/Y/Z`, `getPitch/Roll` (+ radians), `getGesture()`.
 - **Designed, not currently built: impact + g-force** (the impulse 2G/3G/6G/8G). The `[impact]` +
   `[Ng]` sub-modifiers are designed (Authoring / Behavior above) but not built: CODAL surfaces
   impulses as `DEVICE_ID_GESTURE` **events only** (not pollable via `getGesture()` like the core
