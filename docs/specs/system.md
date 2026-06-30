@@ -138,6 +138,11 @@ defining store; `name` is metadata (display / debug).
   the per-think tick runs each `thinkFuncId` after the scheduler tick and before gc, every think,
   page-independent. Both run the user function in a spawned, run-to-completion (non-suspendable)
   fiber; `ctx` is passed only when the user function declares the parameter.
+- Codec: `Program.systems` serializes as an optional `SYST` section (presence bit 8, after `RANC`,
+  before `PAGE`), byte-identical in the TS serializer and the cpp reader. Per record: a flags byte
+  (bit0 = `initFuncId` present, bit1 = `thinkFuncId` present), `varuint(name)` (string-table index),
+  `varuint(storeSlot)`, then the present func ids. On the cpp managed heap the `systemStore` is a GC
+  root (the oracle relies on JS GC; rooting is the cpp-side mirror, not a behavior difference).
 
 ## Scope: per-brain inclusion (reachability, not project-global)
 
@@ -166,8 +171,9 @@ The design is validated against the two subsystems that motivated it:
 
 ## Open questions
 
-- **`init` vs first-think ordering.** `init` must run before any `think` or method touches the state.
-  Resolution: a one-time startup phase runs every registered system's `init` before the first tick.
+- ~~**`init` vs first-think ordering.**~~ RESOLVED: `init` runs before any `think` or method touches
+  the state. A one-time startup-init phase runs every registered System's `init` once (registration
+  order) before the first page activates - ahead of any `think` tick. Built + verified on both VMs.
 - ~~**Page scope of `think`.**~~ RESOLVED: Systems are **page-independent brain-level services** -
   `think` runs every think regardless of the active page, state persists across page switches, no
   page-enter/leave reset. (See Semantics.)
@@ -183,6 +189,8 @@ The design is validated against the two subsystems that motivated it:
   ...methods })` - methods top-level, `this` bound to the state shape (`ThisType<S>`); the construct
   returns `S & M` so external `X.field` / `X.method(...)` typecheck. A module-level binding, co-located
   or `export`ed.
-- **Determinism + the cpp mirror** - the per-think tick phase and the System-store lowering must be
-  byte-identical across both VMs. Carried to the cpp mirror; the binary program codec must first
-  serialize `Program.systems` (the oracle goldens run in-memory and do not yet exercise the codec).
+- ~~**Determinism + the cpp mirror.**~~ RESOLVED: both VMs byte-match through the codec. The `SYST`
+  codec section serializes `Program.systems`; the cpp VM mirrors opcodes 12/13, the non-copying
+  brain-global `systemStore` (GC-rooted), and the startup-init + per-think phases. A real-compiled
+  cross-VM fixture (`user-tile-system`) compiles -> serializes -> deserializes -> byte-matches the
+  trace on both VMs.

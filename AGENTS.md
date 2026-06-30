@@ -6,6 +6,10 @@ Before working in any area of the codebase, list `.github/instructions/` and
 read `global.instructions.md` plus any instruction files whose name matches the
 area you are working in.
 
+For the working temperament and decision style to apply on ambiguous work
+(small-step workflow, ownership boundaries, handoff posture), read
+`.github/instructions/agent-posture.instructions.md`.
+
 ## Git Staging
 
 The Git staging area is read-only for Codex, Copilot, Claude, or other agent.

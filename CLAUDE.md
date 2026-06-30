@@ -10,6 +10,8 @@ MUST open and read these files IN FULL:
 
 - `AGENTS.md`
 - `.github/instructions/global.instructions.md`
+- `.github/instructions/agent-posture.instructions.md` (working temperament and
+  decision style; `applyTo: "**"`, so it always applies)
 - every `.github/instructions/*.instructions.md` whose `applyTo` glob matches the
   area you are touching (for `cpp/`, `packages/wodal/`, `apps/microbit-sim/`, that is
   `vm.instructions.md`)
