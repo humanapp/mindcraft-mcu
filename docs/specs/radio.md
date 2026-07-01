@@ -147,9 +147,11 @@ Surfaces). Each is a per-callsite cursor over the shared ring that delivers the 
 type**, skipping past packets of other types (which the other-typed sensors pick up via their own
 cursors). So each typed sensor drains one packet of its type per think, self-filtering, both kinds
 fully delivered, both-fire preserved. `radio receive number` matches NUMBER / DOUBLE packets (bare
-numbers), **not** VALUE / DOUBLE_VALUE pairs - matching MakeCode's separate handlers. Value-pairs,
-buffers, raw payloads, and the metadata (RSSI, sender serial, system time) are read on the **Device
-API** (the richer surface the chassis examples consume), not the tiles.
+numbers), **not** VALUE / DOUBLE_VALUE pairs - matching MakeCode's separate handlers. Each receive
+tile also exposes the packet's **signal strength** (RSSI) as an output tile alongside its `received value` (see
+`docs/specs/sensor-output-tiles.md`). Value-pairs, buffers, raw payloads, and the remaining metadata
+(sender serial, system time) are read on the **Device API** (the richer surface the chassis examples
+consume), not the tiles.
 
 A received **falsy** value (the number 0, the empty string) fires the receive tile only because these
 tiles are **presence-gated** (`docs/specs/value-sensor-presence-gate.md`): they carry the
@@ -202,9 +204,11 @@ Two distinct paths, deliberately separated:
     the sensor's result.
   - **`set radio group`** actuator - sets the device group (0-255).
 
-  That is the whole tile surface - four tiles. There is **no group-read tile** (a brain that wants to
-  remember its group stores it in a variable), **no power / band config tile** (Device-API only), and
-  **no metadata tile** (RSSI / serial / time / raw Buffer are Device-API only).
+  That is the whole primary tile surface - four tiles - plus the receive sensors' auto-derived output
+  tiles (`received value` + `signal strength`; see `docs/specs/sensor-output-tiles.md`). There is **no
+  group-read tile** (a brain that wants to remember its group stores it in a variable), **no power /
+  band config tile** (Device-API only), and **no output tile for sender serial / system time / raw
+  Buffer** (those remain Device-API only).
 - **Device API (`ctx.microbit.radio`).** Send (MakeCode-framed): `sendNumber` / `sendString` /
   `sendValue(name, value)` / `sendBuffer`. Send (raw, beyond MakeCode): `sendRawBuffer(buffer)` - the
   datagram payload with no prefix. Receive (user-managed cursor; see Receive):
@@ -311,10 +315,12 @@ is built is a subset, with each gap marked composable / designed-out / deferred.
 4. ~~**Payload caps + narrowing.**~~ RESOLVED by mirroring MakeCode: caps per Wire format (32-byte
    frame, 9-byte prefix, payload <= 20, BUFFER <= 19, DOUBLE_VALUE name <= 8); over-long strings /
    buffers **truncate** (MakeCode's behavior), they do not error.
-5. ~~**Metadata surface.**~~ RESOLVED: receive tiles deliver the **value only**; RSSI / sender serial
-   / system time / raw Buffer are **Device-API only**. (A future **sensor output-tiles** capability -
-   a sensor exposing several named outputs - is the natural way to wire each packet facet into
-   downstream logic; not built or scheduled.)
+5. ~~**Metadata surface.**~~ RESOLVED via sensor output tiles (`docs/specs/sensor-output-tiles.md`):
+   each receive tile exposes its packet's **value** and **signal strength** (RSSI) as named output
+   tiles the brain can wire downstream, in addition to the value delivered through `__whenResult`.
+   Sender serial, system time, and the raw Buffer remain **Device-API only** (no output tile). A
+   packet **name** is not surfaced here - names exist only on `VALUE` / `DOUBLE_VALUE` (named numbers),
+   not on `STRING` packets; surfacing `received name` awaits a value-pair receive form (a separate enhancement).
 6. ~~**Config scope.**~~ RESOLVED: group is the **`set radio group`** tile + Device-API;
    `setTransmitPower` / `setFrequencyBand` are **Device-API only** (no tiles). No group-read surface -
    a brain remembers its group in a variable. Defaults are MakeCode/CODAL's (group 0, power 6, band 7).
