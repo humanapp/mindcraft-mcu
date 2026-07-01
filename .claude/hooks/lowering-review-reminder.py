@@ -1,18 +1,27 @@
 #!/usr/bin/env python3
-"""PostToolUse reminder for edits to the bytecode-lowering codepaths.
+"""PostToolUse: once-per-session reminder for edits to the bytecode-lowering codepaths.
 
-When Edit/Write/MultiEdit touches one of the lowering source files, emit a
-failure-codepath review checklist as additionalContext so the model runs the
-review before reporting done. Prints nothing for any other file. Always exits 0
-so it never blocks an edit.
+On the FIRST Edit/Write/MultiEdit this session that touches a lowering source
+file, emit the failure-codepath review checklist as additionalContext; then stay
+silent for the rest of the session. Firing once (session-marker keyed by
+session_id, same pattern as seed-gate) avoids the habituation an identical
+per-edit reminder causes -- a signal that repeats carries no marginal
+information and trains the reader to ignore it.
+
+The Stop-time `lowering-test-gate` is the enforcement (it blocks a turn that
+changes resolution code without a reaching test); this hook is only the
+in-context orienting cue when lowering work begins. Always exits 0 -- never
+blocks an edit. Prints nothing for any non-lowering file.
 """
 
 import json
+import os
 import sys
 
 # Suffix-matched against the edited file's path (absolute paths end with these).
 LOWERING_FILES = (
     "packages/ts-compiler/src/compiler/lowering.ts",
+    "packages/ts-compiler/src/compiler/project.ts",
     "packages/ts-compiler/src/compiler/descriptor.ts",
     "packages/ts-compiler/src/compiler/diag-codes.ts",
     "packages/core/src/brain/compiler/rule-compiler.ts",
@@ -25,9 +34,17 @@ REMINDER = (
     "type/name, missing binding, type mismatch, unexpected node kind, a resolve/lookup or "
     "Map.get returning undefined) must push its own precise diagnostic (right code, message "
     "naming the real cause, right node anchor) OR be provably unreachable. Do NOT silently "
-    "skip and do NOT rely on an unrelated downstream diagnostic. Add a test per new "
-    "diagnostic. See memory: lowering-no-silent-failures."
+    "skip and do NOT rely on an unrelated downstream diagnostic. Add a reaching test per "
+    "new/changed branch (a RUNS golden or a precise-diagnostic assertion) -- the Stop-time "
+    "lowering-test-gate enforces this. See memory: lowering-no-silent-failures."
 )
+
+
+def marker_path(session_id):
+    """Per-session flag file; presence means the reminder already fired this session."""
+    root = os.path.join(os.environ.get("TMPDIR", "/tmp"), "claude-lowering-reminder")
+    safe = "".join(c for c in session_id if c.isalnum() or c in "-_") or "unknown"
+    return os.path.join(root, safe)
 
 
 def main() -> None:
@@ -42,6 +59,16 @@ def main() -> None:
     normalized = str(file_path).replace("\\", "/")
     if not any(normalized.endswith(rel) for rel in LOWERING_FILES):
         return
+
+    marker = marker_path(str(event.get("session_id", "unknown")))
+    if os.path.exists(marker):
+        return  # already reminded this session
+    try:
+        os.makedirs(os.path.dirname(marker), exist_ok=True)
+        open(marker, "w").close()
+    except OSError:
+        pass  # cannot record the flag; still emit this once
+
     print(
         json.dumps(
             {

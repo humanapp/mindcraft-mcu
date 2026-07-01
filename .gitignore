@@ -33,6 +33,10 @@ drizzle/meta/
 # TypeScript
 *.tsbuildinfo
 
+# Python bytecode (hook scripts under .claude/)
+__pycache__/
+*.py[cod]
+
 #
 *.afdesign~lock~
 *.afphoto~lock~

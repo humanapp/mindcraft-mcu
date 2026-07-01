@@ -8,10 +8,11 @@ them, and exits 2 (blocking the stop) with the diagnostics when any file is not
 clean. Honors `stop_hook_active` so a non-converging check cannot wedge the
 session.
 
-The check is scoped to files this session edited, identified from the transcript
-named in the payload (`transcript_path`): a turn is responsible only for its own
-changes, not another session's working-tree changes. When the transcript is
-absent or unreadable, it falls back to all changed files.
+The check is scoped to files the current agent edited in THIS turn, identified
+from the transcript named in the payload (`transcript_path`): a stop is
+responsible only for the changes this turn made, never a prior turn's committed
+change and never a different agent editing the same shared file concurrently.
+When the turn's edits cannot be determined, it checks nothing (fail open).
 
 Biome zero-noise on TypeScript/JS changes is a standing order, and the package
 test scripts do not run Biome; this gate enforces it at the turn boundary, the
@@ -22,6 +23,11 @@ import json
 import os
 import subprocess
 import sys
+
+# Short-lived hook: skip writing a __pycache__ for the shared-helper import below.
+sys.dont_write_bytecode = True
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+from _hook_turn_scope import current_turn_edited_paths
 
 CHECKED_EXTENSIONS = (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json", ".jsonc")
 
@@ -76,48 +82,6 @@ def changed_files(root):
     return paths
 
 
-def session_edited_paths(payload):
-    """Real paths of files this session edited, read from the transcript named in
-    `payload["transcript_path"]` -- the `file_path`/`notebook_path` of every
-    Edit, Write, MultiEdit, and NotebookEdit tool call. Returns None when the
-    transcript is absent or unreadable, signaling the caller to fall back to all
-    changed files because ownership cannot be determined. An empty set means the
-    session edited no files."""
-    transcript = payload.get("transcript_path")
-    if not isinstance(transcript, str) or not os.path.isfile(transcript):
-        return None
-    edit_tools = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
-    edited = set()
-    try:
-        with open(transcript, encoding="utf-8") as handle:
-            for line in handle:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    entry = json.loads(line)
-                except (json.JSONDecodeError, ValueError):
-                    continue
-                message = entry.get("message")
-                content = message.get("content") if isinstance(message, dict) else None
-                if not isinstance(content, list):
-                    continue
-                for item in content:
-                    if not isinstance(item, dict) or item.get("type") != "tool_use":
-                        continue
-                    if item.get("name") not in edit_tools:
-                        continue
-                    tool_input = item.get("input")
-                    if not isinstance(tool_input, dict):
-                        continue
-                    file_path = tool_input.get("file_path") or tool_input.get("notebook_path")
-                    if isinstance(file_path, str) and file_path:
-                        edited.add(os.path.realpath(file_path))
-    except OSError:
-        return None
-    return edited
-
-
 def is_candidate(path, root):
     """True for a Biome-checkable source file outside any node_modules/."""
     if not path.endswith(CHECKED_EXTENSIONS):
@@ -151,11 +115,11 @@ def main():
         sys.exit(0)
 
     root = project_dir()
-    owned = session_edited_paths(payload)
+    owned = current_turn_edited_paths(payload)
     groups = {}  # biome binary path -> files it should check
     for path in changed_files(root):
-        if owned is not None and os.path.realpath(path) not in owned:
-            continue  # Another session's working-tree change; not this turn's.
+        if os.path.realpath(path) not in owned:
+            continue  # Not edited this turn (a prior turn or another agent).
         if not is_candidate(path, root):
             continue
         biome = find_biome(path)
