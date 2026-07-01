@@ -83,6 +83,13 @@ works without an import.) A System's store is keyed by its **exported symbol ide
 `name` string - so two distinct Systems never collide and an imported reference resolves to its own
 defining store; `name` is metadata (display / debug).
 
+A System's `init` / `think` / method bodies may reference the **top-level bindings of their defining
+module** - a module-level `const` value or a module-level `function` (e.g. a `clamp` helper or a
+`PIN` constant declared beside the System). Those references resolve against the **defining** module's
+scope regardless of which module imports the System; a consumer in a different module does not need to
+re-declare or import those helpers. This holds for both co-located and cross-module use - the System
+body carries its defining-module scope with it.
+
 ## Semantics
 
 - **One shared instance per brain.** Every callsite sees the same state.
