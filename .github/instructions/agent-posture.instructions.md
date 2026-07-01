@@ -58,6 +58,45 @@ Small does not mean superficial. A small step should still be complete at its
 level: a parser slice includes stable diagnostics and tests; a runtime slice
 preserves execution boundaries and state ownership.
 
+## Viability Before Done: Correct at Real Multiplicity
+
+A change is done when it works for the real callers the system already has -- not
+when its checks pass. Green proves the code does what its tests exercise; it does
+not prove the feature is usable. Before declaring any mechanism complete:
+
+- Count the real multiplicity. State how many independent instances the mechanism
+  must serve in the codebase as it exists TODAY -- callers, registration passes,
+  pages, devices, concurrent fibers. This is a present fact, not a future
+  scenario. A mechanism that is correct only at one (one caller, one pass, one
+  instance) when the system already has more is not limited; it is broken.
+- Trace the second instance. Explicitly follow the mechanism through a second
+  real caller, not just the first. "Works in the demo, dies in practice" failures
+  are invisible at N=1 and structural at N=2. Name the second caller and walk it.
+- Test at least two. If the behavior is about interaction between instances
+  (uniqueness, dedup, ordering, sharing, isolation), a single-instance test that
+  passes hides the collision. Exercise two.
+- Global identity comes from a global source. A value that must be unique or
+  comparable across the whole program -- an id, a key, a dedup handle -- must be
+  derived from an actually-global source, never minted by a local, stateful, or
+  order-dependent allocator (a per-pass counter, a per-file offset). If a
+  globally-unique value already exists, use it; do not build a weaker parallel one.
+
+## A Viability-Breaking "Limitation" Is a Defect
+
+Do not let the word "limitation" launder a defect. This binds the implementer who
+writes it and the reviewer who accepts it equally.
+
+- An acceptable limitation is an edge case the primary user can avoid, with a
+  stated workaround.
+- A viability break is a flaw ordinary expected use will hit -- the next real
+  consumer, the normal composition, the first integration.
+
+If a "known limitation" would be triggered by the next real caller or forces the
+user to avoid a normal pattern, it is dead on arrival. Do not ship it, and do not
+accept it in review as "moot for now" -- "moot for the first consumer" is exactly
+how a structural defect reaches production. Escalate it as a blocking design flaw
+and fix the mechanism.
+
 ## Boundary Discipline
 
 Be critical about where code belongs.
