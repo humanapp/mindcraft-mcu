@@ -83,12 +83,21 @@ works without an import.) A System's store is keyed by its **exported symbol ide
 `name` string - so two distinct Systems never collide and an imported reference resolves to its own
 defining store; `name` is metadata (display / debug).
 
-A System's `init` / `think` / method bodies may reference the **top-level bindings of their defining
-module** - a module-level `const` value or a module-level `function` (e.g. a `clamp` helper or a
-`PIN` constant declared beside the System). Those references resolve against the **defining** module's
-scope regardless of which module imports the System; a consumer in a different module does not need to
-re-declare or import those helpers. This holds for both co-located and cross-module use - the System
-body carries its defining-module scope with it.
+A System's `init` / `think` / method bodies may reference the module-level **`const` values** and
+**`function`s** of their defining module (e.g. a `clamp` helper or a `PIN` constant declared beside the
+System). This follows the module-scope model user code commits to:
+
+- **`const` / `function` at module scope are program-global and shared** - one value / one function for
+  the whole brain, visible wherever they are in lexical scope, System bodies included. They resolve
+  the same whether the System is used co-located or imported cross-module; a consumer in another module
+  needs no re-declaration or import of those helpers.
+- **`let` / `var` at module scope is per-tile-instance mutable state** (each callsite an isolated
+  island; see the verified state model). A brain-global System has no single tile instance whose `let`
+  to read, so **referencing a module-level `let` from a System is a compile error** - directing the
+  author to a System field (for shared mutable state) or a `const` (for a shared constant), never a
+  silent fault.
+- **`System({...})` is the shared-mutable-state primitive.** One-liner: `const`/`function` are shared;
+  `let` is per-tile-instance; if you want shared mutable state, that is what a System is for.
 
 ## Semantics
 
