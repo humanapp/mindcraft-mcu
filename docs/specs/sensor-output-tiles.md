@@ -111,14 +111,17 @@ variable, compares `signal strength` against a threshold, routes `sender`, etc.
   `TilePlacement.Inline` and the declared `outputType` - the same tile category as the existing inline
   value-sensors (`random`, `current page`). The registration is derived from the `outputs`
   declaration, mirroring how parameter and modifier tiles are auto-generated from `args` today.
-- **Surfaced only downstream of a providing sensor.** Output tiles are gated by the existing
-  capability / requirement system, keyed by **output name**: each declared output name has a
-  capability that every sensor declaring that name *provides*, and the single output tile for that
-  name *requires* it. The picker offers an output tile when any sensor declaring it is present in the
-  rule hierarchy (the same mechanism by which the `see` sensor makes the `it` literal available -
-  generalized so that, e.g., both a `see` and a `hear` sensor can light up the same `it` output).
-  Capabilities propagate across WHEN + DO and up the ancestor chain, so outputs are available
-  throughout the rule and its nested child rules.
+- **Surfaced only downstream of a providing sensor.** Gating keys on the output's globally-unique
+  **identity key** (`__out.<typeId>.<name>`), not on an allocated capability bit. A sensor tile
+  advertises the identity keys it produces via `IBrainTileDef.providedOutputs()` (a list of
+  `mkOutputVarKey(typeId, name)` keys). The picker offers an output tile iff its `outputKey` is a
+  member of `availableOutputKeys` - a set of keys collected across the WHEN + DO and up the ancestor
+  chain (`useRuleOutputKeys` / `collectRuleHierarchyOutputKeys`, mirroring `useRuleCapabilities`). So
+  the picker offers an output tile exactly when some sensor declaring that identity is present in the
+  rule hierarchy - the same effect as the `see` sensor making the `it` literal available, generalized
+  so that, e.g., both a `see` and a `hear` sensor advertising `it` light it up. Because the key is a
+  globally-unique string (not a restart-at-N bit), this is collision-proof across independent
+  registration passes.
 - **Backing: one shared rule variable per output identity.** An output's identity is its
   **(type, name)** pair, and its value lives in a rule variable keyed `__out.<type>.<name>` - NOT
   namespaced by owner. Two sensors that declare the same name AND type write the **same** variable and
@@ -129,8 +132,9 @@ variable, compares `signal strength` against a threshold, routes `sender`, etc.
   Both are existing core host functions (no VM change). The output tile compiles to a single
   `RuleContextGetVariable` call with the key as a constant.
 - **Shared outputs (sharing by identity).** Output identity is `(type, name)`. Distinct sensors that
-  declare the same identity share one variable, one tile, and one gating capability; whichever
-  sensor's `onExecute` runs last in a think wins, and a nested rule's write shadows an ancestor's (the
+  declare the same identity share one variable, one tile, and one identity key (each such sensor
+  advertises that key in its `providedOutputs()`); whichever sensor's `onExecute` runs last in a think
+  wins, and a nested rule's write shadows an ancestor's (the
   rule-variable ancestor walk). The `see`/`hear`/`it` case is exactly this: both declare `it` of type
   `TargetActor`, so both feed the one shared `it`. Notes: (1) a same name with **different** types does
   not collide (distinct keys, distinct tiles disambiguated by the consumer slot's expected type), but
@@ -169,13 +173,12 @@ variable, compares `signal strength` against a threshold, routes `sender`, etc.
   evaluates before the sensor has produced, so the existing capability-timing + expression-position
   behavior already keeps its output tiles out of its own WHEN (no dedicated filter). An inline
   output-providing sensor would not get that exclusion - but none exist.
-- **Gating is per registration pass.** The `OutputCapabilityAllocator` interns gating bits within one
-  registration pass. Two sensors that share an output identity within the same pass get the same bit
-  (gating merges). The same identity declared across *separate* passes (e.g. a built-in sensor and a
-  user-tile sensor) would get distinct bits, so editor gating would not merge them - but the output
-  tile id and backing key are allocator-free (identity-derived), so the runtime value round-trip and
-  the single shared tile hold across passes regardless. (Radio is a single built-in pass, so this is
-  moot for the first consumer.)
+- **Gating is cross-pass-safe.** Because gating keys on the globally-unique identity key string (not
+  an allocated bit that restarts per registration pass), a shared identity gates correctly no matter
+  how many independent registration passes (built-in, user-tile, bridge-app) declared it, and
+  unrelated outputs from different passes never cross-gate. Every sensor declaring an identity
+  advertises its key in `providedOutputs()`; the one output tile for that identity is offered whenever
+  any of them is present.
 - **No VM / runtime / codec change.** Writes and reads ride `RuleContextSetVariable` /
   `RuleContextGetVariable`, which both VMs already implement; the new work is the `outputs` authoring
   surface, the `setOutput` helper, the derived output-tile registration, the editor gating + render,
@@ -197,11 +200,14 @@ variable, compares `signal strength` against a threshold, routes `sender`, etc.
   ignore the receiver at slot 0, and use the executing frame's rule context. The output read lowers to
   `HOST_CALL(50, argc=2)` with `[nil, CONST_STR(key)]`; `setOutput` lowers to `HOST_CALL(51, argc=3)`
   with `[nil, CONST_STR(key), value]`. Both VMs already implement these (no VM/cpp/codec change).
-- Gating: a per-**output-identity** ((typeId, name)) capability, interned by an
-  `OutputCapabilityAllocator` from bit offset 64 (above the app capability band at 32). Every sensor
-  declaring that identity provides the bit; the single output tile for that identity requires it. The
-  bit is edit-time only (recomputed from tile defs at registration; never serialized into the saved
-  brain). One allocator per registration pass (see the cross-pass note in Semantics).
+- Gating: keyed by the globally-unique **identity key** (`__out.<typeId>.<name>`), NOT a capability
+  bit. A sensor tile advertises the keys it produces via `IBrainTileDef.providedOutputs()`; the output
+  tile carries an `outputKey` and is offered iff that key is in `availableOutputKeys` - a
+  `UniqueSet<string>` collected across the rule + ancestor hierarchy (`useRuleOutputKeys` /
+  `collectRuleHierarchyOutputKeys`, mirroring `useRuleCapabilities`). `areRequirementsMet` takes an
+  `availableOutputKeys` arg and applies the output-kind key-membership check (an undefined set disables
+  the filter, as with capabilities). Edit-time only; nothing is serialized into the saved brain. There
+  is no bit allocator and no bit offset.
 
 ## First consumer
 
@@ -232,10 +238,11 @@ nameless. Exposing `name` therefore depends on a separate radio enhancement: a v
 - ~~**Output tile representation.**~~ RESOLVED: a new `BrainTileKind` "output" with its own
   `OutputExpr` AST node + `visitOutput` across the `ExprVisitor` implementers (tile id
   `tile.out-><typeId>.<name>`). See ABI anchors.
-- ~~**Per-output-identity capability allocation.**~~ RESOLVED: an `OutputCapabilityAllocator` interns
-  one bit per `(typeId, name)` from offset 64 (edit-time only, non-serialized); declaring sensors
-  provide, the one tile requires; one allocator per registration pass. See ABI anchors + the
-  registration-pass note in Semantics.
+- ~~**Per-output-identity gating.**~~ RESOLVED (reworked 2026-06-30 after the first real use exposed a
+  cross-pass bit collision): gating keys on the globally-unique identity key string via
+  `providedOutputs()` + `availableOutputKeys` - no bit allocator, no bit offset, collision-proof across
+  registration passes. The earlier per-`(typeId, name)` capability-bit allocator (offset 64, per-pass)
+  was removed. See ABI anchors + the "cross-pass-safe" note in Semantics.
 - ~~**Shared-output staleness.**~~ RESOLVED (author discipline): for shared outputs, write-when-present
   and do not blindly nil at the top of `onExecute`; the nil-at-top clear is for exclusively-owned
   outputs. (An alternative framework clear-per-evaluation was considered and not adopted, to preserve

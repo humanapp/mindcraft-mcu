@@ -1,0 +1,16 @@
+mctrace 1
+profile 1
+precision f32
+tick 1 time 41800000 dt 00000000
+action 409 site 0 args 0 result nil
+action 40a site 3 args 0 result nil
+tick 2 time 42000000 dt 41800000
+action 409 site 0 args 0 result number 40e00000
+port radio send group 0 number 40e00000
+action 408 site 2 args 3 number 40e00000 nil nil result void
+action 40a site 3 args 0 result string "hi"
+port radio send group 0 string "hi"
+action 408 site 5 args 3 string "hi" nil nil result void
+tick 3 time 42400000 dt 41800000
+action 409 site 0 args 0 result nil
+action 40a site 3 args 0 result nil
