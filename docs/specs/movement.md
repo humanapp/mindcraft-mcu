@@ -42,9 +42,12 @@ to the chassis; the accumulators clear. Consequences:
 
 - A rule keeps the robot moving by firing (rules re-emit every frame they are true - the normal
   actuator behavior). A rule that stops firing stops contributing.
-- **Silence = stop, after a short hold window.** No movement emissions this think -> the **last
-  blended target is reused** for up to K consecutive silent thinks (the hold window; K = 3 nominal,
-  a module constant, ~60-150ms), then the target drops to `(0, 0)`. The window exists for
+- **Silence = stop, after a short hold window.** Silence means **no emissions this think** - it is
+  detected from whether any influence was emitted, not from the summed value (a tug-of-war that sums
+  to zero is a COMMANDED `(0, 0)`: a fresh target, held like any other - not silence). On a silent
+  think the **last blended target is reused** for up to K consecutive silent thinks (the hold
+  window; K = 3 nominal, a module constant, ~60-150ms); the target drops to `(0, 0)` on the next
+  silent think after the window (the K+1th). The window exists for
   **remotely-commanded brains**: a radio-driven brain's drive rules fire at packet rate, which beats
   against the brain's think rate (clock skew between two devices, plus RF loss), producing periodic
   empty thinks even under a held button - without the hold those gaps stutter the motors (and
@@ -250,6 +253,10 @@ tiles.
 
 - Movement is pure user code over the System substrate and the i2c primitive; cross-VM parity is
   inherited, and a real-compiled fixture exercising the pipeline byte-matches both VMs as a guard.
+- Exact-value expectations are computed with **binary32 per-operation rounding** (the runtime
+  numeric profile is f32): apply f32 rounding after every arithmetic step when deriving an expected
+  smoothing-curve value, and choose test constants whose ideal outputs sit away from .5 rounding
+  boundaries (f32-vs-f64 representation flips a boundary round).
 - The pipeline math is pinned by **exact-value tests** (real compiled brains that run): the blend
   sum, the drift gain at two different speeds, wheels exactly 0 at rest with drift set, the held
   wheel exactly 0 under turn + drift, scale-preserving saturation (an over-limit arc keeps its
