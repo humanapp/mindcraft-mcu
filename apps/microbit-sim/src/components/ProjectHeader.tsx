@@ -1,5 +1,12 @@
-import { Button } from "@mindcraft-lang/ui";
-import { Download, FilePlus, FolderOpen, Settings, Upload } from "lucide-react";
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@mindcraft-lang/ui";
+import { ChevronDown, Download, FilePlus, FolderOpen, Settings, Upload } from "lucide-react";
 import { useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";
@@ -54,51 +61,53 @@ export function ProjectHeader() {
   };
 
   return (
-    <header className="flex flex-wrap items-center justify-between gap-y-2 border-b border-border px-4 py-3 sm:px-6">
-      <div className="flex items-center gap-2">
-        <h1 className="text-base font-bold">micro:bit Simulator</h1>
-        <span className="text-sm text-muted-foreground">/</span>
-        <InlineRename value={projectName} ariaLabel="project name" onRename={(name) => store.renameProject(name)} />
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" size="sm" data-testid="import-project-button" onClick={handleImport}>
-          <Upload />
-          Import
-        </Button>
-        <Button type="button" variant="outline" size="sm" data-testid="export-project-button" onClick={handleExport}>
-          <Download />
-          Export
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          data-testid="open-project-button"
-          onClick={() => setDialog("open")}
-        >
-          <FolderOpen />
-          Open
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          data-testid="new-project-button"
-          onClick={() => setDialog("new")}
-        >
-          <FilePlus />
-          New project
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          data-testid="settings-button"
-          onClick={() => setDialog("settings")}
-        >
-          <Settings />
-          Settings
-        </Button>
+    <header className="border-b border-border px-4 py-3 sm:px-6">
+      <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-y-2">
+        <div className="flex items-center gap-2">
+          <h1 className="text-base font-bold">micro:bit Simulator</h1>
+          <span className="text-sm text-muted-foreground">/</span>
+          <InlineRename value={projectName} ariaLabel="project name" onRename={(name) => store.renameProject(name)} />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="outline" size="sm" data-testid="project-menu-button">
+                Project
+                <ChevronDown />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem data-testid="new-project-button" onClick={() => setDialog("new")}>
+                <FilePlus />
+                New project...
+              </DropdownMenuItem>
+              <DropdownMenuItem data-testid="open-project-button" onClick={() => setDialog("open")}>
+                <FolderOpen />
+                Open...
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem data-testid="import-project-button" onClick={() => void handleImport()}>
+                <Upload />
+                Import...
+              </DropdownMenuItem>
+              <DropdownMenuItem data-testid="export-project-button" onClick={() => void handleExport()}>
+                <Download />
+                Export
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            data-testid="settings-button"
+            aria-label="Settings"
+            title="Settings"
+            onClick={() => setDialog("settings")}
+          >
+            <Settings />
+          </Button>
+        </div>
       </div>
       {dialog === "new" && <NewProjectDialog onClose={() => setDialog("none")} />}
       {dialog === "open" && <ProjectPickerDialog onClose={() => setDialog("none")} />}

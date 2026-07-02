@@ -92,13 +92,10 @@ const APP_SETTINGS_STORAGE_KEY = `${appName}:app-settings`;
 export interface AppSettings {
   /** Relay URL the VS Code bridge connects to. */
   vscodeBridgeUrl: string;
-  /** Whether the VS Code Bridge UI panel is shown. */
-  showBridgePanel: boolean;
 }
 
 const DEFAULT_APP_SETTINGS: AppSettings = {
   vscodeBridgeUrl: "vscode-bridge.mindcraft-lang.org",
-  showBridgePanel: true,
 };
 
 type AppSettingsListener = (settings: AppSettings, prev: AppSettings) => void;
@@ -410,6 +407,29 @@ export class MicrobitSimEnvironmentStore {
   async addBrain(name: string): Promise<string> {
     const brainDef = this.env.withServices((services) => BrainDef.emptyBrainDef(services, name));
     // Invariant: microbit-sim keys host brain storage by the brain's own id.
+    const id = brainDef.id();
+    await this.host.saveBrainForKey(id, brainDef);
+    this._brainIds = [...this._brainIds, id];
+    await this.persistBrainIndex();
+    this.rebuildBrains();
+    this.notifyBrainsChanged();
+    return id;
+  }
+
+  /**
+   * Imports a brain from a serialized `.brain` file and adds it to the brain list.
+   * A file id already used by an existing brain is replaced with a fresh one.
+   * Returns the imported brain's id. Throws when the file is not a valid brain.
+   */
+  async importBrain(file: File): Promise<string> {
+    const plain = JSON.parse(await file.text()) as { id?: unknown };
+    if (typeof plain.id === "string" && this._brainIds.includes(plain.id)) {
+      plain.id = undefined;
+    }
+    const brainDef = this.env.deserializeBrainJsonFromPlain(plain);
+    if (brainDef.pages().size() === 0) {
+      brainDef.appendNewPage();
+    }
     const id = brainDef.id();
     await this.host.saveBrainForKey(id, brainDef);
     this._brainIds = [...this._brainIds, id];

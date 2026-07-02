@@ -10,7 +10,7 @@ export function App() {
     <div className="min-h-screen">
       <ProjectHeader />
       <main className="p-4 sm:p-6">
-        <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-2">
+        <div className="mx-auto grid w-full max-w-7xl grid-cols-1 items-start gap-8 lg:grid-cols-2">
           <div className="space-y-8">
             <BrainList />
             <BridgePanel />

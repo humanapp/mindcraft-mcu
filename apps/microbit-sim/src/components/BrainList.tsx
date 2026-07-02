@@ -4,6 +4,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@mindcraft-lang/ui";
 import { buildWodalProgramImage } from "@mindcraft-lang/wodal";
@@ -15,6 +18,7 @@ import { microbitFirmwareHex, microbitFirmwareMetadata } from "@/services/firmwa
 import { patchFirmwareForImage, programJsonFromImage } from "@/services/firmware-deploy";
 import { isWebUsbSupported, microbitFlasher } from "@/services/microbit-flasher";
 import { downloadHexFile, downloadTextFile } from "@/utils/file-download";
+import { pickFile } from "@/utils/file-upload";
 import { BrainEditor } from "./BrainEditor";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { NameInputDialog } from "./NameInputDialog";
@@ -97,6 +101,30 @@ export function BrainList() {
     downloadTextFile(programJsonFromImage(image), `${filenameSlug(brainName)}.mcprogram`);
   }
 
+  /** Downloads the brain's editable source as a JSON `.brain` file. */
+  async function handleDownloadSource(brainId: string, brainName: string) {
+    const brainDef = await store.getBrain(brainId);
+    if (!brainDef) {
+      toast.error("Could not load brain");
+      return;
+    }
+    downloadTextFile(JSON.stringify(brainDef.toJson(), null, 2), `${filenameSlug(brainName)}.brain`);
+  }
+
+  /** Imports a brain from a picked `.brain` file, toasting the outcome. */
+  async function handleImportBrain() {
+    const file = await pickFile(".brain");
+    if (!file) {
+      return;
+    }
+    try {
+      await store.importBrain(file);
+      toast.success("Brain imported");
+    } catch {
+      toast.error("Could not import brain");
+    }
+  }
+
   async function handleFlash(brainId: string) {
     const hex = await buildHexForBrain(brainId);
     if (hex === undefined) {
@@ -141,6 +169,23 @@ export function BrainList() {
             <Plus />
             Add brain
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                data-testid="brain-list-actions"
+                className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="More brain actions"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem data-testid="brain-import" onClick={() => void handleImportBrain()}>
+                Import .brain
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -155,94 +200,110 @@ export function BrainList() {
           </Button>
         </div>
       ) : (
-        <ul className="mt-3 divide-y divide-border">
-          {brains.map((brain) => (
-            <li
-              key={brain.id}
-              data-testid="brain-item"
-              data-brain-name={brain.name}
-              className="-mx-2 flex items-center justify-between gap-3 rounded-md px-2 py-2 transition-colors hover:bg-muted/50"
-            >
-              <button
-                type="button"
-                aria-label={`Edit ${brain.name}`}
-                className="min-w-0 flex-1 wrap-break-word text-left text-sm hover:underline"
-                onClick={() => setEditingBrainId(brain.id)}
+        <div className="mt-3 overflow-hidden rounded-lg border">
+          <ul className="divide-y divide-border">
+            {brains.map((brain) => (
+              <li
+                key={brain.id}
+                data-testid="brain-item"
+                data-brain-name={brain.name}
+                className="flex items-center justify-between gap-3 px-3 py-2 transition-colors hover:bg-muted/50"
               >
-                {brain.name}
-              </button>
-              <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  data-testid="brain-edit"
-                  data-brain-name={brain.name}
                   aria-label={`Edit ${brain.name}`}
-                  className="rounded px-2 py-1 text-xs font-medium text-foreground hover:bg-muted"
+                  className="min-w-0 flex-1 wrap-break-word text-left text-sm hover:underline"
                   onClick={() => setEditingBrainId(brain.id)}
                 >
-                  Edit
+                  {brain.name}
                 </button>
-                {webUsbSupported && paired && (
+                <div className="flex items-center gap-1">
                   <button
                     type="button"
-                    data-testid="brain-flash"
+                    data-testid="brain-edit"
                     data-brain-name={brain.name}
-                    aria-label={`Flash ${brain.name} to the connected micro:bit`}
-                    className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
-                    onClick={() => handleFlash(brain.id)}
+                    aria-label={`Edit ${brain.name}`}
+                    className="rounded px-2 py-1 text-xs font-medium text-foreground hover:bg-muted"
+                    onClick={() => setEditingBrainId(brain.id)}
                   >
-                    Flash
+                    Edit
                   </button>
-                )}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
+                  {webUsbSupported && paired && (
                     <button
                       type="button"
-                      data-testid="brain-actions"
+                      data-testid="brain-flash"
                       data-brain-name={brain.name}
-                      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                      aria-label={`More actions for ${brain.name}`}
+                      aria-label={`Flash ${brain.name} to the connected micro:bit`}
+                      className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                      onClick={() => handleFlash(brain.id)}
                     >
-                      <MoreHorizontal className="h-4 w-4" />
+                      Flash
                     </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      data-testid="brain-rename"
-                      data-brain-name={brain.name}
-                      onClick={() => setDialog({ kind: "rename", id: brain.id, name: brain.name })}
-                    >
-                      Rename
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      data-testid="brain-download"
-                      data-brain-name={brain.name}
-                      onClick={() => handleDownload(brain.id, brain.name)}
-                    >
-                      Download .hex
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      data-testid="brain-download-program"
-                      data-brain-name={brain.name}
-                      onClick={() => handleDownloadProgram(brain.id, brain.name)}
-                    >
-                      Download .mcprogram
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      data-testid="brain-remove"
-                      data-brain-name={brain.name}
-                      className="text-destructive focus:text-destructive data-highlighted:text-destructive"
-                      onClick={() => setDialog({ kind: "remove", id: brain.id, name: brain.name })}
-                    >
-                      Remove
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </li>
-          ))}
-        </ul>
+                  )}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        data-testid="brain-actions"
+                        data-brain-name={brain.name}
+                        className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        aria-label={`More actions for ${brain.name}`}
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        data-testid="brain-rename"
+                        data-brain-name={brain.name}
+                        onClick={() => setDialog({ kind: "rename", id: brain.id, name: brain.name })}
+                      >
+                        Rename
+                      </DropdownMenuItem>
+                      <DropdownMenuSub>
+                        <DropdownMenuSubTrigger data-testid="brain-export" data-brain-name={brain.name}>
+                          Export
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent>
+                          <DropdownMenuItem
+                            data-testid="brain-download"
+                            data-brain-name={brain.name}
+                            onClick={() => handleDownload(brain.id, brain.name)}
+                          >
+                            .hex
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            data-testid="brain-download-program"
+                            data-brain-name={brain.name}
+                            onClick={() => handleDownloadProgram(brain.id, brain.name)}
+                          >
+                            .mcprogram
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            data-testid="brain-download-source"
+                            data-brain-name={brain.name}
+                            onClick={() => handleDownloadSource(brain.id, brain.name)}
+                          >
+                            .brain
+                          </DropdownMenuItem>
+                        </DropdownMenuSubContent>
+                      </DropdownMenuSub>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        data-testid="brain-remove"
+                        data-brain-name={brain.name}
+                        className="text-destructive focus:text-destructive data-highlighted:text-destructive"
+                        onClick={() => setDialog({ kind: "remove", id: brain.id, name: brain.name })}
+                      >
+                        Remove
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {dialog?.kind === "add" && (
