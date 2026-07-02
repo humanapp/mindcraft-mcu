@@ -34,38 +34,41 @@ Defined like `SensorConfig` / `ActuatorConfig`:
 ## Usage sketch
 
 ```ts
-// A System: one shared instance, ticked every think. Defines the movement arbitrator.
+// A System: one shared instance, ticked every think. The movement arbitrator
+// (full design: docs/specs/movement.md) collects per-think wheel influences.
 const Movement = System({
   name: "movement",
-  state: { driveL: 0, driveR: 0, turn: 0 }, // small; brain-var-backed
+  state: { accL: 0, accR: 0 }, // this think's accumulated influences
 
   init(ctx) {
     // one-time, before the first tick (e.g. stop the motors)
   },
 
   think(ctx) {
-    // runs every think, after rules: blend the latched channels and reissue to the motors
-    const left = clamp(this.driveL + this.turn, -100, 100);
-    const right = clamp(this.driveR - this.turn, -100, 100);
+    // runs every think, after rules: blend this think's influences and drive
+    // the chassis; no influences -> (0, 0) -> the robot stops (decay on silence)
+    const left = clamp(this.accL, -100, 100);
+    const right = clamp(this.accR, -100, 100);
     ctx.microbit.i2c.writeBuffer(0x10, motorCommand(left, right));
+    this.accL = 0; // next think starts silent
+    this.accR = 0;
   },
 
-  // methods set latched channels (fire-and-forget):
-  drive(left: number, right: number) { this.driveL = left; this.driveR = right; },
-  turnBy(amount: number) { this.turn = amount; },
-  stop() { this.driveL = 0; this.driveR = 0; this.turn = 0; },
+  // methods add influences; rules re-emit every frame they fire:
+  drive(speed: number) { this.accL += speed; this.accR += speed; },
+  pivot(rate: number) { this.accL += rate; this.accR -= rate; },
 });
 
 // A consuming tile in the SAME module references the System directly - no import:
 export const cutebotDrive = Actuator({
   name: "cutebot drive",
-  args: [param("left", { type: "number", default: 50 }), param("right", { type: "number", default: 50 })],
+  args: [param("speed", { type: "number", default: 50 })],
   exec(ctx, args) {
-    Movement.drive(args.left, args.right); // feeds the one shared System
+    Movement.drive(args.speed); // one influence into the one shared System
   },
 });
-// The brain need not keep firing: think() reissues the blended command every tick
-// until a channel changes or stop() is called.
+// Rules keep the robot moving by firing; when no rule commands movement,
+// think() sees no influences and the robot stops.
 ```
 
 **Accessing a System (the import question).** A consumer reaches a System by its symbol. The
@@ -116,15 +119,18 @@ System). This follows the module-scope model user code commits to:
   assignment) semantic, not a universal VM rule. The dedicated System namespace is an internal store
   we define, so it holds state **by reference and mutates in place** - `this.driveL = left` is an
   in-place field write, no copy. State size is therefore not copy-bound.
-- **Methods are fire-and-forget and latched.** A method sets state; the state persists across thinks;
-  `think` acts on it each tick. So a `drive` set once persists until changed or stopped - the rule
-  need not keep firing.
+- **State persists across thinks; each System chooses its own state pattern.** A method mutates
+  state; the state persists until the System itself changes it; `think` runs each tick over it. On
+  that substrate a System may LATCH (a value set once holds until changed - the line sensor's
+  `onLine` levels) or accumulate PER-THINK (state that `think` consumes and clears each tick - the
+  movement arbitrator's influence accumulators). Both are user-code choices, not substrate behavior.
 - **Brain-level system services: page-independent, always running.** A System exists at **brain
   level**, not within a page - it is a system service. `init` runs once at brain startup; `think`
   runs **every think regardless of which page is active**; its state persists across page switches.
-  There is **no** page-enter/leave reset - a System is always on (a brain that wants to reset on a
-  mode change calls a reset method explicitly; e.g. a held motor command survives a page switch by
-  design). Tick order across systems is deterministic (registration order).
+  There is **no** page-enter/leave reset - a System is always on, and its state crosses page
+  switches untouched (e.g. the line sensor's levels remain valid through a switch; the movement
+  arbitrator keeps ticking and stops the robot simply because the old page's rules stop emitting).
+  Tick order across systems is deterministic (registration order).
 - **Both VMs.** The System namespace + the per-think tick are runtime additions that land in **both**
   the wodal oracle and the cpp VM (byte-identical), like the per-rule fiber model; the access lowering
   is a compiler change (one target-unaware place). Goldens exercise a real System.
@@ -175,11 +181,12 @@ project-global**. A brain that references no code touching a System never inits 
 
 The design is validated against the two subsystems that motivated it:
 
-- **Movement arbitrator** (the sketch above). State = latched intent channels (drive left/right, turn,
-  pivot). Methods `drive` / `turn` / `pivot` / `stop` set channels. `think` blends the live channels
-  into final left/right motor speeds and writes them via `ctx` i2c. Fire-and-forget persistence and
-  multi-intent blending fall out of latched-state + per-think-blend (the blend is differential-drive
-  kinematics; saturate or scale when the sum exceeds the motor range).
+- **Movement arbitrator** (`docs/specs/movement.md`). Rules emit wheel-pair influences
+  (`drive` / `turn` / `pivot`) every frame they fire; state = this think's influence accumulators
+  plus output/config (smoothing, drift). `think` sums the influences, applies the drift gain,
+  scale-preserving saturation, and smoothing, and writes the wheels via `ctx` i2c every think -
+  no influences means the robot stops (decay on silence). Exercises per-think state consumption,
+  multi-callsite blending, and the Device-API config surface (`setSmoothing` / `setDrift`).
 - **Edge-tracking sensor sampler.** State = last level + edge flags per pin. `think` samples the gpio
   each tick, diffs against the last sample, and sets edge flags; sensor tiles query the flags. The
   per-think `think` is what guarantees no missed edges (unlike per-callsite polling, which samples only
