@@ -227,13 +227,6 @@ describe("MicrobitSimulator flash", () => {
     assert.deepEqual(instance.flashState, { status: "loaded", brainId: "brain-2" });
   });
 
-  it("records a no-brain-selected state without throwing", () => {
-    const sim = new MicrobitSimulator(microbitEnvironment());
-    const instance = sim.getInstances()[0]!;
-    sim.flash(instance.id, undefined, undefined);
-    assert.deepEqual(instance.flashState, { status: "noBrainSelected" });
-  });
-
   it("classifies a build/link failure into the failed flash state without throwing", () => {
     const env = microbitEnvironment();
     const sim = new MicrobitSimulator(env);

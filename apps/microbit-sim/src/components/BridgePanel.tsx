@@ -1,6 +1,6 @@
 import { Switch } from "@mindcraft-lang/ui";
 import { Check, Copy } from "lucide-react";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useId, useState, useSyncExternalStore } from "react";
 import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";
 import { clearBindingToken } from "@/services/binding-token-persistence";
 
@@ -17,6 +17,7 @@ export function BridgePanel() {
   const joinCode = useSyncExternalStore(store.subscribeToBridgeJoinCode, store.getBridgeJoinCodeSnapshot);
   const [bridgeEnabled, setBridgeEnabled] = useState(() => store.getUiPreferences().bridgeEnabled);
   const [copied, setCopied] = useState(false);
+  const headingId = useId();
 
   useEffect(() => {
     return store.onProjectLoaded(() => {
@@ -42,9 +43,14 @@ export function BridgePanel() {
         : "text-muted-foreground";
 
   return (
-    <section className="max-w-md space-y-2 rounded-lg border border-border bg-background p-3">
+    <section
+      aria-labelledby={headingId}
+      className="max-w-md space-y-2 rounded-lg border border-border bg-background p-3"
+    >
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold">VS Code Bridge</h2>
+        <h2 id={headingId} className="text-base font-semibold">
+          VS Code Bridge
+        </h2>
         <Switch
           checked={bridgeEnabled}
           onCheckedChange={(checked) => {

@@ -1,4 +1,5 @@
 import { Button } from "@mindcraft-lang/ui";
+import { Download, FilePlus, FolderOpen, Settings, Upload } from "lucide-react";
 import { useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";
@@ -53,17 +54,19 @@ export function ProjectHeader() {
   };
 
   return (
-    <header className="flex items-center justify-between border-b border-border px-6 py-3">
+    <header className="flex flex-wrap items-center justify-between gap-y-2 border-b border-border px-4 py-3 sm:px-6">
       <div className="flex items-center gap-2">
-        <span className="text-sm font-semibold">Microbit Simulator</span>
+        <h1 className="text-base font-bold">micro:bit Simulator</h1>
         <span className="text-sm text-muted-foreground">/</span>
         <InlineRename value={projectName} ariaLabel="project name" onRename={(name) => store.renameProject(name)} />
       </div>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Button type="button" variant="outline" size="sm" data-testid="import-project-button" onClick={handleImport}>
+          <Upload />
           Import
         </Button>
         <Button type="button" variant="outline" size="sm" data-testid="export-project-button" onClick={handleExport}>
+          <Download />
           Export
         </Button>
         <Button
@@ -73,9 +76,17 @@ export function ProjectHeader() {
           data-testid="open-project-button"
           onClick={() => setDialog("open")}
         >
+          <FolderOpen />
           Open
         </Button>
-        <Button type="button" size="sm" data-testid="new-project-button" onClick={() => setDialog("new")}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          data-testid="new-project-button"
+          onClick={() => setDialog("new")}
+        >
+          <FilePlus />
           New project
         </Button>
         <Button
@@ -85,6 +96,7 @@ export function ProjectHeader() {
           data-testid="settings-button"
           onClick={() => setDialog("settings")}
         >
+          <Settings />
           Settings
         </Button>
       </div>

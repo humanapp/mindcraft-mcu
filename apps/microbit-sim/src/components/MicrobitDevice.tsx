@@ -15,7 +15,12 @@ export function MicrobitDevice({ instance }: { instance: SimulatorInstance }) {
         <DeviceButton label="A" onChange={(pressed) => instance.microbit.setButtonPressed("A", pressed)} />
         <DeviceButton label="Logo" onChange={(touched) => instance.microbit.setLogoTouched(touched)} />
       </div>
-      <div data-testid="display" className="grid grid-cols-5 gap-1 rounded bg-black/40 p-2">
+      <div
+        data-testid="display"
+        role="img"
+        aria-label="LED display"
+        className="grid grid-cols-5 gap-1 rounded bg-black/40 p-2"
+      >
         {display.pixels.map((brightness, i) => {
           const cellKey = `r${Math.trunc(i / display.width)}c${i % display.width}`;
           return (
@@ -68,6 +73,17 @@ function DeviceButton({ label, onChange }: { label: string; onChange: (pressed: 
       onPointerDown={() => set(true)}
       onPointerUp={() => set(false)}
       onPointerLeave={() => set(false)}
+      onKeyDown={(event) => {
+        if ((event.key === " " || event.key === "Enter") && !event.repeat) {
+          set(true);
+        }
+      }}
+      onKeyUp={(event) => {
+        if (event.key === " " || event.key === "Enter") {
+          set(false);
+        }
+      }}
+      onBlur={() => set(false)}
     >
       {label}
     </button>

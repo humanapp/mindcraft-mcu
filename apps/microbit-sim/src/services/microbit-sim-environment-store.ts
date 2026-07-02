@@ -184,7 +184,6 @@ export class MicrobitSimEnvironmentStore {
 
   private _brainIds: readonly string[] = [];
   private _brains: readonly BrainRecord[] = [];
-  private _selectedBrainId: string | undefined;
   private _restoringFleet = false;
   private readonly _brainsListeners = new Set<() => void>();
   private readonly _activeProjectListeners = new Set<() => void>();
@@ -407,7 +406,7 @@ export class MicrobitSimEnvironmentStore {
     return this.host.activeProjectManifest?.name ?? "(no project)";
   };
 
-  /** Creates a brain seeded from an empty definition and selects it. */
+  /** Creates a brain seeded from an empty definition. */
   async addBrain(name: string): Promise<string> {
     const brainDef = this.env.withServices((services) => BrainDef.emptyBrainDef(services, name));
     // Invariant: microbit-sim keys host brain storage by the brain's own id.
@@ -415,7 +414,6 @@ export class MicrobitSimEnvironmentStore {
     await this.host.saveBrainForKey(id, brainDef);
     this._brainIds = [...this._brainIds, id];
     await this.persistBrainIndex();
-    this._selectedBrainId = id;
     this.rebuildBrains();
     this.notifyBrainsChanged();
     return id;
@@ -426,9 +424,6 @@ export class MicrobitSimEnvironmentStore {
     await this.host.removeBrain(id);
     this._brainIds = this._brainIds.filter((brainId) => brainId !== id);
     await this.persistBrainIndex();
-    if (this._selectedBrainId === id) {
-      this._selectedBrainId = this._brainIds[0];
-    }
     this.rebuildBrains();
     this.notifyBrainsChanged();
     this.simulator.unflash(id);
@@ -446,12 +441,6 @@ export class MicrobitSimEnvironmentStore {
     this.notifyBrainsChanged();
   }
 
-  /** Sets the selected brain. */
-  selectBrain(id: string): void {
-    this._selectedBrainId = id;
-    this.notifyBrainsChanged();
-  }
-
   /** Loads a brain definition by id. */
   async getBrain(id: string): Promise<BrainDef | undefined> {
     return (await this.host.loadBrainFromProject(id)) as BrainDef | undefined;
@@ -466,24 +455,8 @@ export class MicrobitSimEnvironmentStore {
   }
 
   /**
-   * Returns the live build input for the selected brain, or undefined when no
-   * brain is selected. Returns the canonical WODAL build-input shape with live
-   * objects, not a serialized `.mindcraft` document, so the WODAL build kernel
-   * can consume it directly. The selected brain id is available separately via
-   * {@link getSelectedBrainId}.
-   */
-  async getBuildInput(): Promise<WodalBuildInput | undefined> {
-    const brainId = this._selectedBrainId;
-    if (!brainId) {
-      return undefined;
-    }
-    return this.buildInputForBrain(brainId);
-  }
-
-  /**
    * Returns the live build input for a specific brain by id, or undefined when it
-   * cannot be loaded. The per-brain deploy links use this to build any brain's
-   * program image without changing the editor selection.
+   * cannot be loaded.
    */
   async getBuildInputForBrain(brainId: string): Promise<WodalBuildInput | undefined> {
     return this.buildInputForBrain(brainId);
@@ -502,10 +475,26 @@ export class MicrobitSimEnvironmentStore {
     };
   }
 
-  /** Flashes the editor-selected brain onto the given simulator instance. */
-  async flashInstance(instanceId: string): Promise<void> {
-    const brainId = this.getSelectedBrainId();
-    const input = await this.getBuildInput();
+  /** Builds the given brain and flashes it onto the given simulator instance. A no-op when the brain cannot be loaded. */
+  async flashBrainToInstance(instanceId: string, brainId: string): Promise<void> {
+    const input = await this.buildInputForBrain(brainId);
+    if (!input) {
+      return;
+    }
+    this.simulator.flash(instanceId, input, brainId);
+  }
+
+  /** Restarts the instance's flashed brain from a fresh build. A no-op when no brain is loaded. */
+  async resetInstance(instanceId: string): Promise<void> {
+    const instance = this.simulator.getInstances().find((candidate) => candidate.id === instanceId);
+    const brainId = instance?.flashedBrainId;
+    if (!brainId) {
+      return;
+    }
+    const input = await this.buildInputForBrain(brainId);
+    if (!input) {
+      return;
+    }
     this.simulator.flash(instanceId, input, brainId);
   }
 
@@ -543,11 +532,6 @@ export class MicrobitSimEnvironmentStore {
   /** Snapshot of the brain list for `useSyncExternalStore`. */
   getBrains = (): readonly BrainRecord[] => {
     return this._brains;
-  };
-
-  /** Snapshot of the selected brain id for `useSyncExternalStore`. */
-  getSelectedBrainId = (): string | undefined => {
-    return this._selectedBrainId;
   };
 
   // -- App settings (global) --
@@ -691,8 +675,6 @@ export class MicrobitSimEnvironmentStore {
     if (changed) {
       await this.persistBrainIndex();
     }
-    const selected = this._selectedBrainId;
-    this._selectedBrainId = selected && this._brainIds.includes(selected) ? selected : this._brainIds[0];
     this.rebuildBrains();
     this.notifyBrainsChanged();
   }

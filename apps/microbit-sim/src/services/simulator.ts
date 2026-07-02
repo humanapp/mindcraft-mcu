@@ -22,13 +22,11 @@ export interface FlashDiagnostic {
 }
 
 /**
- * Per-instance flash outcome: `empty` before any flash, `noBrainSelected` when a flash is attempted
- * with no editor selection, `loaded` with the flashed brain id, or `failed` with classified
- * diagnostics.
+ * Per-instance flash outcome: `empty` before any flash, `loaded` with the flashed brain id, or
+ * `failed` with classified diagnostics.
  */
 export type FlashState =
   | { readonly status: "empty" }
-  | { readonly status: "noBrainSelected" }
   | { readonly status: "loaded"; readonly brainId: string }
   | { readonly status: "failed"; readonly errors: readonly FlashDiagnostic[] };
 
@@ -135,17 +133,10 @@ export class MicrobitSimulator {
     return this.instances_;
   }
 
-  /**
-   * Builds and loads `input` onto the target instance, recording the resulting flash state.
-   * Undefined `input` or `brainId` records a `noBrainSelected` state.
-   */
-  flash(instanceId: string, input: WodalBuildInput | undefined, brainId: string | undefined): void {
+  /** Builds and loads `input` onto the target instance, recording the resulting flash state. */
+  flash(instanceId: string, input: WodalBuildInput, brainId: string): void {
     const instance = this.instances_.find((candidate) => candidate.id === instanceId);
     if (!instance) {
-      return;
-    }
-    if (!input || !brainId) {
-      this.applyFlashState(instance, { status: "noBrainSelected" });
       return;
     }
     const built = buildWodalProgramImage(input);

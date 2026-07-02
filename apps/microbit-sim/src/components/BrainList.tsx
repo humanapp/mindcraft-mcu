@@ -1,6 +1,14 @@
-import { Button } from "@mindcraft-lang/ui";
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@mindcraft-lang/ui";
 import { buildWodalProgramImage } from "@mindcraft-lang/wodal";
-import { useState, useSyncExternalStore } from "react";
+import { MoreHorizontal, Plus, Usb } from "lucide-react";
+import { useId, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";
 import { microbitFirmwareHex, microbitFirmwareMetadata } from "@/services/firmware-asset";
@@ -22,14 +30,14 @@ function filenameSlug(name: string): string {
   return name.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-+|-+$/g, "") || "brain";
 }
 
-/** User-managed brain list: add, select, rename, remove, and deploy brains. */
+/** User-managed brain list: add, rename, remove, and deploy brains. */
 export function BrainList() {
   const store = useMicrobitSimEnvironment();
   const brains = useSyncExternalStore(store.subscribeToBrains, store.getBrains);
-  const selectedId = useSyncExternalStore(store.subscribeToBrains, store.getSelectedBrainId);
   const paired = useSyncExternalStore(microbitFlasher.subscribe, microbitFlasher.isPaired);
   const [dialog, setDialog] = useState<BrainDialog>(null);
   const [editingBrainId, setEditingBrainId] = useState<string | null>(null);
+  const headingId = useId();
   const webUsbSupported = isWebUsbSupported();
 
   /** Loads and builds a brain's program image, toasting on failure. */
@@ -106,10 +114,12 @@ export function BrainList() {
   }
 
   return (
-    <section className="max-w-md">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold">Brains</h2>
-        <div className="flex items-center gap-2">
+    <section aria-labelledby={headingId} className="max-w-md">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 id={headingId} className="text-base font-semibold">
+          Brains
+        </h2>
+        <div className="flex flex-wrap items-center gap-2">
           {webUsbSupported &&
             (paired ? (
               <span className="text-xs text-muted-foreground" data-testid="microbit-connected">
@@ -123,17 +133,27 @@ export function BrainList() {
                 data-testid="connect-microbit-button"
                 onClick={handleConnect}
               >
+                <Usb />
                 Connect micro:bit
               </Button>
             ))}
           <Button type="button" size="sm" data-testid="add-brain-button" onClick={() => setDialog({ kind: "add" })}>
+            <Plus />
             Add brain
           </Button>
         </div>
       </div>
 
       {brains.length === 0 ? (
-        <p className="mt-3 text-sm text-muted-foreground">No brains yet.</p>
+        <div className="mt-3 rounded-lg border border-dashed border-border p-6 text-center">
+          <p className="text-sm text-muted-foreground">
+            Brains are programs for your micro:bits. Create one to get started.
+          </p>
+          <Button type="button" size="sm" className="mt-3" onClick={() => setDialog({ kind: "add" })}>
+            <Plus />
+            Add brain
+          </Button>
+        </div>
       ) : (
         <ul className="mt-3 divide-y divide-border">
           {brains.map((brain) => (
@@ -141,75 +161,84 @@ export function BrainList() {
               key={brain.id}
               data-testid="brain-item"
               data-brain-name={brain.name}
-              className="flex items-center justify-between py-2"
+              className="-mx-2 flex items-center justify-between gap-3 rounded-md px-2 py-2 transition-colors hover:bg-muted/50"
             >
               <button
                 type="button"
-                data-testid="brain-select"
-                data-brain-name={brain.name}
-                className={`flex-1 text-left text-sm ${brain.id === selectedId ? "font-semibold" : ""}`}
-                onClick={() => store.selectBrain(brain.id)}
+                aria-label={`Edit ${brain.name}`}
+                className="min-w-0 flex-1 wrap-break-word text-left text-sm hover:underline"
+                onClick={() => setEditingBrainId(brain.id)}
               >
                 {brain.name}
-                {brain.id === selectedId && <span className="ml-2 text-xs text-muted-foreground">selected</span>}
               </button>
-              <div className="flex gap-3">
+              <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  data-testid="brain-download"
+                  data-testid="brain-edit"
                   data-brain-name={brain.name}
-                  className="text-xs text-muted-foreground hover:text-foreground"
-                  onClick={() => handleDownload(brain.id, brain.name)}
+                  aria-label={`Edit ${brain.name}`}
+                  className="rounded px-2 py-1 text-xs font-medium text-foreground hover:bg-muted"
+                  onClick={() => setEditingBrainId(brain.id)}
                 >
-                  Download
-                </button>
-                <button
-                  type="button"
-                  data-testid="brain-download-program"
-                  data-brain-name={brain.name}
-                  className="text-xs text-muted-foreground hover:text-foreground"
-                  onClick={() => handleDownloadProgram(brain.id, brain.name)}
-                >
-                  Program
+                  Edit
                 </button>
                 {webUsbSupported && paired && (
                   <button
                     type="button"
                     data-testid="brain-flash"
                     data-brain-name={brain.name}
-                    className="text-xs text-muted-foreground hover:text-foreground"
+                    aria-label={`Flash ${brain.name} to the connected micro:bit`}
+                    className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
                     onClick={() => handleFlash(brain.id)}
                   >
                     Flash
                   </button>
                 )}
-                <button
-                  type="button"
-                  data-testid="brain-edit"
-                  data-brain-name={brain.name}
-                  className="text-xs font-medium text-foreground hover:underline"
-                  onClick={() => setEditingBrainId(brain.id)}
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  data-testid="brain-rename"
-                  data-brain-name={brain.name}
-                  className="text-xs text-muted-foreground hover:text-foreground"
-                  onClick={() => setDialog({ kind: "rename", id: brain.id, name: brain.name })}
-                >
-                  Rename
-                </button>
-                <button
-                  type="button"
-                  data-testid="brain-remove"
-                  data-brain-name={brain.name}
-                  className="text-xs text-destructive hover:text-destructive/80"
-                  onClick={() => setDialog({ kind: "remove", id: brain.id, name: brain.name })}
-                >
-                  Remove
-                </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      data-testid="brain-actions"
+                      data-brain-name={brain.name}
+                      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      aria-label={`More actions for ${brain.name}`}
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      data-testid="brain-rename"
+                      data-brain-name={brain.name}
+                      onClick={() => setDialog({ kind: "rename", id: brain.id, name: brain.name })}
+                    >
+                      Rename
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      data-testid="brain-download"
+                      data-brain-name={brain.name}
+                      onClick={() => handleDownload(brain.id, brain.name)}
+                    >
+                      Download .hex
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      data-testid="brain-download-program"
+                      data-brain-name={brain.name}
+                      onClick={() => handleDownloadProgram(brain.id, brain.name)}
+                    >
+                      Download .mcprogram
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      data-testid="brain-remove"
+                      data-brain-name={brain.name}
+                      className="text-destructive focus:text-destructive data-highlighted:text-destructive"
+                      onClick={() => setDialog({ kind: "remove", id: brain.id, name: brain.name })}
+                    >
+                      Remove
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </li>
           ))}

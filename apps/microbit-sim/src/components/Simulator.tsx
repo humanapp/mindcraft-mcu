@@ -1,14 +1,15 @@
 import { Button } from "@mindcraft-lang/ui";
-import { useEffect, useSyncExternalStore } from "react";
+import { Plus } from "lucide-react";
+import { useEffect, useId, useSyncExternalStore } from "react";
 import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";
 import { InstanceCard } from "./InstanceCard";
 
-/** The simulated microbit fleet: an editor-brain selector, an add control, and an instance grid. */
+/** The simulated micro:bit fleet: an add control and an instance grid. */
 export function Simulator() {
   const store = useMicrobitSimEnvironment();
   const brains = useSyncExternalStore(store.subscribeToBrains, store.getBrains);
-  const selectedBrainId = useSyncExternalStore(store.subscribeToBrains, store.getSelectedBrainId);
   const instances = useSyncExternalStore(store.simulator.subscribeToInstances, store.simulator.getInstances);
+  const headingId = useId();
 
   useEffect(() => {
     store.simulator.start();
@@ -16,39 +17,27 @@ export function Simulator() {
   }, [store]);
 
   return (
-    <section className="space-y-4">
-      <div className="flex justify-end">
-        <Button type="button" size="sm" data-testid="add-microbit-button" onClick={() => store.simulator.addInstance()}>
-          + Add microbit
+    <section aria-labelledby={headingId}>
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 id={headingId} className="text-base font-semibold">
+          Simulator
+        </h2>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          data-testid="add-microbit-button"
+          onClick={() => store.simulator.addInstance()}
+        >
+          <Plus />
+          Add micro:bit
         </Button>
       </div>
 
-      <div>
-        <div className="flex items-center gap-3">
-          <h2 className="text-sm font-semibold">Simulator</h2>
-          <label className="flex items-center gap-2 text-sm text-muted-foreground">
-            Brain
-            <select
-              data-testid="sim-brain-select"
-              className="rounded border bg-background px-2 py-1 text-sm text-foreground"
-              value={selectedBrainId ?? ""}
-              onChange={(event) => store.selectBrain(event.target.value)}
-            >
-              {brains.length === 0 && <option value="">No brains</option>}
-              {brains.map((brain) => (
-                <option key={brain.id} value={brain.id}>
-                  {brain.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-4">
-          {instances.map((instance, index) => (
-            <InstanceCard key={instance.id} instance={instance} label={`microbit ${index + 1}`} brains={brains} />
-          ))}
-        </div>
+      <div className="mt-4 flex flex-wrap gap-4">
+        {instances.map((instance, index) => (
+          <InstanceCard key={instance.id} instance={instance} label={`micro:bit ${index + 1}`} brains={brains} />
+        ))}
       </div>
     </section>
   );

@@ -1,36 +1,42 @@
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@mindcraft-lang/ui";
 import { type ReactNode, useEffect } from "react";
 
 interface ModalProps {
   /** Heading shown at the top of the panel. */
   title: string;
-  /** Invoked when the dialog requests close (Escape or a dialog control). */
+  /** Invoked when the dialog requests close (Escape, the close button, or a click outside). */
   onClose: () => void;
   children: ReactNode;
 }
 
-/** Minimal modal overlay used by the project dialogs. Closes on Escape. */
+/** Modal panel used by the project dialogs, backed by the shared Dialog primitives. */
 export function Modal({ title, onClose, children }: ModalProps) {
+  // The dialog unmounts while still open, which skips the Dialog primitives' own
+  // focus restore; return focus to the opening control explicitly.
   useEffect(() => {
-    function onKeyDown(event: KeyboardEvent): void {
-      if (event.key === "Escape") {
-        onClose();
+    const previous = document.activeElement;
+    return () => {
+      if (previous instanceof HTMLElement && document.contains(previous)) {
+        previous.focus();
       }
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+    };
+  }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className="w-full max-w-md rounded-lg border border-border bg-popover p-5 text-popover-foreground shadow-xl"
-      >
-        <h2 className="text-base font-semibold">{title}</h2>
-        <div className="mt-4">{children}</div>
-      </div>
-    </div>
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) {
+          onClose();
+        }
+      }}
+    >
+      <DialogContent aria-describedby={undefined} className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+        </DialogHeader>
+        <div>{children}</div>
+      </DialogContent>
+    </Dialog>
   );
 }
