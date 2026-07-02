@@ -1,24 +1,35 @@
-import { Actuator, type Context } from "mindcraft";
-
-/** Cutebot STM8 motor-driver I2C address (7-bit). */
-const CUTEBOT_ADDRESS = 0x10;
-
-/** Forward speed as a percent (0-100). */
-const DRIVE_SPEED = 50;
+import { Actuator, type Context, choice, modifier, optional, repeated } from "mindcraft";
+import { Movement, rateFromWords } from "./movement";
 
 /**
- * Drives a Cutebot straight forward at {@link DRIVE_SPEED}.
- *
- * Each wheel is set with one 4-byte I2C command to the STM8 motor driver at
- * {@link CUTEBOT_ADDRESS}: `[wheel, direction, speed, pad]`, where `wheel` is
- * 0x01 (left) or 0x02 (right), `direction` is 0x02 (forward) or 0x01 (reverse),
- * `speed` is 0-100, and `pad` is unused. Bytes transcribed from ELECFREAKS
- * pxt-cutebot `motors()` / `forward()`.
+ * Drives the Cutebot straight by adding a both-wheels influence to the shared
+ * {@link Movement} arbitrator. The bare tile drives forward at the normal
+ * rate; up to three `slowly` or `quickly` words step the rate down or up the
+ * ladder, and the optional direction word reverses. A rule keeps the robot
+ * driving by firing every think; when no movement rule fires, the robot stops.
  */
 export default Actuator({
   name: "cutebot drive",
-  onExecute(ctx: Context): void {
-    ctx.microbit.i2c.writeBuffer(CUTEBOT_ADDRESS, Buffer.from([0x01, 0x02, DRIVE_SPEED, 0x00]));
-    ctx.microbit.i2c.writeBuffer(CUTEBOT_ADDRESS, Buffer.from([0x02, 0x02, DRIVE_SPEED, 0x00]));
+  args: [
+    // Rate words use the shared "modifier.speed" namespace, matched by the
+    // turn and pivot tiles so a rate word is valid on any movement tile.
+    optional(
+      choice(
+        repeated(modifier("modifier.speed.slowly", { label: "slowly" }), { min: 1, max: 3 }),
+        repeated(modifier("modifier.speed.quickly", { label: "quickly" }), { min: 1, max: 3 })
+      )
+    ),
+    optional(
+      choice(
+        modifier("modifier.direction.forward", { label: "forward" }),
+        modifier("modifier.direction.backward", { label: "backward" })
+      )
+    ),
+  ],
+  onExecute(ctx: Context, args: { slowly: number; quickly: number; forward: boolean; backward: boolean }): void {
+    const slowly = args.slowly ? args.slowly : 0;
+    const quickly = args.quickly ? args.quickly : 0;
+    const rate = rateFromWords(slowly, quickly);
+    Movement.drive(args.backward ? -rate : rate);
   },
 });

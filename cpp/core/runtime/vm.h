@@ -167,6 +167,18 @@ struct RuntimeSurface {
 bool isTruthy(const Value& value, const ProgramImage& program, const ManagedHeap* heap = nullptr);
 
 /**
+ * Writes rule variable `name` on the rule bound to the in-flight host dispatch
+ * (`ctx.currentRuleFuncId`), allocating the backing store on demand. `name` and
+ * `value` may be fresh unrooted managed values; the write pins them across its
+ * own allocations. A write outside any rule is a no-op (returns true). Returns
+ * false on a name that is neither a string nor a number, or when the heap
+ * cannot back an allocation. Mirrors `setRuleVariable` in
+ * external/mindcraft-lang/packages/core/src/runtime/context.ts.
+ */
+bool setRuleVariable(ExecutionContext& ctx, ManagedHeap& heap, GcRoots* roots, const Value& name,
+                     const Value& value);
+
+/**
  * Push the entry frame for `funcId` onto `state` and seed its locals from
  * `args` (excess args are dropped; remaining local slots are nil). The state
  * must have its stack regions bound. Fails with `ErrorCode::HostError` when

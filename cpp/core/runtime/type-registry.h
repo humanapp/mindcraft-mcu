@@ -168,6 +168,24 @@ public:
     return kNoTypeIdx;
   }
 
+  /**
+   * Whether a struct value carrying `typeId` is a managed heap struct: a
+   * program struct type, or a registered atom struct type with storage slots.
+   * Native struct values (an injected execution context, a device receiver)
+   * carry type ids outside this set and hold no heap handle.
+   */
+  bool isManagedStructType(uint32_t typeId) const {
+    if (typeId >= program_->types.size()) {
+      return false;
+    }
+    const TypeEntry& entry = program_->types[typeId];
+    if (entry.tag == TypeTag::Struct) {
+      return true;
+    }
+    uint32_t slotCount = 0;
+    return entry.tag == TypeTag::Atom && registeredStructSlotCount(entry.atom.atomId, slotCount);
+  }
+
   /** The native field getter for a struct value carrying `typeId`, or null for a managed-slot
    * struct. */
   NativeStructFieldGetter nativeStructGetter(uint32_t typeId) const {

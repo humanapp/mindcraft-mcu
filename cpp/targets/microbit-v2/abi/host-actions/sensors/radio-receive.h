@@ -7,16 +7,16 @@
 #include "core/runtime/execution-context.h"
 #include "core/runtime/managed-heap.h"
 #include "core/runtime/value.h"
+#include "core/runtime/vm.h"
 
 namespace mindcraft
 {
 
 /**
- * The radio port plus the heap and roots a string receive sensor uses to
- * allocate its managed string result. The per-callsite cursor is a plain number
- * stored as call-site state, so the number sensor uses only the port and `heap`
- * / `roots` may be null when only the number sensor is bound. Every pointer is
- * non-owning and must outlive every dispatch.
+ * The radio port plus the heap and roots the typed receive sensors use to
+ * allocate their managed string results, output-key strings, and output
+ * rule-variable storage. Every pointer is non-owning, must be bound before the
+ * first dispatch, and must outlive every dispatch.
  */
 struct MicroBitV2RadioSensorEnv
 {
@@ -24,6 +24,15 @@ struct MicroBitV2RadioSensorEnv
     ManagedHeap *heap = nullptr;
     GcRoots *roots = nullptr;
 };
+
+/** Rule-variable key of the number receive sensor's `value` output tile. */
+inline constexpr char kRadioReceiveNumberValueOutputKey[] = "__out.number:<number>.value";
+
+/** Rule-variable key of the string receive sensor's `value` output tile. */
+inline constexpr char kRadioReceiveStringValueOutputKey[] = "__out.string:<string>.value";
+
+/** Rule-variable key of the receive sensors' shared `signal strength` output tile. */
+inline constexpr char kRadioReceiveRssiOutputKey[] = "__out.number:<number>.rssi";
 
 namespace detail
 {
@@ -40,6 +49,22 @@ inline bool radioTypeIsString(int type)
     return type == 2;
 }
 
+/**
+ * Writes one receive-sensor output rule variable on the in-scope rule:
+ * allocates the managed key string and stores `value` under it. An allocation
+ * failure drops the write.
+ */
+inline void writeReceiveOutput(MicroBitV2RadioSensorEnv &env, ExecutionContext &ctx,
+                               const char *key, uint32_t keyLength, const Value &value)
+{
+    Value name;
+    if (!env.heap->newString(key, keyLength, env.roots, name))
+    {
+        return;
+    }
+    setRuleVariable(ctx, *env.heap, env.roots, name, value);
+}
+
 } // namespace detail
 
 /**
@@ -48,8 +73,11 @@ inline bool radioTypeIsString(int type)
  * for the string sensor), advancing this call site's own cursor by one. The
  * delivered value -- including a 0 or an empty string -- is the result; genuine
  * absence (no matching packet this think, or the first evaluation after a page
- * enter) returns nil. The per-callsite cursor is a plain number; a page enter
- * arms it to the ring head. Mirrors the wodal radio-receive oracle.
+ * enter) returns nil. A delivered packet also writes the sensor's output-tile
+ * rule variables on the in-scope rule: its typed `value` output and the shared
+ * number `signal strength` (rssi) output. The per-callsite cursor is a plain
+ * number; a page enter arms it to the ring head. Mirrors the wodal
+ * radio-receive oracle.
  */
 inline Value execRadioReceiveSensor(MicroBitV2RadioSensorEnv &env, bool wantString,
                                     ExecutionContext &ctx, Span<const Value> args)
@@ -81,17 +109,35 @@ inline Value execRadioReceiveSensor(MicroBitV2RadioSensorEnv &env, bool wantStri
             continue;
         }
         ctx.setCallSiteState(Value::number(static_cast<mc_number_t>(packet.seq)));
+        Value result;
         if (wantString)
         {
-            Value out;
             if (!env.heap->newString(reinterpret_cast<const char *>(packet.text), packet.textLen,
-                                     env.roots, out))
+                                     env.roots, result))
             {
                 return kNilValue;
             }
-            return out;
         }
-        return Value::number(packet.value);
+        else
+        {
+            result = Value::number(packet.value);
+        }
+        // Pin the fresh result across the output-key allocations below.
+        ManagedHeap::Pin pinResult(*env.heap, result);
+        if (wantString)
+        {
+            detail::writeReceiveOutput(env, ctx, kRadioReceiveStringValueOutputKey,
+                                       sizeof(kRadioReceiveStringValueOutputKey) - 1, result);
+        }
+        else
+        {
+            detail::writeReceiveOutput(env, ctx, kRadioReceiveNumberValueOutputKey,
+                                       sizeof(kRadioReceiveNumberValueOutputKey) - 1, result);
+        }
+        detail::writeReceiveOutput(env, ctx, kRadioReceiveRssiOutputKey,
+                                   sizeof(kRadioReceiveRssiOutputKey) - 1,
+                                   Value::number(static_cast<mc_number_t>(packet.rssi)));
+        return result;
     }
     return kNilValue;
 }

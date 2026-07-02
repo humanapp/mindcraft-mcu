@@ -290,6 +290,12 @@ Status BrainRuntime::think(mc_number_t currentTimeMs) {
     return thinks;
   }
   scheduler_.sweep();
+  // The end of a think is quiescent: every live value is reachable from the
+  // scheduler's roots and this think's garbage is not. Reclaiming it here
+  // bounds the heap's arena claim to its live set plus one think of churn.
+  if (surface_.heap != nullptr) {
+    surface_.heap->collect(scheduler_);
+  }
 
   lastThinkTime_ = currentTimeMs;
   inThink_ = false;

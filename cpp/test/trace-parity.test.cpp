@@ -917,9 +917,12 @@ RadioInject radioString(const std::string& text) { return RadioInject{2, 0, text
  * Loads a radio-receive fixture binary, replays its injected-packet schedule
  * through the host loop, and byte-compares the rendered trace against the
  * committed golden. The typed receive sensors keep per-callsite cursors; their
- * managed string results render through the heap bound on the writer. Mirrors
- * the ScheduleStep of wodal
- * packages/wodal/src/targets/microbit-v2/mindcraft/radio-receive-trace.spec.ts.
+ * managed string results render through the heap bound on the writer. Also
+ * serves the receive-output fixtures, whose do() sends an output tile's value
+ * back out through `radio send`. Mirrors the ScheduleStep of wodal
+ * packages/wodal/src/targets/microbit-v2/mindcraft/radio-receive-trace.spec.ts
+ * and the schedules of radio-receive-output-trace.spec.ts and
+ * radio-receive-output-multi-provider-trace.spec.ts.
  */
 void runRadioReceiveParity(const std::string& name, const std::vector<RadioReceiveStep>& schedule) {
   const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/" + name;
@@ -938,15 +941,19 @@ void runRadioReceiveParity(const std::string& name, const std::vector<RadioRecei
   ObservableTraceWriter writer(sink, image);
   HostMicroBit microbit;
   microbit.display.writer = &writer;
+  microbit.radio.writer = &writer;
   TraceTap tap(writer);
 
   // The string sensor allocates its managed string result; the writer resolves
-  // it through the bound heap when rendering the action's result token.
-  mindcraft::ManagedHeap heap(arena);
+  // it through the bound heap when rendering the action's result token. The
+  // heap carries the program image so the sensors' managed output-key strings
+  // compare equal to the fixtures' borrowed read keys.
+  mindcraft::ManagedHeap heap(arena, &image);
   writer.setHeap(&heap);
   mindcraft::MicroBitV2RadioSensorEnv radioSensorEnv{&microbit.radio, &heap, nullptr};
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports, nullptr, nullptr,
-                                                              nullptr, nullptr, &radioSensorEnv);
+  mindcraft::MicroBitV2RadioSendEnv radioSendEnv{&microbit.radio, &heap};
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(
+      microbit.ports, nullptr, nullptr, nullptr, &radioSendEnv, &radioSensorEnv);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
 
@@ -1023,6 +1030,25 @@ TEST_CASE("the radio-receive-overflow fixture byte-matches the golden observable
 TEST_CASE("the radio-receive-freshness fixture byte-matches the golden observable trace") {
   runRadioReceiveParity("radio-receive-freshness",
                         {{16, {radioNumber(99)}}, {16, {}}, {16, {radioNumber(7)}}, {16, {}}});
+}
+
+TEST_CASE("the radio-receive-output-string-value fixture byte-matches the golden trace") {
+  runRadioReceiveParity("radio-receive-output-string-value",
+                        {{16, {}}, {16, {radioString("hi")}}, {16, {}}});
+}
+
+TEST_CASE("the radio-receive-output-number-value fixture byte-matches the golden trace") {
+  runRadioReceiveParity("radio-receive-output-number-value",
+                        {{16, {}}, {16, {radioNumber(7)}}, {16, {}}});
+}
+
+TEST_CASE("the radio-receive-output-rssi fixture byte-matches the golden trace") {
+  runRadioReceiveParity("radio-receive-output-rssi", {{16, {}}, {16, {radioNumber(7)}}, {16, {}}});
+}
+
+TEST_CASE("the radio-receive-output-multi-provider fixture byte-matches the golden trace") {
+  runRadioReceiveParity("radio-receive-output-multi-provider",
+                        {{16, {}}, {16, {radioNumber(7), radioString("hi")}}, {16, {}}});
 }
 
 /**
@@ -3647,4 +3673,60 @@ TEST_CASE("the managed-string-scroll fixture byte-matches the golden observable 
   CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   CHECK(microbit.display.pixels[0][0] == 255);
+}
+
+/**
+ * Regression: a heap collection during a System think must skip native struct
+ * values. The user-tile system fixture's think holds the injected context and
+ * the I2C receiver on its operand stack at exactly the allocation that
+ * collects once the arena tightens; tracing them as heap objects reads and
+ * writes unrelated arena memory. A small arena forces collections within the
+ * run.
+ */
+TEST_CASE("a heap collection during a System think skips native receiver values") {
+  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-system";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+
+  std::vector<uint8_t> arenaStorage(16 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  HostMicroBit microbit;
+  mindcraft::ManagedHeap heap(arena, &image);
+  mindcraft::MicroBitV2I2CWriteEnv i2cEnv{&microbit.i2c, &heap, &image};
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cEnv);
+  ExecutionContext ctx;
+  mindcraft::TypeRegistry types(image);
+  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, nullptr, &heap};
+  surface.types = &types;
+  surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 500; i++) {
+    const float timeMs = lastThinkTimeMs + 16;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  // The run long outlives what uncollected garbage would fit, so collections
+  // happened; the System's think kept writing one buffer per think throughout,
+  // and the heap's arena footprint stayed at its working set, leaving room for
+  // later fiber growth.
+  CHECK(arena.bytesRemaining() > 4096);
+  CHECK(microbit.i2c.writes.size() == 500);
 }

@@ -59,8 +59,10 @@ const Movement = System({
   pivot(rate: number) { this.accL += rate; this.accR -= rate; },
 });
 
-// A consuming tile in the SAME module references the System directly - no import:
-export const cutebotDrive = Actuator({
+// A consuming tile (its own file - tile authoring is one default-export tile
+// per file) imports the System; every importer shares the one instance:
+import { Movement } from "./movement";
+export default Actuator({
   name: "cutebot drive",
   args: [param("speed", { type: "number", default: 50 })],
   exec(ctx, args) {
@@ -71,11 +73,12 @@ export const cutebotDrive = Actuator({
 // think() sees no influences and the robot stops.
 ```
 
-**Accessing a System (the import question).** A consumer reaches a System by its symbol. The
-**common case is co-location** - define the System and the tiles that feed it in the same module (e.g.
-`cutebot.ts` holds `Movement` and the drive/turn/stop tiles), and the tiles reference `Movement`
-directly with **no import**. What makes that *shared* rather than per-callsite is that the compiler
-recognizes `System(...)` and routes **every** reference to that symbol to the one
+**Accessing a System (the import question).** A consumer reaches a System by its symbol. Because
+tile authoring is **one default-export tile per file**, the common multi-tile shape is: the System
+lives in its own module (exported), and each tile file **imports** it - every importer shares the
+single instance. Co-located reference (no import) also works where a System sits in the same file
+as its one default-export tile. What makes either *shared* rather than per-callsite is that the
+compiler recognizes `System(...)` and routes **every** reference to that symbol to the one
 System-namespace-backed state - so all callsites coordinate through a single instance, the deliberate
 exception to the per-callsite-island rule for module state. **Cross-module export/import is a
 first-class, required capability** (this is the production design): a System is defined and

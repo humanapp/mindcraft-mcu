@@ -142,9 +142,9 @@ int main()
     // The radio send tile reads a string value off the heap; its heap is filled
     // once the heap exists.
     MicroBitV2RadioSendEnv radioSendEnv{&radio, nullptr};
-    // The typed radio receive sensors read the ring and (for the string sensor)
-    // allocate a managed string; their heap and roots are filled once the
-    // scheduler exists.
+    // The typed radio receive sensors read the ring and allocate their managed
+    // string results and output rule variables; their heap and roots are filled
+    // once the scheduler exists.
     MicroBitV2RadioSensorEnv radioSensorEnv{&radio, nullptr, nullptr};
     // The radio send / config host functions resolve managed string / buffer
     // arguments off the heap; its heap is filled once the heap exists.

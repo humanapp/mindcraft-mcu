@@ -11,6 +11,8 @@
 
 namespace mindcraft {
 
+class TypeRegistry;
+
 /**
  * Sink the root sources mark into during a collection. The collector traces
  * each marked container value, so a root source need only mark the values it
@@ -351,6 +353,15 @@ public:
   /** Marks `value` and traces it when it is a container (the {@link GcMarker}). */
   void mark(const Value& value) override;
 
+  /**
+   * Registers the type registry that recognizes managed struct types during
+   * tracing. A struct value whose type is not a managed struct type (an
+   * injected execution context, a device receiver) is not heap-backed and
+   * `mark` skips it. Must be set before the first collection that can
+   * enumerate a fiber holding such a value.
+   */
+  void setTypes(const TypeRegistry* types) { types_ = types; }
+
   /** Number of live list objects (for tests and stats). */
   uint32_t liveListCount() const { return lists_.liveCount(); }
 
@@ -444,6 +455,7 @@ private:
   Pool<StringObject> strings_;
   Pool<BufferObject> buffers_;
   PinNode* pinHead_ = nullptr;
+  const TypeRegistry* types_ = nullptr;
 };
 
 } // namespace mindcraft

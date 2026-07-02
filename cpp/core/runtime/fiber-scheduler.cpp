@@ -11,6 +11,12 @@ FiberScheduler::FiberScheduler(const ProgramImage& program, const RuntimeSurface
   // The scheduler is the heap's root source; point the surface the dispatch
   // loop runs against back at it so an allocation can collect over all fibers.
   surface_.roots = this;
+  // A collection over those fibers traces every stack and locals slot; the
+  // heap needs the surface's type registry to recognize native struct values
+  // (injected contexts, device receivers) that carry no heap handle.
+  if (surface_.heap != nullptr) {
+    surface_.heap->setTypes(surface_.types);
+  }
   // The async opcodes reach the handle table through the same surface.
   surface_.handles = &handles_;
   // ACTION_CALL_ASYNC spawns its child fiber through the same surface.

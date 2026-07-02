@@ -2,6 +2,8 @@
 
 #include <cstring>
 
+#include "core/runtime/type-registry.h"
+
 namespace mindcraft {
 namespace {
 
@@ -653,6 +655,12 @@ void ManagedHeap::mark(const Value& value) {
       }
     }
   } else if (value.isStruct()) {
+    // A native struct value (an injected execution context, a device receiver)
+    // is not a heap object and holds no heap handle; tracing must not resolve
+    // it.
+    if (types_ != nullptr && !types_->isManagedStructType(value.typeId())) {
+      return;
+    }
     StructObject* obj = structOf(value);
     if (!obj->mark) {
       obj->mark = true;

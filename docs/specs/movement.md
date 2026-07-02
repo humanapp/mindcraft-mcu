@@ -30,9 +30,9 @@ moving forward while rotating).
 - **Turn uses the outer-wheel-push convention**: `turn right` drives the LEFT wheel. A turn with no
   concurrent drive therefore creeps forward in an arc around the held wheel (useful line-reacquire
   behavior). The held wheel stays exactly at rest.
-- **Pivot rate is the magnitude**: `pivot slowly left` emits `(-25, +25)` - a slow spin in place.
-  Blended with another rule's `drive 40` it becomes `(15, 65)` - a gentle forward-left arc, the
-  physical superposition of the two intents.
+- **Pivot rate is the magnitude**: `pivot slowly left` emits `(-30, +30)` (the `slowly` ladder
+  rate) - a slow spin in place. Blended with another rule's `drive 40` it becomes `(10, 70)` - a
+  gentle forward-left arc, the physical superposition of the two intents.
 
 ## Per-think semantics: blend, emit, decay on silence
 
@@ -42,10 +42,22 @@ to the chassis; the accumulators clear. Consequences:
 
 - A rule keeps the robot moving by firing (rules re-emit every frame they are true - the normal
   actuator behavior). A rule that stops firing stops contributing.
-- **Silence = stop.** No movement emissions this think -> the target is `(0, 0)`.
-- **A page switch stops the robot**: the old page's rules stop emitting, so motion decays to a stop.
-  No orphaned motor command survives; nothing needs a manual reset. (The System's internal state
-  still persists across the switch, per the System contract - it is the emissions that cease.)
+- **Silence = stop, after a short hold window.** No movement emissions this think -> the **last
+  blended target is reused** for up to K consecutive silent thinks (the hold window; K = 3 nominal,
+  a module constant, ~60-150ms), then the target drops to `(0, 0)`. The window exists for
+  **remotely-commanded brains**: a radio-driven brain's drive rules fire at packet rate, which beats
+  against the brain's think rate (clock skew between two devices, plus RF loss), producing periodic
+  empty thinks even under a held button - without the hold those gaps stutter the motors (and
+  low-pass smoothing makes it worse: averaging the gaps in parks the output below the motor stall
+  floor). This is the RC-receiver failsafe-hold pattern: hold the last command briefly, fail safe to
+  zero on timeout. Locally-ruled brains re-emit every think, so the window never engages for them.
+- **Hold the target, never the influences.** The held value is the final blended target pair; aging
+  individual influences instead would double-count a rule that re-emits every think (three live
+  copies of one `drive 50` summing to 150).
+- **A page switch stops the robot**: the old page's rules stop emitting, so motion stops when the
+  hold window expires (at most K thinks, imperceptible). No orphaned motor command survives; nothing
+  needs a manual reset. (The System's internal state still persists across the switch, per the
+  System contract - it is the emissions that cease.)
 - Re-emission is expected and harmless: each firing rule contributes once per think.
 
 ## Blending: sum per wheel
@@ -62,8 +74,8 @@ The canonical line follower falls out of three one-line rules:
 | Rules firing this think                          | Sum (L, R)  | Robot                         |
 | ------------------------------------------------ | ----------- | ----------------------------- |
 | `on line -> drive 40`                            | (40, 40)    | straight                      |
-| + `left found -> turn left 25`                   | (40, 65)    | arcs left back to the line    |
-| + both sensors (a junction): + `turn right 25`   | (65, 65)    | straight through, with a surge|
+| + `left found -> turn left slowly` (30)          | (40, 70)    | arcs left back to the line    |
+| + both sensors (a junction): + `turn right slowly` | (70, 70)  | straight through, with a surge|
 | line lost (nothing fires)                        | (0, 0)      | stops                         |
 
 The junction case is a named, accepted behavior: simultaneous opposite turns are mirror-symmetric,
@@ -74,15 +86,23 @@ surges through the crossing rather than holding speed.
 
 ```
 0. stop check                           -> if a stop was issued this think: discard all
-                                           influences, zero the smoothing state, write (0, 0), done
-1. sum emissions per wheel              -> (tl, tr); silence -> (0, 0)
+                                           influences, zero the smoothing state, CLEAR the held
+                                           target, write (0, 0), done
+1. sum emissions per wheel              -> (tl, tr)          [only when emissions exist this think]
 2. drift gain: tl *= (1 + d/200)
                tr *= (1 - d/200)        -> per-wheel gain trim (see Drift)
-3. scale-preserving saturation          -> if max(|tl|, |tr|) > 100, scale BOTH by 100/max
+3. scale-preserving saturation          -> if max(|tl|, |tr|) > 100, scale BOTH by 100/max.
+                                           The result is the TARGET; retain it as the held target
+                                           (hold age resets to 0).
+   on a SILENT think (no emissions)     -> skip 1-3: reuse the held target while hold age < K
+                                           (age increments), else target = (0, 0)
 4. smoothing per wheel (EMA + snap)     -> out += (t - out) * (1 - s); if |t - out| < 1, out = t
 5. stop deadband                        -> |out| < 2 writes 0
 6. write both wheels to the chassis     -> every think, unconditionally
 ```
+
+- **The hold reuses the post-saturation target** (stages 1-3 are skipped on silence), so drift and
+  saturation are never re-applied to an already-trimmed value.
 
 - **Saturation scales, never clamps per wheel.** Clamping each wheel independently destroys the
   wheel ratio - the turn geometry - silently straightening an arc. Scaling both wheels by `100/max`
@@ -93,7 +113,8 @@ surges through the crossing rather than holding speed.
 - **Stop is exclusive: it supersedes the think.** A stop is an override, not an influence. Issuing
   one sets a this-think stop flag; at the output stage the think discards every influence emitted
   this think - whether emitted before or after the stop, so it is order-independent - zeroes the
-  smoothing state, and writes `(0, 0)`: a hard brake that bypasses smoothing. If any rule issued a
+  smoothing state, **clears the held target** (a stop is never held over), and writes `(0, 0)`: a
+  hard brake that bypasses smoothing. If any rule issued a
   stop this think, the robot stops this think, regardless of what else was commanded. The flag
   clears with the think; influences resume normally next think. The canonical use is a safety rule -
   `WHEN [sonar][close] DO [stop]` - which must win over every concurrently firing drive rule.
@@ -178,8 +199,8 @@ The final wheel pair is written to the chassis every think, whether or not it ch
   STM8 at address `0x10`, via `ctx.microbit.i2c.writeBuffer`. The controller latches each command;
   there is no watchdog.
 - Wheel values quantize to integer percent at the wire (an explicit round in user code).
-- Cheap DC motors stall below roughly 20-30% duty. The "slowly" rate word must sit above the stall
-  floor (nominally 25); rate words are tuned per chassis on hardware.
+- Cheap DC motors stall below roughly 20-30% duty. The single "slowly" rate word must sit above the
+  stall floor (nominally 30); rate words are tuned per chassis on hardware.
 
 ## Authoring (tiles)
 
@@ -195,7 +216,7 @@ form (the standard tile posture):
 
 **Rate words compound, up to three, and the sets are mutually exclusive.** Each additional `slowly`
 steps the rate further down; each additional `quickly` steps it further up; `slowly` and `quickly`
-cannot mix on one tile. In the call-spec grammar the exclusivity and the repeat cap are structural:
+do not mix on one tile. The call-spec declares the shape:
 
 ```
 optional(choice(
@@ -203,6 +224,12 @@ optional(choice(
   repeated(mod(Quickly), { min: 1, max: 3 })
 ))
 ```
+
+Exclusivity and the cap are enforced at **authoring time by the picker** (once one set has a fill,
+the other is not offered; offers stop at three) - the same enforcement model as the shipped sim
+built-ins that use this identical grammar. The tile **body is total** over any count combination it
+is handed: if both words are somehow present on one tile, **slowly wins** (the safer precedence for
+a physical robot), and counts clamp to 0..3. A rate word never errors at runtime.
 
 The rate ladder (nominal, tuned per chassis):
 
@@ -227,8 +254,14 @@ tiles.
   sum, the drift gain at two different speeds, wheels exactly 0 at rest with drift set, the held
   wheel exactly 0 under turn + drift, scale-preserving saturation (an over-limit arc keeps its
   ratio), the smoothing curve values and its near-snap, the stop deadband, `stop()` dominance
-  within a think, the junction surge, decay-to-stop on silence, and the rate ladder (each
-  compounded step's exact value; the grammar rejects a mixed `slowly`+`quickly` tile).
+  within a think, the junction surge, and the rate ladder (each compounded step's exact value; the
+  picker never offers a mixed `slowly`+`quickly` tile; a mixed tile body resolves slowly-wins;
+  counts clamp to 0..3).
+- The **hold window** is pinned from both sides: an alternating command/gap stream (the remote-
+  control beat pattern) holds a steady full target - no dip on the gap thinks, including with
+  smoothing enabled; silence longer than K thinks drops the target to zero exactly at expiry; a
+  stop during the hold zeroes immediately (the held target does not survive a stop); page-switch
+  silence stops within K thinks.
 
 ## Open questions
 

@@ -519,26 +519,30 @@ Value ruleVarGet(const RuntimeSurface& surface, const ProgramImage& program, uin
  * allocating the outer store and the inner map on demand; never writes through
  * to ancestors. Mirrors `setByName` in
  * external/mindcraft-lang/packages/core/src/runtime/rule-services.ts. A write
- * with no rule in scope is a no-op (returns true). Returns false on a non-string
- * name or when the heap cannot back an allocation.
+ * with no rule in scope is a no-op (returns true). Returns false on a name that
+ * is neither a string nor a number, or when the heap cannot back an allocation.
  */
-bool ruleVarSet(const RuntimeSurface& surface, uint32_t ruleFuncId, const Value& nameValue,
-                const Value& value) {
+bool ruleVarSet(ExecutionContext* context, ManagedHeap* heapPtr, GcRoots* roots,
+                uint32_t ruleFuncId, const Value& nameValue, const Value& value) {
   if (ruleFuncId == kNoFuncId) {
     return true;
   }
-  if (surface.heap == nullptr) {
+  if (heapPtr == nullptr) {
     return false;
   }
   MapKey nameKey;
   if (!valueToMapKey(nameValue, nameKey)) {
     return false;
   }
-  ExecutionContext& ctx = *surface.context;
-  ManagedHeap& heap = *surface.heap;
+  ExecutionContext& ctx = *context;
+  ManagedHeap& heap = *heapPtr;
+  // Pin the caller's values: a host action may pass fresh unrooted managed
+  // strings, and any allocation below can run a collection.
+  ManagedHeap::Pin pinName(heap, nameValue);
+  ManagedHeap::Pin pinValue(heap, value);
   if (!ctx.ruleVarStores.isMap()) {
     Value outerValue;
-    if (!heap.newMap(kNoTypeIdx, surface.roots, outerValue)) {
+    if (!heap.newMap(kNoTypeIdx, roots, outerValue)) {
       return false;
     }
     ctx.ruleVarStores = outerValue;
@@ -553,16 +557,16 @@ bool ruleVarSet(const RuntimeSurface& surface, uint32_t ruleFuncId, const Value&
   if (heap.mapHas(outer, ruleKey)) {
     innerValue = heap.mapGet(outer, ruleKey);
   } else {
-    if (!heap.newMap(kNoTypeIdx, surface.roots, innerValue)) {
+    if (!heap.newMap(kNoTypeIdx, roots, innerValue)) {
       return false;
     }
     ManagedHeap::Pin pinFreshInner(heap, innerValue);
-    if (!heap.mapSet(outer, ruleKey, innerValue, surface.roots)) {
+    if (!heap.mapSet(outer, ruleKey, innerValue, roots)) {
       return false;
     }
   }
   ManagedHeap::Pin pinInner(heap, innerValue);
-  return heap.mapSet(heap.map(innerValue), nameKey, value, surface.roots);
+  return heap.mapSet(heap.map(innerValue), nameKey, value, roots);
 }
 
 /**
@@ -620,7 +624,8 @@ Status dispatchContextVariableFunc(CoreFuncId id, Span<const Value> args,
     if (args.size() < 3) {
       return Status::fail(ErrorCode::ScriptError);
     }
-    if (!ruleVarSet(surface, resolveFrameRuleFuncId(program, frame), name, args[2])) {
+    if (!ruleVarSet(surface.context, surface.heap, surface.roots,
+                    resolveFrameRuleFuncId(program, frame), name, args[2])) {
       return Status::fail(ErrorCode::HostError);
     }
     out = kNilValue;
@@ -632,6 +637,11 @@ Status dispatchContextVariableFunc(CoreFuncId id, Span<const Value> args,
 }
 
 } // namespace
+
+bool setRuleVariable(ExecutionContext& ctx, ManagedHeap& heap, GcRoots* roots, const Value& name,
+                     const Value& value) {
+  return ruleVarSet(&ctx, &heap, roots, ctx.currentRuleFuncId, name, value);
+}
 
 bool isTruthy(const Value& value, const ProgramImage& program, const ManagedHeap* heap) {
   switch (value.tag()) {
@@ -1302,8 +1312,9 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       // drops the capture without disturbing the truthiness gate. Every rule
       // captures, regardless of the gate below.
       const Value value = state.stack[state.stackDepth - 1];
-      ruleVarSet(surface, resolveFrameRuleFuncId(program, frame),
-                 Value::number(kWhenResultRuleVarKey), value);
+      ruleVarSet(surface.context, surface.heap, surface.roots,
+                 resolveFrameRuleFuncId(program, frame), Value::number(kWhenResultRuleVarKey),
+                 value);
       state.stackDepth--;
       frame.pc = isTruthy(value, program, surface.heap) ? frame.pc + 1 : addRel(frame.pc, ins.a);
       break;
@@ -1317,8 +1328,9 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
         return fault(ErrorCode::StackUnderflow);
       }
       const Value value = state.stack[state.stackDepth - 1];
-      ruleVarSet(surface, resolveFrameRuleFuncId(program, frame),
-                 Value::number(kWhenResultRuleVarKey), value);
+      ruleVarSet(surface.context, surface.heap, surface.roots,
+                 resolveFrameRuleFuncId(program, frame), Value::number(kWhenResultRuleVarKey),
+                 value);
       state.stackDepth--;
       frame.pc = value.isNil() ? addRel(frame.pc, ins.a) : frame.pc + 1;
       break;
