@@ -25,7 +25,9 @@ brain-code-visible) plus a runtime per-think tick.
 
 Defined like `SensorConfig` / `ActuatorConfig`:
 - `state` - the initial state shape: a plain object of VM-representable values (numbers, strings,
-  booleans, small structs). Kept small (see Semantics).
+  booleans, enums, and struct values - fields typed by a user class, interface, type alias, or
+  `StructType` declaration). Field types resolve regardless of where they are declared or imported
+  from. Kept small (see Semantics).
 - `init(ctx)` - runs once, at brain startup, before any rule or `think`.
 - `think(ctx)` - runs every think, after rule evaluation. Reads/writes state; performs device I/O via
   `ctx`.

@@ -2237,6 +2237,73 @@ TEST_CASE("the user-tile system fixture byte-matches the golden observable trace
   }
 }
 
+TEST_CASE("the user-tile system struct state fixture byte-matches the golden observable trace") {
+  const std::string base =
+      std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-system-struct-state";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.gpio.writer = &writer;
+  TraceTap tap(writer);
+
+  // The rover System's state field holds a vec2 struct built by the StructType
+  // factory; each think the rule mirrors pos.x to pin 8 and pos.y to pin 9,
+  // then the System's think replaces the struct with an advanced copy. The
+  // struct value lives in the GC-rooted System store across thinks.
+  mindcraft::ManagedHeap heap(arena, &image);
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  ExecutionContext ctx;
+  mindcraft::TypeRegistry types(image);
+  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+  surface.types = &types;
+  surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Three 16ms thinks mirror SCHEDULE in wodal
+  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-system-struct-state.spec.ts.
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 3; i++) {
+    const float timeMs = lastThinkTimeMs + 16;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+  // x climbs 1, 2, 3 across thinks while y stays 5: the struct-typed state
+  // field persists in the System store and mutates think over think.
+  REQUIRE(microbit.gpio.writes.size() == 6);
+  for (size_t i = 0; i < microbit.gpio.writes.size(); i += 2) {
+    CHECK(microbit.gpio.writes[i].pin == 8);
+    CHECK(microbit.gpio.writes[i].value == static_cast<int>(1 + i / 2));
+    CHECK(microbit.gpio.writes[i + 1].pin == 9);
+    CHECK(microbit.gpio.writes[i + 1].value == 5);
+  }
+}
+
 TEST_CASE("the user-tile i2c-read fixture byte-matches the golden observable trace") {
   const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-i2c-read";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
