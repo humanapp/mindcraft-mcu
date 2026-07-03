@@ -2526,6 +2526,62 @@ TEST_CASE("the user-tile conversion fixture byte-matches the golden observable t
   }
 }
 
+TEST_CASE("the user-tile presence-guard fixture byte-matches the golden observable trace") {
+  const std::string base =
+      std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-presence-guard";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.radio.writer = &writer;
+  TraceTap tap(writer);
+
+  // The user sensor presence-guards its optional buffer arg. Rule 0 leaves the
+  // slot empty: onExecute receives nil, the guard returns undefined, and the
+  // WHEN holds false. Rule 1 fills it with the [42, 7, 9] constant: the guard
+  // passes and the decoded 7*256+9 flows as the WHEN-result into a bare radio
+  // send. The golden pins one send of 1801 per think and no sentinel send.
+  mindcraft::ManagedHeap heap(arena, &image);
+  writer.setHeap(&heap);
+  mindcraft::MicroBitV2RadioSendEnv radioSendEnv{&microbit.radio, &heap};
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports, nullptr, nullptr,
+                                                              nullptr, &radioSendEnv, nullptr);
+  ExecutionContext ctx;
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Two 16ms thinks mirror SCHEDULE in wodal
+  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-presence-guard.spec.ts.
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 2; i++) {
+    const float timeMs = lastThinkTimeMs + 16;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+}
+
 TEST_CASE("the user-tile sonar fixture byte-matches the golden observable trace") {
   const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-sonar";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
