@@ -173,10 +173,10 @@ export default Sensor({
   capabilities: ["PresenceGated"],
   args: [param("packet", { type: BufferType, anonymous: true })],
   outputs: [{ name: "position", type: Position }],
-  onExecute(ctx: Context, args: { packet: Buffer }): Position | undefined {
+  onExecute(ctx: Context, args: { packet?: Buffer }): Position | undefined {
     const b = args.packet;
-    if (b.length < 3 || b[0] !== PACKET_MAGIC) return undefined; // presence-gated nil
-    const pos = Position({ x: b[1] - 100, y: b[2] - 100 });
+    if (!b || b.length() < 3 || b.get(0) !== PACKET_MAGIC) return undefined; // presence-gated nil
+    const pos = Position({ x: b.get(1) - 100, y: b.get(2) - 100 });
     setOutput(ctx, "position", pos);
     return pos;
   },
@@ -187,9 +187,10 @@ export default Sensor({
   TS type derives from the fields config (`StructOf`) - one source of truth for the shape.
 - `PACKET_MAGIC` is an ordinary shared module constant imported by encoder and decoder - the
   module-scope model at work.
-- The decoder's `packet` argument is REQUIRED (the editor's missing-args badge enforces wiring):
-  the guard an optional Buffer argument needs (`if (!b || ...)`) is not lowerable in user code
-  today - see Open questions.
+- The decoder's `packet` argument is optional (the all-optional tile posture): bare
+  `[gamepad state]` reaches onExecute with the packet nil, and the guard presence-gates to nil -
+  the WHEN simply never fires. The guard reads the ambient Buffer surface: `length()` and `get(i)`
+  are methods (Buffer has no `.length` property or index signature).
 
 ## The radio pairing (two stages)
 
@@ -241,7 +242,7 @@ path: a fourth byte (a buttons bitmask: B1..B4 + stick press) joins the packet w
 wanted on the wire, with no protocol rework and no version machinery.
 
 **The decoder: `[gamepad state <buffer>]`.** A sensor taking a Buffer **argument** (it does not
-read radio itself). Presence-gated: nil when the packet is too short or fails the magic -
+read radio itself). Presence-gated: nil when the argument is nil, too short, or fails the magic -
 so as a child WHEN under the radio receive rule it fires exactly on valid gamepad packets. On a
 match it decodes the packet into **one `position` output of the gamepad's position struct type**
 (the same type the stick produces locally), read downstream through the accessor tiles -
@@ -292,7 +293,7 @@ digital pin values:
 - Stage-2 pairing: the full continuous-steering loop over the sim ether - injected raw stick values
   -> `[radio send [stick position]]` (the conversion encodes) -> radio Buffer send/receive ->
   `gamepad state` decodes -> the `position` output -> accessors -> `cutebot steer` -> exact wheel
-  writes. Plus the decoder negatives (short / wrong magic -> presence-gated nil, no output
+  writes. Plus the decoder negatives (nil / short / wrong magic -> presence-gated nil, no output
   write) and the packet-atomicity property (`[position][x]` and `[position][y]` read downstream
   always come from the same packet).
 - The conversion: the picker offers `[stick position]` in a Buffer-expected slot as a conversion
@@ -320,8 +321,3 @@ digital pin values:
   radio Buffer tile forms, gamepad-owned encode/decode, layers decoupled (see the pairing section).
   The magic-byte + length-tolerant read is the growth path for button state; no version machinery.
 - **Rumble surface** - momentary vs duration-modified actuator; settle when rumble is picked up.
-- **Decoder packet argument: required vs optional.** The all-optional tile posture wants the
-  packet argument optional (bare tile still does something sensible), but the presence guard an
-  optional Buffer argument needs (`if (!b || ...)`) is not lowerable in user code today - the
-  optional-arg presence-narrowing gap, its own ts-compiler slice. The argument is required until
-  that lands; revisit the bare-tile behavior then.
