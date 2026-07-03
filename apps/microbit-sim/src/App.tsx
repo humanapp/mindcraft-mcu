@@ -11,9 +11,13 @@ export function App() {
       <ProjectHeader />
       <main className="p-4 sm:p-6">
         <div className="mx-auto grid w-full max-w-7xl grid-cols-1 items-start gap-8 lg:grid-cols-2">
-          <div className="space-y-8">
+          {/* On a single column the wrapper dissolves (display: contents), making all three
+              sections grid items so the bridge panel can order below the simulator. */}
+          <div className="contents lg:block lg:space-y-8">
             <BrainList />
-            <BridgePanel />
+            <div className="order-last">
+              <BridgePanel />
+            </div>
           </div>
           <Simulator />
         </div>
