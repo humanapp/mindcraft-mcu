@@ -45,11 +45,15 @@ public:
   virtual void setPixel(int16_t x, int16_t y, uint8_t brightness) = 0;
 
   /**
-   * Begin scrolling `length` ASCII bytes across the display at `delayMs` per
-   * animation step, requested at logical tick time `requestTimeMs`. The call
-   * returns immediately; the scroll runs asynchronously and settles `handle`
-   * (resolve) when the animation completes. Scrolls serialize: one requested
-   * while another is animating begins when the display next becomes free.
+   * Show `length` ASCII bytes on the display, requested at logical tick time
+   * `requestTimeMs`. A text of any length other than one scrolls across the
+   * display at `delayMs` per animation step and ends blank. A one-byte text is
+   * a static show: its glyph is painted at once, holds the display for the
+   * duration the scroll formula gives one character, and blanks at completion.
+   * The call returns immediately; the show runs asynchronously and settles
+   * `handle` (resolve) when it completes. A show requested while the display
+   * is busy (a scroll, a static show, or a held draw) is silently dropped:
+   * nothing is shown and `handle` settles at once.
    */
   virtual void scrollText(const uint8_t* bytes, uint32_t length, uint32_t delayMs,
                           mc_number_t requestTimeMs, AsyncHandle handle) = 0;

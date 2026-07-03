@@ -35,6 +35,18 @@ interface ScrollAnimation {
   scrollingChar: number;
 }
 
+/** A static one-character show holding the display lease for its duration. */
+interface StaticShow {
+  /** Logical tick time at which the show began. */
+  readonly startTime: number;
+
+  /** Milliseconds the glyph holds the display before it blanks. */
+  readonly durationMs: number;
+
+  /** Invoked once when the show completes. */
+  readonly onComplete: () => void;
+}
+
 /** A single draw frame: packed brightness bytes plus its size, already clipped to the display. */
 export interface DisplayFrame {
   /** Brightness bytes, row-major, length `width * height`. */
@@ -76,6 +88,9 @@ export class MicroBitDisplay {
   /** The scroll animation in progress, or undefined when no scroll holds the display. */
   private activeScroll: ScrollAnimation | undefined;
 
+  /** The static one-character show in progress, or undefined when none holds the display. */
+  private activeShow: StaticShow | undefined;
+
   /** The timed image draw holding the display, or undefined when none does. */
   private activeDraw: DrawLease | undefined;
 
@@ -105,29 +120,37 @@ export class MicroBitDisplay {
   }
 
   /**
-   * Starts an asynchronous text scroll. The display is cleared and the text
-   * scrolls in from the right. The animation begins at `requestTime`, advances
-   * one column step per uniform slice of `durationMs`, and completes after the
-   * full duration, when {@link advanceScroll} is next called with a time at or
-   * past completion. The scroll holds the display lease for its
-   * duration; when the display is already busy (a scroll or a timed draw holds
-   * the lease) the new scroll is silently dropped: nothing is shown and
-   * `onComplete` fires at once, so the dispatching fiber continues without
-   * blocking.
+   * Starts an asynchronous text show. A text of any length other than one is
+   * cleared onto the display and scrolls in from the right: the animation
+   * begins at `requestTime`, advances one column step per uniform slice of
+   * `durationMs`, and completes after the full duration, when
+   * {@link advanceScroll} is next called with a time at or past completion. A
+   * one-character text is a static show: its glyph is painted at once, holds
+   * the display for the full `durationMs`, and the display blanks at
+   * completion - the end state a scroll of the same character leaves. Either
+   * rendering holds the display lease for its duration; when the display is
+   * already busy (a scroll, a static show, or a timed draw holds the lease)
+   * the new request is silently dropped: nothing is shown and `onComplete`
+   * fires at once, so the dispatching fiber continues without blocking.
    *
    * @param text - Text shown on the display.
-   * @param durationMs - Animation length in milliseconds.
-   * @param requestTime - Logical tick time the scroll was requested.
-   * @param onComplete - Invoked once when the animation completes (or at once when dropped).
+   * @param durationMs - Hold length in milliseconds.
+   * @param requestTime - Logical tick time the show was requested.
+   * @param onComplete - Invoked once when the show completes (or at once when dropped).
    */
   scrollText(text: string, durationMs: number, requestTime: number, onComplete: () => void): void {
     if (this.isBusy()) {
       onComplete();
       return;
     }
-    // The text scrolls in from a blank display; any prior content (an earlier
-    // draw) is cleared so it does not shift through the animation.
+    // Both renderings start from a blank display; any prior content (an
+    // earlier draw) is cleared so it does not linger under the show.
     this.matrix.clear();
+    if (text.length === 1) {
+      this.paintGlyph(text.charCodeAt(0));
+      this.activeShow = { startTime: requestTime, durationMs, onComplete };
+      return;
+    }
     const stepsPerCharacter = this.matrix.width + SCROLL_DISPLAY_SPACING;
     this.activeScroll = {
       text,
@@ -200,22 +223,27 @@ export class MicroBitDisplay {
     }
   }
 
-  /** True while a scroll or a timed draw holds the display lease. */
+  /** True while a scroll, a static show, or a timed draw holds the display lease. */
   isBusy(): boolean {
-    return this.activeScroll !== undefined || this.activeDraw !== undefined;
+    return this.activeScroll !== undefined || this.activeShow !== undefined || this.activeDraw !== undefined;
   }
 
   /**
-   * Releases the current display lease at once: the held scroll or timed draw is
-   * dropped and its handle resolved, so its awaiting rule resumes as if the
-   * operation finished. A no-op when no lease is held. The display content is
-   * left as-is; the next operation overwrites it.
+   * Releases the current display lease at once: the held scroll, static show,
+   * or timed draw is dropped and its handle resolved, so its awaiting rule
+   * resumes as if the operation finished. A no-op when no lease is held. The
+   * display content is left as-is; the next operation overwrites it.
    */
   preempt(): void {
     const scroll = this.activeScroll;
     if (scroll !== undefined) {
       this.activeScroll = undefined;
       scroll.onComplete();
+    }
+    const show = this.activeShow;
+    if (show !== undefined) {
+      this.activeShow = undefined;
+      show.onComplete();
     }
     const draw = this.activeDraw;
     if (draw !== undefined) {
@@ -228,15 +256,16 @@ export class MicroBitDisplay {
    * Advances the active scroll animation to the column step due at `now`,
    * rendering each shifted frame, and completes it (firing `onComplete`) once it
    * has reached its final step. Also advances a timed image-sequence draw to the
-   * frame due at `now` and completes it (firing its `onComplete`) once the whole
-   * sequence has elapsed. This is the per-think display poll: it advances and
-   * resolves a timed draw holding the lease, and steps and completes the scroll
-   * animation.
+   * frame due at `now` and completes it once the whole sequence has elapsed, and
+   * completes a static one-character show once its hold has elapsed, blanking
+   * the display. This is the per-think display poll: it settles whichever
+   * operation holds the lease.
    *
    * @param now - Current logical tick time.
    */
   advanceScroll(now: number): void {
     this.advanceDraw(now);
+    this.advanceShow(now);
     const anim = this.activeScroll;
     if (anim === undefined) {
       return;
@@ -266,12 +295,13 @@ export class MicroBitDisplay {
 
   /**
    * Resets the display to its power-on state: blanks the matrix and drops any
-   * held scroll or timed draw without resolving its handle (the whole runtime is
-   * resetting). Call whenever the device timer resets.
+   * held scroll, static show, or timed draw without resolving its handle (the
+   * whole runtime is resetting). Call whenever the device timer resets.
    */
   reset(): void {
     this.matrix.clear();
     this.activeScroll = undefined;
+    this.activeShow = undefined;
     this.activeDraw = undefined;
   }
 
@@ -296,6 +326,36 @@ export class MicroBitDisplay {
     if (now >= draw.start + frameCount * draw.perFrameDurationMs) {
       this.activeDraw = undefined;
       draw.onComplete();
+    }
+  }
+
+  /**
+   * Completes the static one-character show once its hold has elapsed by `now`:
+   * the display blanks and `onComplete` fires.
+   */
+  private advanceShow(now: number): void {
+    const show = this.activeShow;
+    if (show === undefined || now < show.startTime + show.durationMs) {
+      return;
+    }
+    this.activeShow = undefined;
+    this.matrix.clear();
+    show.onComplete();
+  }
+
+  /**
+   * Paints one font glyph over the display top-left, the frame a static CODAL
+   * `print(char)` shows. Only lit glyph pixels are written; the caller blanks
+   * the display first.
+   */
+  private paintGlyph(charCode: number): void {
+    const rows = fontGlyphRows(charCode);
+    for (let y = 0; y < FONT_GLYPH_SIZE; y++) {
+      for (let x = 0; x < FONT_GLYPH_SIZE; x++) {
+        if (((rows[y] ?? 0) & (1 << (FONT_GLYPH_SIZE - x - 1))) !== 0) {
+          this.matrix.setPixelValue(x, y, 255);
+        }
+      }
     }
   }
 

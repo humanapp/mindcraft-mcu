@@ -38,10 +38,10 @@ describe("MicroBitDisplay async scroll", () => {
     const order: string[] = [];
 
     // First scroll: requested at t=0, 600ms long -> completes at 600.
-    display.scrollText("a", 600, 0, () => order.push("a"));
+    display.scrollText("aa", 600, 0, () => order.push("a"));
     // Second scroll requested at t=100 while the first runs: dropped, so its
     // onComplete fires at once and the active scroll is untouched.
-    display.scrollText("b", 600, 100, () => order.push("b"));
+    display.scrollText("bb", 600, 100, () => order.push("b"));
     assert.deepEqual(order, ["b"]);
     assert.equal(display.isScrolling(), true);
 
@@ -59,7 +59,7 @@ describe("MicroBitDisplay async scroll", () => {
     // The "!" glyph (pendolino3 rows 0x08,0x08,0x08,0x00,0x08) is a vertical bar
     // in the second column, lit on rows 0,1,2,4. Each step is 120ms; after two
     // steps that column reaches the rightmost display column (x=4).
-    display.scrollText("!", 6 * 2 * 120, 0, () => {});
+    display.scrollText("!!", 6 * 3 * 120, 0, () => {});
     display.advanceScroll(240);
 
     assert.deepEqual(
@@ -68,7 +68,7 @@ describe("MicroBitDisplay async scroll", () => {
     );
 
     // After the full duration the text has scrolled off and the display is clear.
-    display.advanceScroll(6 * 2 * 120);
+    display.advanceScroll(6 * 3 * 120);
     assert.equal(display.isScrolling(), false);
     for (let x = 0; x < 5; x++) {
       for (let y = 0; y < 5; y++) {
@@ -117,18 +117,110 @@ describe("MicroBitDisplay async scroll", () => {
     const display = new MicroBitDisplay();
     let secondAt: number | undefined;
 
-    display.scrollText("a", 600, 0, () => {});
+    display.scrollText("aa", 600, 0, () => {});
     display.advanceScroll(600);
 
     // The display is free; a scroll requested at 1000 completes at 1600, not
     // chained off the earlier animation.
-    display.scrollText("b", 600, 1000, () => {
+    display.scrollText("bb", 600, 1000, () => {
       secondAt = 1600;
     });
     display.advanceScroll(1599);
     assert.equal(secondAt, undefined);
     display.advanceScroll(1600);
     assert.equal(secondAt, 1600);
+  });
+});
+
+describe("MicroBitDisplay static one-character show", () => {
+  /** Reads the "!" glyph column (x=1): a vertical bar lit on rows 0,1,2,4. */
+  function glyphColumn(display: MicroBitDisplay) {
+    return [0, 1, 2, 3, 4].map((y) => display.getPixelValue(1, y));
+  }
+
+  test("a one-character text paints its glyph at once and holds it without scrolling", () => {
+    const display = new MicroBitDisplay();
+    let completedAt: number | undefined;
+
+    display.scrollText("!", 6 * 2 * 120, 0, () => {
+      completedAt = 1440;
+    });
+    assert.equal(display.isBusy(), true);
+    assert.deepEqual(glyphColumn(display), [255, 255, 255, 0, 255]);
+
+    // Mid-hold the glyph has not moved and the show has not completed.
+    display.advanceScroll(1439);
+    assert.equal(completedAt, undefined);
+    assert.deepEqual(glyphColumn(display), [255, 255, 255, 0, 255]);
+
+    // At the full duration the show completes and the display blanks.
+    display.advanceScroll(1440);
+    assert.equal(completedAt, 1440);
+    assert.equal(display.isBusy(), false);
+    for (let x = 0; x < 5; x++) {
+      for (let y = 0; y < 5; y++) {
+        assert.equal(display.getPixelValue(x, y), 0, `pixel (${x},${y}) should be clear`);
+      }
+    }
+  });
+
+  test("a static show clears a prior drawn image before painting its glyph", () => {
+    const display = new MicroBitDisplay();
+
+    // A fire-and-forget draw lights the whole matrix but takes no lease.
+    display.drawImage([{ frame: new Array(25).fill(255), width: 5, height: 5 }], 0, 0, () => {});
+    display.scrollText("!", 1440, 0, () => {});
+
+    // Pixels outside the glyph are cleared; the glyph column is lit.
+    assert.equal(display.getPixelValue(0, 0), 0);
+    assert.deepEqual(glyphColumn(display), [255, 255, 255, 0, 255]);
+  });
+
+  test("a request while a static show holds the lease is dropped and settles at once", () => {
+    const display = new MicroBitDisplay();
+    const order: string[] = [];
+
+    display.scrollText("!", 1440, 0, () => order.push("show"));
+    display.scrollText("hi", 6 * 3 * 120, 100, () => order.push("dropped"));
+    assert.deepEqual(order, ["dropped"]);
+    // The glyph is untouched by the dropped request.
+    assert.deepEqual(glyphColumn(display), [255, 255, 255, 0, 255]);
+
+    display.advanceScroll(1440);
+    assert.deepEqual(order, ["dropped", "show"]);
+  });
+
+  test("preempting a static show resolves it and leaves the glyph on the display", () => {
+    const display = new MicroBitDisplay();
+    let completed = false;
+
+    display.scrollText("!", 1440, 0, () => {
+      completed = true;
+    });
+    display.preempt();
+    assert.equal(completed, true);
+    assert.equal(display.isBusy(), false);
+    assert.deepEqual(glyphColumn(display), [255, 255, 255, 0, 255]);
+
+    // A later advance does not blank or re-fire the settled show.
+    display.advanceScroll(2000);
+    assert.deepEqual(glyphColumn(display), [255, 255, 255, 0, 255]);
+  });
+
+  test("reset drops the show in progress so a later request starts fresh", () => {
+    const display = new MicroBitDisplay();
+
+    display.scrollText("!", 1440, 0, () => {});
+    display.reset();
+    assert.equal(display.isBusy(), false);
+
+    let completed = false;
+    display.scrollText("?", 1440, 10, () => {
+      completed = true;
+    });
+    assert.equal(display.isBusy(), true);
+    display.advanceScroll(10 + 1440);
+    assert.ok(completed, "the new show should run on its own timeline");
   });
 });
 

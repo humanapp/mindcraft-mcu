@@ -1,6 +1,6 @@
 /**
  * Golden observable trace for a REAL compiled brain proving the `in background`
- * modifier on `scroll text`: the parent rule fires once on page entry and its DO
+ * modifier on `display text`: the parent rule fires once on page entry and its DO
  * scrolls text with the `in background` modifier, so its async handle resolves at
  * dispatch and the parent does not park on the animation. The parent's single
  * child rule lights a pixel; the parent resolves at dispatch, so the child runs

@@ -491,7 +491,7 @@ function createExecutionContext(env: MindcraftEnvironment, microbit: MicroBit): 
     services: {
       ...(env.brainServices as unknown as Record<string, unknown>),
       // Minimal rule-variable surface so actuators that read getWhenResult
-      // (e.g. scroll text) resolve to NIL outside a real rule scope.
+      // (e.g. display text) resolve to NIL outside a real rule scope.
       brain: { ruleVars: { getByName: () => NIL_VALUE, setByName: () => {} } },
     } as unknown as ExecutionContext["services"],
     getVariableBySlot: () => NIL_VALUE,

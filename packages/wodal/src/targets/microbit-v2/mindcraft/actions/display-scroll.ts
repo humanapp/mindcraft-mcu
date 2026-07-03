@@ -21,7 +21,7 @@ import { hasModifier, Modifier } from "../modifiers";
 import { Param } from "../parameters";
 import { MicroBitV2HostActions } from "../tile-ids";
 
-/** Text scrolled when the call omits the optional text argument. */
+/** Text shown when the call omits the optional text argument. */
 const DEFAULT_TEXT = "hello";
 
 const callDef = mkCallDef(bag(optional(Param.text), optional(Modifier.immediately), optional(Modifier.inBackground)));
@@ -72,11 +72,13 @@ function execDisplayScroll(ctx: ExecutionContext, args: ReadonlyList<Value>, han
 }
 
 /**
- * Host actuator: scroll text across the simulated display. Asynchronous -- the
- * calling fiber awaits the returned handle and resumes when the scroll
- * animation completes. With the `immediately` modifier the current display lease
- * is preempted so the scroll starts at once; otherwise a scroll requested while
- * the display is busy is dropped. With the `in background` modifier the scroll
+ * Host actuator: show text on the simulated display - a scroll for a text of
+ * any length other than one, a static glyph show for a one-character text
+ * (held for the duration the scroll formula gives it, then blanked).
+ * Asynchronous -- the calling fiber awaits the returned handle and resumes when
+ * the show completes. With the `immediately` modifier the current display lease
+ * is preempted so the show starts at once; otherwise a show requested while
+ * the display is busy is dropped. With the `in background` modifier the show
  * keeps its lease but the handle resolves at dispatch, so the issuing rule
  * continues this round without parking on the animation.
  */
@@ -85,5 +87,5 @@ export default {
   callDef,
   fn: { exec: execDisplayScroll },
   isAsync: true,
-  metadata: { label: "scroll text" },
+  metadata: { label: "display text" },
 } satisfies CreateHostActuatorOptions;

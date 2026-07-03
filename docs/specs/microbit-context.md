@@ -42,7 +42,7 @@ Each `ctx.microbit.*` sub-interface and the feature spec that owns its full desi
 
 | `ctx.microbit.*` | Summary | Feature spec |
 | ---------------- | ------- | ------------ |
-| `display` | per-pixel `setPixelValue`/`getPixelValue`/`clear` + `drawImage`; the draw family (scroll text, draw image, `Image` type, image editors) | `docs/specs/display.md` |
+| `display` | per-pixel `setPixelValue`/`getPixelValue`/`clear` + `drawImage`; the draw family (display text, draw image, `Image` type, image editors) | `docs/specs/display.md` |
 | `buttonA` / `buttonB` / `logo` | `isPressed()` + the logo touch config | `docs/specs/button.md` |
 | `accelerometer` | `getX/Y/Z`, `getPitch/Roll(+Radians)`, `getGesture()` reads | `docs/specs/accelerometer.md` |
 | `i2c` | `writeBuffer` / `readBuffer` (edge-connector, no tile) | `docs/specs/i2c.md` |

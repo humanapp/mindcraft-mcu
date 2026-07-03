@@ -18,13 +18,14 @@ namespace mindcraft
 
 /**
  * Drives the 5x5 LED matrix through `MicroBitDisplay`: direct pixel writes, the
- * asynchronous text scroll, and the asynchronous image draw. The scroll and the
- * timed draw share one display lease: a scroll starts CODAL's `scrollAsync` and a
- * timed draw pastes the frame, and either resolves its async handle once its
- * duration has elapsed, polled each host-loop tick by {@link pollDisplay}. A
- * scroll or draw requested while the lease is held is silently dropped (its
- * handle settles at once); a zero-duration draw pastes and settles at once
- * without taking the lease.
+ * asynchronous text show, and the asynchronous image draw. The text show and the
+ * timed draw share one display lease: a multi-character text starts CODAL's
+ * `scrollAsync`, a one-character text prints its glyph statically (blanked again
+ * when its hold elapses), and a timed draw pastes the frame; each resolves its
+ * async handle once its duration has elapsed, polled each host-loop tick by
+ * {@link pollDisplay}. A show or draw requested while the lease is held is
+ * silently dropped (its handle settles at once); a zero-duration draw pastes and
+ * settles at once without taking the lease.
  */
 class MicroBitPixelDisplayPort : public PixelDisplayPort
 {
@@ -44,14 +45,22 @@ public:
             handle.resolve(kVoidValue);
             return;
         }
-        ManagedString text(reinterpret_cast<const char *>(bytes), static_cast<int16_t>(length));
         active_ = handle;
         busy_ = true;
         completionTime_ =
             static_cast<uint32_t>(system_timer_current_time()) + scrollDurationMs(length, delayMs);
-        // The text scrolls in from a blank display; clear any prior content (an
+        // The text shows on a blank display; clear any prior content (an
         // earlier draw) first so it does not linger under the animation.
         uBit_.display.image.clear();
+        if (length == 1)
+        {
+            // A one-character text shows statically; pollDisplay blanks it when
+            // its hold elapses.
+            staticShow_ = true;
+            uBit_.display.printCharAsync(static_cast<char>(bytes[0]), 0);
+            return;
+        }
+        ManagedString text(reinterpret_cast<const char *>(bytes), static_cast<int16_t>(length));
         uBit_.display.scrollAsync(text, static_cast<int>(delayMs));
     }
 
@@ -99,9 +108,9 @@ public:
 
     /**
      * Advances a held image sequence to the frame due now, then settles the held
-     * scroll or sequence handle once its lease has elapsed (enqueue-only; the
-     * think loop resumes the waiter). Call once per host-loop tick before the
-     * brain thinks.
+     * show or sequence handle once its lease has elapsed (enqueue-only; the
+     * think loop resumes the waiter), blanking a static one-character show as it
+     * settles. Call once per host-loop tick before the brain thinks.
      */
     void pollDisplay()
     {
@@ -130,6 +139,11 @@ public:
             return;
         }
         releaseFrames();
+        if (staticShow_)
+        {
+            staticShow_ = false;
+            uBit_.display.image.clear();
+        }
         const AsyncHandle done = active_;
         busy_ = false;
         done.resolve(kVoidValue);
@@ -143,6 +157,7 @@ public:
         }
         const AsyncHandle held = active_;
         busy_ = false;
+        staticShow_ = false;
         releaseFrames();
         // Stop any in-flight CODAL scroll animation; the next operation repaints.
         uBit_.display.stopAnimation();
@@ -161,6 +176,8 @@ private:
 
     MicroBit &uBit_;
     bool busy_ = false;
+    // True while the held lease is a static one-character show, blanked at completion.
+    bool staticShow_ = false;
     uint32_t completionTime_ = 0;
     AsyncHandle active_{};
     // A held image sequence: each frame's bytes (stride kPixelCount), its size,

@@ -26,7 +26,10 @@ inline constexpr HostActionIds ButtonA{1024,
 inline constexpr HostActionIds DisplaySetPixel{
     1025, static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorDisplaySetPixel)};
 
-/** Actuator: scroll text across the 5x5 display, awaiting the animation. */
+/**
+ * Actuator: show text on the 5x5 display (scrolled, or static for one
+ * character), awaiting the animation.
+ */
 inline constexpr HostActionIds DisplayScroll{
     1026, static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorDisplayScroll)};
 

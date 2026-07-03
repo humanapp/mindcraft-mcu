@@ -23,6 +23,9 @@
  *
  * The character count is the text's UTF-16 code-unit length, matching CODAL
  * `ManagedString::length()` for the ASCII text the scroll action accepts.
+ *
+ * A one-character text renders as a static show instead of scrolling; it holds
+ * the display for the same completion time this formula gives one character.
  */
 
 /** Display matrix width in columns, CODAL `Display::getWidth()` for the 5x5 matrix. */

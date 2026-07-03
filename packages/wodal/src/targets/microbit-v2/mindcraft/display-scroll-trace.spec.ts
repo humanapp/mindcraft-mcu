@@ -65,7 +65,7 @@ function buildScrollBrainJson(): LinkedBrainProgramJson {
   const rule = [
     { op: Op.HOST_ACTION_CALL, a: ON_PAGE_ENTERED, b: 0, c: 0 },
     { op: Op.JMP_IF_FALSE, a: 11 }, // skip to the trailing nil when not entered
-    { op: Op.PUSH_CONST_STR, a: 0 }, // scroll text: "hi"
+    { op: Op.PUSH_CONST_STR, a: 0 }, // display text: "hi"
     { op: Op.HOST_ACTION_CALL_ASYNC, a: DISPLAY_SCROLL, b: 1, c: 1 },
     { op: Op.AWAIT },
     { op: Op.POP }, // discard the resolved void

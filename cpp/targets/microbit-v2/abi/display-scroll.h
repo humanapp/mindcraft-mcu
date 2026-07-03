@@ -15,6 +15,9 @@ namespace mindcraft
  * the same width clears the last character off the display before completion.
  * The character count is the text's byte length (CODAL `ManagedString::length`)
  * for the ASCII text the scroll action accepts.
+ *
+ * A one-character text renders as a static show instead of scrolling; it holds
+ * the display for the same completion time this formula gives one character.
  */
 
 /** Display matrix width in columns, CODAL `Display::getWidth()` for the 5x5 matrix. */

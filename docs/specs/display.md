@@ -1,7 +1,7 @@
 # Spec: display
 
 The micro:bit display feature across the surfaces it is exposed through: the **draw family**
-(scroll text + draw image, tiles + the Device-API `drawImage`), the per-pixel **Device API**
+(display text + draw image, tiles + the Device-API `drawImage`), the per-pixel **Device API**
 (`ctx.microbit.display`, see the Device API section), the `Image` type, and the
 Simulator image editors. The cross-cutting `ctx.microbit.*` conventions + registry index live in
 `docs/specs/microbit-context.md`.
@@ -11,7 +11,7 @@ functions that put content on it** - their shared arbitration model, the async-d
 follow, and the `Image` type they consume. The family model and `Image` type are
 **target-agnostic**; how a pixel value is interpreted and how big the display is are **defined by
 the target** (see Target parameterization). The first - and currently only - target is
-micro:bit-v2, specified in its own section. The first members are **scroll text** and **draw
+micro:bit-v2, specified in its own section. The first members are **display text** and **draw
 image**. Per-pixel reads/writes are the the Device API (below).
 
 This is an evolving family spec; the settled design is below, with unresolved items collected under
@@ -64,7 +64,7 @@ specified and built here; no other interpretation is implemented until such a ta
 
 The display family is delivered on the three standard surfaces:
 
-- **Tiles.** The draw actuators (`scroll text`, `draw image`), a
+- **Tiles.** The draw actuators (`display text`, `draw image`), a
   **`create an image`** factory tile that opens the image editor and produces an `Image` value,
   and **built-in image literal tiles** (a target-defined icon set - see the micro:bit section).
 - **Device API.** `ctx.microbit.display` (registry: `microbit-context.md`)
@@ -91,7 +91,7 @@ display, tracking the device / `PixelDisplayPort` shape rather than the tile sem
 | `clear()` | void | **cancels any active display lease** (preempts an in-flight scroll/draw, resolving its awaiting rule) **and zeros all LEDs** (sync; emits `port display clear`) |
 | `drawImage(image, duration?)` | `Promise<void>` | the awaited (op 41) draw actuator - see Member: draw image (duration in seconds, default 1 s, `0` = fire-and-forget; same lease as the `draw image` tile) |
 
-- **`scroll` is tile-only** today (a temporal actuator, the `scroll text`); expose an
+- **`scroll` is tile-only** today (a temporal actuator, the `display text` tile); expose an
   awaited `display.scroll()` here only if a TS-user-code consumer wants it (no consumer today).
 - **`in background` is a tile modifier** today; a background-with-lease form on the Device-API
   `drawImage` is deferred to a TS-user-code consumer. (The Device API's existing `0` duration is its
@@ -158,29 +158,43 @@ lease are silently dropped (each completes immediately with its paste discarded)
   used. A temporal draw consumes an async handle from the profile's `maxHandles` budget (a
   runtime guard, never a pool size).
 
-## Member: scroll text
+## Member: display text
 
-- An async actuator placed in `do`. One optional, anonymous **String** to scroll across the
+- An async actuator placed in `do`. One optional, anonymous **String** to show on the
   display. When the text slot is absent, it falls back to the rule's **WHEN-side result** (the value the
   WHEN side left on the stack, captured per-rule into the reserved `__whenResult` rule variable): a
   Number is formatted to text, a String is used as-is, and any other value (boolean, nil, container)
-  scrolls the **target default string**. (A bare unconditional rule's WHEN result is the boolean `true`,
+  shows the **target default string**. (A bare unconditional rule's WHEN result is the boolean `true`,
   so it takes the default path.)
-- Clears the display, then scrolls the text across it, right to left; the text scrolls in from a
-  blank display so any prior content (an earlier draw) does not linger under the animation. The
-  rule awaits the animation and parks until it completes (it does not re-fire while parked). On
-  completion the handle resolves and the rule resumes on the following `think()`.
-- Holds a display lease for the scroll duration; a concurrent draw is silently dropped per the
-  lease policy. The optional **`immediately`** modifier preempts the current lease so the scroll
+- **The resolved text's length picks the rendering** (`charCount` = the final text's UTF-16
+  code-unit length, after the fallback above):
+  - **Any length other than 1 - scroll.** Clears the display, then scrolls the text across it,
+    right to left; the text scrolls in from a blank display so any prior content (an earlier draw)
+    does not linger under the animation. The scroll ends blank - the trailing blank cycle carries
+    the last character off the display.
+  - **Length 1 - static show.** Clears the display, shows the character's glyph without scrolling
+    (the same glyph a CODAL `print(char)` renders), holds it for the full duration the completion
+    formula gives one character, then blanks the display at completion - the end state a scroll of
+    the same character would leave. The static show is the scroll-text port method's rendering of a
+    one-character request, not a separate port method or trace line.
+- The rule awaits the animation (either rendering) and parks until it completes (it does not
+  re-fire while parked). On completion the handle resolves and the rule resumes on the following
+  `think()`.
+- Holds a display lease for the duration; a concurrent draw is silently dropped per the
+  lease policy. The optional **`immediately`** modifier preempts the current lease so the show
   starts at once; the optional **`in background`** modifier returns immediately without awaiting the
-  scroll (the lease still runs to completion) - both are described in the lease section.
-- Completion: `start + (displayWidth + spacing) * (charCount + 1) * delay` ms against VM tick
-  time, where `displayWidth` is the target's, `spacing` is 1, `charCount` is the text's UTF-16
-  code-unit length, and the `+ 1` is the trailing blank cycle that clears the last character. The
-  clock is VM logical tick time, never wall-clock or animation-frame time.
-- Device and trace: the actuator calls a display scroll-text port method; the wodal sim and the
-  device port both run the CODAL-matching animation, driven from logical time. The trace emits
-  `port display scroll "<bytes>"` when the scroll crosses the display port, plus the async
+  show (the lease still runs to completion) - both are described in the lease section.
+- Completion (both renderings): `start + (displayWidth + spacing) * (charCount + 1) * delay` ms
+  against VM tick time, where `displayWidth` is the target's, `spacing` is 1, `charCount` is the
+  text's UTF-16 code-unit length, and the `+ 1` is the trailing blank cycle that clears the last
+  character. For the static show the same formula times the hold: a one-character text holds its
+  glyph for `(displayWidth + spacing) * 2 * delay` ms and then blanks. The clock is VM logical
+  tick time, never wall-clock or animation-frame time.
+- Device and trace: the actuator calls a display scroll-text port method with the resolved text;
+  the port picks the rendering by length. The wodal sim and the device port both run the
+  CODAL-matching animation (or the static show), driven from logical time. The trace emits
+  `port display scroll "<bytes>"` when the request crosses the display port - the same line for
+  both renderings, since the rendering happens behind the port - plus the async
   `action <id> site <callSiteId> args <argc> <value>... async` dispatch line (the trailing
   `async` marks a handle return rather than a value).
 
@@ -194,7 +208,7 @@ lease are silently dropped (each completes immediately with its paste discarded)
   `Image` is the one-element case (identical to a lone draw); zero is the default-image case.
 - Arguments: zero or more anonymous **`Image`s** to draw (each from a `create an image` factory tile,
   a built-in image tile, or an `Image` variable), plus an optional, **named** **duration** Number in
-  **seconds** (the `Image`s are the bare anonymous repeated slot, like `scroll` text; the duration is
+  **seconds** (the `Image`s are the bare anonymous repeated slot, like `display text`'s text; the duration is
   a named slot). The actuator converts the seconds duration to the lease's milliseconds (truncated).
   - **Image default:** when **no** `Image` is supplied, a **target default image** is drawn. On
     micro:bit-v2 that is a smiley face (the target's built-in default image).
@@ -399,10 +413,12 @@ The concrete fill-in of the target-parameterized pieces for micro:bit-v2:
 - **Device `Image` analog:** CODAL `codal::Image` - greyscale 8-bit, ref-counted, mutable,
   arbitrary dimensions, constructible from a string / buffer, with paste / crop / shift / clone.
   CODAL ships **no** built-in image library, so the built-in set above is ours to define.
-- **scroll text:** tile `scroll` (key `microbit-v2.display-scroll`, label "scroll text"), action
-  id 1026, function id 1035 (`ActuatorDisplayScroll`); optional anonymous String default
-  `"hello"`, default per-step delay 120 ms. With `displayWidth` = 5 and spacing 1, completion is
-  `start + 6 * (charCount + 1) * delay`. Goldens `display-scroll.mcprogram.bin` +
+- **display text:** tile key `microbit-v2.display-scroll` (the persisted tile identity, which does
+  not track the label), label "display text", action id 1026, function id 1035
+  (`ActuatorDisplayScroll`); optional anonymous String default `"hello"`, default per-step delay
+  120 ms. With `displayWidth` = 5 and spacing 1, completion is `start + 6 * (charCount + 1) *
+  delay`; a one-character text takes the static show and holds its glyph for `6 * 2 * delay` ms
+  (1440 ms at the default delay) before blanking. Goldens `display-scroll.mcprogram.bin` +
   `display-scroll.ticks.trace`; the C++ parity test loads the same binary and byte-compares the
   trace.
 - **draw image:** tile `draw image` (key `microbit-v2.draw-image`, action id 1031, function id
@@ -411,7 +427,7 @@ The concrete fill-in of the target-parameterized pieces for micro:bit-v2:
   smiley when none) + an optional **named** `duration` in seconds (default 1 second, **per image**);
   the `immediately` modifier (`microbit-v2.immediately`) preempts the lease and the `in background`
   modifier (`microbit-v2.in-background`) returns without awaiting it. Both modifiers apply to
-  `scroll text` and `draw image`, and compose. On device the paste maps
+  `display text` and `draw image`, and compose. On device the paste maps
   to a full-frame buffer write (CODAL `printAsync(Image, delay = 0)` semantics, or a direct buffer
   write) with no CODAL hold timer; an oversize image clips via CODAL's paste; a multi-image sequence
   swaps frames per `duration` from the per-`think()` poll. Goldens `draw-image-forget` /
@@ -428,7 +444,8 @@ silently omitted).
 
 - **Shipped:** per-pixel `setPixelValue`/`getPixelValue`/`clear` (the Device API); static image paste =
   `print(Image)` -> `draw image` (tile + Device-API `drawImage`, incl. the multi-image
-  sequence); `scroll(string)` -> the `scroll text` tile.
+  sequence); `scroll(string)` -> the `display text` tile; static `print(char)` -> the `display
+  text` tile's one-character static show.
 - **Composable / designed out:** `screenShot()` (capture the display as an `Image`) - composable from
   `getPixelValue`; **display mode** `setDisplayMode`/`getDisplayMode` (greyscale vs binary) - we
   **always run greyscale** (`drawImage` is 0-255), so the binary mode is designed out (no consumer).
@@ -442,9 +459,10 @@ silently omitted).
     consumer yet; note for any GPIO use of the shared pins.
   - **Scroll / animate an `Image`** - CODAL `scroll(Image)` / `animate(Image, stride)` pan a wide image
     across the display (distinct from the discrete multi-image sequence). A future draw-family member.
-  - **Static `print(string)` / `print(char)`** (non-scrolling text) - we surface scrolling text only;
-    a static string/char show is not built (no glyph font surfaced on this side). Deferred.
-  - **Device-API awaited `scroll()`** - `scroll text` is tile-only today; expose `display.scroll()` on
+  - **Static `print(string)`** (non-scrolling multi-character text) - a one-character text shows
+    statically via `display text` (shipped, above); a static multi-character show is not surfaced.
+    Deferred.
+  - **Device-API awaited `scroll()`** - `display text` is tile-only today; expose `display.scroll()` on
     the Device API only when a TS-user-code consumer wants it (no consumer today; also in the Device-API row).
 - **Separate roadmap (not a display-output capability):** **light-level sensing** (the LED matrix
   doubles as a light sensor) is a *sensor*, roadmapped under `docs/specs/microbit-context.md`

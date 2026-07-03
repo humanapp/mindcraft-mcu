@@ -7,7 +7,7 @@ sensor delivers today.
 
 Today a sensor yields exactly one value - the WHEN-side result captured into the reserved
 `__whenResult` rule variable, read back by an argument-less DO actuator (the `getWhenResult`
-mechanism; `scroll text` is the canonical consumer). That single, anonymous channel is limiting: a
+mechanism; `display text` is the canonical consumer). That single, anonymous channel is limiting: a
 received radio packet, for instance, carries a value, a name, a signal strength, a sender serial, a
 system time, and a raw payload buffer - all facets of one event - but only one of them can reach
 downstream logic, and only via `__whenResult`. Output tiles give a sensor a set of named output

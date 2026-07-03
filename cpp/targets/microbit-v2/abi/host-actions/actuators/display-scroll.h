@@ -34,12 +34,12 @@ inline constexpr uint32_t kDisplayScrollImmediatelyArgSlot = 1;
  */
 inline constexpr uint32_t kDisplayScrollInBackgroundArgSlot = 2;
 
-/** Text scrolled when the call omits the optional text argument. */
+/** Text shown when the call omits the optional text argument. */
 inline constexpr char kDisplayScrollDefaultText[] = "hello";
 
 /**
  * The display port and managed heap an async display-scroll body reaches: the
- * display to start the animation, the heap to read the scrolled string's bytes.
+ * display to start the show, the heap to read the shown string's bytes.
  * The caller fills both before the binding's first dispatch.
  */
 struct MicroBitV2DisplayScrollEnv
@@ -49,14 +49,15 @@ struct MicroBitV2DisplayScrollEnv
 };
 
 /**
- * Async host actuator body: scroll text across the display. Reads the optional
- * text argument (defaulting to "hello" when absent); with the `immediately`
- * modifier present it preempts the current display lease so the scroll starts at
- * once. Starts the scroll on the display port at the current think time and
- * leaves `handle` for the port to resolve when the animation completes; the
- * calling fiber awaits it. With the `in background` modifier present the scroll
- * keeps its lease but `handle` resolves at dispatch, so the issuing rule
- * continues this round without parking on the animation. `hostData` is the bound
+ * Async host actuator body: show text on the display (the port scrolls it, or
+ * shows a one-character text statically). Reads the optional text argument
+ * (defaulting to "hello" when absent); with the `immediately` modifier present
+ * it preempts the current display lease so the show starts at once. Starts the
+ * show on the display port at the current think time and leaves `handle` for
+ * the port to resolve when it completes; the calling fiber awaits it. With the
+ * `in background` modifier present the show keeps its lease but `handle`
+ * resolves at dispatch, so the issuing rule continues this round without
+ * parking on the animation. `hostData` is the bound
  * {@link MicroBitV2DisplayScrollEnv}. Mirrors wodal `actions/display-scroll.ts`.
  */
 inline Status execScrollText(void *hostData, ExecutionContext &ctx, Span<const Value> args,
