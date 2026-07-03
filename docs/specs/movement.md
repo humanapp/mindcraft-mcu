@@ -166,8 +166,10 @@ Properties (each is why the trim must be multiplicative, not additive):
 ## Device API (Movement methods; power-user surface, no tiles)
 
 Configuration is exposed as System methods, callable from any user-code tile body. Smoothing and
-drift have no tiles (the tile surface stays drive/turn/pivot/stop); `stop()` backs the `[stop]`
-tile and is also callable directly.
+drift have no tiles; `stop()` backs the `[stop]` tile and is also callable directly. The influence
+methods are open to any consumer tile - e.g. a chassis `steer` tile feeding `drive`/`turn` from
+numeric inputs (`docs/specs/yahboom-gamepad.md`) is an ordinary Movement consumer, not a Movement
+change.
 
 | Method            | Behavior                                                              |
 | ----------------- | --------------------------------------------------------------------- |

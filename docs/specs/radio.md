@@ -147,9 +147,14 @@ Surfaces). Each is a per-callsite cursor over the shared ring that delivers the 
 type**, skipping past packets of other types (which the other-typed sensors pick up via their own
 cursors). So each typed sensor drains one packet of its type per think, self-filtering, both kinds
 fully delivered, both-fire preserved. `radio receive number` matches NUMBER / DOUBLE packets (bare
-numbers), **not** VALUE / DOUBLE_VALUE pairs - matching MakeCode's separate handlers. Each receive
-tile also exposes the packet's **signal strength** (RSSI) as an output tile alongside its `received value` (see
-`docs/specs/sensor-output-tiles.md`). Value-pairs, buffers, raw payloads, and the remaining metadata
+numbers), **not** VALUE / DOUBLE_VALUE pairs - matching MakeCode's separate handlers. A third typed
+receive form, **`radio receive buffer`**, delivers BUFFER packets the same way (its own per-callsite
+cursor, one packet per think, presence-gated), with the raw payload Buffer as its result - the
+generic transport form for user-defined packet protocols (first consumer: the gamepad state packet,
+`docs/specs/yahboom-gamepad.md`). Each receive tile also exposes the packet's **signal strength**
+(RSSI) as an output tile alongside its `received value` (see `docs/specs/sensor-output-tiles.md`);
+the receive sensors share one `signal strength` output identity, while their `received value`
+outputs are distinct identities (number / string / Buffer). Value-pairs and the remaining metadata
 (sender serial, system time) are read on the **Device API** (the richer surface the chassis examples
 consume), not the tiles.
 
@@ -192,23 +197,29 @@ Two distinct paths, deliberately separated:
 ## Surfaces
 
 - **Tiles** (the simple brain-editor subset; richer forms are Device-API only):
-  - **`radio send`** actuator - one **optional anonymous value** slot accepting a String, Number, or
-    Boolean. With no argument it falls back to the rule's WHEN-result (`__whenResult`), the same
-    convention as `scroll`. The value to send is the explicit argument if present, else the
-    WHEN-result; if it is a String / Number / Boolean it is sent (a Boolean as a Number `0`/`1`);
-    otherwise nothing is sent (a silent no-op, like `scroll`'s non-erroring fallback). The slot is an
-    any-typed slot gated at runtime, so the same gate covers both the explicit value and the
-    WHEN-result. The group is device config, not an argument.
-  - **`radio receive number`** and **`radio receive string`** sensors - typed event sensors, each
-    delivering the next packet of its type from the receive ring (see Receive); the received value is
-    the sensor's result.
+  - **`radio send`** actuator - one **optional anonymous value** slot accepting a String, Number,
+    Boolean, or **Buffer**. With no argument it falls back to the rule's WHEN-result
+    (`__whenResult`), the same convention as `scroll`. The value to send is the explicit argument if
+    present, else the WHEN-result; a String / Number / Boolean / Buffer is sent (a Boolean as a
+    Number `0`/`1`, a Buffer as a BUFFER packet); otherwise nothing is sent (a silent no-op, like
+    `scroll`'s non-erroring fallback). The slot is an any-typed slot gated at runtime, so the same
+    gate covers both the explicit value and the WHEN-result. The group is device config, not an
+    argument.
+  - **`radio receive number`**, **`radio receive string`**, and **`radio receive buffer`** sensors -
+    typed event sensors, each delivering the next packet of its type from the receive ring (see
+    Receive); the received value is the sensor's result. The buffer form is the generic transport
+    for user-defined packet protocols; its `received value` output is a Buffer, a **flow-through
+    tile type** (produced by tiles, consumed by tile argument slots; no Buffer literal tile and no
+    Buffer variables - packet protocols are stream-shaped, not storage-shaped).
   - **`set radio group`** actuator - sets the device group (0-255).
 
-  That is the whole primary tile surface - four tiles - plus the receive sensors' auto-derived output
+  That is the whole primary tile surface - five tiles - plus the receive sensors' auto-derived output
   tiles (`received value` + `signal strength`; see `docs/specs/sensor-output-tiles.md`). There is **no
   group-read tile** (a brain that wants to remember its group stores it in a variable), **no power /
-  band config tile** (Device-API only), and **no output tile for sender serial / system time / raw
-  Buffer** (those remain Device-API only).
+  band config tile** (Device-API only), and **no output tile for sender serial / system time**
+  (those remain Device-API only). As a built-in sensor with outputs, the buffer receive form's
+  output writes are host-side, per-VM work: both VMs write them, proven by executed goldens with
+  injected packets on each VM.
 - **Device API (`ctx.microbit.radio`).** Send (MakeCode-framed): `sendNumber` / `sendString` /
   `sendValue(name, value)` / `sendBuffer`. Send (raw, beyond MakeCode): `sendRawBuffer(buffer)` - the
   datagram payload with no prefix. Receive (user-managed cursor; see Receive):
@@ -318,7 +329,8 @@ is built is a subset, with each gap marked composable / designed-out / deferred.
 5. ~~**Metadata surface.**~~ RESOLVED via sensor output tiles (`docs/specs/sensor-output-tiles.md`):
    each receive tile exposes its packet's **value** and **signal strength** (RSSI) as named output
    tiles the brain can wire downstream, in addition to the value delivered through `__whenResult`.
-   Sender serial, system time, and the raw Buffer remain **Device-API only** (no output tile). A
+   Sender serial and system time remain **Device-API only** (no output tile); the raw payload
+   Buffer is tile-surfaced through the `radio receive buffer` form (see Surfaces). A
    packet **name** is not surfaced here - names exist only on `VALUE` / `DOUBLE_VALUE` (named numbers),
    not on `STRING` packets; surfacing `received name` awaits a value-pair receive form (a separate enhancement).
 6. ~~**Config scope.**~~ RESOLVED: group is the **`set radio group`** tile + Device-API;
