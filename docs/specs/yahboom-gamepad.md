@@ -127,10 +127,10 @@ import { StructType, type StructOf } from "mindcraft";
 
 /** Stick position in game convention: x right-positive, y up-positive, both -100..100. */
 export const Position = StructType({
-  name: "position",                      // display name (tiles, picker)
-  fields: { x: "number", y: "number" },  // field order = storage order
-  accessors: true,                       // derive the [x] / [y] accessor tiles
-  variables: true,                       // offer "create variable of type position"
+  name: "position",                          // display name (tiles, picker)
+  fields: { x: NumberType, y: NumberType },  // field order = storage order
+  accessors: true,                           // derive the [x] / [y] accessor tiles
+  variables: true,                           // offer "create variable of type position"
 });
 export type Position = StructOf<typeof Position>;
 
@@ -141,8 +141,7 @@ import { readStickX, readStickY } from "./stick-read";
 
 export default Sensor({
   name: "stick position",
-  placement: "inline",
-  returnType: Position,                  // by reference
+  returnType: Position,   // config ref required: the annotation alone cannot resolve a cross-module type
   onExecute(ctx: Context): Position {
     return Position({ x: readStickX(ctx), y: readStickY(ctx) });
   },
