@@ -21,7 +21,7 @@ namespace mindcraft
 {
 
 /** Number of microbit-v2 target host-function bindings the slice registers. */
-inline constexpr uint32_t kMicroBitV2HostFuncBindingCount = 30;
+inline constexpr uint32_t kMicroBitV2HostFuncBindingCount = 31;
 
 /**
  * Builds the microbit-v2 target host-function binding table over `ports`, one
@@ -31,7 +31,7 @@ inline constexpr uint32_t kMicroBitV2HostFuncBindingCount = 30;
  * `DisplayDrawImage` body uses `drawEnv` (its display port, heap, and program);
  * the `I2CWriteBuffer` body uses `i2cWriteEnv` (its I2C port, heap, and
  * program); the `I2CReadBuffer` body uses `i2cReadEnv` (its I2C port, heap, and
- * roots); the four `Gpio*` bodies each bind over the GPIO port in `ports`; the
+ * roots); the five `Gpio*` bodies each bind over the GPIO port in `ports`; the
  * `SonarDistance` body binds over the sonar port in `ports`. Pass null for an env
  * when the table will never dispatch its body. `ports` and any supplied env must
  * outlive every dispatch through the table.
@@ -99,6 +99,7 @@ makeMicroBitV2HostFuncBindings(DevicePorts &ports, MicroBitV2DrawImageEnv *drawE
          radioReceiveEnv},
         {static_cast<uint32_t>(MicroBitV2HostFuncId::RadioCurrentSeq), &execRadioCurrentSeq,
          radioEnv},
+        {static_cast<uint32_t>(MicroBitV2HostFuncId::GpioAnalogRead), &execGpioAnalogRead, &ports},
     }};
 }
 

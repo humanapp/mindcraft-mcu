@@ -36,17 +36,19 @@ function isValidPin(pin: number): boolean {
  * Simulated GPIO pins on the micro:bit edge connector (P0-P20). Models the pin
  * I/O the `ctx.microbit.gpio` Device API drives: `digitalRead` calls
  * {@link digitalRead}, `digitalWrite` calls {@link digitalWrite}, `setPull`
- * calls {@link setPull}, and `servoWrite` calls {@link setServo}. The model owns
- * no real hardware; it records every write, pull, and servo so a test can
- * inspect what a brain drove onto the pins, and it serves digital reads from a
- * per-pin level a test injects with {@link setDigitalRead}. A pin outside 0-20
- * is a no-op: a write/pull/servo records nothing and a read returns 0.
+ * calls {@link setPull}, `servoWrite` calls {@link setServo}, and `analogRead`
+ * calls {@link analogRead}. The model owns no real hardware; it records every
+ * write, pull, and servo so a test can inspect what a brain drove onto the
+ * pins, and it serves digital and analog reads from per-pin values a test
+ * injects with {@link setDigitalRead} and {@link setAnalogRead}. A pin outside
+ * 0-20 is a no-op: a write/pull/servo records nothing and a read returns 0.
  */
 export class Gpio {
   private readonly digitalWrites: GpioDigitalWriteRecord[] = [];
   private readonly pulls: GpioPullRecord[] = [];
   private readonly servos: GpioServoRecord[] = [];
   private readonly digitalLevels = new Map<number, number>();
+  private readonly analogLevels = new Map<number, number>();
 
   /**
    * Reads the digital level of `pin` (0-20). Returns the level a test injected
@@ -105,6 +107,20 @@ export class Gpio {
   }
 
   /**
+   * Reads the analog (ADC) value of `pin` (0-20), 0-1023. Returns the value a
+   * test injected with {@link setAnalogRead}, 0 when none was injected, and 0
+   * for a pin outside 0-20.
+   *
+   * @param pin - Pin number 0-20.
+   */
+  analogRead(pin: number): number {
+    if (!isValidPin(pin)) {
+      return 0;
+    }
+    return this.analogLevels.get(pin) ?? 0;
+  }
+
+  /**
    * Sets the digital level a {@link digitalRead} of `pin` (0-20) returns,
    * replacing any previous level. Until called for a pin, a read of it returns
    * 0. A pin outside 0-20 is ignored.
@@ -115,6 +131,20 @@ export class Gpio {
   setDigitalRead(pin: number, value: number): void {
     if (isValidPin(pin)) {
       this.digitalLevels.set(pin, value);
+    }
+  }
+
+  /**
+   * Sets the analog value an {@link analogRead} of `pin` (0-20) returns,
+   * replacing any previous value. Until called for a pin, a read of it returns
+   * 0. A pin outside 0-20 is ignored.
+   *
+   * @param pin - Pin number 0-20.
+   * @param value - ADC value the pin returns, 0-1023.
+   */
+  setAnalogRead(pin: number, value: number): void {
+    if (isValidPin(pin)) {
+      this.analogLevels.set(pin, value);
     }
   }
 
@@ -133,11 +163,12 @@ export class Gpio {
     return this.servos;
   }
 
-  /** Clears all recorded writes, pulls, servos, and injected read levels, returning the pins to a fresh power-on state. */
+  /** Clears all recorded writes, pulls, servos, and injected read values, returning the pins to a fresh power-on state. */
   reset(): void {
     this.digitalWrites.length = 0;
     this.pulls.length = 0;
     this.servos.length = 0;
     this.digitalLevels.clear();
+    this.analogLevels.clear();
   }
 }

@@ -55,6 +55,7 @@
  * port gpio digital-read <pin> <value>
  * port gpio set-pull <pin> <mode>
  * port gpio servo-write <pin> <angle>
+ * port gpio analog-read <pin> <value>
  * port sonar distance <trig> <echo> <cm>
  * port radio send group <g> number <bits>
  * port radio send group <g> double <bits>
@@ -116,6 +117,9 @@
  * - `port gpio servo-write`: one servo write crossing the GPIO device port.
  *   `<pin>` is the pin number and `<angle>` the servo angle in degrees (0-180),
  *   each in hex.
+ * - `port gpio analog-read`: one analog (ADC) read crossing the GPIO device
+ *   port. `<pin>` is the pin number and `<value>` the value read back
+ *   (0-1023), each in hex.
  * - `port sonar distance`: one cached-distance read crossing the background
  *   sensor driver for the sonar wired to `<trig>`/`<echo>` (the pin numbers in
  *   hex). `<cm>` is the distance in centimeters read back (the previous driver
@@ -392,6 +396,16 @@ export class ObservableTraceWriter {
    */
   gpioServoWrite(pin: number, angle: number): void {
     this.line(`port gpio servo-write ${hexU32(pin)} ${hexU32(angle)}`);
+  }
+
+  /**
+   * Records one analog (ADC) read crossing the GPIO device port.
+   *
+   * @param pin - Pin number read.
+   * @param value - ADC value read back, 0-1023.
+   */
+  gpioAnalogRead(pin: number, value: number): void {
+    this.line(`port gpio analog-read ${hexU32(pin)} ${hexU32(value)}`);
   }
 
   /**

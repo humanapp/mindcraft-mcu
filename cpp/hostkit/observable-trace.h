@@ -133,6 +133,12 @@ public:
   void gpioServoWrite(uint32_t pin, uint32_t angle);
 
   /**
+   * Records one analog (ADC) read crossing the GPIO device port: the `pin`
+   * number and the `value` read back (0-1023), each in hex.
+   */
+  void gpioAnalogRead(uint32_t pin, uint32_t value);
+
+  /**
    * Records one cached-distance read crossing the background sensor driver: the
    * `trig` and `echo` pin numbers and the distance `cm` read back (the previous
    * driver cycle's measurement), each in hex.

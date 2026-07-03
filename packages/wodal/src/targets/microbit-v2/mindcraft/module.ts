@@ -318,6 +318,11 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
         ]),
         returnTypeId: CoreTypeIds.Number,
       },
+      {
+        name: "analogRead",
+        params: List.from([{ name: "pin", typeId: CoreTypeIds.Number }]),
+        returnTypeId: CoreTypeIds.Number,
+      },
     ]),
   });
 
@@ -747,6 +752,20 @@ function registerGPIOFunctions(api: MindcraftModuleApi): void {
         const pin = toNonNegativeInteger(numberArg(args, 1));
         const angle = toNonNegativeInteger(numberArg(args, 2));
         return mkNumberValue(gpio ? gpio.setServo(pin, angle) : 0);
+      },
+    },
+    callDef: emptyCallDef,
+  });
+
+  api.registerFunction({
+    id: MicroBitV2HostFuncId.GpioAnalogRead,
+    name: "GPIO.analogRead",
+    isAsync: false,
+    fn: {
+      exec: (_ctx: ExecutionContext, args: ReadonlyList<Value>) => {
+        const gpio = getGPIOReceiver(args);
+        const pin = toNonNegativeInteger(numberArg(args, 1));
+        return mkNumberValue(gpio ? gpio.analogRead(pin) : 0);
       },
     },
     callDef: emptyCallDef,

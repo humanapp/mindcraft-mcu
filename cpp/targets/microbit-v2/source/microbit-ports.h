@@ -372,6 +372,12 @@ public:
         return 0;
     }
 
+    int analogRead(int pin) override
+    {
+        NRF52Pin *p = pinFor(pin);
+        return p != nullptr ? p->getAnalogValue() : 0;
+    }
+
 private:
     /** Highest addressable pin number; the lookup-table bound. */
     static constexpr int kMaxPin = 20;

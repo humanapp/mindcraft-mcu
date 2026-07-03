@@ -111,9 +111,17 @@ test("GPIO host methods route through the native pin receiver", () => {
   const ctx = createExecutionContext(env, microbit);
   const receiver = mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.GPIO, microbit.gpio);
   microbit.gpio.setDigitalRead(13, 1);
+  microbit.gpio.setAnalogRead(1, 1023);
 
   const level = getSyncFunction(env, "GPIO.digitalRead").exec(ctx, List.from([receiver, mkNumberValue(13)]));
   assert.equal(extractNumberValue(level), 1);
+
+  const analog = getSyncFunction(env, "GPIO.analogRead").exec(ctx, List.from([receiver, mkNumberValue(1)]));
+  assert.equal(extractNumberValue(analog), 1023);
+
+  // An uninjected pin reads 0.
+  const idle = getSyncFunction(env, "GPIO.analogRead").exec(ctx, List.from([receiver, mkNumberValue(2)]));
+  assert.equal(extractNumberValue(idle), 0);
 
   const writeStatus = getSyncFunction(env, "GPIO.digitalWrite").exec(
     ctx,

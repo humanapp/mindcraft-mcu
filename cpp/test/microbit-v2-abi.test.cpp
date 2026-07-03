@@ -75,7 +75,8 @@ TEST_CASE("MicroBitV2HostFuncId values are wire-stable") {
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::SensorRadioReceiveString) == 1068);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorSetRadioGroup) == 1069);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::RadioCurrentSeq) == 1070);
-  CHECK(kMicroBitV2HostFuncIdCount == 47);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::GpioAnalogRead) == 1071);
+  CHECK(kMicroBitV2HostFuncIdCount == 48);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::DisplaySetPixelValue) == TARGET_FUNC_ID_BASE);
 }
 
@@ -86,7 +87,7 @@ TEST_CASE("the host-function binding table binds every declared device-API host 
   mindcraft::DevicePorts ports{};
   const auto bindings = mindcraft::makeMicroBitV2HostFuncBindings(ports);
   CHECK(bindings.size() == mindcraft::kMicroBitV2HostFuncBindingCount);
-  CHECK(mindcraft::kMicroBitV2HostFuncBindingCount == 30);
+  CHECK(mindcraft::kMicroBitV2HostFuncBindingCount == 31);
   const mindcraft::TargetHostFuncBinding* clearBinding = nullptr;
   for (const auto& binding : bindings) {
     if (binding.funcId == static_cast<uint32_t>(MicroBitV2HostFuncId::DisplayClear)) {

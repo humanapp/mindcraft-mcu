@@ -113,6 +113,7 @@ TEST_CASE("port and fault lines render their fixed shapes") {
   writer.gpioDigitalWrite(0x2, 1);
   writer.gpioSetPull(0xd, 0);
   writer.gpioServoWrite(0x1, 0x5a);
+  writer.gpioAnalogRead(0x1, 0x3ff);
   writer.fiberFault(3, ErrorCode::StackUnderflow);
   const std::string expected = "mctrace 1\nprofile 0\nprecision f32\n"
                                "port display set-pixel 00000000 40000000 437f0000\n"
@@ -123,6 +124,7 @@ TEST_CASE("port and fault lines render their fixed shapes") {
                                "port gpio digital-write 2 1\n"
                                "port gpio set-pull d 0\n"
                                "port gpio servo-write 1 5a\n"
+                               "port gpio analog-read 1 3ff\n"
                                "fault 3 6\n";
   CHECK(sink.text() == expected);
 }

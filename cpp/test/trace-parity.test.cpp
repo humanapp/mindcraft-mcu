@@ -333,6 +333,7 @@ struct HostMicroBit {
     std::vector<Pull> pulls;
     std::vector<Servo> servos;
     std::map<int, int> levels;
+    std::map<int, int> analogLevels;
 
     static bool validPin(int pin) { return pin >= 0 && pin <= kMaxPin; }
 
@@ -344,6 +345,18 @@ struct HostMicroBit {
       }
       if (writer != nullptr) {
         writer->gpioDigitalRead(static_cast<uint32_t>(pin), static_cast<uint32_t>(value));
+      }
+      return value;
+    }
+
+    int analogRead(int pin) override {
+      int value = 0;
+      if (validPin(pin)) {
+        const auto it = analogLevels.find(pin);
+        value = it == analogLevels.end() ? 0 : it->second;
+      }
+      if (writer != nullptr) {
+        writer->gpioAnalogRead(static_cast<uint32_t>(pin), static_cast<uint32_t>(value));
       }
       return value;
     }
@@ -2334,6 +2347,81 @@ TEST_CASE("the user-tile gpio fixture byte-matches the golden observable trace")
     CHECK(servo.pin == 1);
     CHECK(servo.angle == 90);
   }
+}
+
+TEST_CASE("the user-tile gpio analog fixture byte-matches the golden observable trace") {
+  const std::string base =
+      std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-gpio-analog";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.gpio.writer = &writer;
+  // Inject the boundary axis values the actuator reads on the first think.
+  // Mirrors the injection schedule in wodal
+  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-gpio-analog.spec.ts.
+  microbit.gpio.analogLevels[1] = 0;
+  microbit.gpio.analogLevels[2] = 1023;
+  TraceTap tap(writer);
+
+  // The actuator reads ctx.microbit.gpio through the native struct field getter,
+  // reads both analog pins, and mirrors their sum to a digital write.
+  mindcraft::ManagedHeap heap(arena, &image);
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  ExecutionContext ctx;
+  mindcraft::TypeRegistry types(image);
+  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+  surface.types = &types;
+  surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Three 16ms thinks mirror SCHEDULE in wodal
+  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-gpio-analog.spec.ts:
+  // before think 2 the vertical axis moves to a mid value while the horizontal
+  // axis holds its injected boundary value.
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 3; i++) {
+    if (i == 1) {
+      microbit.gpio.analogLevels[1] = 512;
+    }
+    const float timeMs = lastThinkTimeMs + 16;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+  // The mirrored digital writes carry each think's sum, proving the read values
+  // flowed through the compiled brain.
+  REQUIRE(microbit.gpio.writes.size() == 3);
+  CHECK(microbit.gpio.writes[0].pin == 8);
+  CHECK(microbit.gpio.writes[0].value == 1023);
+  CHECK(microbit.gpio.writes[1].pin == 8);
+  CHECK(microbit.gpio.writes[1].value == 1535);
+  CHECK(microbit.gpio.writes[2].pin == 8);
+  CHECK(microbit.gpio.writes[2].value == 1535);
 }
 
 TEST_CASE("the user-tile sonar fixture byte-matches the golden observable trace") {

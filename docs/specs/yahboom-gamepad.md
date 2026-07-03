@@ -29,10 +29,8 @@ radio. No VM or firmware change beyond the analog-read gpio primitive it depends
   reports press, not a direction). At most one direction is active at a time.
 - Buttons are LOW-active (the same convention as the Cutebot line sensors).
 
-**Dependency: analog gpio read.** The stick axes require an analog pin read; the gpio Device-API
-family (`docs/specs/microbit-context.md` registry) provides digital reads today - the analog read is
-the gamepad's prerequisite primitive (both VMs, appended ids, injectable in the sim like the digital
-reads).
+**Dependency: analog gpio read.** The stick axes read via `ctx.microbit.gpio.analogRead(pin)`
+(`docs/specs/gpio.md` - host-fn 1071, both VMs, sim-injectable per pin like the digital reads).
 
 ## Tiles
 

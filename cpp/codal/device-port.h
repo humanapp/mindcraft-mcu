@@ -202,6 +202,12 @@ public:
    * is a no-op. Returns 0 on success.
    */
   virtual int setServo(int pin, int angle) = 0;
+
+  /**
+   * Read the analog (ADC) value of `pin` (0-20): 0-1023. A pin outside 0-20
+   * returns 0.
+   */
+  virtual int analogRead(int pin) = 0;
 };
 
 /**

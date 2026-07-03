@@ -60,6 +60,7 @@ declare module "mindcraft" {
     digitalWrite(pin: number, value: number): number;
     setPull(pin: number, mode: number): number;
     servoWrite(pin: number, angle: number): number;
+    analogRead(pin: number): number;
   }
   export interface Sonar {
     readonly __brand: unique symbol;

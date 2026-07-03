@@ -115,10 +115,16 @@ struct RecordingGpio : mindcraft::GPIOPort {
   std::vector<Pull> pulls;
   std::vector<Servo> servos;
   std::map<int, int> levels;
+  std::map<int, int> analogLevels;
 
   int digitalRead(int pin) override {
     const auto it = levels.find(pin);
     return it == levels.end() ? 0 : it->second;
+  }
+
+  int analogRead(int pin) override {
+    const auto it = analogLevels.find(pin);
+    return it == analogLevels.end() ? 0 : it->second;
   }
 
   int digitalWrite(int pin, int value) override {
@@ -229,6 +235,9 @@ TEST_CASE("a host stub can implement every device port") {
   gpio.levels[13] = 1;
   CHECK(ports.gpio->digitalRead(13) == 1);
   CHECK(ports.gpio->digitalRead(14) == 0);
+  gpio.analogLevels[1] = 1023;
+  CHECK(ports.gpio->analogRead(1) == 1023);
+  CHECK(ports.gpio->analogRead(2) == 0);
   CHECK(ports.gpio->digitalWrite(2, 1) == 0);
   CHECK(ports.gpio->setPull(13, 0) == 0);
   CHECK(ports.gpio->setServo(1, 90) == 0);

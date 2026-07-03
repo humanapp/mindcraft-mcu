@@ -97,6 +97,7 @@ struct NullGpio : mindcraft::GPIOPort {
   int digitalWrite(int, int) override { return 0; }
   int setPull(int, int) override { return 0; }
   int setServo(int, int) override { return 0; }
+  int analogRead(int) override { return 0; }
 };
 
 struct NullSonar : mindcraft::SonarPort {

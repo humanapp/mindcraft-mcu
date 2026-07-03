@@ -107,4 +107,19 @@ inline Status execGpioServoWrite(void *hostData, Span<const Value> args, Value &
     return Status::ok();
 }
 
+/**
+ * Host function `GPIO.analogRead`: reads the analog (ADC) value of the `pin`
+ * argument (0-20) through the GPIO port and pushes it back (0-1023). Arg 0 is
+ * the GPIO receiver, arg 1 the pin; an unrecognized receiver reads 0.
+ * `hostData` is the bound {@link DevicePorts}. Mirrors the `GPIO.analogRead`
+ * host function in packages/wodal/src/targets/microbit-v2/mindcraft/module.ts.
+ */
+inline Status execGpioAnalogRead(void *hostData, Span<const Value> args, Value &result)
+{
+    GPIOPort *port = detail::gpioReceiver(hostData, args);
+    const int pin = detail::gpioIntArg(args, 1);
+    result = Value::number(port ? static_cast<mc_number_t>(port->analogRead(pin)) : 0);
+    return Status::ok();
+}
+
 } // namespace mindcraft

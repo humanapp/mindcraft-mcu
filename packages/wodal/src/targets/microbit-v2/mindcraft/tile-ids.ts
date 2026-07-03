@@ -66,6 +66,7 @@ export enum MicroBitV2HostFuncId {
   SensorRadioReceiveString = 1068,
   ActuatorSetRadioGroup = 1069,
   RadioCurrentSeq = 1070,
+  GpioAnalogRead = 1071,
 }
 
 /**
