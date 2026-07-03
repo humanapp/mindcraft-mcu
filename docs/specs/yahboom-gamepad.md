@@ -39,12 +39,13 @@ radio. No VM or firmware change beyond the analog-read gpio primitive it depends
 [button] [red?] [green?] [blue?] [yellow?]     boolean level; bare: any button pressed
 [stick pressed]                                boolean level; the stick click
 [stick position]                               inline; the position struct {x, y} (accessor tiles)
-[stick packet]                                 inline; the state-packet Buffer (the wire form)
 [gamepad state <buffer>]                       decoder sensor; `position` struct output
 ```
 
-- **`[stick packet]` is inline** (it participates in expressions like `random` does, no gating)
-  deliberately: the broadcast rule is `WHEN always DO [radio send [stick packet]]`, and it must
+- **There is no separate packet tile.** The position IS the value; its wire form is produced by the
+  registered **position -> Buffer conversion** (see the pairing section), so the broadcast rule is
+  simply `WHEN always DO [radio send [stick position]]`. `[stick position]` is inline (it
+  participates in expressions like `random` does, no gating) deliberately: the broadcast must
   encode the **centered** stick too - the chassis distinguishes "centered" from "signal lost" (the
   hold window keys on the latter). A stick-gated source would only broadcast on deflection.
 - **Non-exclusive direction/color modifiers.** Each modifier may appear at most once, any subset
@@ -113,6 +114,83 @@ identity, so every importer shares one accessor tile set.
   active; each evaluation of `[stick position]` samples the pins and builds a fresh struct.
 - Raw 0-1023 reads stay available to power users on the Device API surface of the example.
 
+## Usage sketch (user code)
+
+The four load-bearing declarations, as they sit in the gamepad module. Types are named by
+**reference**: user types by their imported binding, core types by the ambient tokens
+(`BufferType`, `NumberType`, ...). String names are the deprecated form, and canonical registry
+names are lowercase (`"buffer"`, not `"Buffer"`) - one more reason refs are preferred.
+
+```ts
+// position.ts -- the type, declared once, identity-keyed by its exported symbol
+import { StructType, type StructOf } from "mindcraft";
+
+/** Stick position in game convention: x right-positive, y up-positive, both -100..100. */
+export const Position = StructType({
+  name: "position",                      // display name (tiles, picker)
+  fields: { x: "number", y: "number" },  // field order = storage order
+  accessors: true,                       // derive the [x] / [y] accessor tiles
+  variables: true,                       // offer "create variable of type position"
+});
+export type Position = StructOf<typeof Position>;
+
+// stick-position.ts -- the inline producer
+import { Sensor, type Context } from "mindcraft";
+import { Position } from "./position";
+import { readStickX, readStickY } from "./stick-read";
+
+export default Sensor({
+  name: "stick position",
+  placement: "inline",
+  returnType: Position,                  // by reference
+  onExecute(ctx: Context): Position {
+    return Position({ x: readStickX(ctx), y: readStickY(ctx) });
+  },
+});
+
+// position-to-buffer.ts -- the wire encode as an implicit conversion
+import { Conversion } from "mindcraft";
+import { Position } from "./position";
+import { PACKET_MAGIC } from "./protocol"; // 0x47 ('G'), shared with the decoder
+
+export default Conversion({
+  id: "3xK9qA",   // stable opaque id, auto-minted + written back on first compile
+  from: Position,
+  to: BufferType, // ambient core-type token
+  cost: 2,
+  convert(pos: Position): Buffer {
+    return Buffer.from([PACKET_MAGIC, pos.x + 100, pos.y + 100]);
+  },
+});
+
+// gamepad-state.ts -- the decoder, same type + same magic
+import { Sensor, param, setOutput, type Context } from "mindcraft";
+import { Position } from "./position";
+import { PACKET_MAGIC } from "./protocol";
+
+export default Sensor({
+  name: "gamepad state",
+  capabilities: ["PresenceGated"],
+  args: [param("packet", { type: BufferType, anonymous: true })],
+  outputs: [{ name: "position", type: Position }],
+  onExecute(ctx: Context, args: { packet: Buffer }): Position | undefined {
+    const b = args.packet;
+    if (b.length < 3 || b[0] !== PACKET_MAGIC) return undefined; // presence-gated nil
+    const pos = Position({ x: b[1] - 100, y: b[2] - 100 });
+    setOutput(ctx, "position", pos);
+    return pos;
+  },
+});
+```
+
+- The declared binding is a **callable factory** (`Position({x, y})` constructs an instance) and the
+  TS type derives from the fields config (`StructOf`) - one source of truth for the shape.
+- `PACKET_MAGIC` is an ordinary shared module constant imported by encoder and decoder - the
+  module-scope model at work.
+- The decoder's `packet` argument is REQUIRED (the editor's missing-args badge enforces wiring):
+  the guard an optional Buffer argument needs (`if (!b || ...)`) is not lowerable in user code
+  today - see Open questions.
+
 ## The radio pairing (two stages)
 
 - **Stage 1 - directional commands.** The gamepad brain sends state strings (`"up"`, `"stop"`,
@@ -126,14 +204,15 @@ identity, so every importer shares one accessor tile set.
   wires them:
 
   ```
-  gamepad brain:  WHEN [always]                  DO [radio send [stick packet]]
+  gamepad brain:  WHEN [always]                  DO [radio send [stick position]]
   chassis brain:  WHEN [radio receive buffer]
                     WHEN [gamepad state [received value]]
                       DO [cutebot steer [position][x] [position][y]]
   ```
 
-  - The gamepad encodes (`stick packet`, an inline sensor - see Tiles) and decodes
-    (`gamepad state`, a Buffer-argument sensor - see below); the packet format is gamepad-owned.
+  - The gamepad encodes via a registered **implicit conversion** (position -> Buffer, below) and
+    decodes with `gamepad state` (a Buffer-argument sensor - see below); the packet format is
+    gamepad-owned.
   - Radio transports opaque bytes via its Buffer tile forms (`docs/specs/radio.md`).
   - `cutebot steer` is the chassis-side numeric bridge: a Cutebot tile taking `x`/`y` number
     arguments (wired from the position's accessors) and feeding `Movement.drive(y)` /
@@ -141,6 +220,18 @@ identity, so every importer shares one accessor tile set.
     continuous steering needs this one numeric tile.
   - Packet loss or clock-skew gaps read as silent thinks on the chassis and are bridged by the
     Movement arbitrator's hold window; sustained silence decays to a stop.
+
+**The position -> Buffer conversion (the encode).** The gamepad registers a **user-code implicit
+conversion** from its position struct to Buffer in the core conversion registry - the same registry
+the shipped game engine extends with its own conversions (ActorRef -> Vector2, Vector2 -> String),
+here bound to a **compiled user function** rather than a host function (the one extension: a
+conversion whose emission is an ordinary call to a linked user function; no VM change). The
+compiler inserts it wherever a position fills a Buffer-expected slot, and the picker offers
+`[stick position]` there as a conversion match. Consequences of "implicit": the conversion is
+program-wide - a position is accepted by ANY Buffer slot (`i2c write`, a user tile's Buffer param),
+always producing the state-packet bytes; that is the meaning of giving the position a canonical
+byte form. Decoding is deliberately NOT a conversion - an arbitrary buffer is not a position; the
+`gamepad state` sensor validates (magic, length) and presence-gates instead.
 
 **The state packet.** `[0x47 ('G'), x + 100, y + 100]` - three bytes; x/y are the normalized
 -100..100 values offset to 0..200. The magic byte discriminates gamepad packets from all other
@@ -150,7 +241,7 @@ path: a fourth byte (a buttons bitmask: B1..B4 + stick press) joins the packet w
 wanted on the wire, with no protocol rework and no version machinery.
 
 **The decoder: `[gamepad state <buffer>]`.** A sensor taking a Buffer **argument** (it does not
-read radio itself). Presence-gated: nil when the argument is nil, too short, or fails the magic -
+read radio itself). Presence-gated: nil when the packet is too short or fails the magic -
 so as a child WHEN under the radio receive rule it fires exactly on valid gamepad packets. On a
 match it decodes the packet into **one `position` output of the gamepad's position struct type**
 (the same type the stick produces locally), read downstream through the accessor tiles -
@@ -158,9 +249,17 @@ match it decodes the packet into **one `position` output of the gamepad's positi
 radio speak the same type. The decoder is named for the packet it decodes: when button state joins
 the packet, its outputs grow without a rename.
 
-**Buffer is a flow-through tile type.** The packet travels output-tile -> argument-slot inside the
-rule hierarchy; it is never stored. Brain variables of type Buffer are deliberately not offered
-(nothing needs packet storage); there is no Buffer literal tile (a buffer is never typed by hand).
+**Buffer is a flow-through tile type; Position is a storable one.** The packet travels
+output-tile -> argument-slot inside the rule hierarchy and is never stored - brain variables of
+type Buffer are deliberately not offered, and there is no Buffer literal tile (a buffer is never
+typed by hand). `Position` opts the other way: `variables: true` offers "create variable of type
+position" (the editor's existing per-type variable-factory mechanism - the game engine's ActorRef
+registers `variableFactory: true` the same way), so a brain can snapshot the stick
+(`set dotPos [stick position]` - brain-variable deep-copy gives value semantics, which is right for
+a position) and read it later via the accessors (`[dotPos][x]`). A stored user-typed variable
+serializes its type in the brain document; a reload with the defining module removed degrades to
+the missing-tile handling, never a crash. The two flags together show the point: storability is a
+per-type declaration choice.
 
 ## Rumble (designed, deferred)
 
@@ -191,19 +290,25 @@ digital pin values:
 - Stage-1 pairing: a gamepad brain + a chassis brain in one project round-trip a directional command
   over the sim radio ether into a movement influence.
 - Stage-2 pairing: the full continuous-steering loop over the sim ether - injected raw stick values
-  -> `stick packet` encodes -> radio Buffer send/receive -> `gamepad state` decodes -> the
-  `position` output -> accessors -> `cutebot steer` -> exact wheel writes. Plus the decoder
-  negatives (nil / short / wrong magic -> presence-gated nil, no output write) and the
-  packet-atomicity property (`[position][x]` and `[position][y]` read downstream always come from
-  the same packet).
+  -> `[radio send [stick position]]` (the conversion encodes) -> radio Buffer send/receive ->
+  `gamepad state` decodes -> the `position` output -> accessors -> `cutebot steer` -> exact wheel
+  writes. Plus the decoder negatives (short / wrong magic -> presence-gated nil, no output
+  write) and the packet-atomicity property (`[position][x]` and `[position][y]` read downstream
+  always come from the same packet).
+- The conversion: the picker offers `[stick position]` in a Buffer-expected slot as a conversion
+  match; the emitted conversion produces the exact state-packet bytes (trace-pinned); a second
+  Buffer-expected consumer (e.g. `i2c write`) accepts a position through the same conversion - the
+  program-wide reach, exercised, not assumed.
 - The first-exercised paths are pinned with reaching tests. The game-engine app proves the editor
   half of the struct machinery (a registered struct type with derived accessor tiles; struct-typed
-  results and parameters; struct values through rule variables), and the System substrate proves
-  user-code TS shapes registering as program structs. What is first-exercised here, each needing a
+  results and parameters; struct values through rule variables) AND the app-extensible conversion
+  registry (custom registrations, compiler-emitted). What is first-exercised here, each needing a
   reaching test: the USER-DECLARED struct type as a tile surface (declaration + symbol-identity
   keying + a tile `returnType` referencing it - the go/no-go probe); accessor tiles derived for a
-  user-code type and offered in the picker; a struct-typed OUTPUT tile; and the Buffer-typed
-  output-into-argument-slot flow end to end.
+  user-code type and offered in the picker; a struct-typed OUTPUT tile; a USER-CODE conversion (a
+  registered conversion bound to a compiled user function - declaration, bundle-derived
+  registration, emission as a linked call); and the Buffer-typed output-into-argument-slot flow end
+  to end.
 
 ## Open questions
 
@@ -215,3 +320,8 @@ digital pin values:
   radio Buffer tile forms, gamepad-owned encode/decode, layers decoupled (see the pairing section).
   The magic-byte + length-tolerant read is the growth path for button state; no version machinery.
 - **Rumble surface** - momentary vs duration-modified actuator; settle when rumble is picked up.
+- **Decoder packet argument: required vs optional.** The all-optional tile posture wants the
+  packet argument optional (bare tile still does something sensible), but the presence guard an
+  optional Buffer argument needs (`if (!b || ...)`) is not lowerable in user code today - the
+  optional-arg presence-narrowing gap, its own ts-compiler slice. The argument is required until
+  that lands; revisit the bare-tile behavior then.
