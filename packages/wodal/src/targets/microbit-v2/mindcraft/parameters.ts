@@ -29,4 +29,5 @@ export const MICROBIT_V2_PARAMETERS: readonly ParameterTileInput[] = [
   { id: WodalMicroBitV2ParameterId.Text, dataType: CoreTypeIds.String, label: "text" },
   { id: WodalMicroBitV2ParameterId.Image, dataType: IMAGE_TYPE_ID, label: "image" },
   { id: WodalMicroBitV2ParameterId.Duration, dataType: CoreTypeIds.Number, label: "duration" },
+  { id: WodalMicroBitV2ParameterId.Buffer, dataType: CoreTypeIds.Buffer, hidden: true },
 ];

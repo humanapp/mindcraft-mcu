@@ -1,3 +1,4 @@
+import { stream } from "@mindcraft-lang/core";
 import {
   BitSet,
   type BrainTileOutputDef,
@@ -18,6 +19,7 @@ import {
   setSensorOutput,
   type Value,
 } from "@mindcraft-lang/core/app";
+import { mkBufferValue } from "@mindcraft-lang/core/runtime";
 import { type RADIO_RAW_PACKET_TYPE, RadioPacketType, type ReceivedRadioPacket } from "../../../../core/radio";
 import { getMicroBitContextDevice } from "../context";
 import { MicroBitV2HostActions } from "../tile-ids";
@@ -108,6 +110,10 @@ function stringValue(packet: ReceivedRadioPacket): Value {
   return mkStringValue(packet.text);
 }
 
+function bufferValue(packet: ReceivedRadioPacket): Value {
+  return mkBufferValue(stream.byteArrayFromUint8Array(packet.bytes));
+}
+
 function matchesNumber(type: RadioPacketType | typeof RADIO_RAW_PACKET_TYPE): boolean {
   return type === RadioPacketType.Number || type === RadioPacketType.Double;
 }
@@ -116,10 +122,16 @@ function matchesString(type: RadioPacketType | typeof RADIO_RAW_PACKET_TYPE): bo
   return type === RadioPacketType.String;
 }
 
+function matchesBuffer(type: RadioPacketType | typeof RADIO_RAW_PACKET_TYPE): boolean {
+  return type === RadioPacketType.Buffer;
+}
+
 const numberCapabilities = new BitSet().set(CoreCapabilityBits.PresenceGated);
 const stringCapabilities = new BitSet().set(CoreCapabilityBits.PresenceGated);
+const bufferCapabilities = new BitSet().set(CoreCapabilityBits.PresenceGated);
 const numberOutputs = receiveOutputs(CoreTypeIds.Number);
 const stringOutputs = receiveOutputs(CoreTypeIds.String);
+const bufferOutputs = receiveOutputs(CoreTypeIds.Buffer);
 
 /**
  * Host sensor: the next received NUMBER / DOUBLE packet. Each think it delivers
@@ -155,6 +167,23 @@ export const radioReceiveStringSensor = makeReceiveSensor(
   stringOutputs
 );
 
+/**
+ * Host sensor: the next received BUFFER packet. Each think it delivers the
+ * oldest still-unread buffer packet from the receive ring (skipping other
+ * types), advancing its own cursor by one. The raw payload Buffer is the
+ * sensor's result; the packet's value and signal strength are also written to
+ * the sensor's output tiles.
+ */
+export const radioReceiveBufferSensor = makeReceiveSensor(
+  MicroBitV2HostActions.RadioReceiveBuffer,
+  "radio receive buffer",
+  CoreTypeIds.Buffer,
+  matchesBuffer,
+  bufferValue,
+  bufferCapabilities,
+  bufferOutputs
+);
+
 /** Keeps the first output tile of each tile id, dropping the shared-identity duplicates. */
 function dedupeOutputTiles(tiles: readonly BrainTileOutputDef[]): readonly BrainTileOutputDef[] {
   const byId = new Map<string, BrainTileOutputDef>();
@@ -176,4 +205,5 @@ function dedupeOutputTiles(tiles: readonly BrainTileOutputDef[]): readonly Brain
 export const radioReceiveOutputTiles: readonly BrainTileOutputDef[] = dedupeOutputTiles([
   ...buildDescriptorOutputTiles(numberOutputs),
   ...buildDescriptorOutputTiles(stringOutputs),
+  ...buildDescriptorOutputTiles(bufferOutputs),
 ]);

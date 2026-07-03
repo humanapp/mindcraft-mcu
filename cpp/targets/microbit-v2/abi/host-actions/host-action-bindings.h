@@ -18,7 +18,7 @@ namespace mindcraft
 {
 
 /** Number of microbit-v2 host-action bindings the slice registers. */
-inline constexpr uint32_t kMicroBitV2HostActionBindingCount = 12;
+inline constexpr uint32_t kMicroBitV2HostActionBindingCount = 13;
 
 /**
  * Builds the microbit-v2 host-action binding table over `ports`, one entry per
@@ -58,6 +58,8 @@ makeMicroBitV2HostActionBindings(DevicePorts &ports,
         {MicroBitV2HostActions::RadioReceiveString.actionId, &execRadioReceiveString,
          &radioReceivePageEntered, radioSensorEnv},
         {MicroBitV2HostActions::SetRadioGroup.actionId, &execSetRadioGroup, nullptr, &ports},
+        {MicroBitV2HostActions::RadioReceiveBuffer.actionId, &execRadioReceiveBuffer,
+         &radioReceivePageEntered, radioSensorEnv},
     }};
 }
 

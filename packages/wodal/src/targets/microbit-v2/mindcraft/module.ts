@@ -51,7 +51,12 @@ import { brightnessToPort, pixelCoordToPort } from "./actions/display-pixel-conv
 import displayScrollActuator from "./actions/display-scroll";
 import displaySetPixelActuator from "./actions/display-set-pixel";
 import { gestureSensor } from "./actions/gesture-sensor";
-import { radioReceiveNumberSensor, radioReceiveOutputTiles, radioReceiveStringSensor } from "./actions/radio-receive";
+import {
+  radioReceiveBufferSensor,
+  radioReceiveNumberSensor,
+  radioReceiveOutputTiles,
+  radioReceiveStringSensor,
+} from "./actions/radio-receive";
 import radioSendActuator from "./actions/radio-send";
 import setRadioGroupActuator from "./actions/set-radio-group";
 import { BUILT_IN_IMAGES, builtInImageStructValue } from "./built-in-images";
@@ -998,6 +1003,7 @@ function registerBrainTiles(api: MindcraftModuleApi): void {
   api.registerHostSensor(createHostSensor(gestureSensor));
   api.registerHostSensor(createHostSensor(radioReceiveNumberSensor));
   api.registerHostSensor(createHostSensor(radioReceiveStringSensor));
+  api.registerHostSensor(createHostSensor(radioReceiveBufferSensor));
   for (const outputTile of radioReceiveOutputTiles) {
     api.registerTile(outputTile);
   }

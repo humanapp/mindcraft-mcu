@@ -1,7 +1,8 @@
 /**
  * Golden observable traces for the radio receive sensor output tiles: brains
- * pairing `radio receive number` / `radio receive string` in a rule's when()
- * with `radio send` in its do(), where the send's value slot is filled by one of
+ * pairing `radio receive number` / `radio receive string` / `radio receive
+ * buffer` in a rule's when() with `radio send` in its do(), where the send's
+ * value slot is filled by one of
  * the receive sensor's output value-tiles (`value` or `signal strength`). A
  * scripted schedule injects one packet into the receive ring; the rule fires,
  * reads the output tile, and sends its value back out, so the injected packet's
@@ -80,6 +81,21 @@ function stringPacket(text: string): IncomingRadioPacket {
   };
 }
 
+/** Builds a buffer packet. */
+function bufferPacket(bytes: readonly number[]): IncomingRadioPacket {
+  return {
+    type: RadioPacketType.Buffer,
+    group: INJECT_GROUP,
+    value: 0,
+    name: "",
+    text: "",
+    bytes: new Uint8Array(bytes),
+    rssi: INJECT_RSSI,
+    serial: INJECT_SERIAL,
+    time: 0,
+  };
+}
+
 /** Asserts the one packet the rule sent matches the expected typed payload. */
 type SendAssertion = (record: RadioSendRecord) => void;
 
@@ -103,6 +119,7 @@ interface OutputFixture {
 
 const NUMBER = MicroBitV2HostActions.RadioReceiveNumber;
 const STRING = MicroBitV2HostActions.RadioReceiveString;
+const BUFFER = MicroBitV2HostActions.RadioReceiveBuffer;
 
 const FIXTURES: readonly OutputFixture[] = [
   {
@@ -135,6 +152,32 @@ const FIXTURES: readonly OutputFixture[] = [
     outputType: CoreTypeIds.Number,
     outputName: "rssi",
     inject: numberPacket(7),
+    expectSend: (record) => {
+      assert.equal(record.type, RadioPacketType.Number);
+      assert.equal(record.value, INJECT_RSSI);
+    },
+  },
+  {
+    // The injected buffer's exact bytes round-trip through the Buffer value
+    // output into a BUFFER wire packet.
+    name: "radio-receive-output-buffer-value",
+    sensor: BUFFER,
+    outputType: CoreTypeIds.Buffer,
+    outputName: "value",
+    inject: bufferPacket([0x01, 0x00, 0xab]),
+    expectSend: (record) => {
+      assert.equal(record.type, RadioPacketType.Buffer);
+      assert.deepEqual(record.bytes, new Uint8Array([0x01, 0x00, 0xab]));
+    },
+  },
+  {
+    // The buffer sensor shares the signal-strength output identity: the rule
+    // sends the injected RSSI, a value the buffer payload does not carry.
+    name: "radio-receive-output-buffer-rssi",
+    sensor: BUFFER,
+    outputType: CoreTypeIds.Number,
+    outputName: "rssi",
+    inject: bufferPacket([0x0a, 0x0b]),
     expectSend: (record) => {
       assert.equal(record.type, RadioPacketType.Number);
       assert.equal(record.value, INJECT_RSSI);

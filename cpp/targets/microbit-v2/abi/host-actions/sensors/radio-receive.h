@@ -31,22 +31,36 @@ inline constexpr char kRadioReceiveNumberValueOutputKey[] = "__out.number:<numbe
 /** Rule-variable key of the string receive sensor's `value` output tile. */
 inline constexpr char kRadioReceiveStringValueOutputKey[] = "__out.string:<string>.value";
 
+/** Rule-variable key of the buffer receive sensor's `value` output tile. */
+inline constexpr char kRadioReceiveBufferValueOutputKey[] = "__out.buffer:<buffer>.value";
+
 /** Rule-variable key of the receive sensors' shared `signal strength` output tile. */
 inline constexpr char kRadioReceiveRssiOutputKey[] = "__out.number:<number>.rssi";
+
+/** Packet kind a typed radio receive sensor delivers. */
+enum class RadioReceiveKind : uint8_t
+{
+    Number,
+    String,
+    Buffer,
+};
 
 namespace detail
 {
 
-/** True when `type` is a bare-number packet (NUMBER or DOUBLE). */
-inline bool radioTypeIsNumber(int type)
+/** True when `type` is a packet of the sensor's `kind` (NUMBER/DOUBLE, STRING, or BUFFER). */
+inline bool radioTypeMatches(RadioReceiveKind kind, int type)
 {
-    return type == 0 || type == 4;
-}
-
-/** True when `type` is a STRING packet. */
-inline bool radioTypeIsString(int type)
-{
-    return type == 2;
+    switch (kind)
+    {
+    case RadioReceiveKind::Number:
+        return type == 0 || type == 4;
+    case RadioReceiveKind::String:
+        return type == 2;
+    case RadioReceiveKind::Buffer:
+        return type == 3;
+    }
+    return false;
 }
 
 /**
@@ -65,21 +79,58 @@ inline void writeReceiveOutput(MicroBitV2RadioSensorEnv &env, ExecutionContext &
     setRuleVariable(ctx, *env.heap, env.roots, name, value);
 }
 
+/** Builds the sensor's result value for a matched packet, per the sensor's kind. */
+inline bool radioReceiveResult(MicroBitV2RadioSensorEnv &env, RadioReceiveKind kind,
+                               const RadioPacketView &packet, Value &result)
+{
+    switch (kind)
+    {
+    case RadioReceiveKind::Number:
+        result = Value::number(packet.value);
+        return true;
+    case RadioReceiveKind::String:
+        return env.heap->newString(reinterpret_cast<const char *>(packet.text), packet.textLen,
+                                   env.roots, result);
+    case RadioReceiveKind::Buffer:
+        return env.heap->newBuffer(packet.bytes, packet.bytesLen, env.roots, result);
+    }
+    return false;
+}
+
+/** The `value` output-tile rule-variable key for the sensor's kind. */
+inline const char *radioReceiveValueOutputKey(RadioReceiveKind kind, uint32_t &lengthOut)
+{
+    switch (kind)
+    {
+    case RadioReceiveKind::Number:
+        lengthOut = sizeof(kRadioReceiveNumberValueOutputKey) - 1;
+        return kRadioReceiveNumberValueOutputKey;
+    case RadioReceiveKind::String:
+        lengthOut = sizeof(kRadioReceiveStringValueOutputKey) - 1;
+        return kRadioReceiveStringValueOutputKey;
+    case RadioReceiveKind::Buffer:
+        lengthOut = sizeof(kRadioReceiveBufferValueOutputKey) - 1;
+        return kRadioReceiveBufferValueOutputKey;
+    }
+    lengthOut = 0;
+    return nullptr;
+}
+
 } // namespace detail
 
 /**
  * Typed radio receive sensor body: delivers the oldest still-unread packet of
  * its kind from the receive ring (NUMBER/DOUBLE for the number sensor, STRING
- * for the string sensor), advancing this call site's own cursor by one. The
- * delivered value -- including a 0 or an empty string -- is the result; genuine
- * absence (no matching packet this think, or the first evaluation after a page
- * enter) returns nil. A delivered packet also writes the sensor's output-tile
- * rule variables on the in-scope rule: its typed `value` output and the shared
- * number `signal strength` (rssi) output. The per-callsite cursor is a plain
- * number; a page enter arms it to the ring head. Mirrors the wodal
- * radio-receive oracle.
+ * for the string sensor, BUFFER for the buffer sensor), advancing this call
+ * site's own cursor by one. The delivered value -- including a 0, an empty
+ * string, or an empty buffer -- is the result; genuine absence (no matching
+ * packet this think, or the first evaluation after a page enter) returns nil.
+ * A delivered packet also writes the sensor's output-tile rule variables on
+ * the in-scope rule: its typed `value` output and the shared number `signal
+ * strength` (rssi) output. The per-callsite cursor is a plain number; a page
+ * enter arms it to the ring head. Mirrors the wodal radio-receive oracle.
  */
-inline Value execRadioReceiveSensor(MicroBitV2RadioSensorEnv &env, bool wantString,
+inline Value execRadioReceiveSensor(MicroBitV2RadioSensorEnv &env, RadioReceiveKind kind,
                                     ExecutionContext &ctx, Span<const Value> args)
 {
     static_cast<void>(args);
@@ -102,38 +153,21 @@ inline Value execRadioReceiveSensor(MicroBitV2RadioSensorEnv &env, bool wantStri
         {
             continue;
         }
-        const bool matches = wantString ? detail::radioTypeIsString(packet.type)
-                                        : detail::radioTypeIsNumber(packet.type);
-        if (!matches)
+        if (!detail::radioTypeMatches(kind, packet.type))
         {
             continue;
         }
         ctx.setCallSiteState(Value::number(static_cast<mc_number_t>(packet.seq)));
         Value result;
-        if (wantString)
+        if (!detail::radioReceiveResult(env, kind, packet, result))
         {
-            if (!env.heap->newString(reinterpret_cast<const char *>(packet.text), packet.textLen,
-                                     env.roots, result))
-            {
-                return kNilValue;
-            }
-        }
-        else
-        {
-            result = Value::number(packet.value);
+            return kNilValue;
         }
         // Pin the fresh result across the output-key allocations below.
         ManagedHeap::Pin pinResult(*env.heap, result);
-        if (wantString)
-        {
-            detail::writeReceiveOutput(env, ctx, kRadioReceiveStringValueOutputKey,
-                                       sizeof(kRadioReceiveStringValueOutputKey) - 1, result);
-        }
-        else
-        {
-            detail::writeReceiveOutput(env, ctx, kRadioReceiveNumberValueOutputKey,
-                                       sizeof(kRadioReceiveNumberValueOutputKey) - 1, result);
-        }
+        uint32_t valueKeyLength = 0;
+        const char *valueKey = detail::radioReceiveValueOutputKey(kind, valueKeyLength);
+        detail::writeReceiveOutput(env, ctx, valueKey, valueKeyLength, result);
         detail::writeReceiveOutput(env, ctx, kRadioReceiveRssiOutputKey,
                                    sizeof(kRadioReceiveRssiOutputKey) - 1,
                                    Value::number(static_cast<mc_number_t>(packet.rssi)));
@@ -149,8 +183,8 @@ inline Value execRadioReceiveNumber(void *hostData, ExecutionContext &ctx, Span<
     {
         return kNilValue;
     }
-    return execRadioReceiveSensor(*static_cast<MicroBitV2RadioSensorEnv *>(hostData), false, ctx,
-                                  args);
+    return execRadioReceiveSensor(*static_cast<MicroBitV2RadioSensorEnv *>(hostData),
+                                  RadioReceiveKind::Number, ctx, args);
 }
 
 /** String receive sensor body. Mirrors wodal `radioReceiveStringSensor`. */
@@ -160,8 +194,19 @@ inline Value execRadioReceiveString(void *hostData, ExecutionContext &ctx, Span<
     {
         return kNilValue;
     }
-    return execRadioReceiveSensor(*static_cast<MicroBitV2RadioSensorEnv *>(hostData), true, ctx,
-                                  args);
+    return execRadioReceiveSensor(*static_cast<MicroBitV2RadioSensorEnv *>(hostData),
+                                  RadioReceiveKind::String, ctx, args);
+}
+
+/** Buffer receive sensor body. Mirrors wodal `radioReceiveBufferSensor`. */
+inline Value execRadioReceiveBuffer(void *hostData, ExecutionContext &ctx, Span<const Value> args)
+{
+    if (hostData == nullptr)
+    {
+        return kNilValue;
+    }
+    return execRadioReceiveSensor(*static_cast<MicroBitV2RadioSensorEnv *>(hostData),
+                                  RadioReceiveKind::Buffer, ctx, args);
 }
 
 /** Page-activation hook: drops the bound call site's cursor so it re-arms to the ring head. */

@@ -1,0 +1,26 @@
+mctrace 1
+profile 1
+precision f32
+tick 1 time 41800000 dt 00000000
+action 40c site 0 args 0 result nil
+action 409 site 2 args 0 result nil
+tick 2 time 42000000 dt 41800000
+action 40c site 0 args 0 result buffer 01ff7f
+port display set-pixel 00000000 00000000 437f0000
+action 401 site 1 args 3 nil nil nil result void
+action 409 site 2 args 0 result number 40a00000
+port display set-pixel 00000000 00000000 437f0000
+action 401 site 3 args 3 nil nil nil result void
+tick 3 time 42400000 dt 41800000
+action 40c site 0 args 0 result buffer 0a0b
+port display set-pixel 00000000 00000000 437f0000
+action 401 site 1 args 3 nil nil nil result void
+action 409 site 2 args 0 result nil
+tick 4 time 42800000 dt 41800000
+action 40c site 0 args 0 result nil
+action 409 site 2 args 0 result number 40c00000
+port display set-pixel 00000000 00000000 437f0000
+action 401 site 3 args 3 nil nil nil result void
+tick 5 time 42a00000 dt 41800000
+action 40c site 0 args 0 result nil
+action 409 site 2 args 0 result nil

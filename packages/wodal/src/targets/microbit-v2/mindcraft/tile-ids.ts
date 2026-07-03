@@ -67,6 +67,7 @@ export enum MicroBitV2HostFuncId {
   ActuatorSetRadioGroup = 1069,
   RadioCurrentSeq = 1070,
   GpioAnalogRead = 1071,
+  SensorRadioReceiveBuffer = 1072,
 }
 
 /**
@@ -165,6 +166,13 @@ export const MicroBitV2HostActions = {
     actionId: 1035,
     fnId: MicroBitV2HostFuncId.ActuatorSetRadioGroup,
   },
+
+  /** Sensor: the next received BUFFER packet, delivering its raw payload Buffer. */
+  RadioReceiveBuffer: {
+    key: "microbit-v2.radio-receive-buffer",
+    actionId: 1036,
+    fnId: MicroBitV2HostFuncId.SensorRadioReceiveBuffer,
+  },
 } as const satisfies Record<string, HostActionIds>;
 
 /**
@@ -240,4 +248,7 @@ export const WodalMicroBitV2ParameterId = {
 
   /** Seconds a temporal draw holds the display. */
   Duration: "microbit-v2.duration",
+
+  /** Byte buffer filling an anonymous Buffer value slot. */
+  Buffer: "microbit-v2.buffer",
 } as const;

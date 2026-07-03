@@ -46,9 +46,9 @@ Each `ctx.microbit.*` sub-interface and the feature spec that owns its full desi
 | `buttonA` / `buttonB` / `logo` | `isPressed()` + the logo touch config | `docs/specs/button.md` |
 | `accelerometer` | `getX/Y/Z`, `getPitch/Roll(+Radians)`, `getGesture()` reads | `docs/specs/accelerometer.md` |
 | `i2c` | `writeBuffer` / `readBuffer` (edge-connector, no tile) | `docs/specs/i2c.md` |
-| `gpio` | digital/pull/servo (+ designed: analog/PWM, touch) (edge-connector, no tile) | `docs/specs/gpio.md` |
+| `gpio` | digital/pull/servo/analog-read (+ designed: analog write/PWM, touch) (edge-connector, no tile; fns 1052-1055 + 1071) | `docs/specs/gpio.md` |
 | `sonar` | `distance(trig, echo)` ultrasonic, pin-keyed (edge-connector, no tile; via the background sensor driver) | `docs/specs/sonar.md` |
-| `radio` | builtin 2.4 GHz packet radio: send (number/string/value/buffer/raw) + buffered receive (depth-4 ring) + group/power/band config (has tiles; field 8, atoms 1032-1034, fns 1057-1069) | `docs/specs/radio.md` |
+| `radio` | builtin 2.4 GHz packet radio: send (number/string/value/buffer/raw) + buffered receive (depth-4 ring, typed number/string/buffer tiles) + group/power/band config (has tiles; field 8, atoms 1032-1034, fns 1057-1070 + 1072, actions 1032-1036) | `docs/specs/radio.md` |
 
 (Build status, dates, and as-built history live in the build plans, not the specs - specs are
 eternal.)

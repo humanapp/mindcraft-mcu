@@ -1,7 +1,8 @@
 /**
  * Golden observable traces for the radio receive sensors: brains pairing
- * `radio receive number` / `radio receive string` in a rule's when() with the
- * set-pixel actuator in its do(), driven by a scripted schedule that injects
+ * `radio receive number` / `radio receive string` / `radio receive buffer` in a
+ * rule's when() with the set-pixel actuator in its do(), driven by a scripted
+ * schedule that injects
  * radio packets into the device receive ring between thinks (the same
  * inject-as-input pattern the button goldens use for presses). The fixtures
  * exercise single delivery, a multi-packet burst drained one-per-think, mixed
@@ -70,6 +71,21 @@ function stringPacket(text: string): IncomingRadioPacket {
   };
 }
 
+/** Builds a buffer packet. */
+function bufferPacket(bytes: readonly number[]): IncomingRadioPacket {
+  return {
+    type: RadioPacketType.Buffer,
+    group: INJECT_GROUP,
+    value: 0,
+    name: "",
+    text: "",
+    bytes: new Uint8Array(bytes),
+    rssi: INJECT_RSSI,
+    serial: INJECT_SERIAL,
+    time: 0,
+  };
+}
+
 /** One scheduled think: packets injected into the ring before the time advance, then the advance. */
 interface ScheduleStep {
   readonly advanceMs: number;
@@ -89,6 +105,7 @@ interface ReceiveFixture {
 
 const NUMBER = MicroBitV2HostActions.RadioReceiveNumber;
 const STRING = MicroBitV2HostActions.RadioReceiveString;
+const BUFFER = MicroBitV2HostActions.RadioReceiveBuffer;
 
 const FIXTURES: readonly ReceiveFixture[] = [
   {
@@ -155,6 +172,30 @@ const FIXTURES: readonly ReceiveFixture[] = [
       { advanceMs: 16, inject: [numberPacket(99)] },
       { advanceMs: 16 },
       { advanceMs: 16, inject: [numberPacket(7)] },
+      { advanceMs: 16 },
+    ],
+  },
+  {
+    name: "radio-receive-buffer-single",
+    rules: [BUFFER],
+    schedule: [{ advanceMs: 16 }, { advanceMs: 16, inject: [bufferPacket([0x01, 0x00, 0xab])] }, { advanceMs: 16 }],
+  },
+  {
+    // Presence gate: a delivered empty buffer is present, so the rule fires.
+    name: "radio-receive-buffer-empty",
+    rules: [BUFFER],
+    schedule: [{ advanceMs: 16 }, { advanceMs: 16, inject: [bufferPacket([])] }, { advanceMs: 16 }],
+  },
+  {
+    // Two buffers drain one per think; the number sensor picks up the number the
+    // buffer sensor skips; a number-only think leaves the buffer rule silent.
+    name: "radio-receive-buffer-mixed",
+    rules: [BUFFER, NUMBER],
+    schedule: [
+      { advanceMs: 16 },
+      { advanceMs: 16, inject: [bufferPacket([0x01, 0xff, 0x7f]), numberPacket(5), bufferPacket([0x0a, 0x0b])] },
+      { advanceMs: 16 },
+      { advanceMs: 16, inject: [numberPacket(6)] },
       { advanceMs: 16 },
     ],
   },

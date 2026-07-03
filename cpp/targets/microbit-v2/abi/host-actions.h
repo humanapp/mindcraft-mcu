@@ -68,6 +68,10 @@ inline constexpr HostActionIds RadioReceiveString{
 /** Actuator: set the radio group (0-255). */
 inline constexpr HostActionIds SetRadioGroup{
     1035, static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorSetRadioGroup)};
+
+/** Sensor: the next received BUFFER packet, delivering its raw payload Buffer. */
+inline constexpr HostActionIds RadioReceiveBuffer{
+    1036, static_cast<uint32_t>(MicroBitV2HostFuncId::SensorRadioReceiveBuffer)};
 } // namespace MicroBitV2HostActions
 
 /**
@@ -87,6 +91,7 @@ inline constexpr HostActionIds kMicroBitV2HostActions[] = {
     MicroBitV2HostActions::RadioReceiveNumber,
     MicroBitV2HostActions::RadioReceiveString,
     MicroBitV2HostActions::SetRadioGroup,
+    MicroBitV2HostActions::RadioReceiveBuffer,
 };
 
 } // namespace mindcraft

@@ -28,17 +28,21 @@ struct MicroBitV2RadioSendEnv
 /**
  * Positional arg slots of the `radio send` tile, in the flattened call-def order
  * of the wodal action source (bag(optional(choice(AnonNumber, AnonString,
- * AnonBoolean)))). At most one is present; all absent falls back to the
- * WHEN-result.
+ * AnonBoolean, AnonBuffer)))). At most one is present; all absent falls back to
+ * the WHEN-result.
  */
 inline constexpr uint32_t kRadioSendNumberArgSlot = 0;
 inline constexpr uint32_t kRadioSendStringArgSlot = 1;
 inline constexpr uint32_t kRadioSendBooleanArgSlot = 2;
+inline constexpr uint32_t kRadioSendBufferArgSlot = 3;
 
 namespace detail
 {
 
-/** Sends `value` as a radio packet when it is a Number / String / Boolean; otherwise a no-op. */
+/**
+ * Sends `value` as a radio packet when it is a Number / String / Boolean /
+ * Buffer; otherwise a no-op.
+ */
 inline void radioSendValue(MicroBitV2RadioSendEnv &env, const Value &value)
 {
     RadioSendView view{};
@@ -69,15 +73,28 @@ inline void radioSendValue(MicroBitV2RadioSendEnv &env, const Value &value)
         view.value = value.asBoolean() ? 1 : 0;
         env.radio->send(view);
     }
+    else if (value.isBuffer())
+    {
+        const uint8_t *bytes = nullptr;
+        uint32_t length = 0;
+        if (env.heap->bufferContent(value, bytes, length))
+        {
+            view.type = static_cast<int>(RadioPacketType::Buffer);
+            view.bytes = bytes;
+            view.bytesLen = length;
+            env.radio->send(view);
+        }
+    }
 }
 
 } // namespace detail
 
 /**
  * `radio send` tile body: broadcasts the explicit anonymous value (Number /
- * String / Boolean) if present, otherwise the rule's WHEN-result. A Boolean
- * sends as a NUMBER 0/1; a non-sendable value is a silent no-op. The group is
- * the device's current radio group. Mirrors the wodal radio-send oracle.
+ * String / Boolean / Buffer) if present, otherwise the rule's WHEN-result. A
+ * Boolean sends as a NUMBER 0/1; a Buffer sends as a BUFFER packet; a
+ * non-sendable value is a silent no-op. The group is the device's current
+ * radio group. Mirrors the wodal radio-send oracle.
  */
 inline Value execRadioSend(void *hostData, ExecutionContext &ctx, Span<const Value> args)
 {
@@ -101,6 +118,10 @@ inline Value execRadioSend(void *hostData, ExecutionContext &ctx, Span<const Val
     else if (detail::hasArg(args, kRadioSendBooleanArgSlot))
     {
         detail::radioSendValue(env, args[kRadioSendBooleanArgSlot]);
+    }
+    else if (detail::hasArg(args, kRadioSendBufferArgSlot))
+    {
+        detail::radioSendValue(env, args[kRadioSendBufferArgSlot]);
     }
     else
     {

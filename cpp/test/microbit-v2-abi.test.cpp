@@ -76,7 +76,8 @@ TEST_CASE("MicroBitV2HostFuncId values are wire-stable") {
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorSetRadioGroup) == 1069);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::RadioCurrentSeq) == 1070);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::GpioAnalogRead) == 1071);
-  CHECK(kMicroBitV2HostFuncIdCount == 48);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::SensorRadioReceiveBuffer) == 1072);
+  CHECK(kMicroBitV2HostFuncIdCount == 49);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::DisplaySetPixelValue) == TARGET_FUNC_ID_BASE);
 }
 
@@ -162,8 +163,11 @@ TEST_CASE("microbit-v2 host-action ids are wire-stable") {
   CHECK(MicroBitV2HostActions::SetRadioGroup.actionId == 1035);
   CHECK(MicroBitV2HostActions::SetRadioGroup.fnId ==
         static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorSetRadioGroup));
+  CHECK(MicroBitV2HostActions::RadioReceiveBuffer.actionId == 1036);
+  CHECK(MicroBitV2HostActions::RadioReceiveBuffer.fnId ==
+        static_cast<uint32_t>(MicroBitV2HostFuncId::SensorRadioReceiveBuffer));
 
-  REQUIRE(std::size(kMicroBitV2HostActions) == 12);
+  REQUIRE(std::size(kMicroBitV2HostActions) == 13);
   for (uint32_t i = 0; i < std::size(kMicroBitV2HostActions); i++) {
     CHECK(kMicroBitV2HostActions[i].actionId == TARGET_ACTION_ID_BASE + i);
   }

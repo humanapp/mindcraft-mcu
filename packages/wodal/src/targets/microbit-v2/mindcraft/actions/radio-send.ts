@@ -17,21 +17,24 @@ import {
   type Value,
   VOID_VALUE,
 } from "@mindcraft-lang/core/app";
+import { type BufferValue, bufferByteAt, bufferLength, isBufferValue } from "@mindcraft-lang/core/runtime";
 import { RadioPacketType, type RadioSendRecord, radioNumberIsInteger } from "../../../../core/radio";
 import { getMicroBitContextDevice } from "../context";
-import { MicroBitV2HostActions } from "../tile-ids";
+import { MicroBitV2HostActions, WodalMicroBitV2ParameterId } from "../tile-ids";
 
 const EMPTY_BYTES = new Uint8Array(0);
 
 const AnonNumber = param(CoreParameterId.AnonymousNumber, { anonymous: true });
 const AnonString = param(CoreParameterId.AnonymousString, { anonymous: true });
 const AnonBoolean = param(CoreParameterId.AnonymousBoolean, { anonymous: true });
+const AnonBuffer = param(WodalMicroBitV2ParameterId.Buffer, { anonymous: true });
 
-const callDef = mkCallDef(bag(optional(choice(AnonNumber, AnonString, AnonBoolean))));
+const callDef = mkCallDef(bag(optional(choice(AnonNumber, AnonString, AnonBoolean, AnonBuffer))));
 
 const kNumberSlotId = getSlotId(callDef, AnonNumber);
 const kStringSlotId = getSlotId(callDef, AnonString);
 const kBooleanSlotId = getSlotId(callDef, AnonBoolean);
+const kBufferSlotId = getSlotId(callDef, AnonBuffer);
 
 function presentArg(args: ReadonlyList<Value>, slotId: number): Value | undefined {
   const value = args.get(slotId);
@@ -44,14 +47,26 @@ function valueToSend(ctx: ExecutionContext, args: ReadonlyList<Value>): Value {
     presentArg(args, kNumberSlotId) ??
     presentArg(args, kStringSlotId) ??
     presentArg(args, kBooleanSlotId) ??
+    presentArg(args, kBufferSlotId) ??
     getWhenResult(ctx)
   );
 }
 
+/** Copies a Buffer value's bytes into a plain byte array. */
+function bufferBytes(value: BufferValue): Uint8Array {
+  const length = bufferLength(value);
+  const bytes = new Uint8Array(length);
+  for (let i = 0; i < length; i++) {
+    bytes[i] = bufferByteAt(value, i) ?? 0;
+  }
+  return bytes;
+}
+
 /**
  * Builds the typed packet for a sendable value, or undefined when the value is
- * not a String / Number / Boolean. A Number sends as NUMBER (integer) or DOUBLE
- * (non-integer); a Boolean sends as a NUMBER 0 / 1.
+ * not a String / Number / Boolean / Buffer. A Number sends as NUMBER (integer)
+ * or DOUBLE (non-integer); a Boolean sends as a NUMBER 0 / 1; a Buffer sends as
+ * a BUFFER packet.
  */
 function recordFor(value: Value, group: number): RadioSendRecord | undefined {
   if (isNumberValue(value)) {
@@ -71,6 +86,9 @@ function recordFor(value: Value, group: number): RadioSendRecord | undefined {
   if (isBooleanValue(value)) {
     return { type: RadioPacketType.Number, group, value: value.v ? 1 : 0, name: "", text: "", bytes: EMPTY_BYTES };
   }
+  if (isBufferValue(value)) {
+    return { type: RadioPacketType.Buffer, group, value: 0, name: "", text: "", bytes: bufferBytes(value) };
+  }
   return undefined;
 }
 
@@ -88,9 +106,9 @@ function execRadioSend(ctx: ExecutionContext, args: ReadonlyList<Value>): Value 
 
 /**
  * Host actuator: broadcast a radio packet. With an explicit value (String,
- * Number, or Boolean) it sends that; with no argument it falls back to the
- * rule's WHEN-result. A non-sendable value is a silent no-op. The group is the
- * device's current radio group, not an argument.
+ * Number, Boolean, or Buffer) it sends that; with no argument it falls back to
+ * the rule's WHEN-result. A non-sendable value is a silent no-op. The group is
+ * the device's current radio group, not an argument.
  */
 export default {
   ...MicroBitV2HostActions.RadioSend,

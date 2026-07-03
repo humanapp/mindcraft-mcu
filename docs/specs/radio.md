@@ -267,9 +267,16 @@ The concrete fill-in:
     1069`, `RadioCurrentSeq 1070` (`currentSeq()`). `RadioReceive` takes a `since` argument and there
     is no no-argument drain; the `RadioPacket` struct carries a `seq` field. (The wodal build assigned
     1057-1069 for the original port-global drain; the user-managed-cursor revision changes
-    `RadioReceive`'s signature and appends `RadioCurrentSeq 1070`.)
+    `RadioReceive`'s signature and appends `RadioCurrentSeq 1070`.) The buffer receive tile appends
+    `SensorRadioReceiveBuffer 1072` (1071 belongs to the gpio family's `analogRead`).
   - Action block: `RadioSend 1032`, `RadioReceiveNumber 1033`, `RadioReceiveString 1034`,
-    `SetRadioGroup 1035`.
+    `SetRadioGroup 1035`, `RadioReceiveBuffer 1036` (key `microbit-v2.radio-receive-buffer`).
+  - The send tile's anonymous value slot is a 4-way choice (String / Number / Boolean / Buffer); the
+    Buffer member is backed by the hidden target parameter `microbit-v2.buffer` (dataType Buffer).
+    The tile's Buffer branch dispatches through the same port write as Device-API `sendBuffer` - no
+    separate send fn.
+  - The buffer receive sensor's `received value` output key is `__out.buffer:<buffer>.value`; its
+    `signal strength` output shares the receive family's one rssi identity.
   - The registry index lives in `docs/specs/microbit-context.md`.
 - **Ranges + caps.** group 0-255 (default 0); transmit power 0-7 (default 6); frequency band 0-83
   (default 7; channel at `2400 + band` MHz). Frame 32 bytes, 9-byte MakeCode prefix, typed payload

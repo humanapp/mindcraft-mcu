@@ -6,6 +6,6 @@ action 40a site 0 args 0 result nil
 tick 2 time 42000000 dt 41800000
 action 40a site 0 args 0 result string "hi"
 port radio send group 0 string "hi"
-action 408 site 2 args 3 string "hi" nil nil result void
+action 408 site 2 args 4 string "hi" nil nil nil result void
 tick 3 time 42400000 dt 41800000
 action 40a site 0 args 0 result nil

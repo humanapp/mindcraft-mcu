@@ -4,7 +4,7 @@
  * only when a sensor listing its `outputKey` in `providedOutputs` is present in
  * the rule hierarchy (`__out.<typeId>.<name>`, a globally unique identity). This
  * exercises the gating with more than one output provider registered together -
- * the two built-in radio receive sensors plus a compiled user-tile sensor
+ * the three built-in radio receive sensors plus a compiled user-tile sensor
  * declaring an unrelated numeric output - and asserts the offered/hidden matrix
  * for each provider. Distinct identities must not cross-gate (a provider must not
  * surface another provider's output tile), and the shared `signal strength`
@@ -146,27 +146,44 @@ test("radio output tiles gate by identity and do not cross-gate with another pro
 
   const numberSensor = getTile(environment, mkSensorTileId(MicroBitV2HostActions.RadioReceiveNumber.key));
   const stringSensor = getTile(environment, mkSensorTileId(MicroBitV2HostActions.RadioReceiveString.key));
+  const bufferSensor = getTile(environment, mkSensorTileId(MicroBitV2HostActions.RadioReceiveBuffer.key));
 
   const valueNumber = getOutputTile(environment, CoreTypeIds.Number, "value");
   const valueString = getOutputTile(environment, CoreTypeIds.String, "value");
+  const valueBuffer = getOutputTile(environment, CoreTypeIds.Buffer, "value");
   const rssi = getOutputTile(environment, CoreTypeIds.Number, "rssi");
 
   // Downstream of `radio receive number`: its own value + the shared signal
-  // strength surface; the string value, and the unrelated user output, stay hidden.
+  // strength surface; the other typed values, and the unrelated user output,
+  // stay hidden.
   assertOffered(ruleWithSensor(environment, numberSensor), [
     [valueNumber, true],
     [rssi, true],
     [valueString, false],
+    [valueBuffer, false],
     [user.output, false],
   ]);
 
   // Downstream of `radio receive string`: its own value + the shared signal
-  // strength surface; the number value and the user output stay hidden. The
-  // shared rssi identity surfacing here as well as above is the intended sharing.
+  // strength surface; the other typed values and the user output stay hidden.
+  // The shared rssi identity surfacing here as well as above is the intended
+  // sharing.
   assertOffered(ruleWithSensor(environment, stringSensor), [
     [valueString, true],
     [rssi, true],
     [valueNumber, false],
+    [valueBuffer, false],
+    [user.output, false],
+  ]);
+
+  // Downstream of `radio receive buffer`: its Buffer-typed value + the shared
+  // signal strength surface; the other typed values and the user output stay
+  // hidden.
+  assertOffered(ruleWithSensor(environment, bufferSensor), [
+    [valueBuffer, true],
+    [rssi, true],
+    [valueNumber, false],
+    [valueString, false],
     [user.output, false],
   ]);
 
@@ -176,6 +193,7 @@ test("radio output tiles gate by identity and do not cross-gate with another pro
     [user.output, true],
     [valueNumber, false],
     [valueString, false],
+    [valueBuffer, false],
     [rssi, false],
   ]);
 });

@@ -503,12 +503,13 @@ struct HostMicroBit {
 
     // Inject a received packet (the golden-injection path): drop a wrong-group
     // packet, assign the next sequence, overflow-evict the oldest.
-    void deliver(int type, mindcraft::mc_number_t value, const std::string& text) {
+    void deliver(int type, mindcraft::mc_number_t value, const std::string& text,
+                 std::vector<uint8_t> bytes = {}) {
       if (groupValue != 0) {
         return;
       }
       lastSeq++;
-      ring.push_back(Packet{lastSeq, type, 0, value, "", text, {}, -42, 0, 0});
+      ring.push_back(Packet{lastSeq, type, 0, value, "", text, std::move(bytes), -42, 0, 0});
       if (ring.size() > RADIO_RX_RING_DEPTH) {
         ring.pop_front();
       }
@@ -907,11 +908,12 @@ TEST_CASE("the gesture-default fixture byte-matches the golden observable trace"
   runGestureSensorParity("gesture-default", schedule, 3);
 }
 
-/** One injected packet: a MakeCode packet type, numeric payload, and string payload. */
+/** One injected packet: a MakeCode packet type and its numeric, string, or byte payload. */
 struct RadioInject {
   int type;
   mindcraft::mc_number_t value;
   std::string text;
+  std::vector<uint8_t> bytes;
 };
 
 /** One scheduled think for a radio receive fixture: packets injected before the time advance. */
@@ -921,10 +923,15 @@ struct RadioReceiveStep {
 };
 
 /** A number packet (NUMBER) carrying `value`. */
-RadioInject radioNumber(mindcraft::mc_number_t value) { return RadioInject{0, value, ""}; }
+RadioInject radioNumber(mindcraft::mc_number_t value) { return RadioInject{0, value, "", {}}; }
 
 /** A string packet (STRING) carrying `text`. */
-RadioInject radioString(const std::string& text) { return RadioInject{2, 0, text}; }
+RadioInject radioString(const std::string& text) { return RadioInject{2, 0, text, {}}; }
+
+/** A buffer packet (BUFFER) carrying `bytes`. */
+RadioInject radioBuffer(std::vector<uint8_t> bytes) {
+  return RadioInject{3, 0, "", std::move(bytes)};
+}
 
 /**
  * Loads a radio-receive fixture binary, replays its injected-packet schedule
@@ -981,7 +988,7 @@ void runRadioReceiveParity(const std::string& name, const std::vector<RadioRecei
   for (size_t i = 0; i < schedule.size(); i++) {
     const RadioReceiveStep& step = schedule[i];
     for (const RadioInject& packet : step.inject) {
-      microbit.radio.deliver(packet.type, packet.value, packet.text);
+      microbit.radio.deliver(packet.type, packet.value, packet.text, packet.bytes);
     }
     const float timeMs = lastThinkTimeMs + step.advanceMs;
     microbit.clock.now = static_cast<uint32_t>(timeMs);
@@ -1045,6 +1052,26 @@ TEST_CASE("the radio-receive-freshness fixture byte-matches the golden observabl
                         {{16, {radioNumber(99)}}, {16, {}}, {16, {radioNumber(7)}}, {16, {}}});
 }
 
+TEST_CASE("the radio-receive-buffer-single fixture byte-matches the golden observable trace") {
+  runRadioReceiveParity("radio-receive-buffer-single",
+                        {{16, {}}, {16, {radioBuffer({0x01, 0x00, 0xab})}}, {16, {}}});
+}
+
+TEST_CASE("the radio-receive-buffer-empty fixture byte-matches the golden observable trace") {
+  runRadioReceiveParity("radio-receive-buffer-empty",
+                        {{16, {}}, {16, {radioBuffer({})}}, {16, {}}});
+}
+
+TEST_CASE("the radio-receive-buffer-mixed fixture byte-matches the golden observable trace") {
+  runRadioReceiveParity(
+      "radio-receive-buffer-mixed",
+      {{16, {}},
+       {16, {radioBuffer({0x01, 0xff, 0x7f}), radioNumber(5), radioBuffer({0x0a, 0x0b})}},
+       {16, {}},
+       {16, {radioNumber(6)}},
+       {16, {}}});
+}
+
 TEST_CASE("the radio-receive-output-string-value fixture byte-matches the golden trace") {
   runRadioReceiveParity("radio-receive-output-string-value",
                         {{16, {}}, {16, {radioString("hi")}}, {16, {}}});
@@ -1062,6 +1089,16 @@ TEST_CASE("the radio-receive-output-rssi fixture byte-matches the golden trace")
 TEST_CASE("the radio-receive-output-multi-provider fixture byte-matches the golden trace") {
   runRadioReceiveParity("radio-receive-output-multi-provider",
                         {{16, {}}, {16, {radioNumber(7), radioString("hi")}}, {16, {}}});
+}
+
+TEST_CASE("the radio-receive-output-buffer-value fixture byte-matches the golden trace") {
+  runRadioReceiveParity("radio-receive-output-buffer-value",
+                        {{16, {}}, {16, {radioBuffer({0x01, 0x00, 0xab})}}, {16, {}}});
+}
+
+TEST_CASE("the radio-receive-output-buffer-rssi fixture byte-matches the golden trace") {
+  runRadioReceiveParity("radio-receive-output-buffer-rssi",
+                        {{16, {}}, {16, {radioBuffer({0x0a, 0x0b})}}, {16, {}}});
 }
 
 /**
