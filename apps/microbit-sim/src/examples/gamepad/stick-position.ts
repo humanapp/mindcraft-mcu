@@ -13,6 +13,7 @@ import { readStickX, readStickY } from "./stick-read";
 export default Sensor({
   name: "stick position",
   returnType: Position,
+  inline: true,
   onExecute(ctx: Context): Position {
     return Position({ x: readStickX(ctx), y: readStickY(ctx) });
   },

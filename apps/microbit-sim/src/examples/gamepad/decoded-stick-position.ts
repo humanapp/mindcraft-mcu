@@ -1,4 +1,4 @@
-import { type Context, Sensor } from "mindcraft";
+import { BufferType, type Context, Sensor } from "mindcraft";
 import { Position } from "./position";
 import { PACKET_MAGIC } from "./protocol";
 
@@ -16,6 +16,8 @@ import { PACKET_MAGIC } from "./protocol";
 export default Sensor({
   name: "decoded stick position",
   returnType: Position,
+  consumesWhenResult: BufferType,
+  inline: true,
   onExecute(ctx: Context): Position {
     const packet = ctx.getWhenResult();
     if (Buffer.isBuffer(packet) && packet.length() >= 3 && packet.get(0) === PACKET_MAGIC) {

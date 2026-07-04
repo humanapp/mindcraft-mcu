@@ -45,6 +45,7 @@ const DECODER_SOURCE = `import { Sensor, type Context } from "mindcraft";
 
 export default Sensor({
   name: "when-decoder",
+  consumesWhenResult: "any",
   onExecute(ctx: Context): number {
     const result = ctx.getWhenResult();
     if (Buffer.isBuffer(result)) {
@@ -66,6 +67,7 @@ const DRIVER_SOURCE = `import { Actuator, param, type Context } from "mindcraft"
 
 export default Actuator({
   name: "when-driver",
+  consumesWhenResult: "any",
   args: [param("value", { type: "number", anonymous: true })],
   onExecute(ctx: Context, args: { value: number }): void {
     ctx.microbit.gpio.digitalWrite(${SENSOR_PIN}, args.value);
