@@ -191,8 +191,9 @@ import { PACKET_MAGIC } from "./protocol";
 
 export default Sensor({
   name: "decoded stick position",
-  inline: true,           // an inline value sensor: takes no args (reads the enclosing WHEN's result)
-  returnType: Position,   // config ref (cross-module type)
+  inline: true,                    // an inline value sensor: takes no args (reads the enclosing WHEN's result)
+  returnType: Position,            // config ref (cross-module type)
+  consumesWhenResult: BufferType,  // reads the WHEN result as a Buffer; the editor offers + validates it accordingly
   onExecute(ctx: Context): Position {
     const wr = ctx.getWhenResult();                       // MindcraftValue
     if (Buffer.isBuffer(wr) && wr.length() >= 3 && wr.get(0) === PACKET_MAGIC) {
@@ -211,7 +212,9 @@ export default Sensor({
   there is no valid packet. An inline sensor takes NO args (the accepted inline-sensor limitation),
   so it reads its buffer from the enclosing WHEN's captured value via `ctx.getWhenResult()`, narrowed
   with `Buffer.isBuffer` (both built platform capabilities). The Buffer surface is method-based -
-  `length()` / `get(i)`, not `.length` / `b[i]`.
+  `length()` / `get(i)`, not `.length` / `b[i]`. It declares `consumesWhenResult: BufferType`, so
+  the editor offers it under a Buffer-producing WHEN and flags a mismatch elsewhere - a non-blocking
+  warning; the tile stays valid and returns the centered position.
 
 ## The radio pairing (two stages)
 
