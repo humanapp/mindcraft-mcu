@@ -40,7 +40,7 @@ Buffer tiles, user-code conversions, Buffer as a first-class value with `Buffer.
 [stick] [up?] [down?] [left?] [right?]         boolean level; bare: any direction active
 [button] [red?] [green?] [blue?] [yellow?]     boolean level; bare: any button pressed
 [stick position]                               inline; the position struct {x, y} (accessor tiles)
-[decoded stick position] [<buffer>?]            inline; a received packet -> position {x, y}; centered (0,0) when none
+[decoded stick position]                       inline; decodes the WHEN-result packet -> position {x, y}; centered (0,0) when none
 ```
 
 - **There is no separate packet tile.** The position IS the value; its wire form is produced by the
@@ -162,6 +162,7 @@ import { readStickX, readStickY } from "./stick-read";
 
 export default Sensor({
   name: "stick position",
+  inline: true,           // an inline value sensor: read in a value slot; takes no args
   returnType: Position,   // config ref required: the annotation alone cannot resolve a cross-module type
   onExecute(ctx: Context): Position {
     return Position({ x: readStickX(ctx), y: readStickY(ctx) });
@@ -183,21 +184,19 @@ export default Conversion({
   },
 });
 
-// decoded-stick-position.ts -- inline decoder: a received packet -> position, centered when none
-import { Sensor, param, type Context } from "mindcraft";
+// decoded-stick-position.ts -- inline decoder: reads the received packet from the WHEN result
+import { Sensor, type Context } from "mindcraft";
 import { Position } from "./position";
 import { PACKET_MAGIC } from "./protocol";
 
 export default Sensor({
   name: "decoded stick position",
+  inline: true,           // an inline value sensor: takes no args (reads the enclosing WHEN's result)
   returnType: Position,   // config ref (cross-module type)
-  args: [param("packet", { type: BufferType, anonymous: true })],
-  onExecute(ctx: Context, args: { packet?: Buffer }): Position {
-    // Explicit packet arg first; else the enclosing WHEN's captured value.
+  onExecute(ctx: Context): Position {
     const wr = ctx.getWhenResult();                       // MindcraftValue
-    const b = args.packet ?? (Buffer.isBuffer(wr) ? wr : undefined);
-    if (b && b.length() >= 3 && b.get(0) === PACKET_MAGIC) {
-      return Position({ x: b.get(1) - 100, y: b.get(2) - 100 });
+    if (Buffer.isBuffer(wr) && wr.length() >= 3 && wr.get(0) === PACKET_MAGIC) {
+      return Position({ x: wr.get(1) - 100, y: wr.get(2) - 100 });
     }
     return Position({ x: 0, y: 0 });                      // centered: no valid packet
   },
@@ -209,10 +208,10 @@ export default Sensor({
 - `PACKET_MAGIC` is an ordinary shared module constant imported by encoder and decoder - the
   module-scope model at work.
 - The decoder is **inline and total**: it always returns a valid Position, centered `(0,0)` when
-  there is no valid packet. Its buffer comes from the explicit `packet` arg if wired, otherwise from
-  the enclosing WHEN's captured value via `ctx.getWhenResult()`, narrowed with `Buffer.isBuffer`
-  (both built platform capabilities). The Buffer surface is method-based - `length()` / `get(i)`,
-  not `.length` / `b[i]`.
+  there is no valid packet. An inline sensor takes NO args (the accepted inline-sensor limitation),
+  so it reads its buffer from the enclosing WHEN's captured value via `ctx.getWhenResult()`, narrowed
+  with `Buffer.isBuffer` (both built platform capabilities). The Buffer surface is method-based -
+  `length()` / `get(i)`, not `.length` / `b[i]`.
 
 ## The radio pairing (two stages)
 
@@ -265,8 +264,8 @@ wanted on the wire, with no protocol rework and no version machinery.
 
 **The decoder: `[decoded stick position]`.** An inline sensor that turns a received packet into a
 `position` and returns it - the same struct type the stick produces locally, read downstream
-through the accessor tiles `[decoded stick position][x]` / `[decoded stick position][y]`. It takes an
-optional Buffer `packet` argument; when that slot is empty (the common case) it reads the packet
+through the accessor tiles `[decoded stick position][x]` / `[decoded stick position][y]`. As an
+inline sensor it takes NO argument (the accepted inline-sensor limitation): it reads the packet
 from the enclosing WHEN's captured value via `ctx.getWhenResult()`, narrowing with `Buffer.isBuffer`
 - so under a `radio receive buffer` rule it decodes the received bytes with no explicit wiring. It
 is **total**: a valid packet (magic + length ok) decodes to `{x, y}`; anything else (no packet,
