@@ -121,6 +121,7 @@ interface BufferConstructor {
   from(values: number[]): Buffer;
   fromHex(hex: string): Buffer;
   fromString(value: string): Buffer;
+  isBuffer(arg: any): arg is Buffer;
 }
 declare var Buffer: BufferConstructor;
 
@@ -293,6 +294,8 @@ type Record<K extends keyof any, T> = { [P in K]: T };
 type Exclude<T, U> = T extends U ? never : T;
 type Extract<T, U> = T extends U ? T : never;
 type Omit<T, K extends keyof any> = Pick<T, Exclude<keyof T, K>>;
+/** Marker that binds `this` to `T` inside the methods of a contextually-typed object literal. */
+interface ThisType<T> {}
 type NonNullable<T> = T & {};
 type Parameters<T extends (...args: any) => any> = T extends (...args: infer P) => any ? P : never;
 type ConstructorParameters<T extends abstract new (...args: any) => any> = T extends abstract new (
@@ -324,6 +327,7 @@ declare module "mindcraft" {
     boolean: boolean;
     number: number;
     string: string;
+    buffer: Buffer;
     AnyList: AnyList;
     BrainContext: BrainContext;
     EngineContext: EngineContext;
@@ -353,6 +357,7 @@ declare module "mindcraft" {
     readonly brain: BrainContext;
     readonly engine: EngineContext;
     readonly rule: RuleContext;
+    getWhenResult(): MindcraftValue;
   }
 
   type MindcraftValue = MindcraftTypeMap[keyof MindcraftTypeMap];
@@ -384,7 +389,10 @@ declare module "mindcraft" {
   type ArgSpec = ModifierSpec | ParamSpec | ChoiceSpec | OptionalSpec | RepeatedSpec | ConditionalSpec | SeqSpec;
 
   export function modifier(id: string, opts?: { label: string; icon?: string }): ModifierSpec;
-  export function param(name: string, opts: { type: MindcraftType; default?: unknown; anonymous?: boolean }): ParamSpec;
+  export function param(
+    name: string,
+    opts: { type: MindcraftType | TypeRef<unknown>; default?: unknown; anonymous?: boolean }
+  ): ParamSpec;
   export function choice(name: string, ...items: ArgSpec[]): ChoiceSpec;
   export function choice(...items: ArgSpec[]): ChoiceSpec;
   export function optional(item: ArgSpec): OptionalSpec;
@@ -392,15 +400,22 @@ declare module "mindcraft" {
   export function conditional(condition: string, thenItem: ArgSpec, elseItem?: ArgSpec): ConditionalSpec;
   export function seq(...items: ArgSpec[]): SeqSpec;
 
-  /** A capability a sensor can declare in its config. */
-  type Capability = "PresenceGated";
   /**
-   * Marks a value-bearing event sensor: `onExecute` returns the delivered
-   * value when the sensor fires and `null` when there is no value this
-   * evaluation (absent). A bare WHEN that is exactly such a sensor fires on a
-   * delivered falsy value (0, "", false) and skips only when the value is absent.
+   * One named, typed output a sensor exposes. The `(type, name)` pair is the
+   * output identity: it derives a downstream inline value-tile and the backing
+   * rule variable that `setOutput` writes and the tile reads. Two sensors that
+   * declare the same identity share one tile and one variable.
    */
-  export const PresenceGated: Capability;
+  export interface OutputSpec {
+    /** Output name; the second half of the output identity. */
+    name: string;
+    /** Output value type, named by TypeRef token (preferred) or type name; the first half of the output identity. */
+    type: MindcraftType | TypeRef<unknown>;
+    label?: string;
+    icon?: string;
+    docs?: string;
+    tags?: string[];
+  }
 
   export interface SensorConfig {
     /** Stable identifier for this action, assigned automatically on first compile. Treat as opaque; do not edit or reuse. */
@@ -410,9 +425,24 @@ declare module "mindcraft" {
     icon?: string;
     docs?: string;
     tags?: string[];
-    /** Capabilities this sensor declares, e.g. `[PresenceGated]`. */
-    capabilities?: Capability[];
+    /**
+     * When true, this sensor reads as an inline value in a mid-rule value slot
+     * and the tile picker offers it in those positions. An inline sensor takes
+     * no arguments.
+     */
+    inline?: boolean;
+    /**
+     * When true, a bare WHEN that is exactly this sensor gates on value
+     * presence: it fires on a delivered falsy value (0, "", false) and skips
+     * only when `onExecute` returns null (absent). Exclude null from the
+     * sensor's value domain when set.
+     */
+    presenceGated?: boolean;
+    /** Return value type, named by TypeRef token (preferred) or type name; defaults to the `onExecute` return annotation. */
+    returnType?: MindcraftType | TypeRef<unknown>;
     args?: ArgSpec[];
+    /** Named, typed outputs this sensor exposes; each surfaces downstream as an inline value-tile written via `setOutput`. */
+    outputs?: OutputSpec[];
     onExecute(ctx: Context, args: Record<string, unknown>): unknown;
     onPageEntered?(ctx: Context): void;
     onPageExited?(ctx: Context): void;
@@ -434,4 +464,121 @@ declare module "mindcraft" {
 
   export function Sensor(config: SensorConfig): unknown;
   export function Actuator(config: ActuatorConfig): unknown;
+
+  /**
+   * Write one of the enclosing sensor's declared outputs for this evaluation.
+   * `name` must be a string literal matching an entry of the sensor's
+   * `outputs`; `value` is stored where the matching output tile reads it. Pass
+   * `null` to clear an output. Valid only inside a sensor `onExecute`.
+   */
+  export function setOutput(ctx: Context, name: string, value: unknown): void;
+
+  /**
+   * Lifecycle config for a {@link System}. `init` and `think` plus any extra
+   * methods run with `this` bound to the System's state `S` and its methods `M`.
+   */
+  export interface SystemConfig<S> {
+    /** Display / debug name for this System. */
+    name: string;
+    /** Initial state: a plain object of VM-representable values (numbers, strings, booleans, small structs). */
+    state: S;
+    /** Runs once at brain startup, before any rule or think. `this` is the state and methods. */
+    init?(ctx: Context): void;
+    /** Runs every think, after rule evaluation, regardless of the active page. `this` is the state and methods. */
+    think?(ctx: Context): void;
+  }
+
+  /**
+   * Declare a System: one shared, brain-global singleton with persistent state,
+   * a one-time `init`, a per-think `think`, and methods. Every reference to the
+   * returned binding -- in this module or an importing one -- coordinates through
+   * the single instance. Inside `init`/`think`/methods, `this` reads and writes
+   * state fields and calls sibling methods.
+   */
+  export function System<S, M>(config: SystemConfig<S> & M & ThisType<S & M>): S & M;
+
+  /**
+   * Value token naming a registered Mindcraft type. `T` is the TS-side value
+   * type the token names; a surface that accepts a TypeRef infers its argument
+   * and return types from the token.
+   */
+  export interface TypeRef<T> {
+    readonly __typeRefBrand: T;
+  }
+
+  /** Token for the core `number` type. */
+  export const NumberType: TypeRef<number>;
+  /** Token for the core `string` type. */
+  export const StringType: TypeRef<string>;
+  /** Token for the core `boolean` type. */
+  export const BooleanType: TypeRef<boolean>;
+  /** Token for the core `buffer` type. */
+  export const BufferType: TypeRef<Buffer>;
+
+  /** Configuration for a {@link StructType} declaration. */
+  export interface StructTypeConfig<F> {
+    /** Display name (tiles, picker). */
+    name: string;
+    /** Field name -> field type, in declaration order; declaration order is storage order. */
+    fields: F;
+    /** When true, derive one accessor tile per field. */
+    accessors?: boolean;
+    /** When true, derive a "create variable" factory tile for the type. */
+    variables?: boolean;
+  }
+
+  /** The TS value type a struct field type spec names. */
+  type StructFieldValue<S> = S extends TypeRef<infer V>
+    ? V
+    : S extends keyof MindcraftTypeMap
+      ? MindcraftTypeMap[S]
+      : unknown;
+
+  /** The TS object type of a struct instance, derived from a fields config. */
+  type StructValueOf<F> = { -readonly [K in keyof F]: StructFieldValue<F[K]> };
+
+  /**
+   * Binding returned by a {@link StructType} declaration: a {@link TypeRef}
+   * naming the declared type, and a callable factory constructing instances
+   * (`Position({x: 1, y: 2})`).
+   */
+  export interface StructTypeBinding<T> extends TypeRef<T> {
+    (init: T): T;
+  }
+
+  /**
+   * Declare a struct type: a named record of typed fields usable across the
+   * tile surface. The returned binding names the type wherever a TypeRef is
+   * accepted and constructs instances when called. Every importer of the
+   * binding resolves to the one declared type.
+   */
+  export function StructType<const F extends Record<string, TypeRef<unknown> | MindcraftType>>(
+    config: StructTypeConfig<F>
+  ): StructTypeBinding<StructValueOf<F>>;
+
+  /** The TS instance type of a {@link StructType} binding: `StructOf<typeof Position>`. */
+  export type StructOf<R> = R extends TypeRef<infer T> ? T : never;
+
+  /** Configuration for a {@link Conversion} declaration. */
+  export interface ConversionConfig<F, T> {
+    /** Stable identifier for this conversion, assigned automatically on first compile. Treat as opaque; do not edit or reuse. */
+    id?: string;
+    /** Source type, named by an imported TypeRef token (preferred) or a type name. */
+    from: TypeRef<F> | MindcraftType;
+    /** Target type, named by an imported TypeRef token (preferred) or a type name. */
+    to: TypeRef<T> | MindcraftType;
+    /** Relative cost used to pick among conversion paths; a small positive integer. */
+    cost: number;
+    /** Computes the `to`-typed value from a `from`-typed value. Must be synchronous. */
+    convert(value: F): T;
+  }
+
+  /**
+   * Declare an implicit value conversion from `from`-typed values to
+   * `to`-typed values. The brain compiler inserts it wherever a `from`-typed
+   * value fills a `to`-expected slot; `convert` compiles as a user function
+   * and runs once per inserted conversion. One declaration registers one
+   * `(from, to)` pair program-wide.
+   */
+  export function Conversion<F, T>(config: ConversionConfig<F, T>): unknown;
 }
