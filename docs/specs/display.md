@@ -162,10 +162,12 @@ lease are silently dropped (each completes immediately with its paste discarded)
 
 - An async actuator placed in `do`. One optional, anonymous **String** to show on the
   display. When the text slot is absent, it falls back to the rule's **WHEN-side result** (the value the
-  WHEN side left on the stack, captured per-rule into the reserved `__whenResult` rule variable): a
-  Number is formatted to text, a String is used as-is, and any other value (boolean, nil, container)
-  shows the **target default string**. (A bare unconditional rule's WHEN result is the boolean `true`,
-  so it takes the default path.)
+  WHEN side left on the stack, captured into the reserved `__whenResult` rule variable at
+  `WHEN_END`): a Number is formatted to text, a String is used as-is, and any other value (boolean,
+  nil, container) shows the **target default string**. (A rule with no WHEN condition captures no
+  result; the fallback then reads the nearest enclosing rule's WHEN result, or the target default
+  when there is none - so a top-level unconditional rule takes the default path, while an
+  unconditional child rule shows its parent's WHEN result.)
 - **The resolved text's length picks the rendering** (`charCount` = the final text's UTF-16
   code-unit length, after the fallback above):
   - **Any length other than 1 - scroll.** Clears the display, then scrolls the text across it,
