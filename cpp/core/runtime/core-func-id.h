@@ -130,9 +130,10 @@ enum class CoreFuncId : uint32_t {
   BufferFromString = 98,
   BufferLength = 99,
   BufferGet = 100,
+  ContextGetWhenResult = 101,
 };
 
 /** Number of declared {@link CoreFuncId} members; ids are dense from 0. */
-inline constexpr uint32_t kCoreFuncIdCount = 101;
+inline constexpr uint32_t kCoreFuncIdCount = 102;
 
 } // namespace mindcraft

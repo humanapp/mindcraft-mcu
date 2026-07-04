@@ -52,6 +52,8 @@ enum class CoreFuncDispatch : uint8_t {
   /** The `HOST_CALL` context-variable path in vm.cpp (`ctx.brain` / `ctx.rule`
      get/set). */
   ContextVariable,
+  /** The `HOST_CALL` when-result path in vm.cpp (`ctx.getWhenResult`). */
+  ContextWhenResult,
   /** A core host-action `fnId`: dispatched through the host-action table by
      `HOST_ACTION_CALL`. */
   HostAction,
@@ -159,6 +161,8 @@ CoreFuncDispatch coreFuncDispatch(CoreFuncId id) {
   case CoreFuncId::RuleContextGetVariable:
   case CoreFuncId::RuleContextSetVariable:
     return CoreFuncDispatch::ContextVariable;
+  case CoreFuncId::ContextGetWhenResult:
+    return CoreFuncDispatch::ContextWhenResult;
   case CoreFuncId::SensorRandom:
   case CoreFuncId::SensorOnPageEntered:
   case CoreFuncId::SensorTimeout:

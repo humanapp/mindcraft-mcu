@@ -1,0 +1,7 @@
+mctrace 1
+profile 1
+precision f32
+tick 1 time 41800000 dt 00000000
+tick 2 time 42000000 dt 41800000
+port gpio digital-write 2 2a
+port gpio digital-write 3 2a

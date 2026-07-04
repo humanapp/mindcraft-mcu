@@ -4,6 +4,7 @@
 #include "core/runtime/managed-heap.h"
 #include "core/runtime/mc-number.h"
 #include "core/runtime/program.h"
+#include "core/runtime/rule-var-store.h"
 #include "core/runtime/value.h"
 
 namespace mindcraft {
@@ -17,27 +18,18 @@ inline constexpr mc_number_t kWhenResultRuleVarKey = -1.0f;
 
 /**
  * The value the WHEN side of the in-scope rule last evaluated to, captured into
- * the reserved {@link kWhenResultRuleVarKey} rule variable at WHEN_END.
- * Returns nil when no rule is in scope (`ctx.currentRuleFuncId` is
- * {@link kNoFuncId}) or the in-scope rule has not captured a result. Mirrors
- * `getWhenResult` in
- * external/mindcraft-lang/packages/core/src/runtime/context.ts.
+ * the reserved {@link kWhenResultRuleVarKey} rule variable at WHEN_END. This is
+ * the reserved-key case of a rule-variable read: it routes through
+ * {@link ruleVarGet}, which walks the rule-ancestor chain, so a rule with no
+ * WHEN condition (which captures no result) falls through to the nearest
+ * enclosing rule that has one. Returns nil when no rule is in scope or no rule on
+ * the chain has captured a result. Mirrors `getWhenResult` in
+ * external/mindcraft-lang/packages/core/src/runtime/context.ts, which reads the
+ * same reserved key through the rule-variable getter `getByName`.
  */
 inline Value getWhenResult(const ExecutionContext& ctx, const ManagedHeap& heap) {
-  if (ctx.currentRuleFuncId == kNoFuncId || !ctx.ruleVarStores.isMap()) {
-    return kNilValue;
-  }
-  MapObject* outer = heap.map(ctx.ruleVarStores);
-  const MapKey ruleKey{true, false, static_cast<mc_number_t>(ctx.currentRuleFuncId), 0};
-  if (!heap.mapHas(outer, ruleKey)) {
-    return kNilValue;
-  }
-  MapObject* inner = heap.map(heap.mapGet(outer, ruleKey));
   const MapKey nameKey{true, false, kWhenResultRuleVarKey, 0};
-  if (!heap.mapHas(inner, nameKey)) {
-    return kNilValue;
-  }
-  return heap.mapGet(inner, nameKey);
+  return ruleVarGet(ctx, heap, ctx.currentRuleFuncId, nameKey);
 }
 
 } // namespace mindcraft

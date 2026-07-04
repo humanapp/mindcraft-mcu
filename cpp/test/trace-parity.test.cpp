@@ -2531,6 +2531,178 @@ TEST_CASE("the user-tile buffer-narrowing fixture byte-matches the golden observ
   CHECK(numberWrites == 2);
 }
 
+// Replays a user-tile-when-result fixture and checks that both call sites drove
+// `expected` onto their pins. The rule's WHEN produces a value; an inline
+// decoder sensor (pin 2) and the driver actuator's own body (pin 3) each read it
+// back through ctx.getWhenResult() and drive the narrowed byte. The C++ sync
+// HOST_CALL binds ctx.currentRuleFuncId from the frame before the accessor runs,
+// so both sites resolve the same rule store the reference VM does.
+static void checkWhenResultFixture(const std::string& name, uint32_t expected) {
+  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/" + name;
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.gpio.writer = &writer;
+  TraceTap tap(writer);
+
+  mindcraft::ManagedHeap heap(arena, &image);
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  ExecutionContext ctx;
+  mindcraft::TypeRegistry types(image);
+  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+  surface.types = &types;
+  surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Two 16ms thinks mirror SCHEDULE in wodal
+  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-when-result.spec.ts.
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 2; i++) {
+    const float timeMs = lastThinkTimeMs + 16;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+  // Each think: the inline decoder drove the narrowed WHEN result onto pin 2 and
+  // the driver drove the same value onto pin 3, proving ctx.getWhenResult()
+  // resolves the enclosing rule's captured result from both a sensor and an
+  // actuator call site identically to the reference VM.
+  REQUIRE(microbit.gpio.writes.size() == 4);
+  int sensorWrites = 0;
+  int actuatorWrites = 0;
+  for (const auto& write : microbit.gpio.writes) {
+    CHECK(write.value == expected);
+    if (write.pin == 2) {
+      sensorWrites++;
+    } else {
+      CHECK(write.pin == 3);
+      actuatorWrites++;
+    }
+  }
+  CHECK(sensorWrites == 2);
+  CHECK(actuatorWrites == 2);
+}
+
+TEST_CASE("the user-tile when-result number fixture byte-matches the golden observable trace") {
+  checkWhenResultFixture("user-tile-when-result-number", 42);
+}
+
+TEST_CASE("the user-tile when-result buffer fixture byte-matches the golden observable trace") {
+  checkWhenResultFixture("user-tile-when-result-buffer", 55);
+}
+
+// Replays a nested user-tile-when-result fixture: a parent rule (WHEN 42) with an
+// inner rule whose DO reads ctx.getWhenResult() from both an inline decoder
+// sensor (pin 2) and the driver actuator body (pin 3). The inner rule fires once,
+// roughly one think after the parent spawns it, so it drives one write per pin.
+// Both carry `expected`: for an inner rule with its own WHEN that is its own
+// captured result; for an inner rule with no WHEN condition (no captured result)
+// it is the parent's result, reached by walking the ancestor chain -- the same
+// rule-variable resolution the reference VM performs.
+static void checkNestedWhenResultFixture(const std::string& name, uint32_t expected) {
+  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/" + name;
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.gpio.writer = &writer;
+  TraceTap tap(writer);
+
+  mindcraft::ManagedHeap heap(arena, &image);
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  ExecutionContext ctx;
+  mindcraft::TypeRegistry types(image);
+  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+  surface.types = &types;
+  surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Two 16ms thinks mirror SCHEDULE in wodal
+  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-when-result.spec.ts.
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 2; i++) {
+    const float timeMs = lastThinkTimeMs + 16;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+  REQUIRE_FALSE(microbit.gpio.writes.empty());
+  bool sawSensorPin = false;
+  bool sawActuatorPin = false;
+  for (const auto& write : microbit.gpio.writes) {
+    CHECK(write.value == expected);
+    if (write.pin == 2) {
+      sawSensorPin = true;
+    } else {
+      CHECK(write.pin == 3);
+      sawActuatorPin = true;
+    }
+  }
+  CHECK(sawSensorPin);
+  CHECK(sawActuatorPin);
+}
+
+TEST_CASE("the user-tile when-result nested fixture byte-matches the golden observable trace") {
+  // Inner rule produces its own number WHEN result (7); it must never read the parent's 42.
+  checkNestedWhenResultFixture("user-tile-when-result-nested", 7);
+}
+
+TEST_CASE(
+    "the user-tile when-result nested-empty fixture byte-matches the golden observable trace") {
+  // Inner rule has no WHEN condition, so it captures no result; both inner call
+  // sites walk the ancestor chain to the parent's captured WHEN result (42).
+  checkNestedWhenResultFixture("user-tile-when-result-nested-empty", 42);
+}
+
 TEST_CASE("the user-tile gpio analog fixture byte-matches the golden observable trace") {
   const std::string base =
       std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-gpio-analog";

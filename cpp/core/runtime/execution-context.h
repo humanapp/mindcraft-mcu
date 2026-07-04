@@ -102,6 +102,15 @@ struct ExecutionContext {
   Value ruleVarStores = kNilValue;
 
   /**
+   * Rule-ancestor edges (child ruleFuncId -> parent ruleFuncId) of the loaded
+   * program, bound once at startup. Rule-variable resolution walks this chain:
+   * a read starts at the current rule and falls through to ancestors, so a
+   * nested rule that never wrote a variable reads an enclosing rule's value.
+   * Empty (no walk past the current rule) until bound.
+   */
+  Span<const RuleAncestor> ruleAncestors{};
+
+  /**
    * Allocates the slot tables from `arena`: `variableCount` brain-variable
    * slots (initialized to nil), `callSiteCount` per-callsite host-state slots
    * (initially absent), the `callSiteCount` by `callSiteSlotStride` bytecode

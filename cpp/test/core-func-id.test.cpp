@@ -16,9 +16,9 @@ TEST_CASE("funcId partition constants match the TS declarations") {
 
 TEST_CASE("CoreFuncId extremes and count are wire-stable") {
   CHECK(static_cast<uint32_t>(CoreFuncId::OpAndBoolean) == 0);
-  CHECK(static_cast<uint32_t>(CoreFuncId::BufferGet) == 100);
-  CHECK(kCoreFuncIdCount == 101);
-  CHECK(static_cast<uint32_t>(CoreFuncId::BufferGet) == kCoreFuncIdCount - 1);
+  CHECK(static_cast<uint32_t>(CoreFuncId::ContextGetWhenResult) == 101);
+  CHECK(kCoreFuncIdCount == 102);
+  CHECK(static_cast<uint32_t>(CoreFuncId::ContextGetWhenResult) == kCoreFuncIdCount - 1);
   CHECK(kCoreFuncIdCount <= TARGET_FUNC_ID_BASE);
 }
 

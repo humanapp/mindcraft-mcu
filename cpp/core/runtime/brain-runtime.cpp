@@ -46,6 +46,11 @@ Status BrainRuntime::startup() {
                                    callSiteSlotStride, systemSlotCount)) {
     return Status::fail(ErrorCode::HostError);
   }
+  // Bind the program's rule-ancestor edges so rule-variable reads (including the
+  // WHEN-result accessor) can walk from a nested rule up to its ancestors.
+  if (program_.hasRuleAncestors) {
+    surface_.context->ruleAncestors = program_.ruleAncestors;
+  }
   lastThinkTime_ = 0;
   previousPageIndex_ = kNoPageIndex;
   // Every registered System's init runs once before the first page activates,

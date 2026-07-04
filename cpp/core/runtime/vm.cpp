@@ -8,6 +8,7 @@
 #include "core/runtime/core-host-functions.h"
 #include "core/runtime/handle-table.h"
 #include "core/runtime/managed-heap.h"
+#include "core/runtime/rule-var-store.h"
 #include "core/runtime/stack-region.h"
 #include "core/runtime/type-registry.h"
 #include "core/runtime/when-result.h"
@@ -410,22 +411,6 @@ uint32_t resolveCalleeRuleFuncId(const ProgramImage& program, const Frame& calle
 }
 
 /**
- * The parent rule of `ruleFuncId` per the program's rule-ancestor edges, or
- * {@link kNoFuncId} when it is a root rule with no enclosing rule. Mirrors the
- * `program.ruleAncestors` lookup in `createRuleVariableServices`.
- */
-uint32_t parentRuleFuncId(const ProgramImage& program, uint32_t ruleFuncId) {
-  if (program.hasRuleAncestors) {
-    for (uint32_t i = 0; i < program.ruleAncestors.size(); i++) {
-      if (program.ruleAncestors[i].ruleFuncId == ruleFuncId) {
-        return program.ruleAncestors[i].parentRuleFuncId;
-      }
-    }
-  }
-  return kNoFuncId;
-}
-
-/**
  * Resolves the UTF-8 content of a string `value` tolerating a null heap: a
  * borrowed (constant-pool) string reads from `program`, a managed string needs
  * `heap` (false when it is null). Returns false for a non-string value.
@@ -474,44 +459,6 @@ bool resolveBrainVarSlot(const ProgramImage& program, const ManagedHeap* heap,
     }
   }
   return false;
-}
-
-/**
- * Reads a rule-scoped variable by name for `ruleFuncId`: the rule's own inner
- * map first, then up the ancestor chain until a map holds the name, else nil.
- * Mirrors `getByName` in
- * external/mindcraft-lang/packages/core/src/runtime/rule-services.ts. Returns
- * nil when no rule is in scope or the name is unset along the chain (which
- * includes the case where no store has been allocated yet).
- */
-Value ruleVarGet(const RuntimeSurface& surface, const ProgramImage& program, uint32_t ruleFuncId,
-                 const Value& nameValue) {
-  if (ruleFuncId == kNoFuncId) {
-    return kNilValue;
-  }
-  const ExecutionContext& ctx = *surface.context;
-  if (!ctx.ruleVarStores.isMap()) {
-    return kNilValue;
-  }
-  MapKey nameKey;
-  if (!valueToMapKey(nameValue, nameKey)) {
-    return kNilValue;
-  }
-  ManagedHeap& heap = *surface.heap;
-  MapObject* outer = heap.map(ctx.ruleVarStores);
-  uint32_t cur = ruleFuncId;
-  while (cur != kNoFuncId) {
-    const MapKey ruleKey{true, false, static_cast<mc_number_t>(cur), 0};
-    if (heap.mapHas(outer, ruleKey)) {
-      const Value innerValue = heap.mapGet(outer, ruleKey);
-      MapObject* inner = heap.map(innerValue);
-      if (heap.mapHas(inner, nameKey)) {
-        return heap.mapGet(inner, nameKey);
-      }
-    }
-    cur = parentRuleFuncId(program, cur);
-  }
-  return kNilValue;
 }
 
 /**
@@ -617,7 +564,13 @@ Status dispatchContextVariableFunc(CoreFuncId id, Span<const Value> args,
     return Status::ok();
   }
   case CoreFuncId::RuleContextGetVariable: {
-    out = ruleVarGet(surface, program, resolveFrameRuleFuncId(program, frame), name);
+    MapKey nameKey;
+    if (surface.heap != nullptr && valueToMapKey(name, nameKey)) {
+      out = ruleVarGet(*surface.context, *surface.heap, resolveFrameRuleFuncId(program, frame),
+                       nameKey);
+    } else {
+      out = kNilValue;
+    }
     return Status::ok();
   }
   case CoreFuncId::RuleContextSetVariable: {
@@ -634,6 +587,27 @@ Status dispatchContextVariableFunc(CoreFuncId id, Span<const Value> args,
   default:
     return Status::fail(ErrorCode::ScriptError);
   }
+}
+
+/**
+ * Services `Context.getWhenResult`: binds the in-scope rule from `frame` (a sync
+ * HOST_CALL dispatch does not otherwise set `ctx.currentRuleFuncId`, unlike
+ * HOST_ACTION_CALL) and reads that rule's captured WHEN result through the
+ * dedicated reserved-key accessor. The only host argument is the struct-method
+ * receiver at arg 0, which carries no data, so the caller's arg buffer is unused
+ * here. Faults `HostError` without a context or heap. Mirrors the
+ * `Context.getWhenResult` body in external/mindcraft-lang/.../context-types.ts.
+ */
+Status dispatchGetWhenResult(const RuntimeSurface& surface, const ProgramImage& program,
+                             const Frame& frame, Value& out) {
+  if (surface.context == nullptr || surface.heap == nullptr) {
+    return Status::fail(ErrorCode::HostError);
+  }
+  const uint32_t priorRuleFuncId = surface.context->currentRuleFuncId;
+  surface.context->currentRuleFuncId = resolveFrameRuleFuncId(program, frame);
+  out = getWhenResult(*surface.context, *surface.heap);
+  surface.context->currentRuleFuncId = priorRuleFuncId;
+  return Status::ok();
 }
 
 } // namespace
@@ -1097,6 +1071,8 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
         const CoreFuncId coreId = static_cast<CoreFuncId>(fnId);
         if (isContextVariableFunc(coreId)) {
           status = dispatchContextVariableFunc(coreId, args, program, surface, frame, result);
+        } else if (coreId == CoreFuncId::ContextGetWhenResult) {
+          status = dispatchGetWhenResult(surface, program, frame, result);
         } else {
           const HostCallEnv env{surface.heap, surface.roots, surface.rng, surface.types};
           status = callCoreHostFunction(coreId, args, env, result);
