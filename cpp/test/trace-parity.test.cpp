@@ -2453,6 +2453,84 @@ TEST_CASE("the user-tile gpio fixture byte-matches the golden observable trace")
   }
 }
 
+TEST_CASE("the user-tile buffer-narrowing fixture byte-matches the golden observable trace") {
+  const std::string base =
+      std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-buffer-narrowing";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.gpio.writer = &writer;
+  TraceTap tap(writer);
+
+  // The actuator stores a managed buffer and a number in rule variables, reads
+  // each back as a MindcraftValue union, and discriminates them with
+  // Buffer.isBuffer through the tag-general TYPE_CHECK op: the buffer branch
+  // drives buffer.get(0) (42) onto pin 2; the number branch typeof-narrows the
+  // stored 7 onto pin 3. The managed buffer is built through the buffer builtins
+  // and round-trips through the rule-variable store on the managed heap.
+  mindcraft::ManagedHeap heap(arena, &image);
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  ExecutionContext ctx;
+  mindcraft::TypeRegistry types(image);
+  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+  surface.types = &types;
+  surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Two 16ms thinks mirror SCHEDULE in wodal
+  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-buffer-narrowing.spec.ts.
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 2; i++) {
+    const float timeMs = lastThinkTimeMs + 16;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+  // Each think drove the narrowed buffer's first byte (42) onto pin 2 and the
+  // round-tripped number (7) onto pin 3, proving Buffer.isBuffer discriminated
+  // the two union values identically to the reference VM.
+  REQUIRE(microbit.gpio.writes.size() == 4);
+  int bufferWrites = 0;
+  int numberWrites = 0;
+  for (const auto& write : microbit.gpio.writes) {
+    if (write.pin == 2) {
+      CHECK(write.value == 42);
+      bufferWrites++;
+    } else {
+      CHECK(write.pin == 3);
+      CHECK(write.value == 7);
+      numberWrites++;
+    }
+  }
+  CHECK(bufferWrites == 2);
+  CHECK(numberWrites == 2);
+}
+
 TEST_CASE("the user-tile gpio analog fixture byte-matches the golden observable trace") {
   const std::string base =
       std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-gpio-analog";
