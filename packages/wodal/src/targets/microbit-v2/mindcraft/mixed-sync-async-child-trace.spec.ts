@@ -4,10 +4,12 @@
  * and lights pixel (0,0). It has two child rules. The synchronous child lights
  * (1,0) with no await, so it drains in the SAME think as the parent. The
  * asynchronous child scrolls text (an async actuator it parks on); its own child
- * rule lights (0,0) again at the async child's tail, reached only after the
- * scroll completes, so that second pixel lands a LATER think. Same-think
- * cascading applies to the synchronous child; AWAIT keeps the asynchronous
- * child's subtree cross-think.
+ * rule lights (2,0) at the async child's tail, reached only after the scroll
+ * completes, so the grandchild's pixel lands a LATER think. Same-think cascading
+ * applies to the synchronous child; AWAIT keeps the asynchronous child's subtree
+ * cross-think. The grandchild supplies its pixel column through a parameter tile
+ * and literal, so this fixture also pins a param actuator argument in a rule
+ * nested under an async-DO subtree.
  *
  * The brain is built through the tile API and compiled by the brain compiler, so
  * the parent's child invocations are compiler-emitted SPAWN_RULEs. The JSON,
@@ -68,7 +70,7 @@ function appendSetPixel(env: MindcraftEnvironment, brainDef: BrainDef, rule: Bra
 /**
  * A one-page brain: a parent rule (WHEN on-page-entered) that lights (0,0), with
  * a synchronous child that lights (1,0), and an asynchronous child that scrolls
- * text (parks) whose own child rule lights (0,0) again at the async child's tail.
+ * text (parks) whose own child rule lights (2,0) at the async child's tail.
  */
 function buildBrainDef(env: MindcraftEnvironment): BrainDef {
   const tiles = env.brainServices.edit.tiles;
@@ -91,7 +93,7 @@ function buildBrainDef(env: MindcraftEnvironment): BrainDef {
   const asyncChild = parent.appendNewRule();
   asyncChild.do().appendTile(scrollTile);
   const asyncGrandchild = asyncChild.appendNewRule();
-  asyncGrandchild.do().appendTile(setPixel);
+  appendSetPixel(env, brainDef, asyncGrandchild, 2);
 
   return brainDef;
 }
@@ -239,33 +241,42 @@ test("the committed mixed-sync-async-child binary and observable trace golden ar
   assert.equal(lines.filter((line) => line.startsWith("tick ")).length, TICK_COUNT);
   assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
 
-  // Column hex constants: x=0 (parent and the async grandchild), x=1 (the
-  // synchronous child).
+  // Column hex constants: x=0 (parent), x=1 (synchronous child), x=2 (async
+  // grandchild, supplied through a parameter tile + literal).
   const X0 = "00000000";
   const X1 = "3f800000";
+  const X2 = "40000000";
 
   // Three pixels cross the port: the parent (0,0), the synchronous child (1,0),
-  // and the async child's grandchild (0,0).
+  // and the async child's grandchild (2,0).
   assert.equal(lines.filter((line) => line.startsWith("port display set-pixel ")).length, 3);
   assert.equal(lines.filter((line) => line.startsWith("port display scroll ")).length, 1);
 
-  const x0Ticks = pixelTicksAt(first, X0);
+  const parentTick = pixelTick(first, X0);
   const syncTick = pixelTick(first, X1);
+  const asyncTick = pixelTick(first, X2);
   const scrollTick = tickOfLine(first, (l) => l.startsWith("port display scroll "));
+
+  // Each of the three columns is lit exactly once.
+  assert.deepEqual(
+    [pixelTicksAt(first, X0).length, pixelTicksAt(first, X1).length, pixelTicksAt(first, X2).length],
+    [1, 1, 1],
+    "the parent, the synchronous child, and the async grandchild each light their column once"
+  );
 
   // The parent, its synchronous child, and the scroll dispatch all land on the
   // entry think: the synchronous child drains in the SAME think as the parent.
   assert.deepEqual(
-    [x0Ticks[0], syncTick, scrollTick],
+    [parentTick, syncTick, scrollTick],
     [1, 1, 1],
     "the parent, the synchronous child, and the scroll dispatch all land on the entry think"
   );
 
-  // The asynchronous child parks on its scroll; its grandchild lights the second
-  // (0,0) pixel only a LATER think, after the animation completes -- AWAIT stays
-  // cross-think.
-  assert.equal(x0Ticks.length, 2, "the parent and the async grandchild each light (0,0) once");
-  assert.ok(x0Ticks[1]! > 1, "the asynchronous child's grandchild pixel lands a later think than the parent");
+  // The asynchronous child parks on its scroll; its grandchild lights (2,0) --
+  // its param-supplied column -- only a LATER think, after the animation
+  // completes, so a param actuator argument nested under an async-DO subtree
+  // lowers and runs correctly. AWAIT stays cross-think.
+  assert.ok(asyncTick > 1, "the asynchronous child's grandchild pixel lands a later think than the parent");
 
   if (!existsSync(TRACE_PATH)) {
     writeFileSync(TRACE_PATH, first);
