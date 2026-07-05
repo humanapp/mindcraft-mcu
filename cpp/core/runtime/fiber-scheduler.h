@@ -153,9 +153,11 @@ public:
 
   /**
    * Spawns a fire-and-forget child-rule fiber for `funcId`, linked to the fiber
-   * currently executing this round, and enqueues it for the next round.
-   * Implements {@link ChildRuleSpawner}; the dispatch loop calls it through
-   * {@link RuntimeSurface::childRuleSpawner} for `SPAWN_RULE`.
+   * currently executing this round, and holds it in the same-think spawn drain.
+   * The child runs later in the current {@link tick}, after its parent's slice,
+   * as a synchronous cascade. Implements {@link ChildRuleSpawner}; the dispatch
+   * loop calls it through {@link RuntimeSurface::childRuleSpawner} for
+   * `SPAWN_RULE`.
    */
   bool spawnChildRule(uint32_t funcId, ErrorCode& err) override;
 
@@ -197,12 +199,13 @@ public:
   void drainCompletedHandles();
 
   /**
-   * Runs one round: every fiber runnable at entry gets one budget slice in
-   * FIFO order; fibers enqueued during the round (a spawn or a
-   * budget-exhaustion re-enqueue) run in the next round. A slice ending in
-   * `RunStatus::Waiting` is a host-contract violation (no async capability
-   * exists) and faults the fiber with `ErrorCode::HostError`. Returns the
-   * number of fibers that received a slice.
+   * Runs one round: every fiber runnable at entry gets one budget slice in FIFO
+   * order. After each slice, the child rules that slice spawned drain within
+   * this same round as a synchronous cascade ({@link drainSpawnedSubtrees}).
+   * Fibers enqueued during the round for another reason -- a budget-exhaustion
+   * re-enqueue, a `YIELD`, or a settled handle's resumed waiter -- run in the
+   * next round. Returns the number of fibers that received a slice, including
+   * drained child-rule fibers.
    */
   uint32_t tick();
 
@@ -248,6 +251,24 @@ private:
   void enqueue(FiberRecord* record);
   FiberRecord* dequeue();
   void removeFromQueue(FiberRecord* record);
+  // Appends a freshly spawned child-rule fiber to the same-think spawn drain.
+  void enqueueSpawn(FiberRecord* record);
+
+  // Runs one budget slice of `record` and routes its outcome exactly as the main
+  // round does: stamps a frozen dispatch time for an async-action child, exposes
+  // it as running_ so a SPAWN_RULE links its child, and on return re-enqueues a
+  // yielded fiber, parks a waiting one on its handle, or settles a terminal
+  // async-action child's result handle. A slice that self-cancels mid-run keeps
+  // its Cancelled state. Shared by tick() and drainSpawnedSubtrees().
+  void runFiberSlice(FiberRecord* record);
+
+  // Drains the child-rule fibers spawned during the just-finished slice as a
+  // same-think synchronous cascade, depth-first: each child runs a slice and any
+  // grandchildren it spawns drain before that child's next sibling, so one
+  // subtree completes before the next begins. A child that parks (AWAIT), yields,
+  // or exhausts its budget takes its normal next-round or handle-wait path.
+  // Returns the number of child-rule slices run.
+  uint32_t drainSpawnedSubtrees();
 
   // Resumes a single waiting fiber whose handle `h` has settled: restores its
   // await site, queues the resolved value or a pending injected throw, marks it
@@ -272,6 +293,12 @@ private:
   FiberRecord* runHead_ = nullptr;
   FiberRecord* runTail_ = nullptr;
   uint32_t queueCount_ = 0;
+  // Intrusive FIFO of child-rule fibers spawned during the current slice, held
+  // out of the run queue. drainSpawnedSubtrees() runs them within the same tick
+  // and empties this list before the tick returns. Empty whenever no SPAWN_RULE
+  // ran this tick, which keeps tick() byte-identical for a spawn-free brain.
+  FiberRecord* spawnHead_ = nullptr;
+  FiberRecord* spawnTail_ = nullptr;
   // The fiber whose slice is currently running in tick(), or nullptr outside a
   // slice. SPAWN_RULE reads it to link a child fiber to its parent.
   FiberRecord* running_ = nullptr;

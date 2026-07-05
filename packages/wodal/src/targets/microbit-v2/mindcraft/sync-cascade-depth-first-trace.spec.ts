@@ -1,13 +1,17 @@
 /**
- * Golden observable trace for a REAL compiled brain proving the `in background`
- * modifier on `display text`: the parent rule fires once on page entry and its DO
- * scrolls text with the `in background` modifier, so its async handle resolves at
- * dispatch and the parent does not park on the animation. The parent's single
- * child rule lights a pixel; the parent resolves at dispatch, so the child runs
- * in the dispatch think, while the scroll animation is still in flight.
+ * Golden observable trace for a REAL compiled brain proving the synchronous
+ * child-rule cascade: a parent rule and its whole subtree run within ONE think,
+ * in depth-first causal order. The parent fires once on page entry and its DO
+ * lights pixel x=0. It has two child rules: the first (x=1) itself has a
+ * grandchild rule (x=2); the second child lights x=3. Because child rules drain
+ * synchronously in the same think as their parent, and the drain is depth-first,
+ * the four pixels land in one tick in the order x = 0, 1, 2, 3 (parent, first
+ * child, that child's grandchild, then the second child). A breadth-first drain
+ * would light 0, 1, 3, 2; a next-think cascade would spread the pixels across
+ * four ticks.
  *
  * The brain is built through the tile API and compiled by the brain compiler, so
- * the parent's child invocation is the compiler-emitted SPAWN_RULE. The JSON,
+ * the parent's child invocations are compiler-emitted SPAWN_RULEs. The JSON,
  * binary, and rendered trace are pinned beside this spec as the cross-VM
  * conformance fixture: the C++ VM parity test (cpp/test/trace-parity.test.cpp)
  * loads the same binary and byte-compares the trace.
@@ -18,10 +22,12 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import {
+  BrainTileLiteralDef,
   CoreHostActions,
+  CoreTypeIds,
   type MindcraftEnvironment,
   mkActuatorTileId,
-  mkModifierTileId,
+  mkParameterTileId,
   mkSensorTileId,
 } from "@mindcraft-lang/core/app";
 import { BrainDef, type BrainRuleDef } from "@mindcraft-lang/core/brain/model";
@@ -31,47 +37,57 @@ import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/
 import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../../mindcraft/program-image";
 import { parseWodalProgramImageBytes, wodalProgramBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
-import { SCROLL_DEFAULT_DELAY_MS, scrollCompletionTimeMs } from "./display-scroll";
 import { createMicroBitV2Environment } from "./environment";
 import { ObservableTraceWriter } from "./observable-trace";
 import { WodalMicroBitRuntime } from "./runtime";
-import { MicroBitV2HostActions, WodalMicroBitV2ModifierId } from "./tile-ids";
+import { MicroBitV2HostActions, WodalMicroBitV2ParameterId } from "./tile-ids";
 
-const DISPLAY_SCROLL = MicroBitV2HostActions.DisplayScroll.actionId;
+const DISPLAY_SET_PIXEL = MicroBitV2HostActions.DisplaySetPixel.actionId;
 
-const BASE = "display-scroll-background";
+const BASE = "sync-cascade-depth-first";
 const JSON_PATH = fileURLToPath(new URL(`./__fixtures__/${BASE}.mcprogram`, import.meta.url));
 const BIN_PATH = fileURLToPath(new URL(`./__fixtures__/${BASE}.mcprogram.bin`, import.meta.url));
 const TRACE_PATH = fileURLToPath(new URL(`./__fixtures__/${BASE}.ticks.trace`, import.meta.url));
 
-/** Milliseconds advanced per scheduled think. */
-const TICK_ADVANCE_MS = 1100;
-const TICK_COUNT = 8;
+const TICK_ADVANCE_MS = 1000;
+const TICK_COUNT = 4;
+
+/** Appends `set pixel` at column `x` (row 0) to `rule`'s DO, freezing `x` as a literal tile. */
+function appendSetPixel(env: MindcraftEnvironment, brainDef: BrainDef, rule: BrainRuleDef, x: number): void {
+  const tiles = env.brainServices.edit.tiles;
+  const setPixel = tiles.get(mkActuatorTileId(MicroBitV2HostActions.DisplaySetPixel.key));
+  const xParam = tiles.get(mkParameterTileId(WodalMicroBitV2ParameterId.X));
+  assert.ok(setPixel);
+  assert.ok(xParam);
+  rule.do().appendTile(setPixel);
+  rule.do().appendTile(xParam);
+  const xLiteral = new BrainTileLiteralDef(CoreTypeIds.Number, x, {}, env.brainServices);
+  brainDef.catalog().registerTileDef(xLiteral);
+  rule.do().appendTile(xLiteral);
+}
 
 /**
- * A one-page brain: a parent rule that fires once on page entry (when) and
- * scrolls text in the background (do, asynchronous with the `in background`
- * modifier), with a single child rule that lights a pixel.
+ * A one-page brain: a parent rule (WHEN on-page-entered) that lights x=0, with a
+ * first child (x=1) that itself has a grandchild (x=2), and a second child (x=3).
  */
 function buildBrainDef(env: MindcraftEnvironment): BrainDef {
   const tiles = env.brainServices.edit.tiles;
   const onPageEntered = tiles.get(mkSensorTileId(CoreHostActions.OnPageEntered.key));
-  const scrollTile = tiles.get(mkActuatorTileId(MicroBitV2HostActions.DisplayScroll.key));
-  const inBackground = tiles.get(mkModifierTileId(WodalMicroBitV2ModifierId.InBackground));
-  const setPixelTile = tiles.get(mkActuatorTileId(MicroBitV2HostActions.DisplaySetPixel.key));
   assert.ok(onPageEntered);
-  assert.ok(scrollTile);
-  assert.ok(inBackground);
-  assert.ok(setPixelTile);
 
   const brainDef = BrainDef.emptyBrainDef(env.brainServices, `${BASE} brain`);
   const parent = brainDef.pages().get(0)!.children().get(0)! as BrainRuleDef;
   parent.when().appendTile(onPageEntered);
-  parent.do().appendTile(scrollTile);
-  parent.do().appendTile(inBackground);
+  appendSetPixel(env, brainDef, parent, 0);
 
-  const child = parent.appendNewRule();
-  child.do().appendTile(setPixelTile);
+  const firstChild = parent.appendNewRule();
+  appendSetPixel(env, brainDef, firstChild, 1);
+
+  const grandchild = firstChild.appendNewRule();
+  appendSetPixel(env, brainDef, grandchild, 2);
+
+  const secondChild = parent.appendNewRule();
+  appendSetPixel(env, brainDef, secondChild, 3);
 
   return brainDef;
 }
@@ -88,7 +104,7 @@ function buildImage(env: MindcraftEnvironment): WodalProgramImage<LinkedBrainPro
   return built.image;
 }
 
-/** Writes the JSON `.mcprogram` golden if missing, freezing the brain's generated id. */
+/** Writes the JSON `.mcprogram` golden if missing, freezing the brain's generated ids. */
 function ensureJsonGolden(): void {
   if (existsSync(JSON_PATH)) {
     return;
@@ -101,7 +117,7 @@ function ensureJsonGolden(): void {
   );
 }
 
-/** Runs the committed binary over the fixed tick schedule with scroll and set-pixel taps. */
+/** Runs the committed binary over the fixed tick schedule with on-page-entered and set-pixel taps. */
 function runTrace(bin: Uint8Array, tickCount: number): string {
   const environment = createMicroBitV2Environment();
   const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
@@ -114,17 +130,6 @@ function runTrace(bin: Uint8Array, tickCount: number): string {
     profileId: profile.numericProfileId,
     precision: profile.numberPrecision,
   });
-
-  const scrollAction = environment.brainServices.runtime.actions.getById(DISPLAY_SCROLL);
-  assert.ok(scrollAction !== undefined && scrollAction.binding === "host");
-  const execAsync = scrollAction.execAsync;
-  assert.ok(execAsync !== undefined);
-  scrollAction.execAsync = (ctx, args, handle) => {
-    const callSiteId = ctx.currentCallSiteId;
-    assert.ok(callSiteId !== undefined);
-    execAsync(ctx, args, handle);
-    writer.hostActionCallAsync(DISPLAY_SCROLL, callSiteId, args);
-  };
 
   for (const actionId of [CoreHostActions.OnPageEntered.actionId, MicroBitV2HostActions.DisplaySetPixel.actionId]) {
     const syncAction = environment.brainServices.runtime.actions.getById(actionId);
@@ -141,13 +146,6 @@ function runTrace(bin: Uint8Array, tickCount: number): string {
   }
 
   const microbit = new MicroBit();
-  const deviceScrollText = microbit.display.scrollText.bind(microbit.display);
-  microbit.display.scrollText = (text, durationMs, requestTime, onComplete) => {
-    if (!microbit.display.isBusy()) {
-      writer.displayScroll(text);
-    }
-    deviceScrollText(text, durationMs, requestTime, onComplete);
-  };
   const deviceSetPixelValue = microbit.display.setPixelValue.bind(microbit.display);
   microbit.display.setPixelValue = (x, y, brightness) => {
     writer.displaySetPixel(x, y, brightness);
@@ -165,26 +163,37 @@ function runTrace(bin: Uint8Array, tickCount: number): string {
     const timeMs = lastThinkTimeMs + TICK_ADVANCE_MS;
     writer.tick(i + 1, timeMs, lastThinkTimeMs === 0 ? 0 : timeMs - lastThinkTimeMs);
     runtime.tick(TICK_ADVANCE_MS);
-    microbit.display.advanceScroll(timeMs);
     lastThinkTimeMs = timeMs;
   }
   return writer.render();
 }
 
-/** The 1-based tick index whose block contains a line matching `predicate`, or -1. */
-function tickOfLine(trace: string, predicate: (line: string) => boolean): number {
+/** The x coordinate (as f32 hex) of each `set-pixel` line, in trace order. */
+function pixelColumnsInOrder(trace: string): string[] {
+  const columns: string[] = [];
+  for (const line of trace.split("\n")) {
+    if (line.startsWith("port display set-pixel ")) {
+      columns.push(line.split(" ")[3]!);
+    }
+  }
+  return columns;
+}
+
+/** The 1-based tick index of every block that contains a `set-pixel` line. */
+function pixelTicks(trace: string): number[] {
+  const ticks: number[] = [];
   let currentTick = 0;
   for (const line of trace.split("\n")) {
     if (line.startsWith("tick ")) {
       currentTick = Number.parseInt(line.split(" ")[1]!, 10);
-    } else if (predicate(line)) {
-      return currentTick;
+    } else if (line.startsWith("port display set-pixel ")) {
+      ticks.push(currentTick);
     }
   }
-  return -1;
+  return ticks;
 }
 
-test("the committed display-scroll-background binary and observable trace golden are byte-stable", () => {
+test("the committed sync-cascade-depth-first binary and observable trace golden are byte-stable", () => {
   ensureJsonGolden();
   const generated = wodalProgramBytes(new Uint8Array(readFileSync(JSON_PATH)));
   if (!existsSync(BIN_PATH)) {
@@ -201,28 +210,25 @@ test("the committed display-scroll-background binary and observable trace golden
   assert.equal(lines.filter((line) => line.startsWith("tick ")).length, TICK_COUNT);
   assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
 
-  // The parent scrolls once and the child lights one pixel.
-  assert.equal(lines.filter((line) => line.startsWith("port display scroll ")).length, 1);
-  assert.equal(lines.filter((line) => line.startsWith("port display set-pixel ")).length, 1);
+  // Column hex constants: x=0 is 00000000, x=1 is 3f800000, x=2 is 40000000,
+  // x=3 is 40400000.
+  const X0 = "00000000";
+  const X1 = "3f800000";
+  const X2 = "40000000";
+  const X3 = "40400000";
 
-  // The parent dispatches its scroll on the entry think; because the background
-  // scroll resolves at dispatch, the parent does not park on the animation and
-  // completes its DO, and its child rule (spawned via the compiler-emitted
-  // SPAWN_RULE) drains in the same think. The child lights its pixel on the
-  // dispatch think while the animation is still in flight.
-  const scrollTick = tickOfLine(first, (l) => l.startsWith("port display scroll "));
-  const pixelTick = tickOfLine(first, (l) => l.startsWith("port display set-pixel "));
-  assert.equal(scrollTick, 1);
-  assert.equal(pixelTick, scrollTick);
+  // The whole cascade lights four pixels exactly once (the parent WHEN fires only
+  // on the entry think).
+  assert.equal(lines.filter((line) => line.startsWith("port display set-pixel ")).length, 4);
 
-  // The scroll lease genuinely outlasts the child: the "hello" default animation
-  // completes several thinks later, so the child ran while the scroll was in
-  // flight. SCROLLED_TEXT is the default text when the call omits a text tile.
-  const SCROLLED_TEXT = "hello";
-  const completionTick = Math.ceil(
-    scrollCompletionTimeMs(TICK_ADVANCE_MS, SCROLLED_TEXT.length, SCROLL_DEFAULT_DELAY_MS) / TICK_ADVANCE_MS
-  );
-  assert.ok(completionTick > pixelTick + 1, "the background scroll holds the lease past the child's think");
+  // Same-think: every pixel lands in tick 1. A next-think cascade would spread
+  // the four pixels across four ticks.
+  assert.deepEqual(pixelTicks(first), [1, 1, 1, 1], "the whole synchronous subtree runs in one think");
+
+  // Depth-first causal order: parent (x=0), first child (x=1), that child's
+  // grandchild (x=2), then the second child (x=3). Breadth-first would be
+  // 0, 1, 3, 2.
+  assert.deepEqual(pixelColumnsInOrder(first), [X0, X1, X2, X3], "the drain is depth-first, not breadth-first");
 
   if (!existsSync(TRACE_PATH)) {
     writeFileSync(TRACE_PATH, first);

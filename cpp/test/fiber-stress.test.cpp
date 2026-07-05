@@ -120,9 +120,9 @@ constexpr uint32_t kRestartActionId = 5001;
  * Builds the two-page stress program. Page 0 holds `kWorkRoots` root rules, each
  * a root -> child -> grandchild chain ending in an async actuator the grandchild
  * awaits (a different settle delay per root), plus a switcher root that restarts
- * the page when armed (it runs last, after the work roots have spawned this
- * round, so it samples the round's peak occupancy). Page 1 is a single idle
- * root, a quiescent target for page switches.
+ * the page when armed (it runs last, after every work root's subtree has drained
+ * same-think and parked, so it samples the round's peak occupancy). Page 1 is a
+ * single idle root, a quiescent target for page switches.
  */
 ProgramImage buildStressProgram(ProgramBuilder& b, std::vector<uint8_t>& storage) {
   b.poolString("stress-page-0"); // string 0
@@ -209,7 +209,11 @@ TEST_CASE("sustained nested-async spawning with mid-round cancels stays leak-bou
   ExecutionContext ctx;
   FaultObserver observer;
   mindcraft::RuntimeSurface surface{&ctx, {bindings, 2}, &observer};
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  // Synchronous child-rule cascades expand a whole subtree within one think, so
+  // every work root's grandchild dispatches its async actuator in the same think:
+  // concurrent pending handles peak higher than the device default of 8. Run
+  // under the raised async-handle cap the many-handles-at-once tests share.
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kAsyncDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   env.scheduler = &scheduler;
   env.brain = &brain;
@@ -251,9 +255,10 @@ TEST_CASE("sustained nested-async spawning with mid-round cancels stays leak-bou
     }
   }
 
-  // The lazy spawn model bounds the peak occupancy well under the fiber guard,
-  // and the runtime working set is a small fraction of the 32 KiB device VM
-  // region.
+  // A synchronous cascade expands each subtree within one think, so the peak
+  // occupancy runs higher than the old one-level-per-think spread yet still well
+  // under the fiber guard, and the runtime working set stays a small fraction of
+  // the 32 KiB device VM region.
   CHECK(env.peakLive < mindcraft::test::kDeviceProfileCaps.maxFibers);
   CHECK(warmupHighWater < 32u * 1024u);
   CHECK(env.peakLive >= kWorkRoots); // the nested subtrees actually ran concurrently

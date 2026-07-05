@@ -291,21 +291,31 @@ TEST_CASE("requesting the active page restarts its rules from their entry") {
   CHECK(observer.actionCalls == 2);
 }
 
-TEST_CASE("a page restart cancels a firing child-rule subtree without orphaning it") {
+TEST_CASE(
+    "a page restart mid-drain cancels a still-pending sibling child rule without orphaning it") {
   ProgramBuilder b;
   b.poolString("page-id");
   b.valueNil(); // value pool 0: the RET value
-  // funcId 0: a parent rule that spawns a child rule (funcId 1).
-  b.beginFunction().instr(Op::SPAWN_RULE, 1).instr(Op::PUSH_CONST_VAL, 0).instr(Op::RET);
-  // funcId 1: the child rule (trivial body).
+  // funcId 0: a parent rule that spawns two child rules at its tail (funcId 1
+  // then funcId 2), both into the same-think spawn drain.
+  b.beginFunction()
+      .instr(Op::SPAWN_RULE, 1)
+      .instr(Op::SPAWN_RULE, 2)
+      .instr(Op::PUSH_CONST_VAL, 0)
+      .instr(Op::RET);
+  // funcId 1: the first child, drained first; it restarts the page mid-cascade,
+  // which cancels itself and its still-pending sibling.
+  b.beginFunction()
+      .instr(Op::HOST_ACTION_CALL, 1, 0, 0)
+      .instr(Op::PUSH_CONST_VAL, 0)
+      .instr(Op::RET);
+  // funcId 2: the sibling child, still pending in the spawn drain when the
+  // restart cancels it, so it never runs.
   b.beginFunction().instr(Op::PUSH_CONST_VAL, 0).instr(Op::RET);
-  // funcId 2: a sibling root rule that restarts the page mid-round, cancelling
-  // the still-queued child the parent just spawned.
-  b.beginFunction().instr(Op::HOST_ACTION_CALL, 1, 0, 0).instr(Op::RET);
   b.ruleFunc(0);
   b.ruleFunc(1);
   b.ruleFunc(2);
-  b.beginPage(0).pageRoot(0).pageRoot(2).pageHostCallSite(0, 1);
+  b.beginPage(0).pageRoot(0).pageHostCallSite(0, 1);
   std::vector<uint8_t> storage(16 * 1024);
   const ProgramImage image = b.build(storage);
 
@@ -320,10 +330,11 @@ TEST_CASE("a page restart cancels a firing child-rule subtree without orphaning 
   env.brain = &brain;
   REQUIRE(brain.startup().isOk());
 
-  // Each think the parent spawns a child fiber and the sibling rule restarts the
-  // page mid-round, cancelling the still-queued child subtree. A leak or orphan
-  // would grow liveCount without bound across thinks; a mid-round-cancel crash
-  // would fault or abort.
+  // Each think the parent spawns two children into the same-think drain; the
+  // first child restarts the page mid-cascade, so the page-scoped cancellation
+  // must reclaim both the running child and its still-pending sibling. A leak or
+  // orphan would grow liveCount without bound across thinks; a mid-drain-cancel
+  // crash would fault or abort.
   for (int i = 1; i <= 50; i++) {
     REQUIRE(brain.think(16.0f * static_cast<float>(i)).isOk());
     CHECK(scheduler.liveCount() <= 4);

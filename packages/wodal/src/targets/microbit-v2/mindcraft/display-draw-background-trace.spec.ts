@@ -3,9 +3,9 @@
  * modifier on `draw image`: the parent rule fires once on page entry and its DO
  * draws an image for a multi-think duration with the `in background` modifier, so
  * its async handle resolves at dispatch and the parent does not park on the hold.
- * The parent's single child rule lights a pixel; the parent resolves at dispatch,
- * so the child runs the think after dispatch, while the draw still holds the
- * display lease.
+ * The parent's single child rule lights a pixel; the parent resolves at dispatch
+ * and completes its DO, so the child rule drains in the same think as the
+ * dispatch (a synchronous cascade), while the draw still holds the display lease.
  *
  * The brain is built through the tile API and compiled by the brain compiler, so
  * the parent's child invocation is the compiler-emitted SPAWN_RULE. The JSON,
@@ -216,14 +216,15 @@ test("the committed draw-image-background binary and observable trace golden are
   assert.equal(lines.filter((line) => line.startsWith("port display draw ")).length, 1);
   assert.equal(lines.filter((line) => line.startsWith("port display set-pixel ")).length, 1);
 
-  // The parent dispatches its draw on the entry think and the child lights its
-  // pixel the think after dispatch -- the parent did not park on the hold. The
-  // child spawns via the compiler-emitted SPAWN_RULE and is scheduled on the next
-  // think.
+  // The parent dispatches its draw on the entry think; because the background
+  // draw resolves at dispatch, the parent does not park on the hold and completes
+  // its DO, and its child rule (spawned via the compiler-emitted SPAWN_RULE)
+  // drains in the same think. The child lights its pixel on the dispatch think
+  // while the draw still holds the lease.
   const drawTick = tickOfLine(first, (l) => l.startsWith("port display draw "));
   const pixelTick = tickOfLine(first, (l) => l.startsWith("port display set-pixel "));
   assert.equal(drawTick, 1);
-  assert.equal(pixelTick, drawTick + 1);
+  assert.equal(pixelTick, drawTick);
 
   // The draw lease genuinely outlasts the child: it holds the display for
   // HOLD_SECONDS, completing several thinks later, so the child ran while the

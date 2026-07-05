@@ -171,7 +171,9 @@ bool FiberScheduler::spawnChildRule(uint32_t funcId, ErrorCode& err) {
     return false;
   }
   record->rootRuleFuncId = subtreeRoot;
-  enqueue(record);
+  // Hold the child out of the run queue; it drains within this tick after its
+  // parent's slice (a synchronous same-think cascade).
+  enqueueSpawn(record);
   return true;
 }
 
@@ -346,6 +348,90 @@ void FiberScheduler::drainCompletedHandles() {
   }
 }
 
+void FiberScheduler::runFiberSlice(FiberRecord* record) {
+  record->exec.budget = caps_.defaultBudget;
+  // An async-action child (one holding a result handle) observes its frozen
+  // dispatch time; stamp it on the shared context for the slice and restore the
+  // live tick time afterward.
+  const bool stampDispatchTime =
+      record->exec.asyncResultHandleId != kNoHandleId && surface_.context != nullptr;
+  const mc_number_t liveTime = stampDispatchTime ? surface_.context->time : 0;
+  if (stampDispatchTime) {
+    surface_.context->time = record->exec.dispatchTime;
+  }
+  // Expose the running fiber so a SPAWN_RULE in its slice can link the child
+  // back to it. Cleared after the slice returns.
+  running_ = record;
+  const RunResult result = runExecution(record->exec, program_, surface_);
+  running_ = nullptr;
+  if (stampDispatchTime) {
+    surface_.context->time = liveTime;
+  }
+  if (record->state == FiberState::Cancelled) {
+    // A host body cancelled this fiber mid-slice (a page change or restart); the
+    // slice stopped early. Leave the Cancelled state in place.
+    return;
+  }
+  switch (result.status) {
+  case RunStatus::Yielded:
+    enqueue(record);
+    break;
+  case RunStatus::Done:
+    record->state = FiberState::Done;
+    // An async-action child resolves its result handle on completion so the
+    // awaiting parent resumes. Mirrors resolveAsyncActionHandle in vm.ts.
+    if (record->exec.asyncResultHandleId != kNoHandleId) {
+      handles_.resolve(record->exec.asyncResultHandleId, result.result);
+      record->exec.asyncResultHandleId = kNoHandleId;
+    }
+    break;
+  case RunStatus::Fault:
+    record->state = FiberState::Fault;
+    // A faulted async-action child rejects its result handle so the awaiting
+    // parent throws at its AWAIT. Mirrors rejectAsyncActionHandle in vm.ts.
+    if (record->exec.asyncResultHandleId != kNoHandleId) {
+      handles_.reject(record->exec.asyncResultHandleId, result.error);
+      record->exec.asyncResultHandleId = kNoHandleId;
+    }
+    if (surface_.observer != nullptr) {
+      surface_.observer->onFiberFault(record->id, result.error);
+    }
+    break;
+  case RunStatus::Waiting:
+    // The fiber parked on a pending handle (AWAIT). Hold it Waiting and add it to
+    // the handle's waiters (the await site, including the handle id, lives on the
+    // fiber's execution state); a later drain resumes it on settle.
+    record->state = FiberState::Waiting;
+    handles_.addWaiter(record->exec.await.handleId, record->id);
+    break;
+  }
+}
+
+uint32_t FiberScheduler::drainSpawnedSubtrees() {
+  if (spawnHead_ == nullptr) {
+    return 0;
+  }
+  uint32_t executed = 0;
+  // Detach the fibers the just-finished slice spawned; grandchildren spawned
+  // while draining form a fresh list this recursion consumes depth-first.
+  FiberRecord* child = spawnHead_;
+  spawnHead_ = nullptr;
+  spawnTail_ = nullptr;
+  while (child != nullptr) {
+    FiberRecord* next = child->nextRunnable;
+    child->nextRunnable = nullptr;
+    // A page switch or parent stop earlier in the drain may have cancelled this
+    // still-pending child through the page-scoped cascade; skip it.
+    if (child->state == FiberState::Runnable) {
+      runFiberSlice(child);
+      executed++;
+      executed += drainSpawnedSubtrees();
+    }
+    child = next;
+  }
+  return executed;
+}
+
 uint32_t FiberScheduler::tick() {
   uint32_t executed = 0;
   // Round snapshot: only the fibers queued at entry run; mid-round enqueues
@@ -364,64 +450,13 @@ uint32_t FiberScheduler::tick() {
       continue;
     }
 
-    record->exec.budget = caps_.defaultBudget;
-    // An async-action child (one holding a result handle) observes its frozen
-    // dispatch time; stamp it on the shared context for the slice and restore the
-    // live tick time afterward.
-    const bool stampDispatchTime =
-        record->exec.asyncResultHandleId != kNoHandleId && surface_.context != nullptr;
-    const mc_number_t liveTime = stampDispatchTime ? surface_.context->time : 0;
-    if (stampDispatchTime) {
-      surface_.context->time = record->exec.dispatchTime;
-    }
-    // Expose the running fiber so a SPAWN_RULE in its slice can link the child
-    // back to it. Cleared after the slice returns.
-    running_ = record;
-    const RunResult result = runExecution(record->exec, program_, surface_);
-    running_ = nullptr;
-    if (stampDispatchTime) {
-      surface_.context->time = liveTime;
-    }
-    if (record->state == FiberState::Cancelled) {
-      // A host body cancelled this fiber mid-slice (a page change or restart);
-      // the slice stopped early. Leave the Cancelled state in place.
-      executed++;
-      continue;
-    }
-    switch (result.status) {
-    case RunStatus::Yielded:
-      enqueue(record);
-      break;
-    case RunStatus::Done:
-      record->state = FiberState::Done;
-      // An async-action child resolves its result handle on completion so the
-      // awaiting parent resumes. Mirrors resolveAsyncActionHandle in vm.ts.
-      if (record->exec.asyncResultHandleId != kNoHandleId) {
-        handles_.resolve(record->exec.asyncResultHandleId, result.result);
-        record->exec.asyncResultHandleId = kNoHandleId;
-      }
-      break;
-    case RunStatus::Fault:
-      record->state = FiberState::Fault;
-      // A faulted async-action child rejects its result handle so the awaiting
-      // parent throws at its AWAIT. Mirrors rejectAsyncActionHandle in vm.ts.
-      if (record->exec.asyncResultHandleId != kNoHandleId) {
-        handles_.reject(record->exec.asyncResultHandleId, result.error);
-        record->exec.asyncResultHandleId = kNoHandleId;
-      }
-      if (surface_.observer != nullptr) {
-        surface_.observer->onFiberFault(record->id, result.error);
-      }
-      break;
-    case RunStatus::Waiting:
-      // The fiber parked on a pending handle (AWAIT). Hold it Waiting and add it
-      // to the handle's waiters (the await site, including the handle id, lives
-      // on the fiber's execution state); a later drain resumes it on settle.
-      record->state = FiberState::Waiting;
-      handles_.addWaiter(record->exec.await.handleId, record->id);
-      break;
-    }
+    runFiberSlice(record);
     executed++;
+
+    // Drain the synchronous subtree this fiber just spawned (its child rules and
+    // their descendants) within this same tick, before the next fiber in the
+    // round.
+    executed += drainSpawnedSubtrees();
   }
   return executed;
 }
@@ -492,6 +527,16 @@ void FiberScheduler::removeFromQueue(FiberRecord* record) {
     }
     prev = cur;
   }
+}
+
+void FiberScheduler::enqueueSpawn(FiberRecord* record) {
+  record->nextRunnable = nullptr;
+  if (spawnTail_ != nullptr) {
+    spawnTail_->nextRunnable = record;
+  } else {
+    spawnHead_ = record;
+  }
+  spawnTail_ = record;
 }
 
 } // namespace mindcraft
