@@ -1,7 +1,6 @@
 import {
   type AsyncHandle,
   bag,
-  ConsumesAnyWhenResult,
   type CreateHostActuatorOptions,
   type ExecutionContext,
   extractNumberValue,
@@ -89,5 +88,4 @@ export default {
   fn: { exec: execDisplayScroll },
   isAsync: true,
   metadata: { label: "display text" },
-  consumesWhenResult: ConsumesAnyWhenResult,
 } satisfies CreateHostActuatorOptions;

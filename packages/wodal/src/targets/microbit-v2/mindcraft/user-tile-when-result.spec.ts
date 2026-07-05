@@ -37,15 +37,29 @@ const SENSOR_PIN = 2;
 /** Pin the driver actuator drives with the WHEN result it reads directly. */
 const ACTUATOR_PIN = 3;
 
+// How a variant's readers declare the WHEN-result type they consume. Each reader
+// narrows both a Buffer and a Number at runtime, but declares the concrete type
+// its producer actually delivers: a type name string, or the `BufferType` token.
+interface WhenResultDecl {
+  /** Extra import token prefixed to the `mindcraft` import (e.g. "BufferType, "). */
+  imports: string;
+  /** The `consumesWhenResult` value as written in source. */
+  value: string;
+}
+
+const NUMBER_DECL: WhenResultDecl = { imports: "", value: '"number"' };
+const BUFFER_DECL: WhenResultDecl = { imports: "BufferType, ", value: "BufferType" };
+
 // The inline decoder sensor: reads the enclosing rule's WHEN result and narrows
 // it. `Buffer.isBuffer` yields the first byte; a number passes through; anything
 // else (nil, wrong type) yields the sentinel 99. Filling the driver's value slot
 // makes this a sync HOST_CALL under a WHEN -- the decoder's real call site.
-const DECODER_SOURCE = `import { Sensor, type Context } from "mindcraft";
+function decoderSource(decl: WhenResultDecl): string {
+  return `import { ${decl.imports}Sensor, type Context } from "mindcraft";
 
 export default Sensor({
   name: "when-decoder",
-  consumesWhenResult: "any",
+  consumesWhenResult: ${decl.value},
   onExecute(ctx: Context): number {
     const result = ctx.getWhenResult();
     if (Buffer.isBuffer(result)) {
@@ -58,16 +72,18 @@ export default Sensor({
   },
 });
 `;
+}
 
 // The driver actuator: writes the inline decoder's value (its anonymous number
 // arg) to SENSOR_PIN, then reads the same WHEN result from its own body and
 // writes the narrowed byte to ACTUATOR_PIN, exercising the accessor from an
 // actuator call site alongside the sensor one.
-const DRIVER_SOURCE = `import { Actuator, param, type Context } from "mindcraft";
+function driverSource(decl: WhenResultDecl): string {
+  return `import { ${decl.imports}Actuator, param, type Context } from "mindcraft";
 
 export default Actuator({
   name: "when-driver",
-  consumesWhenResult: "any",
+  consumesWhenResult: ${decl.value},
   args: [param("value", { type: "number", anonymous: true })],
   onExecute(ctx: Context, args: { value: number }): void {
     ctx.microbit.gpio.digitalWrite(${SENSOR_PIN}, args.value);
@@ -82,11 +98,14 @@ export default Actuator({
   },
 });
 `;
+}
 
 /** One WHEN-result golden: fixture base name, the producer's WHEN value, and the decoded byte both pins carry. */
 interface Variant {
   base: string;
   producerSource: string;
+  /** The concrete WHEN-result type the readers declare, matching this variant's producer. */
+  decl: WhenResultDecl;
   expected: number;
 }
 
@@ -102,6 +121,7 @@ export default Sensor({
   },
 });
 `,
+    decl: NUMBER_DECL,
     expected: 42,
   },
   {
@@ -116,6 +136,7 @@ export default Sensor({
   },
 });
 `,
+    decl: BUFFER_DECL,
     expected: 55,
   },
 ];
@@ -154,8 +175,8 @@ function buildImage(environment: MindcraftEnvironment, variant: Variant): WodalP
   project.setFiles(
     new Map([
       ["when-producer.ts", variant.producerSource],
-      ["when-decoder.ts", DECODER_SOURCE],
-      ["when-driver.ts", DRIVER_SOURCE],
+      ["when-decoder.ts", decoderSource(variant.decl)],
+      ["when-driver.ts", driverSource(variant.decl)],
     ])
   );
   const compileResult = project.compileAll();
@@ -346,10 +367,11 @@ function buildNestedImage(
   environment: MindcraftEnvironment,
   variant: NestedVariant
 ): WodalProgramImage<LinkedBrainProgram> {
+  // The parent and child producers both deliver a Number, so the readers declare Number.
   const files = new Map<string, string>([
     ["when-parent-producer.ts", PARENT_PRODUCER_SOURCE],
-    ["when-decoder.ts", DECODER_SOURCE],
-    ["when-driver.ts", DRIVER_SOURCE],
+    ["when-decoder.ts", decoderSource(NUMBER_DECL)],
+    ["when-driver.ts", driverSource(NUMBER_DECL)],
   ]);
   if (variant.childProducerSource !== null) {
     files.set("when-child-producer.ts", variant.childProducerSource);
