@@ -67,6 +67,7 @@ export class WodalMicroBitRuntime {
         maxLocalsSize: deviceProfile.maxLocalsSize,
         maxFrameDepth: deviceProfile.maxFrameDepth,
         maxHandlers: deviceProfile.maxHandlers,
+        maxHandles: deviceProfile.maxHandles,
       }
     );
     brainRuntime.startup();
