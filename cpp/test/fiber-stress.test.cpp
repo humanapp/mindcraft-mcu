@@ -75,11 +75,22 @@ struct StressEnv {
   SettleQueue settle;
   bool restartArmed = false;
   uint32_t peakLive = 0;
+  /** Highest live-handle count observed at any async dispatch. */
+  uint32_t peakHandles = 0;
+  /** Total async dispatches that got a handle (backpressured attempts excluded). */
+  uint32_t totalDispatches = 0;
 
   void sampleLive() {
     const uint32_t live = scheduler->liveCount();
     if (live > peakLive) {
       peakLive = live;
+    }
+  }
+
+  void sampleHandles() {
+    const uint32_t live = scheduler->handles().size();
+    if (live > peakHandles) {
+      peakHandles = live;
     }
   }
 };
@@ -91,7 +102,9 @@ Status execAsyncWork(void* hostData, ExecutionContext& ctx, Span<const Value> ar
   const uint32_t delay =
       !args.empty() && args[0].isNumber() ? static_cast<uint32_t>(args[0].asNumber()) : 1;
   env.settle.schedule(handle, static_cast<uint32_t>(ctx.currentTick) + delay);
+  env.totalDispatches++;
   env.sampleLive();
+  env.sampleHandles();
   return Status::ok();
 }
 
@@ -188,6 +201,47 @@ ProgramImage buildStressProgram(ProgramBuilder& b, std::vector<uint8_t>& storage
   return b.build(storage);
 }
 
+/** Number of same-think async child rules under the wide-async parent. */
+constexpr uint32_t kWideChildren = 12;
+
+/**
+ * Builds a one-page brain whose single root rule spawns {@link kWideChildren}
+ * child rules in one think, each of which dispatches an async actuator and awaits
+ * it. Every child shares one call site (the actuator carries no per-callsite
+ * state). Run under a handle cap below the child count, the same-think breadth
+ * exceeds the cap and backpressures across thinks; the root re-fires only once
+ * its whole subtree has drained, so the brain cycles indefinitely.
+ */
+ProgramImage buildWideAsyncProgram(ProgramBuilder& b, std::vector<uint8_t>& storage) {
+  b.poolString("wide-async-page"); // string 0
+  b.valueNil();                    // value 0
+  b.number(1);                     // number 0 (settle delay)
+
+  // func 0: parent -> spawn kWideChildren children, return.
+  b.beginFunction();
+  for (uint32_t i = 0; i < kWideChildren; i++) {
+    b.instr(Op::SPAWN_RULE, 1);
+  }
+  b.instr(Op::PUSH_CONST_VAL, 0).instr(Op::RET);
+  // func 1: child -> dispatch the async actuator (settle one think later), await.
+  b.beginFunction()
+      .instr(Op::PUSH_CONST_NUM, 0)
+      .instr(Op::HOST_ACTION_CALL_ASYNC, static_cast<int32_t>(kAsyncActionId), 1, 300)
+      .instr(Op::AWAIT)
+      .instr(Op::POP)
+      .instr(Op::PUSH_CONST_VAL, 0)
+      .instr(Op::RET);
+
+  b.ruleFunc(0);
+  b.ruleFunc(1);
+
+  b.beginPage(0);
+  b.pageRoot(0);
+  b.pageHostCallSite(300, kAsyncActionId);
+
+  return b.build(storage);
+}
+
 } // namespace
 
 TEST_CASE("sustained nested-async spawning with mid-round cancels stays leak-bounded") {
@@ -264,5 +318,70 @@ TEST_CASE("sustained nested-async spawning with mid-round cancels stays leak-bou
   CHECK(env.peakLive >= kWorkRoots); // the nested subtrees actually ran concurrently
 
   INFO("peak live fibers: " << env.peakLive);
+  INFO("runtime arena high-water bytes: " << warmupHighWater);
+}
+
+TEST_CASE("wide same-think async breadth backpressures under a small handle cap without faulting") {
+  ProgramBuilder builder;
+  std::vector<uint8_t> imageStorage(8 * 1024);
+  const ProgramImage image = buildWideAsyncProgram(builder, imageStorage);
+
+  std::vector<uint8_t> arenaStorage(48 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+
+  StressEnv env;
+  HostActionBinding bindings[1] = {
+      {kAsyncActionId, nullptr, nullptr, &env, &execAsyncWork},
+  };
+
+  ExecutionContext ctx;
+  FaultObserver observer;
+  mindcraft::RuntimeSurface surface{&ctx, {bindings, 1}, &observer};
+  // The cap (4) sits below the same-think async breadth (kWideChildren), so the
+  // fifth child onward finds the handle table full each think and backpressures.
+  constexpr uint32_t kHandleCap = 4;
+  FiberScheduler scheduler(
+      image, surface, arena,
+      mindcraft::test::withMaxHandles(mindcraft::test::kDeviceProfileCaps, kHandleCap));
+  BrainRuntime brain(image, scheduler, surface);
+  env.scheduler = &scheduler;
+  env.brain = &brain;
+  REQUIRE(brain.startup().isOk());
+
+  constexpr uint32_t kThinks = 4000;
+  constexpr uint32_t kWarmup = 1500;
+  size_t warmupHighWater = 0;
+
+  for (uint32_t t = 1; t <= kThinks; t++) {
+    env.settle.pump(t);
+    REQUIRE(brain.think(static_cast<float>(t) * 16.0f).isOk());
+    REQUIRE(observer.faults == 0);
+    // The live-handle count never exceeds the cap: createPending refuses past it,
+    // so the dispatch backpressures and parks.
+    REQUIRE(scheduler.handles().size() <= kHandleCap);
+
+    if (t <= kWarmup) {
+      if (arena.bytesUsed() > warmupHighWater) {
+        warmupHighWater = arena.bytesUsed();
+      }
+    } else {
+      // A non-leaking run never carves more arena past the warmup high-water: the
+      // backpressure park path recycles fibers and handles like any other.
+      CHECK(arena.bytesUsed() <= warmupHighWater);
+    }
+  }
+
+  // No dispatch ever faulted on handle exhaustion.
+  CHECK(observer.faults == 0);
+  // The breadth actually reached the cap, so real backpressure was exercised.
+  CHECK(env.peakHandles == kHandleCap);
+  // Sustained progress: the root re-fires only after its whole subtree drains, so
+  // a large dispatch total proves many full cycles of kWideChildren completed --
+  // no child's async is permanently lost to the cap (no starvation).
+  CHECK(env.totalDispatches >= kWideChildren * 50);
+  CHECK(warmupHighWater < 32u * 1024u);
+
+  INFO("peak live handles: " << env.peakHandles);
+  INFO("total async dispatches: " << env.totalDispatches);
   INFO("runtime arena high-water bytes: " << warmupHighWater);
 }

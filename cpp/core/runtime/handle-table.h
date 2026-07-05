@@ -77,6 +77,18 @@ public:
       : handles_(arena), waiters_(arena), maxHandles_(maxHandles) {}
 
   /**
+   * True when a {@link createPending} would clear the live-handle guard right
+   * now: the live-handle count is below {@link maxHandles}. Non-mutating; an
+   * async dispatch checks it to decide whether to allocate or to park and retry
+   * next round. A create can still fail on arena exhaustion after this returns
+   * true.
+   */
+  bool hasCapacity() const { return handles_.liveCount() < maxHandles_; }
+
+  /** Count of live handles (any state) currently carved from the pool. */
+  uint32_t size() const { return handles_.liveCount(); }
+
+  /**
    * Carves a fresh `Pending` handle and returns its id, or {@link kNoHandleId}
    * when the live-handle count is already {@link maxHandles} or the arena cannot
    * back a new slot.

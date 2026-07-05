@@ -1150,6 +1150,15 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       if (binding == nullptr || binding->execAsync == nullptr) {
         return fault(ErrorCode::ScriptError);
       }
+      // Backpressure on handle exhaustion: with no free handle, yield without
+      // advancing the pc so the fiber re-enters the run queue and re-executes
+      // this same dispatch next round. The check precedes every side effect (no
+      // args popped, no handle allocated, no action started, pc unchanged), so
+      // the retry is an exact re-execution once an in-flight async settles a
+      // slot.
+      if (!surface.handles->hasCapacity()) {
+        return RunResult::yielded();
+      }
       const uint32_t handleId = surface.handles->createPending();
       if (handleId == kNoHandleId) {
         return fault(ErrorCode::StackOverflow);
@@ -1194,6 +1203,15 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       }
       if (surface.context == nullptr || ins.c >= surface.context->callSiteStates.size()) {
         return fault(ErrorCode::HostError);
+      }
+      // Backpressure on handle exhaustion: with no free handle, yield without
+      // advancing the pc so the fiber re-enters the run queue and re-executes
+      // this same dispatch next round. The check precedes every side effect (no
+      // args popped, no call site bound, no handle allocated, no action started,
+      // pc unchanged), so the retry is an exact re-execution once an in-flight
+      // async settles a slot.
+      if (!surface.handles->hasCapacity()) {
+        return RunResult::yielded();
       }
       ExecutionContext& ctx = *surface.context;
       ctx.currentCallSiteId = ins.c;
@@ -1791,6 +1809,15 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       }
       if (argc > state.stackDepth) {
         return fault(ErrorCode::StackUnderflow);
+      }
+      // Backpressure on handle exhaustion: with no free handle, yield without
+      // advancing the pc so the fiber re-enters the run queue and re-executes
+      // this same dispatch next round. The check precedes every side effect (no
+      // args popped, no child fiber spawned, no handle allocated, pc unchanged),
+      // so the retry is an exact re-execution once an in-flight async settles a
+      // slot.
+      if (!surface.handles->hasCapacity()) {
+        return RunResult::yielded();
       }
       const BytecodeAction& action = program.actions[actionSlot];
       // Resolve the inherited rule from the caller before spawning; the spawned
