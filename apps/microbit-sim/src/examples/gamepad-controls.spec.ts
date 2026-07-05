@@ -546,6 +546,21 @@ describe("Yahboom gamepad position struct type", () => {
     }
   });
 
+  test("the accessor tiles are offered in the picker after the stick-position value sensor", () => {
+    const env = environment.current!;
+    const typeId = positionTypeId(env);
+    // The inline value sensor stands alone as a complete value, so its struct
+    // accessors are offered on the same footing as a position variable's.
+    const expr = parseTilesForSuggestions(List.from([userTile("stick position")]));
+    const ctx: InsertionContext = { ruleSide: RuleSide.Do, expr };
+    const result = suggestTiles(ctx, List.from([...env.tileCatalogs()]), env.brainServices);
+    const offered = new Set<string>();
+    for (let i = 0; i < result.exact.size(); i++) offered.add(result.exact.get(i).tileDef.tileId);
+    for (const field of ["x", "y"]) {
+      assert.ok(offered.has(mkAccessorTileId(typeId, field)), `the picker offers the ${field} accessor`);
+    }
+  });
+
   test("the variable factory creates a position variable that stores and reads back through accessors", () => {
     const env = environment.current!;
     const brainDef = BrainDef.emptyBrainDef(env.brainServices, "gamepad position variable");
