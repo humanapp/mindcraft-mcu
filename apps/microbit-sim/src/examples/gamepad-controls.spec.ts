@@ -546,6 +546,24 @@ describe("Yahboom gamepad position struct type", () => {
     }
   });
 
+  test("replacing the assignment operator after a position variable offers the accessors", () => {
+    const env = environment.current!;
+    const typeId = positionTypeId(env);
+    const scratch = BrainDef.emptyBrainDef(env.brainServices, "gamepad accessor replacement");
+    const posVar = positionVariable(env, scratch, "dot");
+    // [dot] [=] : replacing the [=] tile turns [dot] [=] into [dot] [x] / [dot] [y].
+    const assignOp = new BrainTileOperatorDef("assign", {}, env.brainServices);
+    const expr = parseTilesForSuggestions(List.from<IBrainTileDef>([posVar, assignOp]));
+    assert.equal(expr.kind, "assignment");
+    const ctx: InsertionContext = { ruleSide: RuleSide.Do, expr, replaceTileIndex: 1 };
+    const result = suggestTiles(ctx, List.from([...env.tileCatalogs(), scratch.catalog()]), env.brainServices);
+    const offered = new Set<string>();
+    for (let i = 0; i < result.exact.size(); i++) offered.add(result.exact.get(i).tileDef.tileId);
+    for (const field of ["x", "y"]) {
+      assert.ok(offered.has(mkAccessorTileId(typeId, field)), `replacing [=] offers the ${field} accessor`);
+    }
+  });
+
   test("the accessor tiles are offered in the picker after the stick-position value sensor", () => {
     const env = environment.current!;
     const typeId = positionTypeId(env);
