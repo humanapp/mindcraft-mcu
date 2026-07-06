@@ -6,9 +6,10 @@
  * through a shared ether (the simulator's cross-instance delivery path).
  *
  * It pins: the steer bridge's exact wheel writes; the decoder's totality (a
- * valid packet decodes; a short / wrong-magic / non-Buffer WHEN result reads the
- * centered idle position (0,0), which flows through the pipeline as a real value
- * - the consumer always runs); packet atomicity (both accessor reads come from
+ * valid packet decodes; a short or wrong-magic packet reads the centered idle
+ * position (0,0), which flows through the pipeline as a real value - the
+ * consumer always runs; a WHEN with no Buffer result is rejected at compile
+ * time); packet atomicity (both accessor reads come from
  * one decode); the position -> Buffer conversion's reach (offered in a Buffer slot,
  * and accepted by a second Buffer consumer with the exact bytes); the stage-1
  * directional-string round trip into a movement influence; and the stage-2
@@ -449,13 +450,23 @@ describe("decoded stick position", () => {
     assert.equal(observedAt(result, OBS_Y_ADDRESS, 2), -17, "y from the same packet");
   });
 
-  test("a non-Buffer WHEN result reads the centered idle position", () => {
+  test("a WHEN with no Buffer result rejects the decoder at compile time", () => {
     const env = environment.current!;
-    // Under an always (boolean) WHEN, ctx.getWhenResult() is not a Buffer, so
-    // the decoder falls back to the idle (0, 0); the observer still runs.
-    const result = run(env, decodeBrain(env, "decode no-buffer", userTile("always")), [{}]);
-    assert.equal(observedAt(result, OBS_X_ADDRESS, 1), 0, "no packet -> centered x = 0");
-    assert.equal(observedAt(result, OBS_Y_ADDRESS, 1), 0, "no packet -> centered y = 0");
+    // Under an always (boolean) WHEN there is no Buffer WHEN result for the
+    // decoder to read, so the build rejects the brain with the WHEN-result
+    // diagnostic naming the decoder tile.
+    const built = buildWodalProgramImage({
+      brainDef: decodeBrain(env, "decode no-buffer", userTile("always")),
+      environment: env,
+      deviceProfile: getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2),
+    });
+    assert.ok(!built.ok, "the decoder without a Buffer WHEN result must not compile");
+    assert.ok(
+      built.errors.some(
+        (error) => error.message.includes(`"decoded stick position"`) && error.message.includes("WHEN")
+      ),
+      `the rejection names the decoder tile and the WHEN result it needs: ${JSON.stringify(built.errors)}`
+    );
   });
 
   test("the idle (0,0) flows through cutebot steer as a commanded stop, not silence", () => {
