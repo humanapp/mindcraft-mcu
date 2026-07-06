@@ -2910,6 +2910,76 @@ TEST_CASE("the user-tile struct fixture byte-matches the golden observable trace
   }
 }
 
+TEST_CASE("the assignment-conversion fixture byte-matches the golden observable trace") {
+  const std::string base =
+      std::string(mindcraft::test::kWodalFixturesDir) + "/assignment-conversion";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.gpio.writer = &writer;
+  TraceTap tap(writer);
+
+  // Implicit conversions surface past the port boundary: a Boolean literal
+  // assigned to a Number variable (pin 9), a String literal assigned to a
+  // struct's Number field (pin 10), and [not] over a Number literal whose
+  // Boolean result feeds a Number arg slot (pin 11).
+  mindcraft::ManagedHeap heap(arena, &image);
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  ExecutionContext ctx;
+  mindcraft::TypeRegistry types(image);
+  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+  surface.types = &types;
+  surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Two 16ms thinks mirror SCHEDULE in wodal
+  // packages/wodal/src/targets/microbit-v2/mindcraft/assignment-conversion-trace.spec.ts.
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 2; i++) {
+    const float timeMs = lastThinkTimeMs + 16;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+  // Each think surfaces the three converted values, proving the emitted
+  // conversion calls behave identically on this VM: true -> 1 (pin 9),
+  // "37" -> 37 (pin 10), and not(0) -> true -> 1 (pin 11).
+  REQUIRE(microbit.gpio.writes.size() == 6);
+  for (size_t i = 0; i < microbit.gpio.writes.size(); i += 3) {
+    CHECK(microbit.gpio.writes[i].pin == 9);
+    CHECK(microbit.gpio.writes[i].value == 1);
+    CHECK(microbit.gpio.writes[i + 1].pin == 10);
+    CHECK(microbit.gpio.writes[i + 1].value == 37);
+    CHECK(microbit.gpio.writes[i + 2].pin == 11);
+    CHECK(microbit.gpio.writes[i + 2].value == 1);
+  }
+}
+
 TEST_CASE("the user-tile nested struct fixture byte-matches the golden observable trace") {
   const std::string base =
       std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-struct-nested";
