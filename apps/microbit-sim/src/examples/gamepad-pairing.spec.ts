@@ -36,14 +36,20 @@ import {
   mkActuatorTileId,
   mkSensorTileId,
 } from "@mindcraft-lang/core/app";
-import { type IBrainTileDef, mkAccessorTileId, mkVariableFactoryTileId, RuleSide } from "@mindcraft-lang/core/brain";
+import {
+  type IBrainTileDef,
+  mkAccessorTileId,
+  mkOperatorTileId,
+  mkVariableFactoryTileId,
+  RuleSide,
+} from "@mindcraft-lang/core/brain";
 import {
   type InsertionContext,
   parseTilesForSuggestions,
   suggestTiles,
 } from "@mindcraft-lang/core/brain/language-service";
 import type { BrainTileFactoryDef } from "@mindcraft-lang/core/brain/tiles";
-import { mkNumberValue, mkStringValue, type TypeId } from "@mindcraft-lang/core/runtime";
+import { CoreOpId, mkNumberValue, mkStringValue, type TypeId } from "@mindcraft-lang/core/runtime";
 import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@mindcraft-lang/ts-compiler";
 import { buildWodalProgramImage, getWodalDeviceProfile, WodalDeviceProfileId } from "@mindcraft-lang/wodal";
 import {
@@ -138,25 +144,6 @@ export default Actuator({
 });
 `;
 
-/**
- * A Device-API Buffer sender: transmits its anonymous Buffer argument. It stands
- * in for the built-in `radio send` tile in the stage-2 loop; that tile's value
- * slot is a String/Number/Boolean/Buffer choice, and a conversion is not
- * inserted into a choice option, so a position does not reach its Buffer branch.
- * A direct Buffer parameter takes the position through the conversion, so this
- * wrapper exercises the encode + transport the built-in tile cannot yet reach.
- */
-const SEND_BUFFER_SOURCE = `import { Actuator, BufferType, type Context, param } from "mindcraft";
-
-export default Actuator({
-  name: "send buffer",
-  args: [param("packet", { type: BufferType, anonymous: true })],
-  onExecute(ctx: Context, args: { packet: Buffer }): void {
-    ctx.microbit.radio.sendBuffer(args.packet);
-  },
-});
-`;
-
 /** The compiled project: gamepad tiles, the Cutebot movement + steer tiles, and the test observers. */
 function projectFiles(): Record<string, string> {
   return {
@@ -173,7 +160,6 @@ function projectFiles(): Record<string, string> {
     "always.ts": ALWAYS_SOURCE,
     "observe-pair.ts": OBSERVE_PAIR_SOURCE,
     "fold.ts": FOLD_SOURCE,
-    "send-buffer.ts": SEND_BUFFER_SOURCE,
   };
 }
 
@@ -400,6 +386,31 @@ describe("cutebot steer bridge", () => {
       assert.deepEqual(wheelsAt(result, 1), wheels, `steer(${x}, ${y}) writes (${wheels[0]}, ${wheels[1]})`);
     }
   });
+
+  test("after [cutebot steer][decoded stick position][x], the picker offers the y slot's values", () => {
+    const env = environment.current!;
+    // WHEN [radio receive buffer] supplies the Buffer WHEN result the decoder
+    // consumes; the DO side holds the first steer slot filled with the
+    // accessor-refined decode.
+    const brainDef = BrainDef.emptyBrainDef(env.brainServices, "steer picker");
+    const rule = brainDef.pages().get(0)!.children().get(0)!;
+    rule.when().appendTile(hostTile(env, mkSensorTileId(RADIO_RECEIVE_BUFFER)));
+    rule.do().appendTile(userTile("cutebot steer"));
+    rule.do().appendTile(userTile("decoded stick position"));
+    rule.do().appendTile(accessorTile(env, "x"));
+    const posVar = positionVariable(env, brainDef, "held");
+
+    const expr = parseTilesForSuggestions(rule.do().tiles());
+    const ctx: InsertionContext = { ruleSide: RuleSide.Do, expr, ruleDef: rule };
+    const result = suggestTiles(ctx, List.from([...env.tileCatalogs(), brainDef.catalog()]), env.brainServices);
+    const offered = new Set<string>();
+    for (let i = 0; i < result.exact.size(); i++) offered.add(result.exact.get(i).tileDef.tileId);
+    for (let i = 0; i < result.withConversion.size(); i++) offered.add(result.withConversion.get(i).tileDef.tileId);
+
+    assert.ok(offered.has(userTile("decoded stick position").tileId), "the decoder is offered again for the y slot");
+    assert.ok(offered.has(posVar.tileId), "a position variable is offered for the y slot");
+    assert.ok(offered.has(mkOperatorTileId(CoreOpId.Add)), "infix operators still extend the first slot's value");
+  });
 });
 
 describe("decoded stick position", () => {
@@ -515,6 +526,28 @@ describe("position -> Buffer conversion reach", () => {
     assert.ok(withConversion.has(posVar.tileId), "the position is offered as a conversion match in a Buffer slot");
   });
 
+  test("the picker offers the position variable and the inline sensor in the radio send slot", () => {
+    const env = environment.current!;
+    // The radio send tile's value slot is a Number/String/Boolean/Buffer
+    // choice; the position -> Buffer conversion makes both position producers
+    // conversion matches there.
+    const scratch = BrainDef.emptyBrainDef(env.brainServices, "radio send picker");
+    const posVar = positionVariable(env, scratch, "aimed");
+    const stickSensor = userTile("stick position");
+    const expr = parseTilesForSuggestions(List.from([hostTile(env, mkActuatorTileId(RADIO_SEND))]));
+    const ctx: InsertionContext = { ruleSide: RuleSide.Do, expr };
+    const result = suggestTiles(ctx, List.from([...env.tileCatalogs(), scratch.catalog()]), env.brainServices);
+    const exact = new Set<string>();
+    for (let i = 0; i < result.exact.size(); i++) exact.add(result.exact.get(i).tileDef.tileId);
+    const withConversion = new Set<string>();
+    for (let i = 0; i < result.withConversion.size(); i++)
+      withConversion.add(result.withConversion.get(i).tileDef.tileId);
+    for (const tile of [posVar, stickSensor]) {
+      assert.ok(!exact.has(tile.tileId), `${tile.tileId} is not an exact match in the choice slot`);
+      assert.ok(withConversion.has(tile.tileId), `${tile.tileId} is offered as a conversion match in the choice slot`);
+    }
+  });
+
   test("a second Buffer consumer accepts a position through the conversion with exact bytes", () => {
     const env = environment.current!;
     const brainDef = BrainDef.emptyBrainDef(env.brainServices, "conversion second consumer");
@@ -619,13 +652,13 @@ describe("radio pairing", () => {
 
   test("stage 2: injected stick -> send [stick position] -> receive -> decode -> steer -> exact wheels", () => {
     const env = environment.current!;
-    // Gamepad: WHEN [always] DO [send buffer [stick position]] (the conversion
-    // encodes the position; the built-in radio-send tile cannot yet take a
-    // position through its choice slot, so this exercises the same transport).
+    // Gamepad: WHEN [always] DO [radio send [stick position]] -- the spec's
+    // real wiring. The inline position sensor fills the send tile's choice
+    // value slot, and the position -> Buffer conversion encodes the packet.
     const gamepad = BrainDef.emptyBrainDef(env.brainServices, "gamepad stage 2");
     const broadcast = gamepad.pages().get(0)!.children().get(0)!;
     broadcast.when().appendTile(userTile("always"));
-    broadcast.do().appendTile(userTile("send buffer"));
+    broadcast.do().appendTile(hostTile(env, mkActuatorTileId(RADIO_SEND)));
     broadcast.do().appendTile(userTile("stick position"));
 
     // Chassis: WHEN [radio receive buffer] DO
