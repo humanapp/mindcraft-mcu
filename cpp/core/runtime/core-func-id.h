@@ -12,15 +12,6 @@ namespace mindcraft {
 inline constexpr uint32_t TARGET_FUNC_ID_BASE = 1024;
 
 /**
- * First funcId of the dynamic region for program-dependent host functions
- * (user-declared enum conversions). Ids at and above this value are not part
- * of the device ABI; they are stable only for a given compiled program.
- * Mirrors DYNAMIC_FUNC_ID_BASE in
- * external/mindcraft-lang/packages/core/src/runtime/abi-ids.ts.
- */
-inline constexpr uint32_t DYNAMIC_FUNC_ID_BASE = 65536;
-
-/**
  * Stable funcIds of the core host functions: operator overloads, conversions,
  * builtins, context methods, and the sensor/actuator function entries.
  * Mirrors the CoreFuncId enum in
@@ -133,9 +124,11 @@ enum class CoreFuncId : uint32_t {
   ContextGetWhenResult = 101,
   OpEqualToEnum = 102,
   OpNotEqualToEnum = 103,
+  ConvEnumToString = 104,
+  ConvEnumToNumber = 105,
 };
 
 /** Number of declared {@link CoreFuncId} members; ids are dense from 0. */
-inline constexpr uint32_t kCoreFuncIdCount = 104;
+inline constexpr uint32_t kCoreFuncIdCount = 106;
 
 } // namespace mindcraft

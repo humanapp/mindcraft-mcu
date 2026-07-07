@@ -5,12 +5,18 @@
  * WHEN sensor's onExecute returns an enum imported from another module,
  * derived through an enum `!==` comparison and an enum-typed ternary (enum
  * values are always truthy, so the rule fires every think); the DO actuator
- * imports the same enum and derives each probe byte from an enum `===` or
- * `!==` comparison, so a comparison that faults or misevaluates changes the
- * bytes written to the I2C address. The serialized binary and its rendered
- * trace are pinned beside this spec as the cross-VM conformance fixture: the
- * C++ VM parity test (cpp/test/trace-parity.test.cpp) loads the same binary,
- * replays the schedule, and byte-compares.
+ * imports the same enum and derives each probe byte from one enum surface:
+ * an enum `===` comparison, an enum `!==` comparison, an enum stored into a
+ * number variable with arithmetic on the result (the enum->number
+ * conversion), and a template literal embedding the enum value (the
+ * enum->string conversion). A conversion that faults or misevaluates
+ * changes the bytes written to the I2C address. Both conversions dispatch
+ * through the shared core funcIds (`ConvEnumToString` / `ConvEnumToNumber`),
+ * reading the symbol's declared value from the program type table; the spec
+ * asserts the binary carries those ids. The serialized binary and its
+ * rendered trace are pinned beside this spec as the cross-VM conformance
+ * fixture: the C++ VM parity test (cpp/test/trace-parity.test.cpp) loads the
+ * same binary, replays the schedule, and byte-compares.
  */
 
 import assert from "node:assert/strict";
@@ -20,7 +26,13 @@ import { fileURLToPath } from "node:url";
 import type { MindcraftEnvironment } from "@mindcraft-lang/core/app";
 import type { IBrainTileDef } from "@mindcraft-lang/core/brain";
 import { BrainDef } from "@mindcraft-lang/core/brain/model";
-import { type LinkedBrainProgram, linkedBrainProgramToJson, type VmEvents } from "@mindcraft-lang/core/runtime";
+import {
+  CoreFuncId,
+  type LinkedBrainProgram,
+  linkedBrainProgramToJson,
+  Op,
+  type VmEvents,
+} from "@mindcraft-lang/core/runtime";
 import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@mindcraft-lang/ts-compiler";
 import { TEST_PROJECT_NAMESPACE } from "@mindcraft-lang/ts-compiler/testing";
 import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
@@ -41,9 +53,11 @@ const PROBE_ADDRESS = 0x10;
 
 /**
  * Bytes of the probe buffer written each time the enum WHEN result fires:
- * byte 0 comes from a true enum `===`, byte 1 from a true enum `!==`.
+ * byte 0 comes from a true enum `===`, byte 1 from a true enum `!==`,
+ * byte 2 from `Mode.Go` stored into a number variable plus one, and byte 3
+ * from a template literal embedding `Mode.Go` compared against "mode=2".
  */
-const PROBE_HEX = "0201";
+const PROBE_HEX = "02010304";
 
 /** The registered identity of the shared enum, pinned inside the artifact. */
 const ENUM_QUALIFIED_NAME = `${TEST_PROJECT_NAMESPACE}:/mode-defs.ts::Mode`;
@@ -74,7 +88,8 @@ export default Sensor({
 `;
 
 // Surfaces each firing of the enum-triggered rule via I2C; each probe byte is
-// decided by an enum comparison.
+// decided by one enum surface: comparison, enum->number conversion, or
+// enum->string conversion.
 const ACTUATOR_SOURCE = `import { Actuator, type Context } from "mindcraft";
 import { Mode } from "./mode-defs";
 
@@ -86,10 +101,24 @@ function secondByte(m: Mode): number {
   return m !== Mode.Stop ? 1 : 9;
 }
 
+function thirdByte(m: Mode): number {
+  let n: number = Mode.Stop;
+  n = m;
+  return n + 1;
+}
+
+function fourthByte(m: Mode): number {
+  const text = \`mode=\${m}\`;
+  return text === "mode=2" ? 4 : 9;
+}
+
 export default Actuator({
   name: "user-enum-probe",
   onExecute(ctx: Context): void {
-    ctx.microbit.i2c.writeBuffer(0x10, Buffer.from([firstByte(Mode.Go), secondByte(Mode.Go)]));
+    ctx.microbit.i2c.writeBuffer(
+      0x10,
+      Buffer.from([firstByte(Mode.Go), secondByte(Mode.Go), thirdByte(Mode.Go), fourthByte(Mode.Go)])
+    );
   },
 });
 `;
@@ -177,6 +206,19 @@ function ensureJsonGolden(): void {
   );
 }
 
+/** Every `HOST_CALL` / `HOST_CALL_ASYNC` funcId operand in the program's functions. */
+function collectHostCallFuncIds(program: LinkedBrainProgram): Set<number> {
+  const funcIds = new Set<number>();
+  program.program.functions.forEach((fn) => {
+    fn.code.forEach((instr) => {
+      if (instr.op === Op.HOST_CALL || instr.op === Op.HOST_CALL_ASYNC) {
+        funcIds.add(instr.a ?? 0);
+      }
+    });
+  });
+  return funcIds;
+}
+
 /** Runs the committed binary over the schedule with the I2C-port tap installed. */
 function runTrace(bin: Uint8Array): { trace: string; microbit: MicroBit } {
   const environment = createMicroBitV2Environment();
@@ -223,6 +265,25 @@ test("the committed user-tile-enum-return binary and observable trace golden are
     readFileSync(JSON_PATH, "utf8").includes(ENUM_QUALIFIED_NAME),
     "the golden program embeds the enum's qualified type name"
   );
+
+  // The enum conversions dispatch through the shared core funcIds, and every
+  // host-call id in the binary resolves in a fresh runtime (no
+  // session-registered ids survive into the artifact).
+  const freshEnvironment = createMicroBitV2Environment();
+  const decodedProgram = parseWodalProgramImageBytes(
+    bin,
+    WodalDeviceProfileId.MICROBIT_V2,
+    freshEnvironment.brainServices.runtime.types
+  ).program;
+  const hostCallFuncIds = collectHostCallFuncIds(decodedProgram);
+  assert.ok(hostCallFuncIds.has(CoreFuncId.ConvEnumToString), "the binary dispatches enum->string via the shared id");
+  assert.ok(hostCallFuncIds.has(CoreFuncId.ConvEnumToNumber), "the binary dispatches enum->number via the shared id");
+  for (const funcId of hostCallFuncIds) {
+    const registered =
+      freshEnvironment.brainServices.runtime.functions.getSyncById(funcId) ??
+      freshEnvironment.brainServices.runtime.functions.getAsyncById(funcId);
+    assert.ok(registered, `host-call funcId ${funcId} is not registered in a fresh runtime`);
+  }
 
   const first = runTrace(bin);
   const second = runTrace(bin);

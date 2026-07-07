@@ -25,10 +25,11 @@ TEST_CASE("LoadError values are stable") {
   CHECK(static_cast<uint16_t>(LoadError::UnknownTypeAtom) == 13);
   CHECK(static_cast<uint16_t>(LoadError::ArenaExhausted) == 14);
   CHECK(static_cast<uint16_t>(LoadError::UnsupportedDeviceProfile) == 15);
+  CHECK(static_cast<uint16_t>(LoadError::InvalidEnumValueKind) == 16);
 }
 
 TEST_CASE("name table covers every declared code in declaration order") {
-  REQUIRE(std::size(kLoadErrorNames) == 15);
+  REQUIRE(std::size(kLoadErrorNames) == 16);
   CHECK(kLoadErrorNames[0].code == LoadError::Truncated);
   CHECK(kLoadErrorNames[1].code == LoadError::VarIntOverflow);
   CHECK(kLoadErrorNames[2].code == LoadError::InvalidMagic);
@@ -71,9 +72,10 @@ TEST_CASE("loadErrorName returns canonical names") {
   CHECK(loadErrorName(LoadError::ArenaExhausted) == doctest::String("ArenaExhausted"));
   CHECK(loadErrorName(LoadError::UnsupportedDeviceProfile) ==
         doctest::String("UnsupportedDeviceProfile"));
+  CHECK(loadErrorName(LoadError::InvalidEnumValueKind) == doctest::String("InvalidEnumValueKind"));
 }
 
 TEST_CASE("loadErrorName returns nullptr for undeclared values") {
   CHECK(loadErrorName(static_cast<LoadError>(0)) == nullptr);
-  CHECK(loadErrorName(static_cast<LoadError>(16)) == nullptr);
+  CHECK(loadErrorName(static_cast<LoadError>(17)) == nullptr);
 }

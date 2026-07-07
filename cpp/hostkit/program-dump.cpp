@@ -1,5 +1,7 @@
 #include "hostkit/program-dump.h"
 
+#include <cstring>
+
 #include "core/runtime/bytecode.h"
 
 namespace mindcraft {
@@ -84,7 +86,9 @@ bool emitTypeEntry(TextWriter& w, const ProgramImage& image, uint32_t idx) {
   }
   case TypeTag::Enum: {
     if (entry.enumOf.symbolsOffset > image.typeRefs.size() ||
-        entry.enumOf.symbolsCount > image.typeRefs.size() - entry.enumOf.symbolsOffset) {
+        entry.enumOf.symbolsCount > image.typeRefs.size() - entry.enumOf.symbolsOffset ||
+        entry.enumOf.valuesOffset > image.typeRefs.size() ||
+        entry.enumOf.symbolsCount > image.typeRefs.size() - entry.enumOf.valuesOffset) {
       return false;
     }
     w.text("enum ");
@@ -97,6 +101,17 @@ bool emitTypeEntry(TextWriter& w, const ProgramImage& image, uint32_t idx) {
       w.ch(' ');
       if (!quoteStringTableEntry(w, image, image.typeRefs[entry.enumOf.symbolsOffset + j])) {
         return false;
+      }
+      w.ch(' ');
+      if (entry.enumOf.stringValued) {
+        if (!quoteStringTableEntry(w, image, image.typeRefs[entry.enumOf.valuesOffset + j])) {
+          return false;
+        }
+      } else {
+        const uint32_t bits = image.typeRefs[entry.enumOf.valuesOffset + j];
+        float value = 0.0f;
+        memcpy(&value, &bits, sizeof(value));
+        w.numberBits(value);
       }
     }
     break;

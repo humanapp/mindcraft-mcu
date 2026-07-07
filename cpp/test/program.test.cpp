@@ -53,12 +53,14 @@ TEST_CASE("a synthetic program image constructs in one arena and reads back") {
   types[1].tag = TypeTag::List;
   types[1].list = {0};
   types[2].tag = TypeTag::Enum;
-  types[2].enumOf = {1, 0, 2};
+  types[2].enumOf = {1, 0, 2, 2, false};
 
-  uint32_t* typeRefs = arena.allocate<uint32_t>(2);
+  uint32_t* typeRefs = arena.allocate<uint32_t>(4);
   REQUIRE(typeRefs != nullptr);
   typeRefs[0] = 0;
   typeRefs[1] = 1;
+  typeRefs[2] = 0;          // 0.0f bit pattern: symbol 0's numeric value
+  typeRefs[3] = 0x3f800000; // 1.0f bit pattern: symbol 1's numeric value
 
   float* numbers = arena.allocate<float>(2);
   REQUIRE(numbers != nullptr);
@@ -128,7 +130,7 @@ TEST_CASE("a synthetic program image constructs in one arena and reads back") {
   image.stringData = ByteSpan(kStringData, sizeof(kStringData));
   image.strings = {strings, 2};
   image.types = {types, 3};
-  image.typeRefs = {typeRefs, 2};
+  image.typeRefs = {typeRefs, 4};
   image.constantPools = {2, 2, 1};
   image.constNumbers = {numbers, 2};
   image.constValues = {values, 3};
@@ -162,6 +164,9 @@ TEST_CASE("a synthetic program image constructs in one arena and reads back") {
   REQUIRE(enumType.symbolsCount == 2);
   CHECK(image.typeRefs[enumType.symbolsOffset] == 0);
   CHECK(image.typeRefs[enumType.symbolsOffset + 1] == 1);
+  CHECK(!enumType.stringValued);
+  CHECK(image.typeRefs[enumType.valuesOffset] == 0);
+  CHECK(image.typeRefs[enumType.valuesOffset + 1] == 0x3f800000);
 
   // The root constant value references its children as a contiguous run.
   const ConstValue& root = image.constValues[0];

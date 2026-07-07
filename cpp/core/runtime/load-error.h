@@ -47,6 +47,8 @@ enum class LoadError : uint16_t {
    * accepts. Raised by the host after a successful decode.
    */
   UnsupportedDeviceProfile = 15,
+  /** A type-table enum entry's value-kind byte is not `0` (number) or `1` (string). */
+  InvalidEnumValueKind = 16,
 };
 
 /** One row of the {@link kLoadErrorNames} table: a code and its canonical ASCII name. */
@@ -72,6 +74,7 @@ inline constexpr LoadErrorName kLoadErrorNames[] = {
     {LoadError::UnknownTypeAtom, "UnknownTypeAtom"},
     {LoadError::ArenaExhausted, "ArenaExhausted"},
     {LoadError::UnsupportedDeviceProfile, "UnsupportedDeviceProfile"},
+    {LoadError::InvalidEnumValueKind, "InvalidEnumValueKind"},
 };
 
 /**

@@ -63,10 +63,11 @@ TEST_CASE("strings are borrowed from the wire buffer") {
 
 TEST_CASE("every TYPS entry kind decodes and interns its runs") {
   WireBuilder w = programHeader();
-  w.varUint(2).varUint(0); // CSTR: two aux strings
+  w.varUint(3).varUint(0); // CSTR: three aux strings
   w.str("Point");
   w.str("Red");
-  w.varUint(8);                                                   // TYPS
+  w.str("crimson");
+  w.varUint(9);                                                   // TYPS
   w.u8(0).varUint(static_cast<uint32_t>(CoreTypeAtomId::Number)); // 0: atom
   w.u8(1).varUint(0);                                             // 1: list<0>
   w.u8(2).varUint(0).varUint(1);                                  // 2: map<0,1>
@@ -74,14 +75,16 @@ TEST_CASE("every TYPS entry kind decodes and interns its runs") {
   w.u8(4).varUint(1).varUint(0).varUint(3);                       // 4: function(0)->3
   w.u8(5).varUint(0);                                             // 5: nullable<0>
   w.u8(6).varUint(0).varUint(2).varUint(1).varUint(0).varUint(
-      0);                                        // 6: struct "Point" slots 2, field "Point"->0
-  w.u8(7).varUint(1).varUint(1).varUint(1);      // 7: enum "Red" ["Red"]
+      0); // 6: struct "Point" slots 2, field "Point"->0
+  w.u8(7).varUint(1).varUint(1).u8(0).varUint(1).u8(0).varInt(2); // 7: enum "Red" ["Red" = 2]
+  w.u8(7).varUint(2).varUint(1).u8(1).varUint(1).varUint(
+      2);                                        // 8: enum "crimson" ["Red" = "crimson"]
   w.varUint(0).varUint(0).varUint(0).varUint(0); // CNUM..VARS
   w.varUint(0);                                  // PAGE
 
   std::vector<uint8_t> storage(16 * 1024);
   const ProgramImage image = decodeOk(w, storage);
-  REQUIRE(image.types.size() == 8);
+  REQUIRE(image.types.size() == 9);
   CHECK(image.types[0].tag == TypeTag::Atom);
   CHECK(image.types[0].atom.atomId == static_cast<uint32_t>(CoreTypeAtomId::Number));
   CHECK(image.types[1].tag == TypeTag::List);
@@ -104,10 +107,15 @@ TEST_CASE("every TYPS entry kind decodes and interns its runs") {
   CHECK(image.types[7].tag == TypeTag::Enum);
   CHECK(image.types[7].enumOf.nameStringIdx == 1);
   CHECK(image.types[7].enumOf.symbolsCount == 1);
+  CHECK(!image.types[7].enumOf.stringValued);
+  CHECK(image.types[8].tag == TypeTag::Enum);
+  CHECK(image.types[8].enumOf.nameStringIdx == 2);
+  CHECK(image.types[8].enumOf.symbolsCount == 1);
+  CHECK(image.types[8].enumOf.stringValued);
 
   // The shared type-ref pool holds the union members, the function param,
-  // and the enum symbol, in entry order.
-  REQUIRE(image.typeRefs.size() == 4);
+  // and each enum's symbol-key run followed by its value run, in entry order.
+  REQUIRE(image.typeRefs.size() == 7);
   CHECK(image.types[3].unionOf.membersOffset == 0);
   CHECK(image.types[3].unionOf.membersCount == 2);
   CHECK(image.typeRefs[0] == 0);
@@ -116,6 +124,12 @@ TEST_CASE("every TYPS entry kind decodes and interns its runs") {
   CHECK(image.typeRefs[2] == 0);
   CHECK(image.types[7].enumOf.symbolsOffset == 3);
   CHECK(image.typeRefs[3] == 1);
+  CHECK(image.types[7].enumOf.valuesOffset == 4);
+  CHECK(image.typeRefs[4] == 0x40000000); // 2.0f bit pattern
+  CHECK(image.types[8].enumOf.symbolsOffset == 5);
+  CHECK(image.typeRefs[5] == 1);
+  CHECK(image.types[8].enumOf.valuesOffset == 6);
+  CHECK(image.typeRefs[6] == 2);
 }
 
 TEST_CASE("target-range atoms decode through the reader options") {
@@ -162,9 +176,11 @@ TEST_CASE("nested CVAL containers decode into contiguous child runs") {
   w.u8(0).varUint(static_cast<uint32_t>(CoreTypeAtomId::Number)); // 0: atom Number
   w.u8(1).varUint(0);                                             // 1: list<0>
   w.u8(2).varUint(0).varUint(0);                                  // 2: map<0,0>
-  w.u8(7).varUint(1).varUint(2).varUint(0).varUint(0);            // 3: enum, 2 symbols
-  w.varUint(0);                                                   // CNUM
-  w.varUint(5);                                                   // CVAL: 5 pool values
+  w.u8(7).varUint(1).varUint(2).u8(0);                            // 3: enum, 2 numeric symbols
+  w.varUint(0).u8(0).varInt(0);
+  w.varUint(0).u8(0).varInt(1);
+  w.varUint(0); // CNUM
+  w.varUint(5); // CVAL: 5 pool values
   // value 0: list<1> [number 1, number 2]
   w.u8(6).varUint(1).varUint(2);
   w.u8(3).u8(0).varInt(1);
@@ -432,15 +448,26 @@ TEST_CASE("a TYPS atom outside the core and target ranges fails UnknownTypeAtom"
   }
 }
 
+TEST_CASE("a TYPS enum value-kind byte outside 0/1 fails InvalidEnumValueKind") {
+  WireBuilder w = programHeader();
+  w.varUint(1).varUint(0); // CSTR: aux enum name
+  w.str("Color");
+  w.varUint(1);                        // TYPS
+  w.u8(7).varUint(0).varUint(1).u8(2); // enum, one symbol, bad value kind
+  CHECK(decodeError(w) == LoadError::InvalidEnumValueKind);
+}
+
 TEST_CASE("a CVAL enum ordinal outside its symbol list fails EnumOrdinalOutOfRange") {
   WireBuilder w = programHeader();
   w.varUint(1).varUint(0); // CSTR: aux enum name
   w.str("Color");
-  w.varUint(1);                                        // TYPS
-  w.u8(7).varUint(0).varUint(2).varUint(0).varUint(0); // enum, 2 symbols
-  w.varUint(0);                                        // CNUM
-  w.varUint(1);                                        // CVAL
-  w.u8(5).varUint(0).varUint(2);                       // enum (0, ordinal 2)
+  w.varUint(1);                        // TYPS
+  w.u8(7).varUint(0).varUint(2).u8(0); // enum, 2 numeric symbols
+  w.varUint(0).u8(0).varInt(0);
+  w.varUint(0).u8(0).varInt(1);
+  w.varUint(0);                  // CNUM
+  w.varUint(1);                  // CVAL
+  w.u8(5).varUint(0).varUint(2); // enum (0, ordinal 2)
   CHECK(decodeError(w) == LoadError::EnumOrdinalOutOfRange);
 }
 

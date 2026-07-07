@@ -236,6 +236,31 @@ bool stringArg(const HostCallEnv& env, Span<const Value> args, uint32_t i, const
   return env.heap->stringContent(args[i], bytes, length);
 }
 
+/**
+ * Resolves an enum operand's type-table entry and its symbol-value slot in
+ * `typeRefs`. True when `args[0]` is an enum value of a program-local enum
+ * type with an in-range ordinal; writes the entry and the value slot index.
+ */
+bool enumSymbolValueSlot(const HostCallEnv& env, Span<const Value> args,
+                         const TypeEntry::EnumOf*& enumOf, uint32_t& slot) {
+  if (env.types == nullptr || args.size() < 1 || args[0].tag() != ValueTag::Enum) {
+    return false;
+  }
+  const ProgramImage& program = env.types->program();
+  const uint32_t typeIdx = args[0].typeId();
+  if (typeIdx >= program.types.size() || program.types[typeIdx].tag != TypeTag::Enum) {
+    return false;
+  }
+  const TypeEntry::EnumOf& entry = program.types[typeIdx].enumOf;
+  const uint32_t ordinal = args[0].enumOrdinal();
+  if (ordinal >= entry.symbolsCount) {
+    return false;
+  }
+  enumOf = &entry;
+  slot = entry.valuesOffset + ordinal;
+  return true;
+}
+
 // --- Byte-oriented string semantics (exact for the ASCII subset) -----------
 
 bool asciiWhitespace(char c) {
@@ -1164,6 +1189,41 @@ Status callCoreHostFunction(CoreFuncId id, Span<const Value> args, const HostCal
     }
     const float v = binary32::parseNumber(sa, la);
     return okNumber(isNan(v) ? 0.0f : v, out);
+  }
+
+  // --- Enum conversions (symbol values from the program type table) ---------
+  case CoreFuncId::ConvEnumToString: {
+    const TypeEntry::EnumOf* enumOf = nullptr;
+    uint32_t slot = 0;
+    if (!enumSymbolValueSlot(env, args, enumOf, slot)) {
+      return unsupported();
+    }
+    const ProgramImage& program = env.types->program();
+    if (enumOf->stringValued) {
+      const StringRef& ref = program.strings[program.typeRefs[slot]];
+      return okString(env, reinterpret_cast<const char*>(program.stringData.data()) + ref.offset,
+                      ref.length, out);
+    }
+    if (env.heap == nullptr) {
+      return capabilityAbsent();
+    }
+    const uint32_t bits = program.typeRefs[slot];
+    float value = 0.0f;
+    memcpy(&value, &bits, sizeof(value));
+    char buffer[32];
+    const uint32_t length = binary32::formatNumber(value, buffer);
+    return okString(env, buffer, length, out);
+  }
+  case CoreFuncId::ConvEnumToNumber: {
+    const TypeEntry::EnumOf* enumOf = nullptr;
+    uint32_t slot = 0;
+    if (!enumSymbolValueSlot(env, args, enumOf, slot) || enumOf->stringValued) {
+      return unsupported();
+    }
+    const uint32_t bits = env.types->program().typeRefs[slot];
+    float value = 0.0f;
+    memcpy(&value, &bits, sizeof(value));
+    return okNumber(value, out);
   }
 
   // --- Transcendental math builtins (f32; NaN result passes through) ---

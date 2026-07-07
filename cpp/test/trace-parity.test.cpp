@@ -2012,7 +2012,10 @@ TEST_CASE("the user-tile enum-return fixture byte-matches the golden observable 
 
   // The WHEN sensor returns a module-qualified user enum value (always
   // truthy), so the rule fires every think and the actuator surfaces a probe
-  // buffer through the writeBuffer host function.
+  // buffer through the writeBuffer host function. Each probe byte exercises
+  // one enum surface: `===`, `!==`, the enum->number conversion (stored into
+  // a number variable, plus one), and the enum->string conversion (a template
+  // literal compared against its expected text).
   mindcraft::ManagedHeap heap(arena, &image);
   mindcraft::MicroBitV2I2CWriteEnv i2cEnv{&microbit.i2c, &heap, &image};
   auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
@@ -2050,7 +2053,7 @@ TEST_CASE("the user-tile enum-return fixture byte-matches the golden observable 
   REQUIRE(microbit.i2c.writes.size() == 2);
   for (const auto& write : microbit.i2c.writes) {
     CHECK(write.address == 0x10);
-    CHECK(write.bytes == std::vector<uint8_t>{2, 1});
+    CHECK(write.bytes == std::vector<uint8_t>{2, 1, 3, 4});
   }
 }
 

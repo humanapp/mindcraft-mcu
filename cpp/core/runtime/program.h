@@ -154,13 +154,22 @@ struct TypeEntry {
     /** String-table index of the registered type name. */
     uint32_t nameStringIdx;
     /**
-     * Index of the first symbol string-table index in
+     * Index of the first symbol key string-table index in
      * `ProgramImage::typeRefs`; symbols are in declared order and enum
      * values reference them by ordinal.
      */
     uint32_t symbolsOffset;
     /** Number of symbols. */
     uint32_t symbolsCount;
+    /**
+     * Index of the first symbol value in `ProgramImage::typeRefs`, one slot
+     * per symbol in declared order: a string-table index when
+     * `stringValued`, else the IEEE-754 binary32 bit pattern of the
+     * symbol's numeric value.
+     */
+    uint32_t valuesOffset;
+    /** True when the symbols carry string values, false for numeric values. */
+    bool stringValued;
   };
 
   TypeTag tag;

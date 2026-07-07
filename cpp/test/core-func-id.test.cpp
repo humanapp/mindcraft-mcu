@@ -5,13 +5,11 @@
 #include <cstdint>
 
 using mindcraft::CoreFuncId;
-using mindcraft::DYNAMIC_FUNC_ID_BASE;
 using mindcraft::kCoreFuncIdCount;
 using mindcraft::TARGET_FUNC_ID_BASE;
 
 TEST_CASE("funcId partition constants match the TS declarations") {
   CHECK(TARGET_FUNC_ID_BASE == 1024);
-  CHECK(DYNAMIC_FUNC_ID_BASE == 65536);
 }
 
 TEST_CASE("CoreFuncId extremes and count are wire-stable") {
@@ -19,8 +17,10 @@ TEST_CASE("CoreFuncId extremes and count are wire-stable") {
   CHECK(static_cast<uint32_t>(CoreFuncId::ContextGetWhenResult) == 101);
   CHECK(static_cast<uint32_t>(CoreFuncId::OpEqualToEnum) == 102);
   CHECK(static_cast<uint32_t>(CoreFuncId::OpNotEqualToEnum) == 103);
-  CHECK(kCoreFuncIdCount == 104);
-  CHECK(static_cast<uint32_t>(CoreFuncId::OpNotEqualToEnum) == kCoreFuncIdCount - 1);
+  CHECK(static_cast<uint32_t>(CoreFuncId::ConvEnumToString) == 104);
+  CHECK(static_cast<uint32_t>(CoreFuncId::ConvEnumToNumber) == 105);
+  CHECK(kCoreFuncIdCount == 106);
+  CHECK(static_cast<uint32_t>(CoreFuncId::ConvEnumToNumber) == kCoreFuncIdCount - 1);
   CHECK(kCoreFuncIdCount <= TARGET_FUNC_ID_BASE);
 }
 

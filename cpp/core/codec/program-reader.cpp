@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <type_traits>
 
 #include "core/platform/byte-cursor.h"
@@ -32,6 +33,11 @@ constexpr uint8_t kSystemFlagInit = 1;
 constexpr uint8_t kSystemFlagThink = 2;
 
 constexpr uint8_t kMaxTypeEntryTag = static_cast<uint8_t>(TypeTag::Enum);
+
+// Value-kind byte of a TYPS enum entry: the shared primitive kind of every
+// symbol value the entry carries.
+constexpr uint8_t kEnumValueKindNumber = 0;
+constexpr uint8_t kEnumValueKindString = 1;
 constexpr uint8_t kMaxCallSiteBindingTag = static_cast<uint8_t>(CallSiteBinding::Bytecode);
 constexpr uint8_t kMaxMapKeyTag = static_cast<uint8_t>(MapKeyKind::String);
 
@@ -127,6 +133,8 @@ DecodeStatus readCstrSection(ByteCursor& cursor, RegionArena& arena, ByteSpan wi
   stringTotal = total;
   return DecodeStatus::ok();
 }
+
+DecodeStatus readNumberEntry(ByteCursor& cursor, float& out);
 
 bool isKnownTypeAtom(uint32_t atomId, const ProgramReaderOptions& options) {
   if (atomId < kCoreTypeAtomIdCount) {
@@ -244,14 +252,38 @@ DecodeStatus readTypsEntries(ByteCursor& cursor, uint32_t typeCount, uint32_t st
       MC_CHECK(checkStringIndex(nameIdx, stringTotal));
       MC_READ(symbolCount, cursor.readVarUint());
       MC_CHECK(checkCountFits(symbolCount, cursor));
-      entry.enumOf = {nameIdx, refCount, symbolCount};
-      for (uint32_t j = 0; j < symbolCount; j++) {
-        MC_READ(symbolIdx, cursor.readVarUint());
-        MC_CHECK(checkStringIndex(symbolIdx, stringTotal));
-        if (refs != nullptr) {
-          refs[refCount] = symbolIdx;
+      // Symbol keys land in one typeRefs run, their values in a second run
+      // immediately after it, both indexed by ordinal.
+      entry.enumOf = {nameIdx, refCount, symbolCount, refCount + symbolCount, false};
+      if (symbolCount > 0) {
+        MC_READ(valueKind, cursor.readU8());
+        if (valueKind != kEnumValueKindNumber && valueKind != kEnumValueKindString) {
+          return DecodeStatus::fail(LoadError::InvalidEnumValueKind);
         }
-        refCount++;
+        entry.enumOf.stringValued = valueKind == kEnumValueKindString;
+        for (uint32_t j = 0; j < symbolCount; j++) {
+          MC_READ(symbolIdx, cursor.readVarUint());
+          MC_CHECK(checkStringIndex(symbolIdx, stringTotal));
+          if (refs != nullptr) {
+            refs[entry.enumOf.symbolsOffset + j] = symbolIdx;
+          }
+          if (entry.enumOf.stringValued) {
+            MC_READ(valueIdx, cursor.readVarUint());
+            MC_CHECK(checkStringIndex(valueIdx, stringTotal));
+            if (refs != nullptr) {
+              refs[entry.enumOf.valuesOffset + j] = valueIdx;
+            }
+          } else {
+            float value = 0.0f;
+            MC_CHECK(readNumberEntry(cursor, value));
+            if (refs != nullptr) {
+              uint32_t bits = 0;
+              memcpy(&bits, &value, sizeof(bits));
+              refs[entry.enumOf.valuesOffset + j] = bits;
+            }
+          }
+        }
+        refCount += 2 * symbolCount;
       }
       break;
     }
