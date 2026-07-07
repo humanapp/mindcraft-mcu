@@ -1,0 +1,10 @@
+{
+  "name": "Wodal Standard Library",
+  "version": "0.2.1",
+  "description": "Image builders and glyph helpers for Wodal-target projects.",
+  "targets": {
+    "@mindcraft-lang/wodal": {
+      "packageVersion": "0.2.1"
+    }
+  }
+}

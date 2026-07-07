@@ -12,7 +12,7 @@ import {
 import { type AppBridgeState, AppEnvironmentHost, type UserTileApplyResult } from "@mindcraft-lang/bridge-app";
 import { BrainDef, coreModule, createMindcraftEnvironment, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
 import { createProfileNumerics } from "@mindcraft-lang/core/runtime";
-import { isCompilerControlledPath } from "@mindcraft-lang/ts-compiler";
+import { declarationMount, isCompilerControlledPath, type Mount } from "@mindcraft-lang/ts-compiler";
 import {
   createWodalSharedModule,
   getWodalDeviceProfile,
@@ -25,7 +25,11 @@ import { loadExamples } from "@/examples";
 import { name as appName, version as appVersion } from "../../package.json";
 import { loadBindingToken, saveBindingToken } from "./binding-token-persistence";
 import { microbitAmbientFiles } from "./microbit-ambient-files";
-import { microbitStdlibFiles } from "./microbit-stdlib-files";
+import {
+  microbitDefaultExtensions,
+  microbitEmbeddedExtensions,
+  microbitStdlibImportRedirects,
+} from "./microbit-embedded-extensions";
 import {
   BRAINS_INDEX_KEY,
   buildMicrobitSimExportDocument,
@@ -36,6 +40,9 @@ import {
 import { MicrobitSimulator } from "./simulator";
 import { UserCodeReflasher } from "./user-code-reflasher";
 import { initVfsServiceWorker } from "./vfs-service-worker";
+
+/** Platform content mounts for microbit-sim: the ambient declarations. */
+const microbitMounts: readonly Mount[] = [declarationMount(microbitAmbientFiles)];
 
 /** Parses the persisted simulator fleet; returns undefined when absent or malformed. */
 function parseSimulatorState(raw: string | undefined): MicrobitSimFleet | undefined {
@@ -231,15 +238,16 @@ export class MicrobitSimEnvironmentStore {
     const host = new AppEnvironmentHost({
       projectManager: new ProjectManager(projectStore, {
         filesystemOptions: {
-          shouldExclude: (path) =>
-            isCompilerControlledPath(path, { ambientFiles: microbitAmbientFiles, stdlibFiles: microbitStdlibFiles }),
+          shouldExclude: (path) => isCompilerControlledPath(path, microbitMounts),
         },
         lock: createWebLocksProjectLock(appName),
+        defaultExtensions: microbitDefaultExtensions,
       }),
       modules: [coreModule(), createWodalSharedModule(), activeProfile.createMindcraftModule()],
       numerics: createProfileNumerics(activeProfile.numberPrecision),
-      ambientFiles: microbitAmbientFiles,
-      stdlibFiles: microbitStdlibFiles,
+      mounts: microbitMounts,
+      embeddedExtensions: microbitEmbeddedExtensions,
+      stdlibImportRedirects: microbitStdlibImportRedirects,
       examples: loadExamples(),
       host: { name: appName, version: appVersion },
       bridgeUrl: appSettings.vscodeBridgeUrl,

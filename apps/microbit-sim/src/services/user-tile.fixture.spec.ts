@@ -158,7 +158,7 @@ describe("user-tile source round-trips through .mindcraft", () => {
       projectManager: new ProjectManager(await createIdbProjectStore(`user-tile-export-${storeCounter++}`)),
       modules: [coreModule(), createWodalSharedModule(), profile.createMindcraftModule()],
       numerics: createProfileNumerics(profile.numberPrecision),
-      ambientFiles: [],
+      mounts: [],
       host: { name: appName, version: appVersion },
     });
     await host.initialize("Tile Project");

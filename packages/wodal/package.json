@@ -53,8 +53,14 @@
     "./ambient/mindcraft.microbit-v2.d.ts": {
       "default": "./ambient/mindcraft.microbit-v2.d.ts"
     },
-    "./stdlib/targets/microbit-v2/image.ts": {
-      "default": "./stdlib/targets/microbit-v2/image.ts"
+    "./stdlib/mindcraft.json": {
+      "default": "./stdlib/mindcraft.json"
+    },
+    "./stdlib/index.ts": {
+      "default": "./stdlib/index.ts"
+    },
+    "./stdlib/image.ts": {
+      "default": "./stdlib/image.ts"
     }
   },
   "scripts": {

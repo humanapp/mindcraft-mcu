@@ -25,7 +25,7 @@ const FIXTURE_PATH = fileURLToPath(new URL("./__fixtures__/sample-project.mindcr
 /** Extension dependencies seeded into the sample project, one per reference form. */
 const FIXTURE_EXTENSIONS = {
   position: "gh:example-org/mindcraft-position@v1.2.0",
-  stdlib: "embedded:microbit-stdlib",
+  "wodal-stdlib": "embedded:wodal-stdlib",
   scratch: "local:8f14e45f-ceea-4e17-a396-7f34c2d51b3a",
 };
 
@@ -73,7 +73,7 @@ async function generateFixtureDocument(): Promise<string> {
   const host = new AppEnvironmentHost({
     projectManager: new ProjectManager(await createIdbProjectStore(`fixture-gen-${storeCounter++}`)),
     modules: [coreModule(), createWodalSharedModule(), profile.createMindcraftModule()],
-    ambientFiles: [],
+    mounts: [],
     host: { name: appName, version: appVersion },
     rng: { next: seededRandom() },
   });

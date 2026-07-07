@@ -37,7 +37,8 @@ import {
 import {
   type AmbientFile,
   buildCompiledActionBundle,
-  type StdlibSourceFile,
+  type DependencyMount,
+  type ProjectDependency,
   UserTileProject,
 } from "@mindcraft-lang/ts-compiler";
 import { TEST_PROJECT_NAMESPACE } from "@mindcraft-lang/ts-compiler/testing";
@@ -101,7 +102,7 @@ export default Actuator({
  */
 function iconActuatorSource(name: string): string {
   return `import { Actuator, type Context } from "mindcraft";
-import { heart } from "stdlib/image";
+import { heart } from "@ext/wodal-stdlib";
 
 const heartIcon = heart();
 
@@ -128,9 +129,25 @@ function wodalAmbientFiles(): readonly AmbientFile[] {
   ];
 }
 
-/** The image stdlib source, mounted so user code can `import` from `"stdlib/image"`. */
-function wodalStdlibFiles(): readonly StdlibSourceFile[] {
-  return [{ path: "stdlib/image.ts", content: readText("../../../../stdlib/targets/microbit-v2/image.ts") }];
+/** Namespace the Wodal stdlib extension is mounted under. */
+const WODAL_STDLIB_ORIGIN = "embedded:wodal-stdlib";
+
+/** The Wodal stdlib extension dependency: `@ext/wodal-stdlib` resolves to its entry module. */
+function wodalStdlibDependencies(): readonly ProjectDependency[] {
+  return [{ slug: "wodal-stdlib", namespace: WODAL_STDLIB_ORIGIN }];
+}
+
+/** The Wodal stdlib extension content, mounted read-only for `@ext/wodal-stdlib` resolution. */
+function wodalStdlibDependencyMounts(): readonly DependencyMount[] {
+  return [
+    {
+      namespace: WODAL_STDLIB_ORIGIN,
+      files: new Map([
+        ["/index.ts", readText("../../../../stdlib/index.ts")],
+        ["/image.ts", readText("../../../../stdlib/image.ts")],
+      ]),
+    },
+  ];
 }
 
 function findActuatorTile(tiles: readonly IBrainTileDef[]): IBrainTileDef {
@@ -157,7 +174,8 @@ function buildImage(
   const project = new UserTileProject({
     projectNamespace: TEST_PROJECT_NAMESPACE,
     ambientFiles: wodalAmbientFiles(),
-    stdlibFiles: wodalStdlibFiles(),
+    dependencies: wodalStdlibDependencies(),
+    dependencyMounts: wodalStdlibDependencyMounts(),
     services: environment.brainServices,
   });
   project.setFiles(new Map([[`${actuatorName}.ts`, source]]));
@@ -367,11 +385,12 @@ test("a user-tile can import and call the stdlib image() builder directly", () =
   const project = new UserTileProject({
     projectNamespace: TEST_PROJECT_NAMESPACE,
     ambientFiles: wodalAmbientFiles(),
-    stdlibFiles: wodalStdlibFiles(),
+    dependencies: wodalStdlibDependencies(),
+    dependencyMounts: wodalStdlibDependencyMounts(),
     services: environment.brainServices,
   });
   const source = `import { Actuator, type Context } from "mindcraft";
-import { image, heart } from "stdlib/image";
+import { image, heart } from "@ext/wodal-stdlib";
 
 const dot = image(\`
 . . . . .
@@ -405,7 +424,6 @@ test("drawImage's duration argument is optional: omitting it typechecks and comp
   const project = new UserTileProject({
     projectNamespace: TEST_PROJECT_NAMESPACE,
     ambientFiles: wodalAmbientFiles(),
-    stdlibFiles: wodalStdlibFiles(),
     services: environment.brainServices,
   });
   const source = `import { Actuator, type Context, type Image } from "mindcraft";
