@@ -22,11 +22,11 @@ import {
 
 const FIXTURE_PATH = fileURLToPath(new URL("./__fixtures__/sample-project.mindcraft", import.meta.url));
 
-/** Extension dependencies seeded into the sample project, one per reference form. */
+/** Extension dependencies seeded into the sample project, coordinate-keyed, one per reference form. */
 const FIXTURE_EXTENSIONS = {
-  position: "gh:example-org/mindcraft-position@v1.2.0",
-  "wodal-stdlib": "embedded:wodal-stdlib",
-  scratch: "local:8f14e45f-ceea-4e17-a396-7f34c2d51b3a",
+  "example-org/mindcraft-position": "gh:example-org/mindcraft-position@v1.2.0",
+  "mindcraft-lang/wodal-lib": "embedded:wodal-lib",
+  "author/scratch": "local:8f14e45f-ceea-4e17-a396-7f34c2d51b3a",
 };
 
 // The app-host reads localStorage/sessionStorage for its user-tile cache; provide an in-memory shim

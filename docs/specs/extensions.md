@@ -19,25 +19,30 @@ model; host applications surface it.
 
 ## Identity and namespacing
 
-**An extension's identity is its origin**: the normalized string naming where
-it comes from (for the GitHub transport, `gh:<owner>/<repo>`). Identity never
-travels inside content -- it is assigned by the installer from where the
-content was actually fetched, so an identity cannot be claimed by content that
-does not live there. A fork is a different origin and therefore a different
-extension. Two dependents unify on a shared dependency exactly when they
-reference the same origin.
+**An extension's identity is its `<owner>/<repo>` coordinate**: a name in a
+namespace Mindcraft defines, independent of how the content is delivered. The
+transports below (remote, app-embedded, local) are delivery mechanisms, not
+identity schemes -- GitHub is where remote content is fetched from, not what an
+identity is; no identity carries a transport prefix. For remotely fetched
+content the coordinate mirrors the repository it was fetched from, so its owner
+segment is a real, owned GitHub handle and an identity cannot be claimed by
+content that does not live there; embedded and local content carry a declared
+coordinate under an owner the platform or author controls. A fork is a
+different coordinate and therefore a different extension. Two dependents unify
+on a shared dependency exactly when they reference the same coordinate.
 
 Every symbol an extension contributes -- types, tiles, Systems, conversions,
 and symbols derived from them (accessor tiles, variable factories, output
-keys) -- is keyed under its origin by its exported binding name:
-`<origin>::<binding>`. The host project's own symbols are keyed the same way
-under the host project's stable store identifier. There is no unprefixed
-namespace.
+keys) -- is keyed under its coordinate by its exported binding name:
+`<owner>/<repo>::<binding>`. The host project's own symbols are keyed the same
+way under the host project's stable store identifier (a GUID). A coordinate
+always contains exactly one `/` and a store identifier never takes that shape,
+so the two namespaces cannot collide; there is no unprefixed namespace.
 
 A project's public symbol surface is defined by its **entry module**
 (`index.ts`): name-keyed declarations (struct types, Systems, classes,
 interfaces, aliases) are published exactly when the entry module exports
-them, under their entry-exported name -- `<origin>::<name>`. Publication
+them, under their entry-exported name -- `<owner>/<repo>::<name>`. Publication
 follows the entry, so moving declarations between files never changes a
 published symbol's identity, and an author may reorganize source freely
 without breaking consumers; renaming a published name is a breaking change,
@@ -58,14 +63,19 @@ tiles surface to consumers by existence. Publication gates cross-project
 visibility only -- within its own project, every tile and type is fully
 available regardless of exports or entry.
 
-A dependency also has a **slug**: a short human-readable alias chosen by the
-depending manifest, scoped to that manifest, used for the install folder and
-import specifiers. Slugs are local names; identity, saved-brain references,
-and type unification follow the origin only. Renaming or moving a source
-repository is an identity migration: fetches under the old name keep working
-where the hosting service redirects them, but adopting the new identity is an
-explicit, consumer-visible step (see catalog redirects below for the managed
-form).
+A dependency is imported and stored by its **`<owner>/<repo>` coordinate**,
+which is its identity, not by a renamable local alias. Host-project and extension code
+import from a dependency through the specifier `@ext/<owner>/<repo>` (exactly
+the two coordinate segments; a longer path is a deep import and is rejected),
+and its installed content lives at `.extensions/<owner>/<repo>/`. The import
+specifier is derived from identity: the same extension imports identically in
+every project, and two extensions differ in import exactly when they differ in
+identity. Identity, saved-brain references, type unification, the import
+specifier, and the install path all follow the coordinate -- there is no
+separate local name to choose or collide. Renaming or moving a source repository is an
+identity migration: fetches under the old name keep working where the hosting
+service redirects them, but adopting the new identity is an explicit,
+consumer-visible step (see catalog redirects below for the managed form).
 
 ## Adding extensions: by reference
 
@@ -79,11 +89,14 @@ Reference transports:
   tagged commit, served by a CDN (for example a jsDelivr URL naming a GitHub
   repository at a tag). The tag is an exact pin and a pure routing specifier:
   it names what to fetch and carries no other meaning.
-- **App-embedded.** A slug resolved from content bundled with the host
-  application, serving the application's shipped example extensions offline.
-  Each embedded extension declares its **canonical origin** in the
-  application's embed record -- normally the origin it is published under --
-  so the embedded copy and the published copy are the same extension.
+- **App-embedded.** Content bundled with the host application, serving the
+  application's shipped extensions offline. Each embedded extension declares
+  its **canonical `<owner>/<repo>` coordinate** in the application's embed
+  record -- under an owner the platform controls -- so the embedded copy and
+  any later published copy are the same extension. Embedding is delivery only;
+  the identity is the coordinate, and the content installs into `.extensions/`
+  exactly like any other dependency -- the bundle is simply the fetch source in
+  place of a network download.
 - **Local.** Another project in the same project store
   (`local:<project-id>`), serving the author's inner development loop: build
   an extension as an ordinary local project, add it to a host project, and
@@ -119,8 +132,8 @@ semantic version is warned about at install time and compared as the lowest
 version.
 
 Installed extension content **persists in the project store**. A project
-never depends on its origins being reachable after installation: an
-unreachable origin affects only new installs and reinstalls, never an
+never depends on its sources being reachable after installation: an
+unreachable source affects only new installs and reinstalls, never an
 existing project.
 
 ## Mounts and the platform substrate
@@ -157,11 +170,20 @@ symbols are keyed under their origin.
 
 ## Install layout
 
-Extension sources install under an extensions folder in the host project
-(`.extensions/<slug>/`), each as a complete project. The installed tree is
-read-only and reproducible: it can be regenerated from the manifest and the
-project store. Installed extension content is built by the host project's
+Every dependency, regardless of transport, installs its source under an
+extensions folder in the host project (`.extensions/<owner>/<repo>/`), each as
+a complete project. The transports differ only in how the content is fetched
+(bundle read, CDN download, live local binding); installation, layout, and
+compilation are identical. The installed tree is read-only and reproducible: it
+can be regenerated from the manifest and the project store, so it need not bloat
+the saved project. Installed extension content is built by the host project's
 local compilation pipeline; there are no prebuilt artifacts.
+
+The installed source is a first-class, inspectable surface: a user reading or
+writing code can browse every dependency's source under `.extensions/` to learn
+its API, and a debugger can map execution to those real source paths and step
+into dependency code. Dependencies are therefore materialized as real files,
+not served through a compiler-only view.
 
 ## Dependency resolution
 
@@ -225,12 +247,13 @@ and compiles. Compile outcomes are independent of compile history: switching
 projects, or changing an extension's resolved version, never lets a previous
 resolution's registrations satisfy the next.
 
-Host-project code and extension code import from an extension by slug
-through a dedicated specifier prefix (`@ext/<slug>`), resolved via the
-importing manifest's extensions list to the installed extension's entry
-module. Consumers import the published surface only; there are no deep
-module imports into an extension. A project's own modules keep ordinary
-relative imports.
+Host-project code and extension code import from an extension by its
+`<owner>/<repo>` coordinate through a dedicated specifier prefix
+(`@ext/<owner>/<repo>`, exactly the two coordinate segments), resolved via
+the importing manifest's extensions list to the installed extension's entry
+module. Consumers import the published surface only; a longer path is a deep
+module import and is rejected. A project's own modules keep ordinary relative
+imports.
 
 ## Content kinds, targets, and host-app surfacing
 

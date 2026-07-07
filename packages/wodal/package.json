@@ -25,7 +25,7 @@
   "files": [
     "dist",
     "ambient",
-    "stdlib",
+    "lib",
     "README.md"
   ],
   "publishConfig": {
@@ -53,14 +53,14 @@
     "./ambient/mindcraft.microbit-v2.d.ts": {
       "default": "./ambient/mindcraft.microbit-v2.d.ts"
     },
-    "./stdlib/mindcraft.json": {
-      "default": "./stdlib/mindcraft.json"
+    "./lib/mindcraft.json": {
+      "default": "./lib/mindcraft.json"
     },
-    "./stdlib/index.ts": {
-      "default": "./stdlib/index.ts"
+    "./lib/index.ts": {
+      "default": "./lib/index.ts"
     },
-    "./stdlib/image.ts": {
-      "default": "./stdlib/image.ts"
+    "./lib/image.ts": {
+      "default": "./lib/image.ts"
     }
   },
   "scripts": {

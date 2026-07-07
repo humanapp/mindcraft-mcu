@@ -102,7 +102,7 @@ export default Actuator({
  */
 function iconActuatorSource(name: string): string {
   return `import { Actuator, type Context } from "mindcraft";
-import { heart } from "@ext/wodal-stdlib";
+import { heart } from "@ext/mindcraft-lang/wodal-lib";
 
 const heartIcon = heart();
 
@@ -129,22 +129,22 @@ function wodalAmbientFiles(): readonly AmbientFile[] {
   ];
 }
 
-/** Namespace the Wodal stdlib extension is mounted under. */
-const WODAL_STDLIB_ORIGIN = "embedded:wodal-stdlib";
+/** Canonical `<owner>/<repo>` coordinate the Wodal standard library extension is mounted under. */
+const WODAL_LIB_COORDINATE = "mindcraft-lang/wodal-lib";
 
-/** The Wodal stdlib extension dependency: `@ext/wodal-stdlib` resolves to its entry module. */
+/** The Wodal standard library dependency: `@ext/mindcraft-lang/wodal-lib` resolves to its entry module. */
 function wodalStdlibDependencies(): readonly ProjectDependency[] {
-  return [{ slug: "wodal-stdlib", namespace: WODAL_STDLIB_ORIGIN }];
+  return [{ coordinate: WODAL_LIB_COORDINATE }];
 }
 
-/** The Wodal stdlib extension content, mounted read-only for `@ext/wodal-stdlib` resolution. */
+/** The Wodal standard library extension content, mounted read-only for `@ext/mindcraft-lang/wodal-lib` resolution. */
 function wodalStdlibDependencyMounts(): readonly DependencyMount[] {
   return [
     {
-      namespace: WODAL_STDLIB_ORIGIN,
+      namespace: WODAL_LIB_COORDINATE,
       files: new Map([
-        ["/index.ts", readText("../../../../stdlib/index.ts")],
-        ["/image.ts", readText("../../../../stdlib/image.ts")],
+        ["/index.ts", readText("../../../../lib/index.ts")],
+        ["/image.ts", readText("../../../../lib/image.ts")],
       ]),
     },
   ];
@@ -390,7 +390,7 @@ test("a user-tile can import and call the stdlib image() builder directly", () =
     services: environment.brainServices,
   });
   const source = `import { Actuator, type Context } from "mindcraft";
-import { image, heart } from "@ext/wodal-stdlib";
+import { image, heart } from "@ext/mindcraft-lang/wodal-lib";
 
 const dot = image(\`
 . . . . .
