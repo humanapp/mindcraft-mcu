@@ -40,6 +40,7 @@ import {
   type StdlibSourceFile,
   UserTileProject,
 } from "@mindcraft-lang/ts-compiler";
+import { TEST_PROJECT_NAMESPACE } from "@mindcraft-lang/ts-compiler/testing";
 import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
 import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../../mindcraft/program-image";
@@ -154,6 +155,7 @@ function buildImage(
   source: string
 ): WodalProgramImage<LinkedBrainProgram> {
   const project = new UserTileProject({
+    projectNamespace: TEST_PROJECT_NAMESPACE,
     ambientFiles: wodalAmbientFiles(),
     stdlibFiles: wodalStdlibFiles(),
     services: environment.brainServices,
@@ -363,6 +365,7 @@ test("a user-tile that imports the heart icon from the stdlib draws its pixels",
 test("a user-tile can import and call the stdlib image() builder directly", () => {
   const environment = createMicroBitV2Environment();
   const project = new UserTileProject({
+    projectNamespace: TEST_PROJECT_NAMESPACE,
     ambientFiles: wodalAmbientFiles(),
     stdlibFiles: wodalStdlibFiles(),
     services: environment.brainServices,
@@ -400,6 +403,7 @@ export default Actuator({
 test("drawImage's duration argument is optional: omitting it typechecks and compiles", () => {
   const environment = createMicroBitV2Environment();
   const project = new UserTileProject({
+    projectNamespace: TEST_PROJECT_NAMESPACE,
     ambientFiles: wodalAmbientFiles(),
     stdlibFiles: wodalStdlibFiles(),
     services: environment.brainServices,

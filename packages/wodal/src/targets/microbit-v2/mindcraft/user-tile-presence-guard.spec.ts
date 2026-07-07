@@ -30,6 +30,7 @@ import {
   type VmEvents,
 } from "@mindcraft-lang/core/runtime";
 import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@mindcraft-lang/ts-compiler";
+import { TEST_PROJECT_NAMESPACE } from "@mindcraft-lang/ts-compiler/testing";
 import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
 import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../../mindcraft/program-image";
@@ -99,7 +100,11 @@ function findBundleTile(tiles: readonly IBrainTileDef[], kind: "actuator" | "sen
  * rule 0 with the arg slot empty, rule 1 with the packet buffer literal.
  */
 function buildImage(environment: MindcraftEnvironment): WodalProgramImage<LinkedBrainProgram> {
-  const project = new UserTileProject({ ambientFiles: wodalAmbientFiles(), services: environment.brainServices });
+  const project = new UserTileProject({
+    projectNamespace: TEST_PROJECT_NAMESPACE,
+    ambientFiles: wodalAmbientFiles(),
+    services: environment.brainServices,
+  });
   project.setFiles(new Map([["packet-decode.ts", SENSOR_SOURCE]]));
   const compileResult = project.compileAll();
   assert.equal(

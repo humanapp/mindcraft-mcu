@@ -24,6 +24,7 @@ import {
   type UserAuthoredProgram,
   UserTileProject,
 } from "@mindcraft-lang/ts-compiler";
+import { TEST_PROJECT_NAMESPACE } from "@mindcraft-lang/ts-compiler/testing";
 import { WodalDeviceProfileId } from "../../../mindcraft/device-profile";
 import type { WodalProgramImage } from "../../../mindcraft/program-image";
 import { WodalProgramLoadValidationCode } from "../../../mindcraft/program-load";
@@ -297,7 +298,7 @@ export default Actuator({
   },
 });
 `,
-    { ambientFiles: wodalAmbientFiles(), services: environment.brainServices }
+    { projectNamespace: TEST_PROJECT_NAMESPACE, ambientFiles: wodalAmbientFiles(), services: environment.brainServices }
   );
 
   assert.deepEqual(result.diagnostics, [], `Unexpected diagnostics: ${JSON.stringify(result.diagnostics)}`);
@@ -322,7 +323,7 @@ export default Actuator({
   },
 });
 `,
-    { ambientFiles: wodalAmbientFiles(), services: environment.brainServices }
+    { projectNamespace: TEST_PROJECT_NAMESPACE, ambientFiles: wodalAmbientFiles(), services: environment.brainServices }
   );
 
   assert.deepEqual(result.diagnostics, [], `Unexpected diagnostics: ${JSON.stringify(result.diagnostics)}`);
@@ -371,7 +372,11 @@ function createTestOnlyButtonDisplayBrain(
 }
 
 function compileTestOnlyButtonDisplayBundle(environment: MindcraftEnvironment, options: DisplayActuatorOptions) {
-  const project = new UserTileProject({ ambientFiles: wodalAmbientFiles(), services: environment.brainServices });
+  const project = new UserTileProject({
+    projectNamespace: TEST_PROJECT_NAMESPACE,
+    ambientFiles: wodalAmbientFiles(),
+    services: environment.brainServices,
+  });
   project.setFiles(
     new Map([
       [

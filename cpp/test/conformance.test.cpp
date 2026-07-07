@@ -155,6 +155,8 @@ CoreFuncDispatch coreFuncDispatch(CoreFuncId id) {
   case CoreFuncId::BufferFromString:
   case CoreFuncId::BufferLength:
   case CoreFuncId::BufferGet:
+  case CoreFuncId::OpEqualToEnum:
+  case CoreFuncId::OpNotEqualToEnum:
     return CoreFuncDispatch::HostCall;
   case CoreFuncId::BrainContextGetVariable:
   case CoreFuncId::BrainContextSetVariable:

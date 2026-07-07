@@ -27,6 +27,7 @@ import {
 import type { IBrainRuleDef, IBrainTileDef } from "@mindcraft-lang/core/brain";
 import { BrainDef } from "@mindcraft-lang/core/brain/model";
 import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@mindcraft-lang/ts-compiler";
+import { TEST_PROJECT_NAMESPACE } from "@mindcraft-lang/ts-compiler/testing";
 import { createMicroBitV2Environment } from "./environment";
 import { MicroBitV2HostActions } from "./tile-ids";
 
@@ -66,7 +67,11 @@ function findBundleTile(tiles: readonly IBrainTileDef[], kind: "sensor" | "outpu
 
 /** Installs the user-tile sensor into the environment and returns its sensor + output tiles. */
 function installUserSensor(environment: MindcraftEnvironment): { sensor: IBrainTileDef; output: BrainTileOutputDef } {
-  const project = new UserTileProject({ ambientFiles: wodalAmbientFiles(), services: environment.brainServices });
+  const project = new UserTileProject({
+    projectNamespace: TEST_PROJECT_NAMESPACE,
+    ambientFiles: wodalAmbientFiles(),
+    services: environment.brainServices,
+  });
   project.setFiles(new Map([["user-speed.ts", USER_SENSOR_SOURCE]]));
   const compileResult = project.compileAll();
   assert.equal(

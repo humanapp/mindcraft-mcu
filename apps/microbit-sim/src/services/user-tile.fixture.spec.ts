@@ -8,6 +8,7 @@ import { AppEnvironmentHost } from "@mindcraft-lang/bridge-app";
 import { BrainDef, coreModule } from "@mindcraft-lang/core/app";
 import { createProfileNumerics } from "@mindcraft-lang/core/runtime";
 import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@mindcraft-lang/ts-compiler";
+import { TEST_PROJECT_NAMESPACE } from "@mindcraft-lang/ts-compiler/testing";
 import {
   buildWodalProgramImage,
   createWodalSharedModule,
@@ -91,7 +92,11 @@ describe("user-tile bytecode in microbit-v2 program images", () => {
     const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
     const environment = createMicroBitV2Environment();
 
-    const project = new UserTileProject({ ambientFiles: microbitAmbientFiles(), services: environment.brainServices });
+    const project = new UserTileProject({
+      projectNamespace: TEST_PROJECT_NAMESPACE,
+      ambientFiles: microbitAmbientFiles(),
+      services: environment.brainServices,
+    });
     project.setFiles(
       new Map([
         ["button-a-pressed.ts", SENSOR_SOURCE],

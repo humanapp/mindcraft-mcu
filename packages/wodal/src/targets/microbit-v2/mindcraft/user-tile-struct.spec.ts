@@ -20,7 +20,13 @@ import { mkAccessorTileId, mkVariableFactoryTileId } from "@mindcraft-lang/core/
 import { BrainDef } from "@mindcraft-lang/core/brain/model";
 import { type BrainTileFactoryDef, BrainTileOperatorDef } from "@mindcraft-lang/core/brain/tiles";
 import { type LinkedBrainProgram, linkedBrainProgramToJson, type VmEvents } from "@mindcraft-lang/core/runtime";
-import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@mindcraft-lang/ts-compiler";
+import {
+  type AmbientFile,
+  buildCompiledActionBundle,
+  qualifiedClassName,
+  UserTileProject,
+} from "@mindcraft-lang/ts-compiler";
+import { TEST_PROJECT_NAMESPACE } from "@mindcraft-lang/ts-compiler/testing";
 import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
 import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../../mindcraft/program-image";
@@ -34,7 +40,7 @@ const JSON_PATH = fileURLToPath(new URL("./__fixtures__/user-tile-struct.mcprogr
 const BIN_PATH = fileURLToPath(new URL("./__fixtures__/user-tile-struct.mcprogram.bin", import.meta.url));
 const TRACE_PATH = fileURLToPath(new URL("./__fixtures__/user-tile-struct.ticks.trace", import.meta.url));
 
-const POSITION_IDENTITY = "/position.ts::Position";
+const POSITION_IDENTITY = qualifiedClassName(TEST_PROJECT_NAMESPACE, "/position.ts", "Position");
 
 /** The declared position: x = 3, y = 4. */
 const POSITION_X = 3;
@@ -74,6 +80,7 @@ import { Position } from "./position";
 
 export default Sensor({
   name: "stick position",
+  inline: true,
   returnType: Position,
   onExecute(ctx: Context): Position {
     return Position({ x: ${POSITION_X}, y: ${POSITION_Y} });
@@ -132,7 +139,11 @@ function findBundleTile(tiles: readonly IBrainTileDef[], label: string): IBrainT
 
 /** Compiles the user code, installs the bundle, and builds the struct-producing rules. */
 function buildImage(environment: MindcraftEnvironment): WodalProgramImage<LinkedBrainProgram> {
-  const project = new UserTileProject({ ambientFiles: wodalAmbientFiles(), services: environment.brainServices });
+  const project = new UserTileProject({
+    projectNamespace: TEST_PROJECT_NAMESPACE,
+    ambientFiles: wodalAmbientFiles(),
+    services: environment.brainServices,
+  });
   project.setFiles(
     new Map([
       ["position.ts", POSITION_SOURCE],

@@ -18,6 +18,7 @@ import {
   type ProjectCompileResult,
   UserTileProject,
 } from "@mindcraft-lang/ts-compiler";
+import { TEST_PROJECT_NAMESPACE } from "@mindcraft-lang/ts-compiler/testing";
 import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
 import {
@@ -93,7 +94,11 @@ function findBundleTile(tiles: readonly IBrainTileDef[], kind: "actuator" | "sen
 
 /** Compiles the user tiles, installs them, and builds the button-A -> set-pixel program image. */
 function buildUserTileButtonDisplayImage(environment: MindcraftEnvironment): WodalProgramImage<LinkedBrainProgram> {
-  const project = new UserTileProject({ ambientFiles: wodalAmbientFiles(), services: environment.brainServices });
+  const project = new UserTileProject({
+    projectNamespace: TEST_PROJECT_NAMESPACE,
+    ambientFiles: wodalAmbientFiles(),
+    services: environment.brainServices,
+  });
   project.setFiles(
     new Map([
       ["user-button-a-pressed.ts", SENSOR_SOURCE],

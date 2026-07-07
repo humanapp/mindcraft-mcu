@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import { type AmbientFile, UserTileProject } from "@mindcraft-lang/ts-compiler";
+import { TEST_PROJECT_NAMESPACE } from "@mindcraft-lang/ts-compiler/testing";
 import { createMicroBitV2Environment } from "@mindcraft-lang/wodal/targets/microbit-v2";
 import { groupExampleFiles } from "./index.js";
 
@@ -70,6 +71,7 @@ describe("bundled examples", () => {
     assert.ok(tileFiles.size > 0, "expected at least one example tile to compile");
 
     const project = new UserTileProject({
+      projectNamespace: TEST_PROJECT_NAMESPACE,
       ambientFiles: microbitAmbientFiles(),
       services: environment.brainServices,
     });

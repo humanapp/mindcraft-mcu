@@ -50,7 +50,13 @@ import {
 } from "@mindcraft-lang/core/brain/language-service";
 import type { BrainTileFactoryDef } from "@mindcraft-lang/core/brain/tiles";
 import { CoreOpId, mkNumberValue, mkStringValue, type TypeId } from "@mindcraft-lang/core/runtime";
-import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@mindcraft-lang/ts-compiler";
+import {
+  type AmbientFile,
+  buildCompiledActionBundle,
+  qualifiedClassName,
+  UserTileProject,
+} from "@mindcraft-lang/ts-compiler";
+import { TEST_PROJECT_NAMESPACE } from "@mindcraft-lang/ts-compiler/testing";
 import { buildWodalProgramImage, getWodalDeviceProfile, WodalDeviceProfileId } from "@mindcraft-lang/wodal";
 import {
   createMicroBitV2Environment,
@@ -79,7 +85,7 @@ const RADIO_RECEIVE_BUFFER = "microbit-v2.radio-receive-buffer";
 const RADIO_RECEIVE_STRING = "microbit-v2.radio-receive-string";
 
 /** The position struct's symbol identity. */
-const POSITION_IDENTITY = "/position.ts::Position";
+const POSITION_IDENTITY = qualifiedClassName(TEST_PROJECT_NAMESPACE, "/position.ts", "Position");
 
 /** Stick analog axes and the pull-up press line. */
 const VERTICAL_PIN = 1;
@@ -169,7 +175,11 @@ const bundleTiles = { current: [] as readonly IBrainTileDef[] };
 
 before(() => {
   const env = createMicroBitV2Environment();
-  const project = new UserTileProject({ ambientFiles: microbitAmbientFiles(), services: env.brainServices });
+  const project = new UserTileProject({
+    projectNamespace: TEST_PROJECT_NAMESPACE,
+    ambientFiles: microbitAmbientFiles(),
+    services: env.brainServices,
+  });
   project.setFiles(new Map(Object.entries(projectFiles())));
   const compileResult = project.compileAll();
   assert.equal(

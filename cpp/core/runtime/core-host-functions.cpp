@@ -844,6 +844,18 @@ Status callCoreHostFunction(CoreFuncId id, Span<const Value> args, const HostCal
   case CoreFuncId::OpNotEqualToNilString:
     return okBool(!(args.size() > 1 && args[1].isNil()), out);
 
+  // --- Enum comparisons (symbol identity; false on bad operands) ---
+  case CoreFuncId::OpEqualToEnum: {
+    const bool comparable = args.size() > 1 && args[0].tag() == ValueTag::Enum &&
+                            args[1].tag() == ValueTag::Enum && args[0].typeId() == args[1].typeId();
+    return okBool(comparable && args[0].enumOrdinal() == args[1].enumOrdinal(), out);
+  }
+  case CoreFuncId::OpNotEqualToEnum: {
+    const bool comparable = args.size() > 1 && args[0].tag() == ValueTag::Enum &&
+                            args[1].tag() == ValueTag::Enum && args[0].typeId() == args[1].typeId();
+    return okBool(comparable && args[0].enumOrdinal() != args[1].enumOrdinal(), out);
+  }
+
   // --- Conversions ---
   case CoreFuncId::ConvNumberToBoolean:
     return rawNumber(args, 0, a) ? okBool(a != 0.0f, out) : unsupported();

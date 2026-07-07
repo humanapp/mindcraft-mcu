@@ -23,6 +23,7 @@ import type { IBrainTileDef } from "@mindcraft-lang/core/brain";
 import { BrainDef, type BrainRuleDef } from "@mindcraft-lang/core/brain/model";
 import { type LinkedBrainProgram, linkedBrainProgramToJson, type VmEvents } from "@mindcraft-lang/core/runtime";
 import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@mindcraft-lang/ts-compiler";
+import { TEST_PROJECT_NAMESPACE } from "@mindcraft-lang/ts-compiler/testing";
 import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
 import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../../mindcraft/program-image";
@@ -171,7 +172,11 @@ function findTile(tiles: readonly IBrainTileDef[], label: string): IBrainTileDef
 
 /** Compiles the variant's user code and builds the `producer -> driver(decoder)` rule. */
 function buildImage(environment: MindcraftEnvironment, variant: Variant): WodalProgramImage<LinkedBrainProgram> {
-  const project = new UserTileProject({ ambientFiles: wodalAmbientFiles(), services: environment.brainServices });
+  const project = new UserTileProject({
+    projectNamespace: TEST_PROJECT_NAMESPACE,
+    ambientFiles: wodalAmbientFiles(),
+    services: environment.brainServices,
+  });
   project.setFiles(
     new Map([
       ["when-producer.ts", variant.producerSource],
@@ -376,7 +381,11 @@ function buildNestedImage(
   if (variant.childProducerSource !== null) {
     files.set("when-child-producer.ts", variant.childProducerSource);
   }
-  const project = new UserTileProject({ ambientFiles: wodalAmbientFiles(), services: environment.brainServices });
+  const project = new UserTileProject({
+    projectNamespace: TEST_PROJECT_NAMESPACE,
+    ambientFiles: wodalAmbientFiles(),
+    services: environment.brainServices,
+  });
   project.setFiles(files);
   const compileResult = project.compileAll();
   assert.equal(

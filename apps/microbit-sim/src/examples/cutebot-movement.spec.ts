@@ -26,6 +26,7 @@ import {
 } from "@mindcraft-lang/core/brain/language-service";
 import { CoreHostActions, type LinkedBrainProgram, mkModifierTileId } from "@mindcraft-lang/core/runtime";
 import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@mindcraft-lang/ts-compiler";
+import { TEST_PROJECT_NAMESPACE } from "@mindcraft-lang/ts-compiler/testing";
 import { buildWodalProgramImage, getWodalDeviceProfile, WodalDeviceProfileId } from "@mindcraft-lang/wodal";
 import { createMicroBitV2Environment, MicroBit, WodalMicroBitRuntime } from "@mindcraft-lang/wodal/targets/microbit-v2";
 
@@ -200,7 +201,11 @@ const tilesByName = new Map<string, IBrainTileDef>();
 
 before(() => {
   const env = createMicroBitV2Environment();
-  const project = new UserTileProject({ ambientFiles: microbitAmbientFiles(), services: env.brainServices });
+  const project = new UserTileProject({
+    projectNamespace: TEST_PROJECT_NAMESPACE,
+    ambientFiles: microbitAmbientFiles(),
+    services: env.brainServices,
+  });
   project.setFiles(new Map(Object.entries(projectFiles())));
   const compileResult = project.compileAll();
   assert.equal(

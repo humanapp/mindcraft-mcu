@@ -6,6 +6,7 @@ import type { CompiledActionBundle } from "@mindcraft-lang/core";
 import { BrainDef, type IBrainDef } from "@mindcraft-lang/core/app";
 import { linkedBrainProgramToJson } from "@mindcraft-lang/core/runtime";
 import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@mindcraft-lang/ts-compiler";
+import { TEST_PROJECT_NAMESPACE } from "@mindcraft-lang/ts-compiler/testing";
 import { buildWodalProgramImage, getWodalDeviceProfile, WodalDeviceProfileId } from "@mindcraft-lang/wodal";
 import { createMicroBitV2Environment } from "@mindcraft-lang/wodal/targets/microbit-v2";
 import { UserCodeReflasher } from "./user-code-reflasher";
@@ -60,7 +61,11 @@ export default Actuator({
 }
 
 function compileBundle(environment: MicroBitV2Environment, files: Map<string, string>): CompiledActionBundle {
-  const project = new UserTileProject({ ambientFiles: microbitAmbientFiles(), services: environment.brainServices });
+  const project = new UserTileProject({
+    projectNamespace: TEST_PROJECT_NAMESPACE,
+    ambientFiles: microbitAmbientFiles(),
+    services: environment.brainServices,
+  });
   project.setFiles(files);
   const compileResult = project.compileAll();
   assert.equal(

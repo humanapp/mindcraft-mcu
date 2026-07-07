@@ -22,6 +22,13 @@ import {
 
 const FIXTURE_PATH = fileURLToPath(new URL("./__fixtures__/sample-project.mindcraft", import.meta.url));
 
+/** Extension dependencies seeded into the sample project, one per reference form. */
+const FIXTURE_EXTENSIONS = {
+  position: "gh:example-org/mindcraft-position@v1.2.0",
+  stdlib: "embedded:microbit-stdlib",
+  scratch: "local:8f14e45f-ceea-4e17-a396-7f34c2d51b3a",
+};
+
 // The app-host reads localStorage/sessionStorage for its user-tile cache; provide an in-memory shim
 // alongside fake-indexeddb so the host runs headlessly.
 function memoryStorage(): Storage {
@@ -71,6 +78,8 @@ async function generateFixtureDocument(): Promise<string> {
     rng: { next: seededRandom() },
   });
   await host.initialize("Sample Project");
+
+  await host.projectManager.updateActive({ extensions: FIXTURE_EXTENSIONS });
 
   const blink = host.env.withServices((services) => BrainDef.emptyBrainDef(services, "Blink"));
   await host.saveBrainForKey(blink.id(), blink);
@@ -151,5 +160,9 @@ describe("sample .mindcraft fixture", () => {
     assert.deepEqual(fleet.order, ["microbit-1", "microbit-2"]);
     assert.equal(Object.keys(fleet.flash).length, 1);
     assert.equal(fleet.flash["microbit-1"], brainsIndex[0]);
+
+    const manifest = await projectStore.getProject(projectId);
+    assert.ok(manifest);
+    assert.deepEqual(manifest.extensions, FIXTURE_EXTENSIONS);
   });
 });
