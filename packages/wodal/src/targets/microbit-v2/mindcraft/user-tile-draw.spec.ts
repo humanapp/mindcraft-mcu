@@ -102,7 +102,7 @@ export default Actuator({
  */
 function iconActuatorSource(name: string): string {
   return `import { Actuator, type Context } from "mindcraft";
-import { heart } from "@ext/mindcraft-lang/wodal-lib";
+import { heart } from "@ext/mindcraft-lang/microbit-v2";
 
 const heartIcon = heart();
 
@@ -129,22 +129,22 @@ function wodalAmbientFiles(): readonly AmbientFile[] {
   ];
 }
 
-/** Canonical `<owner>/<repo>` coordinate the Wodal standard library extension is mounted under. */
-const WODAL_LIB_COORDINATE = "mindcraft-lang/wodal-lib";
+/** Canonical `<owner>/<repo>` coordinate the micro:bit v2 image library is mounted under. */
+const MICROBIT_V2_LIB_COORDINATE = "mindcraft-lang/microbit-v2";
 
-/** The Wodal standard library dependency: `@ext/mindcraft-lang/wodal-lib` resolves to its entry module. */
+/** The micro:bit v2 image library dependency: `@ext/mindcraft-lang/microbit-v2` resolves to its entry module. */
 function wodalStdlibDependencies(): readonly ProjectDependency[] {
-  return [{ coordinate: WODAL_LIB_COORDINATE }];
+  return [{ coordinate: MICROBIT_V2_LIB_COORDINATE }];
 }
 
-/** The Wodal standard library extension content, mounted read-only for `@ext/mindcraft-lang/wodal-lib` resolution. */
+/** The micro:bit v2 image library content, mounted read-only for `@ext/mindcraft-lang/microbit-v2` resolution. */
 function wodalStdlibDependencyMounts(): readonly DependencyMount[] {
   return [
     {
-      namespace: WODAL_LIB_COORDINATE,
+      namespace: MICROBIT_V2_LIB_COORDINATE,
       files: new Map([
-        ["/index.ts", readText("../../../../lib/index.ts")],
-        ["/image.ts", readText("../../../../lib/image.ts")],
+        ["/index.ts", readText("../../../../targets/microbit-v2/lib/index.ts")],
+        ["/image.ts", readText("../../../../targets/microbit-v2/lib/image.ts")],
       ]),
     },
   ];
@@ -390,7 +390,7 @@ test("a user-tile can import and call the stdlib image() builder directly", () =
     services: environment.brainServices,
   });
   const source = `import { Actuator, type Context } from "mindcraft";
-import { image, heart } from "@ext/mindcraft-lang/wodal-lib";
+import { image, heart } from "@ext/mindcraft-lang/microbit-v2";
 
 const dot = image(\`
 . . . . .

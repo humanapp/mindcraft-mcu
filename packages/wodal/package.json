@@ -26,6 +26,7 @@
     "dist",
     "ambient",
     "lib",
+    "targets",
     "README.md"
   ],
   "publishConfig": {
@@ -59,8 +60,14 @@
     "./lib/index.ts": {
       "default": "./lib/index.ts"
     },
-    "./lib/image.ts": {
-      "default": "./lib/image.ts"
+    "./targets/microbit-v2/lib/mindcraft.json": {
+      "default": "./targets/microbit-v2/lib/mindcraft.json"
+    },
+    "./targets/microbit-v2/lib/index.ts": {
+      "default": "./targets/microbit-v2/lib/index.ts"
+    },
+    "./targets/microbit-v2/lib/image.ts": {
+      "default": "./targets/microbit-v2/lib/image.ts"
     }
   },
   "scripts": {

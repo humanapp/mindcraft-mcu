@@ -1,55 +1,77 @@
-import type { EmbeddedExtension, StdlibImportRedirect } from "@mindcraft-lang/bridge-app";
-import wodalStdlibImage from "@mindcraft-lang/wodal/lib/image.ts?raw";
-import wodalStdlibEntry from "@mindcraft-lang/wodal/lib/index.ts?raw";
+import type { EmbeddedExtension } from "@mindcraft-lang/bridge-app";
+import coreLibEntry from "@mindcraft-lang/core/lib/index.ts?raw";
+import coreLibManifest from "@mindcraft-lang/core/lib/mindcraft.json?raw";
+import wodalLibEntry from "@mindcraft-lang/wodal/lib/index.ts?raw";
+import wodalLibManifest from "@mindcraft-lang/wodal/lib/mindcraft.json?raw";
+import microbitV2LibImage from "@mindcraft-lang/wodal/targets/microbit-v2/lib/image.ts?raw";
+import microbitV2LibEntry from "@mindcraft-lang/wodal/targets/microbit-v2/lib/index.ts?raw";
+import microbitV2LibManifest from "@mindcraft-lang/wodal/targets/microbit-v2/lib/mindcraft.json?raw";
+import {
+  CORE_LIB_COORDINATE,
+  MICROBIT_V2_LIB_COORDINATE,
+  WODAL_LIB_COORDINATE,
+} from "./microbit-extension-coordinates";
+
+export {
+  CORE_LIB_COORDINATE,
+  CORE_LIB_REFERENCE,
+  MICROBIT_V2_LIB_COORDINATE,
+  MICROBIT_V2_LIB_REFERENCE,
+  microbitDefaultExtensions,
+  microbitStdlibImportRedirects,
+  WODAL_LIB_COORDINATE,
+  WODAL_LIB_REFERENCE,
+} from "./microbit-extension-coordinates";
 
 /**
- * The Wodal standard library's `<owner>/<repo>` coordinate: its identity, its
- * compiler namespace, and the name it is imported and stored under
- * (`@ext/mindcraft-lang/wodal`).
+ * The micro:bit v2 layer as an embedded extension: the micro:bit LED-display
+ * image builders and glyph helpers, identified by the canonical
+ * `mindcraft-lang/microbit-v2` coordinate. Its bundled `mindcraft.json`
+ * declares the edge down to the wodal layer.
  */
-export const WODAL_LIB_COORDINATE = "mindcraft-lang/wodal";
-
-/** Manifest reference form delivering the Wodal standard library from the app bundle. */
-export const WODAL_LIB_REFERENCE = "embedded:mindcraft-lang/wodal";
+export const microbitV2StdlibExtension: EmbeddedExtension = {
+  canonicalOrigin: MICROBIT_V2_LIB_COORDINATE,
+  files: [
+    { path: "index.ts", content: microbitV2LibEntry },
+    { path: "image.ts", content: microbitV2LibImage },
+    { path: "mindcraft.json", content: microbitV2LibManifest },
+  ],
+};
 
 /**
- * The Wodal standard library as a default embedded extension: image builders
- * and glyph helpers, sourced from the wodal package and identified by its
- * canonical `mindcraft-lang/wodal` coordinate.
+ * The wodal-general layer as an embedded extension: a present-but-empty
+ * placeholder identified by the canonical `mindcraft-lang/wodal` coordinate.
+ * Its bundled `mindcraft.json` declares the edge down to the core layer.
  */
 export const wodalStdlibExtension: EmbeddedExtension = {
   canonicalOrigin: WODAL_LIB_COORDINATE,
   files: [
-    { path: "index.ts", content: wodalStdlibEntry },
-    { path: "image.ts", content: wodalStdlibImage },
+    { path: "index.ts", content: wodalLibEntry },
+    { path: "mindcraft.json", content: wodalLibManifest },
   ],
 };
 
-/** Extensions bundled with microbit-sim, resolved from `embedded:<repo>` references. */
-export const microbitEmbeddedExtensions: readonly EmbeddedExtension[] = [wodalStdlibExtension];
-
-/** Extensions seeded into every new microbit-sim project's manifest, keyed by coordinate. */
-export const microbitDefaultExtensions: Readonly<Record<string, string>> = {
-  [WODAL_LIB_COORDINATE]: WODAL_LIB_REFERENCE,
+/**
+ * The core layer as an embedded extension: a present-but-empty placeholder
+ * identified by the canonical `mindcraft-lang/core` coordinate, at the base of
+ * the stack with no further dependencies.
+ */
+export const coreStdlibExtension: EmbeddedExtension = {
+  canonicalOrigin: CORE_LIB_COORDINATE,
+  files: [
+    { path: "index.ts", content: coreLibEntry },
+    { path: "mindcraft.json", content: coreLibManifest },
+  ],
 };
 
 /**
- * Redirects carrying a project onto the Wodal standard library's final
- * `mindcraft-lang/wodal` coordinate. Legacy `stdlib/image` imports and the
- * interim `@ext/wodal-stdlib` entry import both rewrite to
- * `@ext/mindcraft-lang/wodal`; the interim `wodal-stdlib` manifest key is
- * removed as the coordinate is backfilled; and saved-brain symbol origins on
- * either prior form (`embedded:wodal-stdlib`, or a `gh:mindcraft-lang/wodal`
- * transport-prefixed form) are rewritten to the bare `mindcraft-lang/wodal`
- * coordinate.
+ * Extensions bundled with microbit-sim, resolved from `embedded:<owner>/<repo>`
+ * references. The stack is core <- wodal <- microbit-v2; seeding the micro:bit
+ * v2 layer alone resolves all three transitively through their bundled
+ * `mindcraft.json` edges.
  */
-export const microbitStdlibImportRedirects: readonly StdlibImportRedirect[] = [
-  {
-    fromSpecifiers: ["stdlib", "@ext/wodal-stdlib"],
-    toCoordinate: WODAL_LIB_COORDINATE,
-    toReference: WODAL_LIB_REFERENCE,
-    interimManifestKeys: ["wodal-stdlib"],
-    interimOrigins: ["embedded:wodal-stdlib", "gh:mindcraft-lang/wodal"],
-    toOrigin: WODAL_LIB_COORDINATE,
-  },
+export const microbitEmbeddedExtensions: readonly EmbeddedExtension[] = [
+  microbitV2StdlibExtension,
+  wodalStdlibExtension,
+  coreStdlibExtension,
 ];

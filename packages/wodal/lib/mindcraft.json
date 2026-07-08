@@ -1,10 +1,8 @@
 {
-  "name": "Wodal Standard Library",
+  "name": "WODAL/CODAL Standard Library",
   "version": "0.2.1",
-  "description": "Image builders and glyph helpers for Wodal-target projects.",
-  "targets": {
-    "@mindcraft-lang/wodal": {
-      "packageVersion": "0.2.1"
-    }
+  "description": "Mindcraft library for all WODAL- and CODAL-based targets.",
+  "extensions": {
+    "mindcraft-lang/core": "embedded:mindcraft-lang/core"
   }
 }
