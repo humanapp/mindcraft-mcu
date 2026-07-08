@@ -5,17 +5,17 @@ import wodalStdlibEntry from "@mindcraft-lang/wodal/lib/index.ts?raw";
 /**
  * The Wodal standard library's `<owner>/<repo>` coordinate: its identity, its
  * compiler namespace, and the name it is imported and stored under
- * (`@ext/mindcraft-lang/wodal-lib`).
+ * (`@ext/mindcraft-lang/wodal`).
  */
-export const WODAL_LIB_COORDINATE = "mindcraft-lang/wodal-lib";
+export const WODAL_LIB_COORDINATE = "mindcraft-lang/wodal";
 
 /** Manifest reference form delivering the Wodal standard library from the app bundle. */
-export const WODAL_LIB_REFERENCE = "embedded:wodal-lib";
+export const WODAL_LIB_REFERENCE = "embedded:mindcraft-lang/wodal";
 
 /**
  * The Wodal standard library as a default embedded extension: image builders
  * and glyph helpers, sourced from the wodal package and identified by its
- * canonical `mindcraft-lang/wodal-lib` coordinate.
+ * canonical `mindcraft-lang/wodal` coordinate.
  */
 export const wodalStdlibExtension: EmbeddedExtension = {
   canonicalOrigin: WODAL_LIB_COORDINATE,
@@ -35,12 +35,12 @@ export const microbitDefaultExtensions: Readonly<Record<string, string>> = {
 
 /**
  * Redirects carrying a project onto the Wodal standard library's final
- * `mindcraft-lang/wodal-lib` coordinate. Legacy `stdlib/image` imports and the
+ * `mindcraft-lang/wodal` coordinate. Legacy `stdlib/image` imports and the
  * interim `@ext/wodal-stdlib` entry import both rewrite to
- * `@ext/mindcraft-lang/wodal-lib`; the interim `wodal-stdlib` manifest key is
+ * `@ext/mindcraft-lang/wodal`; the interim `wodal-stdlib` manifest key is
  * removed as the coordinate is backfilled; and saved-brain symbol origins on
- * either prior form (`embedded:wodal-stdlib`, or a `gh:mindcraft-lang/wodal-lib`
- * transport-prefixed form) are rewritten to the bare `mindcraft-lang/wodal-lib`
+ * either prior form (`embedded:wodal-stdlib`, or a `gh:mindcraft-lang/wodal`
+ * transport-prefixed form) are rewritten to the bare `mindcraft-lang/wodal`
  * coordinate.
  */
 export const microbitStdlibImportRedirects: readonly StdlibImportRedirect[] = [
@@ -49,7 +49,7 @@ export const microbitStdlibImportRedirects: readonly StdlibImportRedirect[] = [
     toCoordinate: WODAL_LIB_COORDINATE,
     toReference: WODAL_LIB_REFERENCE,
     interimManifestKeys: ["wodal-stdlib"],
-    interimOrigins: ["embedded:wodal-stdlib", "gh:mindcraft-lang/wodal-lib"],
+    interimOrigins: ["embedded:wodal-stdlib", "gh:mindcraft-lang/wodal"],
     toOrigin: WODAL_LIB_COORDINATE,
   },
 ];

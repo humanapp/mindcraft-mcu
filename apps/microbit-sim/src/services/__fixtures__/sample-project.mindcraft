@@ -86,7 +86,7 @@
   },
   "extensions": {
     "example-org/mindcraft-position": "gh:example-org/mindcraft-position@v1.2.0",
-    "mindcraft-lang/wodal-lib": "embedded:wodal-lib",
+    "mindcraft-lang/wodal": "embedded:mindcraft-lang/wodal",
     "author/scratch": "local:8f14e45f-ceea-4e17-a396-7f34c2d51b3a"
   }
 }

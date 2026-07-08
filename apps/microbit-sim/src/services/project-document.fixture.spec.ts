@@ -25,7 +25,7 @@ const FIXTURE_PATH = fileURLToPath(new URL("./__fixtures__/sample-project.mindcr
 /** Extension dependencies seeded into the sample project, coordinate-keyed, one per reference form. */
 const FIXTURE_EXTENSIONS = {
   "example-org/mindcraft-position": "gh:example-org/mindcraft-position@v1.2.0",
-  "mindcraft-lang/wodal-lib": "embedded:wodal-lib",
+  "mindcraft-lang/wodal": "embedded:mindcraft-lang/wodal",
   "author/scratch": "local:8f14e45f-ceea-4e17-a396-7f34c2d51b3a",
 };
 

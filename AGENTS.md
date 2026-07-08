@@ -223,6 +223,24 @@ doing so is within scope.
     implementing the microbit profile.
   - `apps/microbit-sim` owns visual UI, project management, compiler
     integration, and browser product shell.
+- **TWO first-class product consumers, both mandatory, co-equal.** The shared
+  Mindcraft packages (`packages/core`, `packages/ts-compiler`,
+  `packages/bridge-app`, `packages/app-host`, `packages/ui`) are consumed by two
+  product apps that carry equal weight:
+  - `apps/microbit-sim` (this repo), and
+  - `external/mindcraft-lang/apps/sim` -- the game/sim app, which hosts live
+    capability tiles (`[it]`/`see`/`bump`) on its OWN platform, unrelated to
+    wodal/microbit.
+  `apps/sim` is NOT secondary, NOT optional, and NOT "the standalone checkout":
+  it lives at `external/mindcraft-lang/apps/sim` inside this tree. Any change to
+  a shared package, or any cross-app / shared-model feature, MUST sweep and gate
+  BOTH apps by their exact paths (typecheck + biome + test each) before it is
+  done -- a change verified only against microbit-sim is INCOMPLETE. When
+  designing a shared feature, design for both consumers from the start: any
+  default, assumption, or example tied to microbit-sim's platform
+  (wodal/microbit-v2) must state how it also serves apps/sim's distinct
+  platform. (Gating and design for `apps/sim` is required even though it lives
+  in the reference checkout; this is the one standing reason to run its suites.)
 - WODAL and the MCU VM must respect the Mindcraft host calling convention and
   the single-entry VM rule: external callbacks enqueue only; the host loop
   drains, resolves handles, schedules, and executes.
