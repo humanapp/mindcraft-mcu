@@ -11,7 +11,7 @@ export function initVfsServiceWorker(store: MicrobitSimEnvironmentStore): void {
   const swUrl = import.meta.env.DEV ? "/src/vfs-sw-entry.ts" : "/vfs-service-worker.js";
   registerVfsServiceWorker({
     swUrl,
-    getProjectFileSystem: () => store.projectFileSystem,
+    getProjectFileSystem: () => store.servedProjectFileSystem,
     onReady: () => store.bumpVfsRevision(),
   });
 

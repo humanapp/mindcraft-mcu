@@ -298,6 +298,15 @@ export class MicrobitSimEnvironmentStore {
     return this.host.projectFileSystem;
   }
 
+  /**
+   * File system the VFS service worker serves assets from: the raw project
+   * files plus compiler-controlled files, including the installed-extensions
+   * tree, so extension tile icons and docs resolve.
+   */
+  get servedProjectFileSystem(): ProjectFileSystem {
+    return this.host.servedProjectFileSystem;
+  }
+
   /** Manifest of the active project, or undefined when none is open. */
   get activeProjectManifest(): ProjectManifest | undefined {
     return this.host.activeProjectManifest;

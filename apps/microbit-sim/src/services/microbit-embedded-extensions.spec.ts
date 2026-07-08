@@ -3,7 +3,11 @@ import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import type { EmbeddedExtension } from "@mindcraft-lang/bridge-app";
-import { resolveEmbeddedExtensions } from "@mindcraft-lang/bridge-app";
+import {
+  findEmbeddedExtensionsMissingStableIds,
+  formatEmbeddedExtensionIdViolations,
+  resolveEmbeddedExtensions,
+} from "@mindcraft-lang/bridge-app";
 import { createWorkspaceCompiler, type Mount, type WorkspaceSnapshot } from "@mindcraft-lang/ts-compiler";
 import { createMicroBitV2Environment } from "@mindcraft-lang/wodal/targets/microbit-v2";
 import {
@@ -160,5 +164,13 @@ export default Actuator({
       controlled.has(".extensions/mindcraft-lang/microbit-v2/mindcraft.microbit-v2.d.ts"),
       "the microbit-v2 ambient materializes under .extensions/"
     );
+  });
+});
+
+describe("microbit embedded extensions -- every declaration ships a stable id", () => {
+  test("no embedded extension declares a tile without an explicit stable id", () => {
+    const services = createMicroBitV2Environment().brainServices;
+    const violations = findEmbeddedExtensionsMissingStableIds(embeddedLayers(), services);
+    assert.deepEqual(violations, [], formatEmbeddedExtensionIdViolations(violations));
   });
 });
