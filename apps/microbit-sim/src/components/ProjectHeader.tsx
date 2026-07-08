@@ -5,11 +5,18 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  ExtensionBrowserDialog,
 } from "@mindcraft-lang/ui";
-import { ChevronDown, Download, FilePlus, FolderOpen, Settings, Upload } from "lucide-react";
-import { useState, useSyncExternalStore } from "react";
+import { Blocks, ChevronDown, Download, FilePlus, FolderOpen, Settings, Upload } from "lucide-react";
+import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";
+import { microbitEmbeddedExtensions } from "@/services/microbit-embedded-extensions";
+import {
+  buildMicrobitExtensionEntries,
+  installMicrobitExtension,
+  uninstallMicrobitExtension,
+} from "@/services/microbit-extension-browser";
 import { downloadTextFile } from "@/utils/file-download";
 import { pickFile } from "@/utils/file-upload";
 import { InlineRename } from "./InlineRename";
@@ -17,7 +24,7 @@ import { NewProjectDialog } from "./NewProjectDialog";
 import { ProjectPickerDialog } from "./ProjectPickerDialog";
 import { SettingsDialog } from "./SettingsDialog";
 
-type OpenDialog = "none" | "new" | "open" | "settings";
+type OpenDialog = "none" | "new" | "open" | "settings" | "extensions";
 
 function projectFilename(name: string): string {
   const slug = name.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-+|-+$/g, "");
@@ -28,7 +35,41 @@ function projectFilename(name: string): string {
 export function ProjectHeader() {
   const store = useMicrobitSimEnvironment();
   const projectName = useSyncExternalStore(store.subscribeToActiveProject, store.getActiveProjectName);
+  const getExtensions = useCallback(() => store.activeProjectManifest?.extensions, [store]);
+  const extensions = useSyncExternalStore(store.subscribeToActiveProject, getExtensions);
   const [dialog, setDialog] = useState<OpenDialog>("none");
+
+  const extensionEntries = useMemo(
+    () => buildMicrobitExtensionEntries(extensions, microbitEmbeddedExtensions),
+    [extensions]
+  );
+
+  const handleInstallExtension = (coordinate: string) => {
+    void (async () => {
+      const result = await installMicrobitExtension(
+        store.projectManager,
+        store.activeProjectManifest?.extensions,
+        coordinate,
+        microbitEmbeddedExtensions
+      );
+      if (!result.ok) {
+        toast.error(`Could not install extension (${result.code})`);
+      }
+    })();
+  };
+
+  const handleUninstallExtension = (coordinate: string) => {
+    void (async () => {
+      const result = await uninstallMicrobitExtension(
+        store.projectManager,
+        store.activeProjectManifest?.extensions,
+        coordinate
+      );
+      if (!result.ok) {
+        toast.error(`Could not remove extension (${result.code})`);
+      }
+    })();
+  };
 
   const handleExport = async () => {
     try {
@@ -94,6 +135,11 @@ export function ProjectHeader() {
                 <Download />
                 Export
               </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem data-testid="extensions-button" onClick={() => setDialog("extensions")}>
+                <Blocks />
+                Extensions...
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <Button
@@ -112,6 +158,13 @@ export function ProjectHeader() {
       {dialog === "new" && <NewProjectDialog onClose={() => setDialog("none")} />}
       {dialog === "open" && <ProjectPickerDialog onClose={() => setDialog("none")} />}
       {dialog === "settings" && <SettingsDialog onClose={() => setDialog("none")} />}
+      <ExtensionBrowserDialog
+        open={dialog === "extensions"}
+        onOpenChange={(open) => setDialog(open ? "extensions" : "none")}
+        entries={extensionEntries}
+        onInstall={handleInstallExtension}
+        onUninstall={handleUninstallExtension}
+      />
     </header>
   );
 }
