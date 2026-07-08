@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import type { EmbeddedExtension } from "@mindcraft-lang/bridge-app";
-import { migrateStdlibBrainOrigins, migrateStdlibImports, resolveEmbeddedExtensions } from "@mindcraft-lang/bridge-app";
+import { resolveEmbeddedExtensions } from "@mindcraft-lang/bridge-app";
 import { type AmbientFile, UserTileProject } from "@mindcraft-lang/ts-compiler";
 import { TEST_PROJECT_NAMESPACE } from "@mindcraft-lang/ts-compiler/testing";
 import { createMicroBitV2Environment } from "@mindcraft-lang/wodal/targets/microbit-v2";
@@ -12,7 +12,6 @@ import {
   CORE_LIB_REFERENCE,
   MICROBIT_V2_LIB_COORDINATE,
   MICROBIT_V2_LIB_REFERENCE,
-  microbitStdlibImportRedirects,
   WODAL_LIB_COORDINATE,
   WODAL_LIB_REFERENCE,
 } from "./microbit-extension-coordinates";
@@ -71,60 +70,6 @@ function microbitAmbientFiles(): readonly AmbientFile[] {
     },
   ];
 }
-
-const MICROBIT_V2_COORDINATE = "mindcraft-lang/microbit-v2";
-const WODAL_COORDINATE = "mindcraft-lang/wodal";
-
-describe("microbit stdlib redirects -- saved-brain origin migration onto microbit-v2", () => {
-  test("a brain whose image symbols carry the wodal origin migrates to the microbit-v2 origin", () => {
-    const brain = {
-      catalog: [
-        { kind: "literal", valueType: `struct:<${WODAL_COORDINATE}:/image.ts::Image>` },
-        { kind: "variable", tileId: `tile.var.factory->struct:<${WODAL_COORDINATE}:/image.ts::Image>` },
-      ],
-    };
-
-    const report = migrateStdlibBrainOrigins(brain, microbitStdlibImportRedirects);
-
-    assert.equal(report.changed, true);
-    assert.equal(brain.catalog[0].valueType, `struct:<${MICROBIT_V2_COORDINATE}:/image.ts::Image>`);
-    assert.equal(brain.catalog[1].tileId, `tile.var.factory->struct:<${MICROBIT_V2_COORDINATE}:/image.ts::Image>`);
-  });
-
-  test("the prior transport-prefixed wodal origin also migrates to the bare microbit-v2 coordinate", () => {
-    const brain = { catalog: [{ kind: "literal", valueType: `struct:<gh:${WODAL_COORDINATE}:/image.ts::Image>` }] };
-
-    const report = migrateStdlibBrainOrigins(brain, microbitStdlibImportRedirects);
-
-    assert.equal(report.changed, true);
-    assert.equal(brain.catalog[0].valueType, `struct:<${MICROBIT_V2_COORDINATE}:/image.ts::Image>`);
-  });
-});
-
-describe("microbit stdlib redirects -- import-specifier migration onto microbit-v2", () => {
-  test("a user file importing image from the wodal entry surface rewrites to the microbit-v2 entry", () => {
-    const files = new Map([["draw.ts", 'import { heart } from "@ext/mindcraft-lang/wodal";\n']]);
-
-    const result = migrateStdlibImports(
-      files,
-      { [WODAL_COORDINATE]: WODAL_LIB_REFERENCE },
-      microbitStdlibImportRedirects
-    );
-
-    assert.equal(result.changed, true);
-    assert.equal(result.changedFiles.get("draw.ts"), 'import { heart } from "@ext/mindcraft-lang/microbit-v2";\n');
-    assert.equal(result.manifestBackfill[MICROBIT_V2_COORDINATE], MICROBIT_V2_LIB_REFERENCE);
-    assert.deepEqual(result.manifestRemovals, [WODAL_COORDINATE]);
-  });
-
-  test("a legacy stdlib subpath import still rewrites onto the microbit-v2 entry", () => {
-    const files = new Map([["draw.ts", 'import { heart } from "stdlib/image";\n']]);
-
-    const result = migrateStdlibImports(files, undefined, microbitStdlibImportRedirects);
-
-    assert.equal(result.changedFiles.get("draw.ts"), 'import { heart } from "@ext/mindcraft-lang/microbit-v2";\n');
-  });
-});
 
 describe("microbit embedded layers -- transitive resolution of the core <- wodal <- microbit-v2 stack", () => {
   test("seeding the microbit-v2 layer alone resolves and materializes all three layers with their edges", () => {

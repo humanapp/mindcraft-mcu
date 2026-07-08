@@ -18,7 +18,6 @@ export {
   MICROBIT_V2_LIB_COORDINATE,
   MICROBIT_V2_LIB_REFERENCE,
   microbitDefaultExtensions,
-  microbitStdlibImportRedirects,
   WODAL_LIB_COORDINATE,
   WODAL_LIB_REFERENCE,
 } from "./microbit-extension-coordinates";

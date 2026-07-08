@@ -1,5 +1,3 @@
-import type { StdlibImportRedirect } from "@mindcraft-lang/bridge-app";
-
 /**
  * The core layer's `<owner>/<repo>` coordinate: its identity, its compiler
  * namespace, and the name it is imported and stored under
@@ -43,30 +41,3 @@ export const MICROBIT_V2_LIB_REFERENCE = "embedded:mindcraft-lang/microbit-v2";
 export const microbitDefaultExtensions: Readonly<Record<string, string>> = {
   [MICROBIT_V2_LIB_COORDINATE]: MICROBIT_V2_LIB_REFERENCE,
 };
-
-/**
- * Redirects carrying a project onto the micro:bit v2 layer's final
- * `mindcraft-lang/microbit-v2` coordinate, the layer the image builders now
- * live on. Legacy `stdlib/image` imports, the interim `@ext/wodal-stdlib` entry
- * import, and the prior wodal-layer entry `@ext/mindcraft-lang/wodal` all
- * rewrite to `@ext/mindcraft-lang/microbit-v2`; the prior `wodal-stdlib` and
- * `mindcraft-lang/wodal` manifest keys are removed as the coordinate is
- * backfilled; and saved-brain symbol origins on any prior form
- * (`embedded:wodal-stdlib`, the transport-prefixed `gh:mindcraft-lang/wodal`,
- * or the bare `mindcraft-lang/wodal`) are rewritten to the bare
- * `mindcraft-lang/microbit-v2` coordinate.
- *
- * The `gh:mindcraft-lang/wodal` origin precedes the bare `mindcraft-lang/wodal`
- * origin so the transport-prefixed form is rewritten whole before the bare
- * substring inside it is matched.
- */
-export const microbitStdlibImportRedirects: readonly StdlibImportRedirect[] = [
-  {
-    fromSpecifiers: ["stdlib", "@ext/wodal-stdlib", "@ext/mindcraft-lang/wodal"],
-    toCoordinate: MICROBIT_V2_LIB_COORDINATE,
-    toReference: MICROBIT_V2_LIB_REFERENCE,
-    interimManifestKeys: ["wodal-stdlib", WODAL_LIB_COORDINATE],
-    interimOrigins: ["embedded:wodal-stdlib", "gh:mindcraft-lang/wodal", WODAL_LIB_COORDINATE],
-    toOrigin: MICROBIT_V2_LIB_COORDINATE,
-  },
-];
