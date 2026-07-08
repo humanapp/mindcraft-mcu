@@ -159,7 +159,6 @@ describe("user-tile source round-trips through .mindcraft", () => {
       modules: [coreModule(), createWodalSharedModule(), profile.createMindcraftModule()],
       numerics: createProfileNumerics(profile.numberPrecision),
       mounts: [],
-      host: { name: appName, version: appVersion },
     });
     await host.initialize("Tile Project");
 

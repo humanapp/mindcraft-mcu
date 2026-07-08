@@ -249,7 +249,6 @@ export class MicrobitSimEnvironmentStore {
       embeddedExtensions: microbitEmbeddedExtensions,
       stdlibImportRedirects: microbitStdlibImportRedirects,
       examples: loadExamples(),
-      host: { name: appName, version: appVersion },
       bridgeUrl: appSettings.vscodeBridgeUrl,
       loadBindingToken,
       saveBindingToken,

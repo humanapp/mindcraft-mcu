@@ -74,7 +74,6 @@ async function generateFixtureDocument(): Promise<string> {
     projectManager: new ProjectManager(await createIdbProjectStore(`fixture-gen-${storeCounter++}`)),
     modules: [coreModule(), createWodalSharedModule(), profile.createMindcraftModule()],
     mounts: [],
-    host: { name: appName, version: appVersion },
     rng: { next: seededRandom() },
   });
   await host.initialize("Sample Project");
