@@ -51,6 +51,9 @@
       "browser": "./dist/targets/microbit-v2/index.js",
       "import": "./dist/targets/microbit-v2/index.js"
     },
+    "./ambient/mindcraft.wodal.d.ts": {
+      "default": "./ambient/mindcraft.wodal.d.ts"
+    },
     "./ambient/mindcraft.microbit-v2.d.ts": {
       "default": "./ambient/mindcraft.microbit-v2.d.ts"
     },

@@ -2,22 +2,33 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { coreModule, createMindcraftEnvironment } from "@mindcraft-lang/core/app";
-import { buildPlatformAmbientDeclarations } from "@mindcraft-lang/ts-compiler";
+import { coreModule, createMindcraftEnvironment, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
+import { buildLayeredPlatformAmbients } from "../../../../scripts/ambient-layers";
 import { createMicroBitV2Environment } from "./environment";
+
+interface AmbientTarget {
+  name: string;
+  createEnvironment: () => MindcraftEnvironment;
+}
+
+const TARGETS: readonly AmbientTarget[] = [{ name: "microbit-v2", createEnvironment: createMicroBitV2Environment }];
 
 function readText(relativePath: string): string {
   return readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), "utf8");
 }
 
-test("checked-in microbit-v2 ambient declarations match generated declarations", () => {
+test("checked-in wodal and target ambient declarations match generated declarations", () => {
   const coreEnvironment = createMindcraftEnvironment({ modules: [coreModule()] });
-  const microbitV2Environment = createMicroBitV2Environment();
+  const coreTypes = coreEnvironment.brainServices.runtime.types;
 
-  const microbitV2Ambient = buildPlatformAmbientDeclarations(
-    coreEnvironment.brainServices.runtime.types,
-    microbitV2Environment.brainServices.runtime.types
-  );
+  const layeredByTarget = TARGETS.map((target) => ({
+    name: target.name,
+    layers: buildLayeredPlatformAmbients(coreTypes, target.createEnvironment().brainServices.runtime.types),
+  }));
 
-  assert.equal(readText("../../../../ambient/mindcraft.microbit-v2.d.ts"), microbitV2Ambient);
+  assert.equal(readText("../../../../ambient/mindcraft.wodal.d.ts"), layeredByTarget[0].layers.wodal);
+
+  for (const { name, layers } of layeredByTarget) {
+    assert.equal(readText(`../../../../ambient/mindcraft.${name}.d.ts`), layers.target);
+  }
 });

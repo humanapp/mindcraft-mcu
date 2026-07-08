@@ -6,5 +6,9 @@
     "skipLibCheck": true,
     "types": []
   },
-  "files": ["../../../external/mindcraft-lang/packages/core/ambient/mindcraft.core.d.ts", "mindcraft.microbit-v2.d.ts"]
+  "files": [
+    "../../../external/mindcraft-lang/packages/core/ambient/mindcraft.core.d.ts",
+    "mindcraft.wodal.d.ts",
+    "mindcraft.microbit-v2.d.ts"
+  ]
 }

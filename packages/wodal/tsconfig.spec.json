@@ -3,6 +3,7 @@
   "compilerOptions": {
     "composite": false,
     "noEmit": true,
+    "rootDir": ".",
     "types": ["node"]
   },
   "include": ["src/**/*.spec.ts"],
