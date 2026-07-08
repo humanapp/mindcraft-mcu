@@ -2,6 +2,7 @@
   "name": "WODAL/CODAL Standard Library",
   "version": "0.2.1",
   "description": "Mindcraft library for all WODAL- and CODAL-based targets.",
+  "ambient": ["mindcraft.wodal.d.ts"],
   "extensions": {
     "mindcraft-lang/core": "embedded:mindcraft-lang/core"
   }

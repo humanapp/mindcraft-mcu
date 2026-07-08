@@ -2,6 +2,7 @@
   "name": "Micro:bit v2 Standard Library",
   "version": "0.2.1",
   "description": "Mindcraft library for the BBC micro:bit (v2).",
+  "ambient": ["mindcraft.microbit-v2.d.ts"],
   "extensions": {
     "mindcraft-lang/wodal": "embedded:mindcraft-lang/wodal"
   }

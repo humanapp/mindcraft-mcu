@@ -12,7 +12,7 @@ import {
 import { type AppBridgeState, AppEnvironmentHost, type UserTileApplyResult } from "@mindcraft-lang/bridge-app";
 import { BrainDef, coreModule, createMindcraftEnvironment, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
 import { createProfileNumerics } from "@mindcraft-lang/core/runtime";
-import { declarationMount, isCompilerControlledPath, type Mount } from "@mindcraft-lang/ts-compiler";
+import { isCompilerControlledPath, type Mount } from "@mindcraft-lang/ts-compiler";
 import {
   createWodalSharedModule,
   getWodalDeviceProfile,
@@ -24,7 +24,6 @@ import {
 import { loadExamples } from "@/examples";
 import { name as appName, version as appVersion } from "../../package.json";
 import { loadBindingToken, saveBindingToken } from "./binding-token-persistence";
-import { microbitAmbientFiles } from "./microbit-ambient-files";
 import { microbitDefaultExtensions, microbitEmbeddedExtensions } from "./microbit-embedded-extensions";
 import {
   BRAINS_INDEX_KEY,
@@ -37,8 +36,12 @@ import { MicrobitSimulator } from "./simulator";
 import { UserCodeReflasher } from "./user-code-reflasher";
 import { initVfsServiceWorker } from "./vfs-service-worker";
 
-/** Platform content mounts for microbit-sim: the ambient declarations. */
-const microbitMounts: readonly Mount[] = [declarationMount(microbitAmbientFiles)];
+/**
+ * Platform content mounts for microbit-sim, applied at the workspace root.
+ * Empty until a platform mount is needed; the layer ambient `.d.ts` are
+ * carried by the resolved layer extensions as their own extension content.
+ */
+const microbitMounts: readonly Mount[] = [];
 
 /** Parses the persisted simulator fleet; returns undefined when absent or malformed. */
 function parseSimulatorState(raw: string | undefined): MicrobitSimFleet | undefined {

@@ -1,6 +1,9 @@
 import type { EmbeddedExtension } from "@mindcraft-lang/bridge-app";
+import coreLibAmbient from "@mindcraft-lang/core/ambient/mindcraft.core.d.ts?raw";
 import coreLibEntry from "@mindcraft-lang/core/lib/index.ts?raw";
 import coreLibManifest from "@mindcraft-lang/core/lib/mindcraft.json?raw";
+import microbitV2LibAmbient from "@mindcraft-lang/wodal/ambient/mindcraft.microbit-v2.d.ts?raw";
+import wodalLibAmbient from "@mindcraft-lang/wodal/ambient/mindcraft.wodal.d.ts?raw";
 import wodalLibEntry from "@mindcraft-lang/wodal/lib/index.ts?raw";
 import wodalLibManifest from "@mindcraft-lang/wodal/lib/mindcraft.json?raw";
 import microbitV2LibImage from "@mindcraft-lang/wodal/targets/microbit-v2/lib/image.ts?raw";
@@ -24,41 +27,49 @@ export {
 
 /**
  * The micro:bit v2 layer as an embedded extension: the micro:bit LED-display
- * image builders and glyph helpers, identified by the canonical
+ * image builders and glyph helpers plus the target's ambient `.d.ts`
+ * (`MicroBit`, `MicroBitDisplay`, `Context`), identified by the canonical
  * `mindcraft-lang/microbit-v2` coordinate. Its bundled `mindcraft.json`
- * declares the edge down to the wodal layer.
+ * declares the ambient file and the edge down to the wodal layer.
  */
 export const microbitV2StdlibExtension: EmbeddedExtension = {
   canonicalOrigin: MICROBIT_V2_LIB_COORDINATE,
   files: [
     { path: "index.ts", content: microbitV2LibEntry },
     { path: "image.ts", content: microbitV2LibImage },
+    { path: "mindcraft.microbit-v2.d.ts", content: microbitV2LibAmbient },
     { path: "mindcraft.json", content: microbitV2LibManifest },
   ],
 };
 
 /**
- * The wodal-general layer as an embedded extension: a present-but-empty
- * placeholder identified by the canonical `mindcraft-lang/wodal` coordinate.
- * Its bundled `mindcraft.json` declares the edge down to the core layer.
+ * The wodal-general layer as an embedded extension: the wodal-general device
+ * ambient `.d.ts` (`Image`, `Button`, `Accelerometer`, and the rest) over an
+ * empty entry placeholder, identified by the canonical `mindcraft-lang/wodal`
+ * coordinate. Its bundled `mindcraft.json` declares the ambient file and the
+ * edge down to the core layer.
  */
 export const wodalStdlibExtension: EmbeddedExtension = {
   canonicalOrigin: WODAL_LIB_COORDINATE,
   files: [
     { path: "index.ts", content: wodalLibEntry },
+    { path: "mindcraft.wodal.d.ts", content: wodalLibAmbient },
     { path: "mindcraft.json", content: wodalLibManifest },
   ],
 };
 
 /**
- * The core layer as an embedded extension: a present-but-empty placeholder
- * identified by the canonical `mindcraft-lang/core` coordinate, at the base of
- * the stack with no further dependencies.
+ * The core layer as an embedded extension: the core language-global and base
+ * `"mindcraft"` ambient `.d.ts` over an empty entry placeholder, identified by
+ * the canonical `mindcraft-lang/core` coordinate, at the base of the stack with
+ * no further dependencies. Its bundled `mindcraft.json` declares the ambient
+ * file.
  */
 export const coreStdlibExtension: EmbeddedExtension = {
   canonicalOrigin: CORE_LIB_COORDINATE,
   files: [
     { path: "index.ts", content: coreLibEntry },
+    { path: "mindcraft.core.d.ts", content: coreLibAmbient },
     { path: "mindcraft.json", content: coreLibManifest },
   ],
 };
