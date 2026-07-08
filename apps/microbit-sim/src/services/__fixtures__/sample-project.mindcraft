@@ -1,6 +1,7 @@
 {
   "format": "mindcraft.project",
   "name": "Sample Project",
+  "version": "0.1.0",
   "description": "",
   "files": [],
   "brains": {

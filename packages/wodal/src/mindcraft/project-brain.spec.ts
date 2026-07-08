@@ -25,6 +25,7 @@ const VALID_BRAIN = {
 const VALID_DOCUMENT = {
   format: MINDCRAFT_PROJECT_FORMAT,
   name: "Blink",
+  version: "1.0.0",
   description: "A blinking LED project",
   files: [],
   brains: {

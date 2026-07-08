@@ -18,6 +18,7 @@ type ProjectValidationCode = (typeof WodalProjectValidationCode)[keyof typeof Wo
 const VALID_DOCUMENT = {
   format: MINDCRAFT_PROJECT_FORMAT,
   name: "Blink",
+  version: "1.0.0",
   description: "A blinking LED project",
   files: [
     {
@@ -52,6 +53,7 @@ describe("parseWodalProjectDocument", () => {
 
     assert.equal(result.ok, true);
     assert.deepEqual(result.document, VALID_DOCUMENT);
+    assert.equal(result.document.version, "1.0.0");
     assert.equal(getWodalProjectTarget(result.document).profile, "microbit-v2");
     assert.deepEqual(Object.keys(result.document.brains).sort(), ["blink", "button"]);
   });
