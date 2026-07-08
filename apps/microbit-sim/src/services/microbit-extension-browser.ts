@@ -1,5 +1,5 @@
-import type { ProjectManager } from "@mindcraft-lang/app-host";
 import {
+  type AppEnvironmentHost,
   buildExtensionCatalog,
   type EmbeddedExtension,
   type ExtensionActionResult,
@@ -26,7 +26,7 @@ export const MICROBIT_LAYER_COORDINATES: ReadonlySet<string> = new Set([
 ]);
 
 /** The project-persistence surface the install and uninstall handlers drive. */
-export type ExtensionProjectPersistence = Pick<ProjectManager, "updateActive">;
+export type ExtensionProjectPersistence = Pick<AppEnvironmentHost, "updateProjectExtensions">;
 
 /** The GitHub repository URL for an extension's `<owner>/<repo>` coordinate. */
 export function githubDocsUrl(coordinate: string): string {
@@ -78,7 +78,7 @@ export async function installMicrobitExtension(
 ): Promise<ExtensionActionResult> {
   const result = installEmbeddedExtension(extensions, embedRecord, coordinate);
   if (result.ok) {
-    await persistence.updateActive({ extensions: result.extensions });
+    await persistence.updateProjectExtensions(result.extensions);
   }
   return result;
 }
@@ -99,7 +99,7 @@ export async function uninstallMicrobitExtension(
 ): Promise<ExtensionActionResult> {
   const result = uninstallEmbeddedExtension(extensions, coordinate, MICROBIT_LAYER_COORDINATES);
   if (result.ok) {
-    await persistence.updateActive({ extensions: result.extensions });
+    await persistence.updateProjectExtensions(result.extensions);
   }
   return result;
 }

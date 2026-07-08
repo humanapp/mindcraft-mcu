@@ -47,7 +47,7 @@ export function ProjectHeader() {
   const handleInstallExtension = (coordinate: string) => {
     void (async () => {
       const result = await installMicrobitExtension(
-        store.projectManager,
+        store.host,
         store.activeProjectManifest?.extensions,
         coordinate,
         microbitEmbeddedExtensions
@@ -60,11 +60,7 @@ export function ProjectHeader() {
 
   const handleUninstallExtension = (coordinate: string) => {
     void (async () => {
-      const result = await uninstallMicrobitExtension(
-        store.projectManager,
-        store.activeProjectManifest?.extensions,
-        coordinate
-      );
+      const result = await uninstallMicrobitExtension(store.host, store.activeProjectManifest?.extensions, coordinate);
       if (!result.ok) {
         toast.error(`Could not remove extension (${result.code})`);
       }

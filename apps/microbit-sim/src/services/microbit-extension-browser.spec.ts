@@ -77,13 +77,13 @@ const legacyAddon = ext(LEGACY, {
 const embedRecord: readonly EmbeddedExtension[] = [microbitLib, wodalLib, coreLib, positionAddon, legacyAddon];
 const project = { [MICROBIT_V2_LIB_COORDINATE]: MICROBIT_V2_LIB_REFERENCE };
 
-/** A persistence double capturing every `updateActive` extensions patch. */
+/** A persistence double capturing every extensions map applied through the host. */
 function capturingPersistence(): ExtensionProjectPersistence & { patches: Array<Record<string, string> | undefined> } {
   const patches: Array<Record<string, string> | undefined> = [];
   return {
     patches,
-    updateActive: async (updates) => {
-      patches.push(updates.extensions as Record<string, string> | undefined);
+    updateProjectExtensions: async (extensions) => {
+      patches.push(extensions);
     },
   };
 }
@@ -154,7 +154,7 @@ describe("toExtensionBrowserEntry", () => {
   });
 });
 
-describe("installMicrobitExtension -- round-trips through updateActive", () => {
+describe("installMicrobitExtension -- round-trips through the host", () => {
   test("installing an add-on persists an extensions map that gains the coordinate", async () => {
     const persistence = capturingPersistence();
     const result = await installMicrobitExtension(persistence, project, POSITION, embedRecord);
@@ -174,7 +174,7 @@ describe("installMicrobitExtension -- round-trips through updateActive", () => {
   });
 });
 
-describe("uninstallMicrobitExtension -- round-trips through updateActive", () => {
+describe("uninstallMicrobitExtension -- round-trips through the host", () => {
   const withPosition = { ...project, [POSITION]: `embedded:${POSITION}` };
 
   test("uninstalling an add-on persists an extensions map that loses the coordinate", async () => {
