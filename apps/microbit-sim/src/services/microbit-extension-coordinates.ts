@@ -1,13 +1,4 @@
-/**
- * The core layer's `<owner>/<repo>` coordinate: its identity, its compiler
- * namespace, and the name it is imported and stored under
- * (`@ext/mindcraft-lang/core`). A present-but-empty placeholder for future
- * core-general imported helpers, at the base of the stack.
- */
-export const CORE_LIB_COORDINATE = "mindcraft-lang/core";
-
-/** Manifest reference form delivering the core layer from the app bundle. */
-export const CORE_LIB_REFERENCE = "embedded:mindcraft-lang/core";
+export { CORE_LIB_COORDINATE, CORE_LIB_REFERENCE } from "@mindcraft-lang/bridge-app";
 
 /**
  * The wodal-general layer's `<owner>/<repo>` coordinate: its identity, its

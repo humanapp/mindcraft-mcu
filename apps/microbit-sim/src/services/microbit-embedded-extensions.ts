@@ -1,4 +1,4 @@
-import type { EmbeddedExtension } from "@mindcraft-lang/bridge-app";
+import { buildCoreStdlibExtension, type EmbeddedExtension } from "@mindcraft-lang/bridge-app";
 import coreLibAmbient from "@mindcraft-lang/core/ambient/mindcraft.core.d.ts?raw";
 import coreLibEntry from "@mindcraft-lang/core/lib/index.ts?raw";
 import coreLibManifest from "@mindcraft-lang/core/lib/mindcraft.json?raw";
@@ -9,11 +9,7 @@ import wodalLibManifest from "@mindcraft-lang/wodal/lib/mindcraft.json?raw";
 import microbitV2LibImage from "@mindcraft-lang/wodal/targets/microbit-v2/lib/image.ts?raw";
 import microbitV2LibEntry from "@mindcraft-lang/wodal/targets/microbit-v2/lib/index.ts?raw";
 import microbitV2LibManifest from "@mindcraft-lang/wodal/targets/microbit-v2/lib/mindcraft.json?raw";
-import {
-  CORE_LIB_COORDINATE,
-  MICROBIT_V2_LIB_COORDINATE,
-  WODAL_LIB_COORDINATE,
-} from "./microbit-extension-coordinates";
+import { MICROBIT_V2_LIB_COORDINATE, WODAL_LIB_COORDINATE } from "./microbit-extension-coordinates";
 
 export {
   CORE_LIB_COORDINATE,
@@ -59,20 +55,16 @@ export const wodalStdlibExtension: EmbeddedExtension = {
 };
 
 /**
- * The core layer as an embedded extension: the core language-global and base
- * `"mindcraft"` ambient `.d.ts` over an empty entry placeholder, identified by
- * the canonical `mindcraft-lang/core` coordinate, at the base of the stack with
- * no further dependencies. Its bundled `mindcraft.json` declares the ambient
- * file.
+ * The shared core layer as an embedded extension, built from the app's bundled
+ * `?raw` content through the shared core-extension builder, at the base of the
+ * stack with no further dependencies. Its bundled `mindcraft.json` declares the
+ * ambient file.
  */
-export const coreStdlibExtension: EmbeddedExtension = {
-  canonicalOrigin: CORE_LIB_COORDINATE,
-  files: [
-    { path: "index.ts", content: coreLibEntry },
-    { path: "mindcraft.core.d.ts", content: coreLibAmbient },
-    { path: "mindcraft.json", content: coreLibManifest },
-  ],
-};
+export const coreStdlibExtension: EmbeddedExtension = buildCoreStdlibExtension({
+  entry: coreLibEntry,
+  ambient: coreLibAmbient,
+  manifest: coreLibManifest,
+});
 
 /**
  * Extensions bundled with microbit-sim, resolved from `embedded:<owner>/<repo>`
