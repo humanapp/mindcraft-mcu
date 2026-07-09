@@ -1,21 +1,20 @@
-import { Actuator, type Context, NumberType, param } from "mindcraft";
+import { Position } from "@ext/mindcraft-lang/codal-position-ext";
+import { Actuator, type Context, param } from "mindcraft";
 import { Movement } from "./movement";
 
 /**
- * Steers the Cutebot from a continuous `x` (horizontal) and `y` (vertical)
- * pair, each -100..100 in game convention. It feeds `y` to the shared
- * {@link Movement} arbitrator as a straight drive and `x` as a turn, so the two
- * blend into an arc: full up-right is forward with a rightward push. Both axes
- * already share the movement influence range, so they pass through unscaled; the
- * arbitrator saturates the blend. This is the numeric bridge continuous steering
- * needs - the word-rated drive/turn tiles take no numeric argument.
+ * Steers the Cutebot from a {@link Position}. The position's `y` axis drives the
+ * shared {@link Movement} arbitrator straight ahead and its `x` axis turns it, so
+ * a forward-right position becomes a forward drive blended with a rightward turn.
+ * Both axes are in the -100..100 movement influence range and pass through
+ * unscaled; the arbitrator saturates the combined blend.
  */
 export default Actuator({
   name: "cutebot steer",
   id: "mwQw6UokYjp3HVBD",
-  args: [param("x", { type: NumberType, anonymous: true }), param("y", { type: NumberType, anonymous: true })],
-  onExecute(ctx: Context, args: { x: number; y: number }): void {
-    Movement.drive(args.y);
-    Movement.turn(args.x);
+  args: [param("position", { type: Position, anonymous: true })],
+  onExecute(ctx: Context, args: { position: Position }): void {
+    Movement.drive(args.position.y);
+    Movement.turn(args.position.x);
   },
 });

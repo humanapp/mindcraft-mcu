@@ -5,21 +5,22 @@
  * the WODAL microbit-v2 runtime, routing radio between two device instances
  * through a shared ether (the simulator's cross-instance delivery path).
  *
- * It pins: the steer bridge's exact wheel writes; the decoder's totality (a
- * valid packet decodes; a short or wrong-magic packet reads the centered idle
- * position (0,0), which flows through the pipeline as a real value - the
- * consumer always runs; a WHEN with no Buffer result is rejected at compile
- * time); packet atomicity (both accessor reads come from
- * one decode); the position -> Buffer conversion's reach (offered in a Buffer slot,
- * and accepted by a second Buffer consumer with the exact bytes); the stage-1
- * directional-string round trip into a movement influence; and the stage-2
- * continuous-steering loop end to end - injected stick -> encode + transmit the
- * position -> receive -> decode -> steer -> exact wheels.
+ * It pins: the steer bridge's exact wheel writes when driven by a whole
+ * `Position`; the decoder's totality (a valid packet decodes; a short or
+ * wrong-magic packet reads the centered idle position (0,0), which flows through
+ * the pipeline as a real value - the consumer always runs; a WHEN with no Buffer
+ * result is rejected at compile time); packet atomicity (both accessor reads come
+ * from one decode); the position -> Buffer conversion's reach (offered in a Buffer
+ * slot, and accepted by a second Buffer consumer with the exact bytes); the
+ * stage-1 directional-string round trip into a movement influence; and the
+ * stage-2 continuous-steering loop end to end - injected stick -> encode +
+ * transmit the position -> receive -> decode -> steer -> exact wheels.
  *
- * The decoder is a no-arg inline sensor: `[decoded stick position][x]` and
- * `[decoded stick position][y]` compose directly in the `cutebot steer` slots,
- * and both reads take the enclosing rule's one WHEN result, so the x/y pair is
- * atomic.
+ * The `cutebot steer` bridge takes one `Position`, so the decoder's whole
+ * `[decoded stick position]` value flows directly into its single slot. The
+ * derived `[x]` / `[y]` accessors remain first-class: the decoder's atomicity
+ * tests read both through them, and both take the enclosing rule's one WHEN
+ * result, so the x/y pair is atomic.
  */
 
 import assert from "node:assert/strict";
@@ -34,20 +35,14 @@ import {
   mkActuatorTileId,
   mkSensorTileId,
 } from "@mindcraft-lang/core/app";
-import {
-  type IBrainTileDef,
-  mkAccessorTileId,
-  mkOperatorTileId,
-  mkVariableFactoryTileId,
-  RuleSide,
-} from "@mindcraft-lang/core/brain";
+import { type IBrainTileDef, mkAccessorTileId, mkVariableFactoryTileId, RuleSide } from "@mindcraft-lang/core/brain";
 import {
   type InsertionContext,
   parseTilesForSuggestions,
   suggestTiles,
 } from "@mindcraft-lang/core/brain/language-service";
 import type { BrainTileFactoryDef } from "@mindcraft-lang/core/brain/tiles";
-import { CoreOpId, mkNumberValue, mkStringValue, type TypeId } from "@mindcraft-lang/core/runtime";
+import { mkStringValue, type TypeId } from "@mindcraft-lang/core/runtime";
 import { buildWodalProgramImage, getWodalDeviceProfile, WodalDeviceProfileId } from "@mindcraft-lang/wodal";
 import {
   type IncomingRadioPacket,
@@ -204,16 +199,6 @@ function buildImage(env: MindcraftEnvironment, brainDef: BrainDef) {
   return built.image;
 }
 
-/** A number literal tile carrying `value`. */
-function numberLiteral(env: MindcraftEnvironment, value: number): BrainTileLiteralDef {
-  return new BrainTileLiteralDef(
-    CoreTypeIds.Number,
-    mkNumberValue(value),
-    { valueLabel: String(value), persist: true },
-    env.brainServices
-  );
-}
-
 /** The received-packet form of a transmitted packet, stamping synthetic sim metadata. */
 function toIncoming(record: RadioSendRecord): IncomingRadioPacket {
   return {
@@ -323,18 +308,17 @@ function observedAt(result: RunResult, address: number, tick: number): number {
 }
 
 describe("cutebot steer bridge", () => {
-  /** WHEN always DO [cutebot steer <x> <y>], driven by number literals. */
-  function steerBrain(env: MindcraftEnvironment, x: number, y: number): BrainDef {
-    const brainDef = BrainDef.emptyBrainDef(env.brainServices, `steer ${x} ${y}`);
+  /** WHEN [radio receive buffer] DO [cutebot steer [decoded stick position]], fed a packet carrying (x, y). */
+  function steerBrain(env: MindcraftEnvironment): BrainDef {
+    const brainDef = BrainDef.emptyBrainDef(env.brainServices, "steer whole position");
     const rule = brainDef.pages().get(0)!.children().get(0)!;
-    rule.when().appendTile(userTile("always"));
+    rule.when().appendTile(hostTile(env, mkSensorTileId(RADIO_RECEIVE_BUFFER)));
     rule.do().appendTile(userTile("cutebot steer"));
-    rule.do().appendTile(numberLiteral(env, x));
-    rule.do().appendTile(numberLiteral(env, y));
+    rule.do().appendTile(userTile("decoded stick position"));
     return brainDef;
   }
 
-  test("x/y map to turn/drive and blend into exact wheel writes", () => {
+  test("the whole decoded position maps to turn/drive and blends into exact wheel writes", () => {
     const env = environment.current!;
     const cases: { x: number; y: number; wheels: [number, number] }[] = [
       { x: 0, y: 100, wheels: [100, 100] }, // straight forward
@@ -345,22 +329,22 @@ describe("cutebot steer bridge", () => {
       { x: 0, y: 0, wheels: [0, 0] }, // centered = commanded stop
     ];
     for (const { x, y, wheels } of cases) {
-      const result = run(env, steerBrain(env, x, y), [{}]);
-      assert.deepEqual(wheelsAt(result, 1), wheels, `steer(${x}, ${y}) writes (${wheels[0]}, ${wheels[1]})`);
+      // Tick 1 arms the receive cursor; the packet lands before tick 2, so the
+      // steer reads the whole decoded position on tick 2.
+      const result = run(env, steerBrain(env), [{}, { inject: [bufferPacket(packetBytes(PACKET_MAGIC, x, y))] }]);
+      assert.deepEqual(wheelsAt(result, 2), wheels, `steer(${x}, ${y}) writes (${wheels[0]}, ${wheels[1]})`);
     }
   });
 
-  test("after [cutebot steer][decoded stick position][x], the picker offers the y slot's values", () => {
+  test("the cutebot steer position slot offers whole-position producers", () => {
     const env = environment.current!;
     // WHEN [radio receive buffer] supplies the Buffer WHEN result the decoder
-    // consumes; the DO side holds the first steer slot filled with the
-    // accessor-refined decode.
+    // consumes; the DO side holds just the steer tile, its single Position slot
+    // open for a whole-position value.
     const brainDef = BrainDef.emptyBrainDef(env.brainServices, "steer picker");
     const rule = brainDef.pages().get(0)!.children().get(0)!;
     rule.when().appendTile(hostTile(env, mkSensorTileId(RADIO_RECEIVE_BUFFER)));
     rule.do().appendTile(userTile("cutebot steer"));
-    rule.do().appendTile(userTile("decoded stick position"));
-    rule.do().appendTile(accessorTile(env, "x"));
     const posVar = positionVariable(env, brainDef, "held");
 
     const expr = parseTilesForSuggestions(rule.do().tiles());
@@ -370,9 +354,15 @@ describe("cutebot steer bridge", () => {
     for (let i = 0; i < result.exact.size(); i++) offered.add(result.exact.get(i).tileDef.tileId);
     for (let i = 0; i < result.withConversion.size(); i++) offered.add(result.withConversion.get(i).tileDef.tileId);
 
-    assert.ok(offered.has(userTile("decoded stick position").tileId), "the decoder is offered again for the y slot");
-    assert.ok(offered.has(posVar.tileId), "a position variable is offered for the y slot");
-    assert.ok(offered.has(mkOperatorTileId(CoreOpId.Add)), "infix operators still extend the first slot's value");
+    assert.ok(
+      offered.has(userTile("decoded stick position").tileId),
+      "the whole decoded position is offered for the steer slot"
+    );
+    assert.ok(
+      offered.has(userTile("stick position").tileId),
+      "the stick position sensor is offered for the steer slot"
+    );
+    assert.ok(offered.has(posVar.tileId), "a position variable is offered for the steer slot");
   });
 });
 
@@ -445,15 +435,12 @@ describe("decoded stick position", () => {
 
   test("the idle (0,0) flows through cutebot steer as a commanded stop, not silence", () => {
     const env = environment.current!;
-    // WHEN [radio receive buffer] DO [cutebot steer [decoded][x] [decoded][y]].
+    // WHEN [radio receive buffer] DO [cutebot steer [decoded stick position]].
     const brainDef = BrainDef.emptyBrainDef(env.brainServices, "decode steer idle");
     const rule = brainDef.pages().get(0)!.children().get(0)!;
     rule.when().appendTile(hostTile(env, mkSensorTileId(RADIO_RECEIVE_BUFFER)));
     rule.do().appendTile(userTile("cutebot steer"));
     rule.do().appendTile(userTile("decoded stick position"));
-    rule.do().appendTile(accessorTile(env, "x"));
-    rule.do().appendTile(userTile("decoded stick position"));
-    rule.do().appendTile(accessorTile(env, "y"));
     // Tick 2 steers to a non-zero state from a valid packet; tick 3 delivers a
     // non-gamepad buffer that decodes to (0, 0). The wheels drop to (0, 0) on
     // tick 3 immediately - if the (0, 0) decode were treated as falsy and the
@@ -625,17 +612,14 @@ describe("radio pairing", () => {
     broadcast.do().appendTile(userTile("stick position"));
 
     // Chassis: WHEN [radio receive buffer] DO
-    //   [cutebot steer [decoded stick position][x] [decoded stick position][y]].
-    // The decoder reads the receive rule's WHEN result inline; both reads share
-    // the one packet.
+    //   [cutebot steer [decoded stick position]].
+    // The decoder reads the receive rule's WHEN result inline and returns the
+    // whole position, which fills the steer bridge's single Position slot.
     const chassis = BrainDef.emptyBrainDef(env.brainServices, "chassis stage 2");
     const steerRule = chassis.pages().get(0)!.children().get(0)!;
     steerRule.when().appendTile(hostTile(env, mkSensorTileId(RADIO_RECEIVE_BUFFER)));
     steerRule.do().appendTile(userTile("cutebot steer"));
     steerRule.do().appendTile(userTile("decoded stick position"));
-    steerRule.do().appendTile(accessorTile(env, "x"));
-    steerRule.do().appendTile(userTile("decoded stick position"));
-    steerRule.do().appendTile(accessorTile(env, "y"));
 
     // Stick forward-right: x = 50 (raw 226), y = 100 (raw 0).
     const stick: Step = { analog: { [VERTICAL_PIN]: 0, [HORIZONTAL_PIN]: 226 }, digital: { [PRESS_PIN]: 1 } };

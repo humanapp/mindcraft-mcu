@@ -17,5 +17,8 @@
     "mindcraft-lang/microbit-v2": {
       "packageVersion": "^0.2.0"
     }
+  },
+  "extensions": {
+    "mindcraft-lang/codal-position-ext": "embedded:mindcraft-lang/codal-position-ext"
   }
 }

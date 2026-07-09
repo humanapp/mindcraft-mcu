@@ -74,13 +74,15 @@ dot around the micro:bit display from the stick alone
 (`WHEN always DO [set dot x [stick position][x]] ...` - chase games, pixel-collecting games). There
 are no separate x/y output tiles; the struct + accessors are the one way to read the stick.
 
-**`position` is a user-declared struct type in the gamepad's own TS code** - not a platform type.
-It is declared once in the gamepad module, keyed by its exported symbol identity (the same
-`<file>::<binding>` scheme Systems use), and referenced by both producers (the stick sensor's and
-the decoder's return types) so the two speak one type. The type travels in the
+**`position` is a shared user-declared struct type** - not a platform type. It is declared once in
+its own extension (`codal-position-ext`, the codal layer) and imported from
+`@ext/mindcraft-lang/codal-position-ext` by BOTH the gamepad (the stick sensor's and decoder's
+return types, the producers) AND the Cutebot chassis (the `cutebot steer` argument, the consumer),
+so producers and consumer speak one type. It is keyed by its exported symbol identity (the same
+`<file>::<binding>` scheme Systems use). The type travels in the
 compiled program's type table - a program-local struct, which both VMs already execute - so it
-needs no target atom, no cpp mirror entry, and no platform ambient: projects that never import the
-gamepad never see the type. Its accessor tiles (`x` / `y`) derive from the declared fields at
+needs no target atom, no cpp mirror entry, and no platform ambient: projects that never import it
+never see the type. Its accessor tiles (`x` / `y`) derive from the declared fields at
 user-tile registration, the same auto-derivation pattern as parameter/modifier/output tiles (and
 the same field-accessor mechanism the game-engine app drives with its `Vector2` registration - the
 proven editor path, scoped here to a user-code type). Registration is register-if-absent by type
@@ -137,13 +139,15 @@ Position is a storable one" below.
 
 ## Usage sketch (user code)
 
-The four load-bearing declarations, as they sit in the gamepad module. Types are named by
+The four load-bearing declarations. `position.ts` sits in the shared `codal-position-ext`
+extension; the other three sit in the gamepad module and import `Position` from
+`@ext/mindcraft-lang/codal-position-ext`. Types are named by
 **reference**: user types by their imported binding, core types by the ambient tokens
 (`BufferType`, `NumberType`, ...). String names are the deprecated form, and canonical registry
 names are lowercase (`"buffer"`, not `"Buffer"`) - one more reason refs are preferred.
 
 ```ts
-// position.ts -- the type, declared once, identity-keyed by its exported symbol
+// position.ts (in codal-position-ext) -- the shared type, declared once, identity-keyed by its exported symbol
 import { StructType, type StructOf } from "mindcraft";
 
 /** Stick position in game convention: x right-positive, y up-positive, both -100..100. */
@@ -157,7 +161,7 @@ export type Position = StructOf<typeof Position>;
 
 // stick-position.ts -- the inline producer
 import { Sensor, type Context } from "mindcraft";
-import { Position } from "./position";
+import { Position } from "@ext/mindcraft-lang/codal-position-ext";
 import { readStickX, readStickY } from "./stick-read";
 
 export default Sensor({
@@ -171,7 +175,7 @@ export default Sensor({
 
 // position-to-buffer.ts -- the wire encode as an implicit conversion
 import { Conversion } from "mindcraft";
-import { Position } from "./position";
+import { Position } from "@ext/mindcraft-lang/codal-position-ext";
 import { PACKET_MAGIC } from "./protocol"; // 0x47 ('G'), shared with the decoder
 
 export default Conversion({
@@ -186,7 +190,7 @@ export default Conversion({
 
 // decoded-stick-position.ts -- inline decoder: reads the received packet from the WHEN result
 import { Sensor, type Context } from "mindcraft";
-import { Position } from "./position";
+import { Position } from "@ext/mindcraft-lang/codal-position-ext";
 import { PACKET_MAGIC } from "./protocol";
 
 export default Sensor({
@@ -230,18 +234,20 @@ export default Sensor({
 
   ```
   gamepad brain:  WHEN [always]                DO [radio send [stick position]]
-  chassis brain:  WHEN [radio receive buffer]  DO [cutebot steer [decoded stick position][x] [decoded stick position][y]]
+  chassis brain:  WHEN [radio receive buffer]  DO [cutebot steer [decoded stick position]]
   ```
 
   - The gamepad encodes via a registered **implicit conversion** (position -> Buffer, below) and
     decodes with `decoded stick position` (an inline sensor - see below), which reads the received
     packet from the enclosing WHEN's result (`ctx.getWhenResult()`); the packet format is
-    gamepad-owned. The decoder is inline in the `cutebot steer` slots, so no child WHEN is needed.
+    gamepad-owned. The decoder is inline in the `cutebot steer` slot, so no child WHEN is needed.
   - Radio transports opaque bytes via its Buffer tile forms (`docs/specs/radio.md`).
-  - `cutebot steer` is the chassis-side numeric bridge: a Cutebot tile taking `x`/`y` number
-    arguments (wired from the position's accessors) and feeding `Movement.drive(y)` /
-    `Movement.turn(x)` scaled - the word-rated drive/turn tiles take no numeric params, so
-    continuous steering needs this one numeric tile.
+  - `cutebot steer` is the chassis-side continuous-steering bridge: a Cutebot tile taking one whole
+    `position` argument (the shared type, wired directly from `[decoded stick position]`) and
+    feeding `Movement.drive(position.y)` / `Movement.turn(position.x)` - the word-rated drive/turn
+    tiles take no numeric params, so continuous steering needs this one Position tile. Passing the
+    whole position (not its `[x]`/`[y]` accessors into two number slots) is the canonical form: one
+    shared type flows producer-to-consumer intact.
   - Packet loss or clock-skew gaps read as silent thinks on the chassis and are bridged by the
     Movement arbitrator's hold window; sustained silence decays to a stop.
 
