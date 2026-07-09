@@ -10,6 +10,7 @@ import { Movement } from "./movement";
  */
 export default Actuator({
   name: "cutebot stop",
+  id: "U36vDJTcZtUzBsh8",
   onExecute(ctx: Context): void {
     Movement.stop();
   },

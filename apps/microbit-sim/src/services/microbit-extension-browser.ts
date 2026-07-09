@@ -9,9 +9,9 @@ import {
 } from "@mindcraft-lang/bridge-app";
 import type { ExtensionBrowserEntry } from "@mindcraft-lang/ui";
 import {
+  CODAL_LIB_COORDINATE,
   CORE_LIB_COORDINATE,
   MICROBIT_V2_LIB_COORDINATE,
-  WODAL_LIB_COORDINATE,
 } from "./microbit-extension-coordinates";
 
 /**
@@ -21,7 +21,7 @@ import {
  */
 export const MICROBIT_LAYER_COORDINATES: ReadonlySet<string> = new Set([
   CORE_LIB_COORDINATE,
-  WODAL_LIB_COORDINATE,
+  CODAL_LIB_COORDINATE,
   MICROBIT_V2_LIB_COORDINATE,
 ]);
 
@@ -85,19 +85,21 @@ export async function installMicrobitExtension(
 
 /**
  * Uninstall an embedded extension and, when the extensions map changed, persist
- * it through the active project. A locked layer library is rejected. Returns the
- * action result.
+ * it through the active project. A locked layer library and a coordinate another
+ * installed extension depends on are both rejected. Returns the action result.
  *
  * @param persistence - The active-project persistence surface.
  * @param extensions - The project's current extensions map.
  * @param coordinate - The coordinate to uninstall.
+ * @param embedRecord - The bundled embedded extensions to resolve dependents against.
  */
 export async function uninstallMicrobitExtension(
   persistence: ExtensionProjectPersistence,
   extensions: Readonly<Record<string, string>> | undefined,
-  coordinate: string
+  coordinate: string,
+  embedRecord: readonly EmbeddedExtension[]
 ): Promise<ExtensionActionResult> {
-  const result = uninstallEmbeddedExtension(extensions, coordinate, MICROBIT_LAYER_COORDINATES);
+  const result = uninstallEmbeddedExtension(extensions, coordinate, MICROBIT_LAYER_COORDINATES, embedRecord);
   if (result.ok) {
     await persistence.updateProjectExtensions(result.extensions);
   }

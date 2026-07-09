@@ -1,0 +1,21 @@
+{
+  "name": "Cutebot",
+  "version": "0.1.0",
+  "description": "ELECFREAKS Cutebot chassis driver for the micro:bit (v2): a shared movement arbitrator with drive, turn, pivot, stop, and continuous steer tiles, plus the two-side line-tracking sensor.",
+  "files": [
+    "movement.ts",
+    "drive.ts",
+    "turn.ts",
+    "pivot.ts",
+    "stop.ts",
+    "steer.ts",
+    "line-sensor.ts",
+    "line-left.ts",
+    "line-right.ts"
+  ],
+  "targets": {
+    "mindcraft-lang/microbit-v2": {
+      "packageVersion": "^0.2.0"
+    }
+  }
+}

@@ -265,6 +265,37 @@ the TypeScript payload that produces tiles, types, Systems, and conversions
 application's tile picker. Content kinds a host application does not
 recognize are ignored gracefully.
 
+An extension is a real project, so beyond its code surface it may bundle
+arbitrary payload: demo brains and per-target assets such as sound effects,
+bitmaps, tilemaps, animations, 3d objects, and whole scenes. This payload is
+opaque to the extension system. The system compiles and indexes the code
+surface and resolves declared capabilities; bundled payload passes through
+un-interpreted -- it is never validated for shape and is never a reason to
+reject or block an extension. The materialized install tree and the host
+application's file serving deliver these bytes verbatim for the host
+application or target runtime to consume.
+
+A project declares its content in its manifest's `files` list: every source
+and asset file the project comprises, at project-relative paths. The list is
+authoritative for assembling the project's content. A host application loading
+a project as an embedded or dependency extension, and a build packaging a
+project for delivery, assemble that content by reading the manifest and loading
+exactly the files it names -- never by enumerating another project's files
+themselves. A file is thus added to a project by editing only that project's
+own manifest, and the addition is seen wherever the project is embedded or
+depended on, with no change to the consumer. Code files are compiled and their
+published symbols registered; asset and other payload files, which no import
+graph reaches, are declared here and carried through opaquely. The manifest is
+always part of the project and does not list itself.
+
+Membership is asymmetric. The project's storage is a filesystem and may hold
+more than the build: a file present in storage but absent from the list is
+simply not part of the build -- a source kept but excluded, an asset not
+shipped, a scratch file -- which is valid and never an error. A listed file
+absent from storage is the error direction: the build names content it cannot
+assemble. A build validates only that direction; it does not object to
+unlisted files.
+
 Compatibility between an extension and a host project is determined by the
 project `targets` section: an extension is compatible when it declares a
 target the host project's platform satisfies, and the extension browser

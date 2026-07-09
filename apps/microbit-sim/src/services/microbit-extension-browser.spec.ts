@@ -11,10 +11,10 @@ import {
   uninstallMicrobitExtension,
 } from "./microbit-extension-browser";
 import {
+  CODAL_LIB_COORDINATE,
   CORE_LIB_COORDINATE,
   MICROBIT_V2_LIB_COORDINATE,
   MICROBIT_V2_LIB_REFERENCE,
-  WODAL_LIB_COORDINATE,
 } from "./microbit-extension-coordinates";
 
 /** Build an embedded extension whose bundled `mindcraft.json` declares the given manifest fields. */
@@ -50,7 +50,7 @@ const POSITION = "mindcraft-lang/microbit-position";
 const LEGACY = "mindcraft-lang/legacy-widget";
 
 const coreLib = ext(CORE_LIB_COORDINATE, { name: "Core", version: "0.2.1" });
-const wodalLib = ext(WODAL_LIB_COORDINATE, {
+const wodalLib = ext(CODAL_LIB_COORDINATE, {
   name: "Wodal",
   version: "0.2.1",
   extensions: { [CORE_LIB_COORDINATE]: `embedded:${CORE_LIB_COORDINATE}` },
@@ -58,7 +58,7 @@ const wodalLib = ext(WODAL_LIB_COORDINATE, {
 const microbitLib = ext(MICROBIT_V2_LIB_COORDINATE, {
   name: "Micro:bit v2",
   version: "0.2.1",
-  extensions: { [WODAL_LIB_COORDINATE]: `embedded:${WODAL_LIB_COORDINATE}` },
+  extensions: { [CODAL_LIB_COORDINATE]: `embedded:${CODAL_LIB_COORDINATE}` },
 });
 /** A micro:bit-compatible add-on carrying a thumbnail. */
 const positionAddon = ext(POSITION, {
@@ -112,7 +112,7 @@ describe("buildMicrobitExtensionEntries -- catalog build and adaptation", () => 
     const entries = buildMicrobitExtensionEntries(project, embedRecord);
     const coordinates = entries.map((e) => e.coordinate);
     assert.equal(coordinates.includes(CORE_LIB_COORDINATE), false);
-    assert.equal(coordinates.includes(WODAL_LIB_COORDINATE), false);
+    assert.equal(coordinates.includes(CODAL_LIB_COORDINATE), false);
     assert.equal(coordinates.includes(LEGACY), false);
   });
 });
@@ -179,7 +179,7 @@ describe("uninstallMicrobitExtension -- round-trips through the host", () => {
 
   test("uninstalling an add-on persists an extensions map that loses the coordinate", async () => {
     const persistence = capturingPersistence();
-    const result = await uninstallMicrobitExtension(persistence, withPosition, POSITION);
+    const result = await uninstallMicrobitExtension(persistence, withPosition, POSITION, embedRecord);
     assert.equal(result.ok, true);
     assert.equal(result.code, ExtensionActionResultCode.UNINSTALLED);
     assert.equal(persistence.patches.length, 1);
@@ -189,9 +189,29 @@ describe("uninstallMicrobitExtension -- round-trips through the host", () => {
 
   test("uninstalling a locked layer library is rejected and does not persist", async () => {
     const persistence = capturingPersistence();
-    const result = await uninstallMicrobitExtension(persistence, project, MICROBIT_V2_LIB_COORDINATE);
+    const result = await uninstallMicrobitExtension(persistence, project, MICROBIT_V2_LIB_COORDINATE, embedRecord);
     assert.equal(result.ok, false);
     assert.equal(result.code, ExtensionActionResultCode.LOCKED);
+    assert.equal(persistence.patches.length, 0);
+  });
+
+  test("uninstalling a coordinate a still-installed add-on depends on is rejected and does not persist", async () => {
+    const persistence = capturingPersistence();
+    // A gamepad add-on that depends on the Position add-on, both installed.
+    const GAMEPAD = "mindcraft-lang/microbit-gamepad";
+    const gamepadAddon = ext(GAMEPAD, {
+      name: "Gamepad",
+      version: "1.0.0",
+      targets: { [MICROBIT_V2_LIB_COORDINATE]: { packageVersion: "^0.2.0" } },
+      extensions: { [POSITION]: `embedded:${POSITION}` },
+    });
+    const withDependent = { ...withPosition, [GAMEPAD]: `embedded:${GAMEPAD}` };
+    const result = await uninstallMicrobitExtension(persistence, withDependent, POSITION, [
+      ...embedRecord,
+      gamepadAddon,
+    ]);
+    assert.equal(result.ok, false);
+    assert.equal(result.code, ExtensionActionResultCode.REQUIRED_BY_DEPENDENT);
     assert.equal(persistence.patches.length, 0);
   });
 });

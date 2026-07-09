@@ -16,9 +16,7 @@
  */
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { before, describe, test } from "node:test";
-import { fileURLToPath } from "node:url";
 import { List } from "@mindcraft-lang/core";
 import { BrainDef, BrainTileModifierDef, type MindcraftEnvironment, mkActuatorTileId } from "@mindcraft-lang/core/app";
 import { type IBrainPageDef, type IBrainTileDef, mkPageTileId, RuleSide } from "@mindcraft-lang/core/brain";
@@ -28,10 +26,9 @@ import {
   suggestTiles,
 } from "@mindcraft-lang/core/brain/language-service";
 import { CoreHostActions, type LinkedBrainProgram, mkModifierTileId } from "@mindcraft-lang/core/runtime";
-import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@mindcraft-lang/ts-compiler";
-import { TEST_PROJECT_NAMESPACE } from "@mindcraft-lang/ts-compiler/testing";
 import { buildWodalProgramImage, getWodalDeviceProfile, WodalDeviceProfileId } from "@mindcraft-lang/wodal";
-import { createMicroBitV2Environment, MicroBit, WodalMicroBitRuntime } from "@mindcraft-lang/wodal/targets/microbit-v2";
+import { MicroBit, WodalMicroBitRuntime } from "@mindcraft-lang/wodal/targets/microbit-v2";
+import { buildExampleHarness, CUTEBOT_EXT_COORDINATE, type ExampleHarness } from "./example-harness";
 
 /** GPIO pins the Cutebot line sensors are wired to; a line reads LOW. */
 const LEFT_PIN = 13;
@@ -58,28 +55,6 @@ const MARK = {
   plain: 0x0f,
 } as const;
 
-function readText(relativePath: string): string {
-  return readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), "utf8");
-}
-
-/** The microbit-v2 compiler surface (core + microbit-v2 ambient), read from disk. */
-function microbitAmbientFiles(): readonly AmbientFile[] {
-  return [
-    {
-      path: "mindcraft.core.d.ts",
-      content: readText("../../../../external/mindcraft-lang/packages/core/ambient/mindcraft.core.d.ts"),
-    },
-    {
-      path: "mindcraft.wodal.d.ts",
-      content: readText("../../../../packages/wodal/ambient/mindcraft.wodal.d.ts"),
-    },
-    {
-      path: "mindcraft.microbit-v2.d.ts",
-      content: readText("../../../../packages/wodal/ambient/mindcraft.microbit-v2.d.ts"),
-    },
-  ];
-}
-
 /** Source of a test-only actuator that marks a rule firing by writing one byte to the observer address. */
 function observerSource(name: string, marker: number): string {
   return `import { Actuator, type Context } from "mindcraft";
@@ -105,16 +80,12 @@ export default Sensor({
 `;
 
 /**
- * The one compiled project shared by every case: the shipped Cutebot line tiles,
- * observer actuators, and the always trigger. Keyed flat so each tile's
- * `./line-sensor` import resolves to the shipped System, matching how the app
- * nests them under one example folder.
+ * The test-only trigger and observer tiles compiled in the host workspace
+ * alongside the installed Cutebot add-on, whose shipped line tiles and shared
+ * line System come from the extension namespace.
  */
-function projectFiles(): Record<string, string> {
+function workspaceTiles(): Record<string, string> {
   return {
-    "line-sensor.ts": readText("./cutebot/line-sensor.ts"),
-    "line-left.ts": readText("./cutebot/line-left.ts"),
-    "line-right.ts": readText("./cutebot/line-right.ts"),
     "always.ts": ALWAYS_SOURCE,
     "mark-found.ts": observerSource("mark found", MARK.found),
     "mark-lost.ts": observerSource("mark lost", MARK.lost),
@@ -150,38 +121,20 @@ interface RunResult {
 }
 
 const environment = { current: undefined as MindcraftEnvironment | undefined };
-const tilesByName = new Map<string, IBrainTileDef>();
+const harnessRef = { current: undefined as ExampleHarness | undefined };
 
 before(() => {
-  const env = createMicroBitV2Environment();
-  const project = new UserTileProject({
-    projectNamespace: TEST_PROJECT_NAMESPACE,
-    ambientFiles: microbitAmbientFiles(),
-    services: env.brainServices,
+  const harness = buildExampleHarness({
+    install: [CUTEBOT_EXT_COORDINATE],
+    workspaceTiles: workspaceTiles(),
   });
-  project.setFiles(new Map(Object.entries(projectFiles())));
-  const compileResult = project.compileAll();
-  assert.equal(
-    compileResult.tsErrors.size,
-    0,
-    `Unexpected TypeScript diagnostics: ${JSON.stringify([...compileResult.tsErrors])}`
-  );
-  const bundle = buildCompiledActionBundle(compileResult, { services: env.brainServices });
-  assert.ok(bundle, "expected a compiled action bundle");
-  env.replaceActionBundle(bundle);
-  for (const tile of bundle.tiles) {
-    if (tile.metadata?.label) {
-      tilesByName.set(tile.metadata.label, tile);
-    }
-  }
-  environment.current = env;
+  harnessRef.current = harness;
+  environment.current = harness.env;
 });
 
 /** Resolves a compiled user tile by its display name. */
 function userTile(name: string): IBrainTileDef {
-  const tile = tilesByName.get(name);
-  assert.ok(tile, `user tile "${name}" not found; have: ${[...tilesByName.keys()].join(", ")}`);
-  return tile;
+  return harnessRef.current!.userTile(name);
 }
 
 /** The shared-namespace `found` / `lost` / `on` modifier tile for the line sensors. */

@@ -13,9 +13,7 @@
  */
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { before, describe, test } from "node:test";
-import { fileURLToPath } from "node:url";
 import { List } from "@mindcraft-lang/core";
 import { BrainDef, BrainTileModifierDef, type MindcraftEnvironment, mkActuatorTileId } from "@mindcraft-lang/core/app";
 import { type IBrainPageDef, type IBrainTileDef, mkPageTileId, RuleSide } from "@mindcraft-lang/core/brain";
@@ -25,10 +23,14 @@ import {
   suggestTiles,
 } from "@mindcraft-lang/core/brain/language-service";
 import { CoreHostActions, type LinkedBrainProgram, mkModifierTileId } from "@mindcraft-lang/core/runtime";
-import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@mindcraft-lang/ts-compiler";
-import { TEST_PROJECT_NAMESPACE } from "@mindcraft-lang/ts-compiler/testing";
 import { buildWodalProgramImage, getWodalDeviceProfile, WodalDeviceProfileId } from "@mindcraft-lang/wodal";
-import { createMicroBitV2Environment, MicroBit, WodalMicroBitRuntime } from "@mindcraft-lang/wodal/targets/microbit-v2";
+import { MicroBit, WodalMicroBitRuntime } from "@mindcraft-lang/wodal/targets/microbit-v2";
+import {
+  buildExampleHarness,
+  CUTEBOT_EXT_COORDINATE,
+  type ExampleHarness,
+  type ExtensionFileOverlay,
+} from "./example-harness";
 
 /** Cutebot STM8 motor-driver I2C address the arbitrator writes wheel commands to. */
 const CHASSIS_ADDRESS = 0x10;
@@ -46,28 +48,6 @@ const MARK = {
   driftClamped: 0x0b,
   smoothingSet: 0x0c,
 } as const;
-
-function readText(relativePath: string): string {
-  return readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), "utf8");
-}
-
-/** The microbit-v2 compiler surface (core + microbit-v2 ambient), read from disk. */
-function microbitAmbientFiles(): readonly AmbientFile[] {
-  return [
-    {
-      path: "mindcraft.core.d.ts",
-      content: readText("../../../../external/mindcraft-lang/packages/core/ambient/mindcraft.core.d.ts"),
-    },
-    {
-      path: "mindcraft.wodal.d.ts",
-      content: readText("../../../../packages/wodal/ambient/mindcraft.wodal.d.ts"),
-    },
-    {
-      path: "mindcraft.microbit-v2.d.ts",
-      content: readText("../../../../packages/wodal/ambient/mindcraft.microbit-v2.d.ts"),
-    },
-  ];
-}
 
 /** An always-true trigger, so a rule driving it fires every think its page is active. */
 const ALWAYS_SOURCE = `import { type Context, Sensor } from "mindcraft";
@@ -94,12 +74,13 @@ export default Sensor({
 }
 
 /** Source of a test-only actuator that sets the Movement drift trim to `value`. */
-function setDriftSource(name: string, value: number): string {
+function setDriftSource(id: string, name: string, value: number): string {
   return `import { Actuator, type Context } from "mindcraft";
 import { Movement } from "./movement";
 
 export default Actuator({
   name: ${JSON.stringify(name)},
+  id: ${JSON.stringify(id)},
   onExecute(ctx: Context): void {
     Movement.setDrift(${value});
   },
@@ -108,12 +89,13 @@ export default Actuator({
 }
 
 /** Source of a test-only actuator that sets the Movement smoothing factor to `value`. */
-function setSmoothingSource(name: string, value: number): string {
+function setSmoothingSource(id: string, name: string, value: number): string {
   return `import { Actuator, type Context } from "mindcraft";
 import { Movement } from "./movement";
 
 export default Actuator({
   name: ${JSON.stringify(name)},
+  id: ${JSON.stringify(id)},
   onExecute(ctx: Context): void {
     Movement.setSmoothing(${value});
   },
@@ -122,12 +104,13 @@ export default Actuator({
 }
 
 /** Source of a test-only sensor that reports whether a Movement getter returns `expected`. */
-function getterProbeSource(name: string, getter: "getDrift" | "getSmoothing", expected: number): string {
+function getterProbeSource(id: string, name: string, getter: "getDrift" | "getSmoothing", expected: number): string {
   return `import { type Context, Sensor } from "mindcraft";
 import { Movement } from "./movement";
 
 export default Sensor({
   name: ${JSON.stringify(name)},
+  id: ${JSON.stringify(id)},
   onExecute(ctx: Context): boolean {
     return Movement.${getter}() === ${expected};
   },
@@ -149,31 +132,42 @@ export default Actuator({
 }
 
 /**
- * The one compiled project shared by every case: the shipped movement System
- * and tiles, plus the test-only triggers, config setters, getter probes, and
- * observers. Keyed flat so each tile's `./movement` import resolves to the
- * shipped System, matching how the app nests them under one example folder.
+ * The test-only trigger, gate, and observer tiles compiled in the host
+ * workspace alongside the installed Cutebot add-on; the shipped movement System
+ * and its tiles come from the extension namespace.
  */
-function projectFiles(): Record<string, string> {
+function workspaceTiles(): Record<string, string> {
   return {
-    "movement.ts": readText("./cutebot/movement.ts"),
-    "drive.ts": readText("./cutebot/drive.ts"),
-    "turn.ts": readText("./cutebot/turn.ts"),
-    "pivot.ts": readText("./cutebot/pivot.ts"),
-    "stop.ts": readText("./cutebot/stop.ts"),
     "always.ts": ALWAYS_SOURCE,
     "gate.ts": gateSource("gate high", GATE_PIN),
     "gate2.ts": gateSource("gate2 high", GATE2_PIN),
-    "set-drift.ts": setDriftSource("calibrate drift", 12),
-    "set-drift-over.ts": setDriftSource("calibrate drift over", 40),
-    "set-smoothing.ts": setSmoothingSource("smooth half", 0.5),
-    "set-smoothing-heavy.ts": setSmoothingSource("smooth heavy", 0.9),
-    "drift-probe.ts": getterProbeSource("drift clamped", "getDrift", 25),
-    "smoothing-probe.ts": getterProbeSource("smoothing set", "getSmoothing", 0.5),
     "mark-plain.ts": observerSource("mark plain", MARK.plain),
     "mark-drift.ts": observerSource("mark drift", MARK.driftClamped),
     "mark-smoothing.ts": observerSource("mark smoothing", MARK.smoothingSet),
   };
+}
+
+/**
+ * The test-only arbitrator config setters and getter probes compiled into the
+ * Cutebot add-on's own namespace, so each reaches the shared movement System
+ * through its relative `./movement` import and shares the one arbitrator with
+ * the shipped drive/turn/pivot/stop tiles. Read-only extension source, so each
+ * carries an explicit stable id.
+ */
+function arbitratorProbeTiles(): readonly ExtensionFileOverlay[] {
+  const overlay = (path: string, content: string): ExtensionFileOverlay => ({
+    coordinate: CUTEBOT_EXT_COORDINATE,
+    path,
+    content,
+  });
+  return [
+    overlay("set-drift.ts", setDriftSource("ybelzjhoann7lxww", "calibrate drift", 12)),
+    overlay("set-drift-over.ts", setDriftSource("PEiUoOBqL0gGwlw0", "calibrate drift over", 40)),
+    overlay("set-smoothing.ts", setSmoothingSource("OZUPslILwVXGTWbZ", "smooth half", 0.5)),
+    overlay("set-smoothing-heavy.ts", setSmoothingSource("3HbYuyGkyxILr4CO", "smooth heavy", 0.9)),
+    overlay("drift-probe.ts", getterProbeSource("hpr6dOOnskWLaBTq", "drift clamped", "getDrift", 25)),
+    overlay("smoothing-probe.ts", getterProbeSource("QjjPZp3VAIyKAL7m", "smoothing set", "getSmoothing", 0.5)),
+  ];
 }
 
 /** One scheduled think and the gate-pin levels injected before it runs. */
@@ -201,38 +195,21 @@ interface RunResult {
 }
 
 const environment = { current: undefined as MindcraftEnvironment | undefined };
-const tilesByName = new Map<string, IBrainTileDef>();
+const harnessRef = { current: undefined as ExampleHarness | undefined };
 
 before(() => {
-  const env = createMicroBitV2Environment();
-  const project = new UserTileProject({
-    projectNamespace: TEST_PROJECT_NAMESPACE,
-    ambientFiles: microbitAmbientFiles(),
-    services: env.brainServices,
+  const harness = buildExampleHarness({
+    install: [CUTEBOT_EXT_COORDINATE],
+    workspaceTiles: workspaceTiles(),
+    extensionTiles: arbitratorProbeTiles(),
   });
-  project.setFiles(new Map(Object.entries(projectFiles())));
-  const compileResult = project.compileAll();
-  assert.equal(
-    compileResult.tsErrors.size,
-    0,
-    `Unexpected TypeScript diagnostics: ${JSON.stringify([...compileResult.tsErrors])}`
-  );
-  const bundle = buildCompiledActionBundle(compileResult, { services: env.brainServices });
-  assert.ok(bundle, "expected a compiled action bundle");
-  env.replaceActionBundle(bundle);
-  for (const tile of bundle.tiles) {
-    if (tile.metadata?.label) {
-      tilesByName.set(tile.metadata.label, tile);
-    }
-  }
-  environment.current = env;
+  harnessRef.current = harness;
+  environment.current = harness.env;
 });
 
 /** Resolves a compiled user tile by its display name. */
 function userTile(name: string): IBrainTileDef {
-  const tile = tilesByName.get(name);
-  assert.ok(tile, `user tile "${name}" not found; have: ${[...tilesByName.keys()].join(", ")}`);
-  return tile;
+  return harnessRef.current!.userTile(name);
 }
 
 /** A shared modifier tile by its id suffix, e.g. "speed.slowly" or "direction.left". */

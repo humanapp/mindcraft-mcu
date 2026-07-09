@@ -44,3 +44,5 @@ __pycache__/
 # Generated docs
 generated-docs/*
 !generated-docs/.gitignore
+
+.vscode-test-web

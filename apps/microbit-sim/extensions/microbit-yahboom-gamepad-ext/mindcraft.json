@@ -1,0 +1,22 @@
+{
+  "name": "Yahboom Gamepad",
+  "version": "0.1.0",
+  "description": "Yahboom GHBit gamepad driver for the micro:bit (v2): the thumb-stick direction and continuous position sensors, the colored-button sensor, the received-packet decoder, and the position-to-packet radio encoding.",
+  "files": [
+    "protocol.ts",
+    "stick-read.ts",
+    "stick.ts",
+    "button.ts",
+    "stick-position.ts",
+    "decoded-stick-position.ts",
+    "position-to-buffer.ts"
+  ],
+  "targets": {
+    "mindcraft-lang/microbit-v2": {
+      "packageVersion": "^0.2.0"
+    }
+  },
+  "extensions": {
+    "mindcraft-lang/codal-position-ext": "embedded:mindcraft-lang/codal-position-ext"
+  }
+}

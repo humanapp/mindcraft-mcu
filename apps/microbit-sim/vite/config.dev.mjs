@@ -2,6 +2,7 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 import { defineConfig } from "vite";
 import { uiPlugin } from "../../../external/mindcraft-lang/packages/ui/src/vite-plugin.ts";
+import { embeddedExtensions } from "./embedded-extensions.mjs";
 
 // The VFS service worker is served from /src in dev but must control the whole origin;
 // broadening its scope past the script path requires the Service-Worker-Allowed header.
@@ -20,7 +21,7 @@ function vfsServiceWorkerPlugin() {
 export default defineConfig({
   base: "/",
   appType: "spa",
-  plugins: [vfsServiceWorkerPlugin(), react(), uiPlugin()],
+  plugins: [vfsServiceWorkerPlugin(), react(), uiPlugin(), embeddedExtensions()],
   resolve: {
     alias: {
       "@": path.resolve(process.cwd(), "./src"),

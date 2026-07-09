@@ -60,7 +60,12 @@ export function ProjectHeader() {
 
   const handleUninstallExtension = (coordinate: string) => {
     void (async () => {
-      const result = await uninstallMicrobitExtension(store.host, store.activeProjectManifest?.extensions, coordinate);
+      const result = await uninstallMicrobitExtension(
+        store.host,
+        store.activeProjectManifest?.extensions,
+        coordinate,
+        microbitEmbeddedExtensions
+      );
       if (!result.ok) {
         toast.error(`Could not remove extension (${result.code})`);
       }

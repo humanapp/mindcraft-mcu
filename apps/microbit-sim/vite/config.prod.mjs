@@ -2,10 +2,11 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 import { defineConfig } from "vite";
 import { uiPlugin } from "../../../external/mindcraft-lang/packages/ui/src/vite-plugin.ts";
+import { embeddedExtensions } from "./embedded-extensions.mjs";
 
 export default defineConfig({
   base: "/",
-  plugins: [react(), uiPlugin()],
+  plugins: [react(), uiPlugin(), embeddedExtensions()],
   resolve: {
     alias: {
       "@": path.resolve(process.cwd(), "./src"),

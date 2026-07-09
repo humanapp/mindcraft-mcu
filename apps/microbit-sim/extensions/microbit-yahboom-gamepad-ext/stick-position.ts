@@ -1,5 +1,5 @@
+import { Position } from "@ext/mindcraft-lang/codal-position-ext";
 import { type Context, Sensor } from "mindcraft";
-import { Position } from "./position";
 import { readStickX, readStickY } from "./stick-read";
 
 /**
@@ -12,6 +12,7 @@ import { readStickX, readStickY } from "./stick-read";
  */
 export default Sensor({
   name: "stick position",
+  id: "cz4jLqjYRy2bAwR3",
   returnType: Position,
   inline: true,
   onExecute(ctx: Context): Position {

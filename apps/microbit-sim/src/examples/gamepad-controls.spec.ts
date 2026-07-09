@@ -15,9 +15,7 @@
  */
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { before, describe, test } from "node:test";
-import { fileURLToPath } from "node:url";
 import { List } from "@mindcraft-lang/core";
 import { BrainDef, BrainTileModifierDef, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
 import { type IBrainTileDef, mkAccessorTileId, mkVariableFactoryTileId, RuleSide } from "@mindcraft-lang/core/brain";
@@ -28,15 +26,14 @@ import {
 } from "@mindcraft-lang/core/brain/language-service";
 import { type BrainTileFactoryDef, BrainTileOperatorDef } from "@mindcraft-lang/core/brain/tiles";
 import type { LinkedBrainProgram, TypeId } from "@mindcraft-lang/core/runtime";
-import {
-  type AmbientFile,
-  buildCompiledActionBundle,
-  qualifiedClassName,
-  UserTileProject,
-} from "@mindcraft-lang/ts-compiler";
-import { TEST_PROJECT_NAMESPACE } from "@mindcraft-lang/ts-compiler/testing";
 import { buildWodalProgramImage, getWodalDeviceProfile, WodalDeviceProfileId } from "@mindcraft-lang/wodal";
-import { createMicroBitV2Environment, MicroBit, WodalMicroBitRuntime } from "@mindcraft-lang/wodal/targets/microbit-v2";
+import { MicroBit, WodalMicroBitRuntime } from "@mindcraft-lang/wodal/targets/microbit-v2";
+import {
+  buildExampleHarness,
+  type ExampleHarness,
+  POSITION_IDENTITY,
+  YAHBOOM_GAMEPAD_EXT_COORDINATE,
+} from "./example-harness";
 
 /** Stick analog axes: pin 1 vertical, pin 2 horizontal. */
 const VERTICAL_PIN = 1;
@@ -66,9 +63,6 @@ const OBS_Y_ADDRESS = 0x61;
  */
 const OBSERVER_BIAS = 100;
 
-/** The position struct's symbol identity, keyed `<file>::<binding>`. */
-const POSITION_IDENTITY = qualifiedClassName(TEST_PROJECT_NAMESPACE, "/position.ts", "Position");
-
 /** Marker bytes an observer actuator writes so a firing can be attributed to its rule. */
 const MARK = {
   up: 0x01,
@@ -84,27 +78,6 @@ const MARK = {
   anyButton: 0x15,
   redBlue: 0x16,
 } as const;
-
-function readText(relativePath: string): string {
-  return readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), "utf8");
-}
-
-function microbitAmbientFiles(): readonly AmbientFile[] {
-  return [
-    {
-      path: "mindcraft.core.d.ts",
-      content: readText("../../../../external/mindcraft-lang/packages/core/ambient/mindcraft.core.d.ts"),
-    },
-    {
-      path: "mindcraft.wodal.d.ts",
-      content: readText("../../../../packages/wodal/ambient/mindcraft.wodal.d.ts"),
-    },
-    {
-      path: "mindcraft.microbit-v2.d.ts",
-      content: readText("../../../../packages/wodal/ambient/mindcraft.microbit-v2.d.ts"),
-    },
-  ];
-}
 
 /** An always-true trigger, so a rule driving it fires every think its page is active. */
 const ALWAYS_SOURCE = `import { type Context, Sensor } from "mindcraft";
@@ -148,17 +121,13 @@ export default Actuator({
 `;
 }
 
-/** The one compiled project: the shipped gamepad tiles plus the test-only trigger and observers. */
-function projectFiles(): Record<string, string> {
+/**
+ * The test-only trigger and observer tiles compiled in the host workspace
+ * alongside the installed Yahboom gamepad add-on, whose shipped tiles and the
+ * Position struct type they return come from the extension namespaces.
+ */
+function workspaceTiles(): Record<string, string> {
   return {
-    "position.ts": readText("./gamepad/position.ts"),
-    "protocol.ts": readText("./gamepad/protocol.ts"),
-    "stick-read.ts": readText("./gamepad/stick-read.ts"),
-    "stick.ts": readText("./gamepad/stick.ts"),
-    "button.ts": readText("./gamepad/button.ts"),
-    "stick-position.ts": readText("./gamepad/stick-position.ts"),
-    "decoded-stick-position.ts": readText("./gamepad/decoded-stick-position.ts"),
-    "position-to-buffer.ts": readText("./gamepad/position-to-buffer.ts"),
     "always.ts": ALWAYS_SOURCE,
     "mark-up.ts": observerSource("mark up", MARK.up),
     "mark-down.ts": observerSource("mark down", MARK.down),
@@ -190,40 +159,22 @@ interface RunResult {
 }
 
 const environment = { current: undefined as MindcraftEnvironment | undefined };
-const tilesByName = new Map<string, IBrainTileDef>();
 const bundleTiles = { current: [] as readonly IBrainTileDef[] };
+const harnessRef = { current: undefined as ExampleHarness | undefined };
 
 before(() => {
-  const env = createMicroBitV2Environment();
-  const project = new UserTileProject({
-    projectNamespace: TEST_PROJECT_NAMESPACE,
-    ambientFiles: microbitAmbientFiles(),
-    services: env.brainServices,
+  const harness = buildExampleHarness({
+    install: [YAHBOOM_GAMEPAD_EXT_COORDINATE],
+    workspaceTiles: workspaceTiles(),
   });
-  project.setFiles(new Map(Object.entries(projectFiles())));
-  const compileResult = project.compileAll();
-  assert.equal(
-    compileResult.tsErrors.size,
-    0,
-    `Unexpected TypeScript diagnostics: ${JSON.stringify([...compileResult.tsErrors])}`
-  );
-  const bundle = buildCompiledActionBundle(compileResult, { services: env.brainServices });
-  assert.ok(bundle, "expected a compiled action bundle");
-  env.replaceActionBundle(bundle);
-  for (const tile of bundle.tiles) {
-    if (tile.metadata?.label) {
-      tilesByName.set(tile.metadata.label, tile);
-    }
-  }
-  bundleTiles.current = bundle.tiles;
-  environment.current = env;
+  harnessRef.current = harness;
+  bundleTiles.current = harness.bundle.tiles;
+  environment.current = harness.env;
 });
 
 /** Resolves a compiled user tile by its display name. */
 function userTile(name: string): IBrainTileDef {
-  const tile = tilesByName.get(name);
-  assert.ok(tile, `user tile "${name}" not found; have: ${[...tilesByName.keys()].join(", ")}`);
-  return tile;
+  return harnessRef.current!.userTile(name);
 }
 
 /** A shared modifier tile by its id suffix, e.g. "direction.up" or "color.red". */

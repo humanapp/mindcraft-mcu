@@ -1,5 +1,5 @@
+import { Position } from "@ext/mindcraft-lang/codal-position-ext";
 import { BufferType, Conversion } from "mindcraft";
-import { Position } from "./position";
 import { PACKET_MAGIC } from "./protocol";
 
 /**
@@ -11,6 +11,7 @@ import { PACKET_MAGIC } from "./protocol";
  * an arbitrary buffer is not a position (see the decoder tile).
  */
 export default Conversion({
+  id: "Ji4ZU6PR5atXFoNr",
   from: Position,
   to: BufferType,
   cost: 2,

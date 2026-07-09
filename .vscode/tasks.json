@@ -30,6 +30,46 @@
       "command": "./check.sh",
       "options": { "cwd": "${workspaceFolder}/cpp" },
       "problemMatcher": []
+    },
+    {
+      "label": "mindcraft-ext: build",
+      "type": "shell",
+      "command": "npm run build",
+      "options": {
+        "cwd": "${workspaceFolder}/external/mindcraft-lang/apps/vscode-extension"
+      },
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "mindcraft-ext: dev",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/external/mindcraft-lang/apps/vscode-extension"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^never$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "build finished"
+        }
+      },
+      "group": "build"
+    },
+    {
+      "label": "vscode-bridge: build",
+      "type": "shell",
+      "command": "npm run build",
+      "options": {
+        "cwd": "${workspaceFolder}/external/mindcraft-lang/apps/vscode-bridge"
+      },
+      "group": "build",
+      "problemMatcher": []
     }
   ]
 }

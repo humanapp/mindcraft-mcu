@@ -1,5 +1,5 @@
+import { Position } from "@ext/mindcraft-lang/codal-position-ext";
 import { BufferType, type Context, Sensor } from "mindcraft";
-import { Position } from "./position";
 import { PACKET_MAGIC } from "./protocol";
 
 /**
@@ -15,6 +15,7 @@ import { PACKET_MAGIC } from "./protocol";
  */
 export default Sensor({
   name: "decoded stick position",
+  id: "jnQW2Oaatx2xRjLb",
   returnType: Position,
   consumesWhenResult: BufferType,
   inline: true,

@@ -2,17 +2,18 @@ import { type Context, choice, modifier, optional, Sensor } from "mindcraft";
 import { CutebotLine } from "./line-sensor";
 
 /**
- * Reports the Cutebot left line sensor. A mutually-exclusive modifier selects
+ * Reports the Cutebot right line sensor. A mutually-exclusive modifier selects
  * what it reports; with no modifier it reports "on":
  * - "found": true for the one think the sensor crossed onto the line.
  * - "lost": true for the one think the sensor crossed off the line.
  * - "on": true while the sensor is over the line.
  */
 export default Sensor({
-  name: "cutebot line (left)",
+  name: "cutebot line (right)",
+  id: "O589P92kylCpz3tv",
   args: [
     // Modifiers use the shared "modifier.cutebot-line" namespace, matched by the
-    // right line sensor so the same modifier is valid on either.
+    // left line sensor so the same modifier is valid on either.
     optional(
       choice(
         modifier("modifier.cutebot-line.found", { label: "found" }),
@@ -23,11 +24,11 @@ export default Sensor({
   ],
   onExecute(ctx: Context, args: { found: boolean; lost: boolean; on: boolean }): boolean {
     if (args.found) {
-      return CutebotLine.leftFound();
+      return CutebotLine.rightFound();
     }
     if (args.lost) {
-      return CutebotLine.leftLost();
+      return CutebotLine.rightLost();
     }
-    return CutebotLine.left();
+    return CutebotLine.right();
   },
 });
