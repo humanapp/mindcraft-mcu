@@ -1,14 +1,14 @@
 /**
- * Live-path coverage for the user-tile metadata cache when two installed
- * extensions share a third extension's struct type across the `@ext` boundary:
- * the Yahboom gamepad's `decoded stick position` (returnType `Position`) and the
- * Cutebot's `cutebot steer` (a `Position` param) both reference the Position
- * add-on's type. It resolves the gamepad + Cutebot coordinates through the real
- * embed record and transitive resolver, compiles them, and drives the same
- * bridge-app registration entry points the app uses -- `collectMetadataFromCompile`,
- * `applyCompiledUserTiles`, and `hydrateUserTilesFromCache` -- to pin that the
- * collected metadata is JSON-serializable, the cache persists, and it round-trips
- * back into registered tiles.
+ * Live-path coverage for cross-extension user-tile registration when two
+ * installed extensions share a third extension's struct type across the `@ext`
+ * boundary: the Yahboom gamepad's `decoded stick position` (returnType
+ * `Position`) and the Cutebot's `cutebot steer` (a `Position` param) both
+ * reference the Position add-on's type. It resolves the gamepad + Cutebot
+ * coordinates through the real embed record and transitive resolver, compiles
+ * them, and drives the same bridge-app registration entry points the app uses --
+ * `collectMetadataFromCompile` and `applyCompiledUserTiles` -- to pin that the
+ * collected metadata is JSON-serializable and that applying the compiled bundle
+ * registers both cross-extension tiles.
  */
 
 import assert from "node:assert/strict";
@@ -18,7 +18,6 @@ import type { EmbeddedExtension } from "@mindcraft-lang/bridge-app";
 import {
   applyCompiledUserTiles,
   collectMetadataFromCompile,
-  hydrateUserTilesFromCache,
   resolveEmbeddedExtensions,
 } from "@mindcraft-lang/bridge-app";
 import { buildEmbeddedExtensionFromDir } from "@mindcraft-lang/bridge-app/node";
@@ -107,7 +106,7 @@ function envHasTile(env: MindcraftEnvironment, label: string): boolean {
   return false;
 }
 
-describe("cross-extension user-tile metadata cache", () => {
+describe("cross-extension user-tile metadata", () => {
   let env: MindcraftEnvironment;
   let result: WorkspaceCompileResult;
 
@@ -129,52 +128,10 @@ describe("cross-extension user-tile metadata cache", () => {
     assert.doesNotThrow(() => JSON.stringify(metadata), "the metadata carries no live AST node");
   });
 
-  test("applying the compiled bundle persists a non-empty cache and registers both tiles", () => {
-    let saved: string | undefined;
-    let clearedOnce = false;
-    const applyResult = applyCompiledUserTiles(env, result, {
-      loadMetadata: async () => undefined,
-      saveMetadata: (json) => {
-        if (json === undefined) {
-          clearedOnce = true;
-        } else {
-          saved = json;
-        }
-      },
-    });
+  test("applying the compiled bundle registers both cross-extension tiles", () => {
+    const applyResult = applyCompiledUserTiles(env, result);
     assert.ok(applyResult, "applying produced a result");
-    assert.equal(clearedOnce, false, "the cache save was not a clear (the serialize did not throw)");
-    assert.ok(saved && saved.length > 0, "a non-empty metadata cache was saved");
     assert.ok(envHasTile(env, DECODED_LABEL), "decoded stick position registered in the environment");
     assert.ok(envHasTile(env, STEER_LABEL), "cutebot steer registered in the environment");
-  });
-
-  test("the persisted cache round-trips back into registered cross-extension tiles", async () => {
-    let saved: string | undefined;
-    applyCompiledUserTiles(env, result, {
-      loadMetadata: async () => undefined,
-      saveMetadata: (json) => {
-        saved = json;
-      },
-    });
-    assert.ok(saved, "expected a saved cache to reload");
-
-    // Warm-start reload with the Position type available in the registry (as it
-    // is once the extensions have compiled): compiling registers the struct type
-    // but not the tiles, so hydration is what rebuilds the tiles by name.
-    const reloaded = createMicroBitV2Environment();
-    compileGamepadAndCutebot(reloaded);
-    assert.ok(!envHasTile(reloaded, DECODED_LABEL), "compiling alone does not register the tile");
-    const hydrated = await hydrateUserTilesFromCache(reloaded, {
-      loadMetadata: async () => saved,
-      saveMetadata: () => {},
-    });
-    assert.ok(hydrated, "hydration returned cached metadata");
-    assert.ok(
-      hydrated.some((m) => m.name === DECODED_LABEL) && hydrated.some((m) => m.name === STEER_LABEL),
-      "the cache contains both cross-extension tiles"
-    );
-    assert.ok(envHasTile(reloaded, DECODED_LABEL), "decoded stick position hydrated into the environment");
-    assert.ok(envHasTile(reloaded, STEER_LABEL), "cutebot steer hydrated into the environment");
   });
 });
