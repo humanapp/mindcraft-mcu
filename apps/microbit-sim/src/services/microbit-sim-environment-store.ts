@@ -9,7 +9,13 @@ import {
   ProjectManager,
   type ProjectManifest,
 } from "@mindcraft-lang/app-host";
-import { type AppBridgeState, AppEnvironmentHost, type UserTileApplyResult } from "@mindcraft-lang/bridge-app";
+import {
+  type AppBridgeState,
+  AppEnvironmentHost,
+  createVfsAssetUrlProvider,
+  type UserTileApplyResult,
+  type VfsAssetUrlProvider,
+} from "@mindcraft-lang/bridge-app";
 import { BrainDef, coreModule, createMindcraftEnvironment, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
 import { createProfileNumerics } from "@mindcraft-lang/core/runtime";
 import { isCompilerControlledPath, type Mount } from "@mindcraft-lang/ts-compiler";
@@ -33,7 +39,6 @@ import {
 } from "./project-io";
 import { MicrobitSimulator } from "./simulator";
 import { UserCodeReflasher } from "./user-code-reflasher";
-import { initVfsServiceWorker } from "./vfs-service-worker";
 
 /**
  * Platform content mounts for microbit-sim, applied at the workspace root.
@@ -195,12 +200,17 @@ export class MicrobitSimEnvironmentStore {
 
   private _uiPreferences: UiPreferences = { ...DEFAULT_UI_PREFS };
 
-  private _vfsServiceWorkerInitialized = false;
+  private _vfsRevisionWiringInitialized = false;
+  private readonly _vfsAssetUrlProvider: VfsAssetUrlProvider;
   private _isSwitchingProject = false;
 
   private constructor(host: AppEnvironmentHost, activeDeviceProfile: WodalDeviceProfile) {
     this.host = host;
     this.activeDeviceProfile = activeDeviceProfile;
+    this._vfsAssetUrlProvider = createVfsAssetUrlProvider({
+      getProjectFileSystem: () => this.host.servedProjectFileSystem,
+      getVfsRevision: () => this.host.getVfsRevisionSnapshot(),
+    });
     this.simulator = new MicrobitSimulator(host.env);
     this._userCodeReflasher = new UserCodeReflasher({
       flashedBrainIds: () =>
@@ -269,15 +279,28 @@ export class MicrobitSimEnvironmentStore {
       this._uiPreferences = loadUiPreferences(activeProject.manifest.id);
     }
     await this.reloadProjectState();
-    if (!this._vfsServiceWorkerInitialized) {
-      initVfsServiceWorker(this);
-      this._vfsServiceWorkerInitialized = true;
+    if (!this._vfsRevisionWiringInitialized) {
+      this.initVfsRevisionWiring();
+      this._vfsRevisionWiringInitialized = true;
     }
     this.host.initBridge();
     this.onAppSettingsChange((settings, prev) => {
       if (settings.vscodeBridgeUrl !== prev.vscodeBridgeUrl) {
         this.host.updateBridgeUrl(settings.vscodeBridgeUrl);
       }
+    });
+  }
+
+  /**
+   * Bumps the VFS revision on every local file-system change, re-subscribing
+   * to the new project's file system on each project load.
+   */
+  private initVfsRevisionWiring(): void {
+    let unsubLocalChange = this.projectFileSystem.onLocalChange(() => this.bumpVfsRevision());
+    this.host.onProjectLoaded(() => {
+      unsubLocalChange();
+      unsubLocalChange = this.projectFileSystem.onLocalChange(() => this.bumpVfsRevision());
+      this.bumpVfsRevision();
     });
   }
 
@@ -297,9 +320,9 @@ export class MicrobitSimEnvironmentStore {
   }
 
   /**
-   * File system the VFS service worker serves assets from: the raw project
-   * files plus compiler-controlled files, including the installed-extensions
-   * tree, so extension tile icons and docs resolve.
+   * File system the VFS asset-url provider resolves assets from: the raw
+   * project files plus compiler-controlled files, including the
+   * installed-extensions tree, so extension tile icons and docs resolve.
    */
   get servedProjectFileSystem(): ProjectFileSystem {
     return this.host.servedProjectFileSystem;
@@ -647,6 +670,15 @@ export class MicrobitSimEnvironmentStore {
   getVfsRevisionSnapshot = (): number => {
     return this.host.getVfsRevisionSnapshot();
   };
+
+  /**
+   * Resolves a compiler-minted `/vfs/<path>` asset URL to an object URL over
+   * the served project file system, cached per VFS revision. Other URLs pass
+   * through unchanged.
+   */
+  resolveVfsAssetUrl(url: string): string {
+    return this._vfsAssetUrlProvider.resolveAssetUrl(url);
+  }
 
   // -- Bridge (delegate) --
 

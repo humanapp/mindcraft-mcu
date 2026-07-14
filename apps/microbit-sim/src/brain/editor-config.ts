@@ -1,5 +1,5 @@
 import { CoreTypeIds, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
-import type { BrainEditorConfig } from "@mindcraft-lang/ui";
+import type { BrainEditorConfig, TileVisual } from "@mindcraft-lang/ui";
 
 const ICON_BASE = "/assets/brain/icons";
 
@@ -9,9 +9,13 @@ const ICON_BASE = "/assets/brain/icons";
  * Tile and data-type icon URLs point at `public/assets/brain/icons`. Missing
  * art resolves to the bundled `question_mark.svg` missing-tile fallback until
  * the real SVGs are supplied. Host tiles registered by the microbit-v2 module
- * appear automatically through `tileCatalogs`.
+ * appear automatically through `tileCatalogs`. Compiler-minted `/vfs/<path>`
+ * tile icons resolve to loadable URLs through `resolveVfsAssetUrl`.
  */
-export function buildMicrobitBrainEditorConfig(env: MindcraftEnvironment): BrainEditorConfig {
+export function buildMicrobitBrainEditorConfig(
+  env: MindcraftEnvironment,
+  resolveVfsAssetUrl: (url: string) => string
+): BrainEditorConfig {
   return {
     dataTypeIcons: new Map([
       [CoreTypeIds.Boolean, `${ICON_BASE}/boolean.svg`],
@@ -26,5 +30,13 @@ export function buildMicrobitBrainEditorConfig(env: MindcraftEnvironment): Brain
     customLiteralTypes: [],
     brainServices: env.brainServices,
     tileCatalogs: env.tileCatalogs(),
+    resolveTileVisual: (tileDef) => {
+      const intrinsic = tileDef.metadata as TileVisual | undefined;
+      if (!intrinsic?.iconUrl) {
+        return undefined;
+      }
+      const resolved = resolveVfsAssetUrl(intrinsic.iconUrl);
+      return resolved === intrinsic.iconUrl ? undefined : { ...intrinsic, iconUrl: resolved };
+    },
   };
 }

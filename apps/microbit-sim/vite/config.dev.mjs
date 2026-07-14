@@ -4,24 +4,10 @@ import { defineConfig } from "vite";
 import { uiPlugin } from "../../../external/mindcraft-lang/packages/ui/src/vite-plugin.ts";
 import { embeddedExtensions } from "./embedded-extensions.mjs";
 
-// The VFS service worker is served from /src in dev but must control the whole origin;
-// broadening its scope past the script path requires the Service-Worker-Allowed header.
-function vfsServiceWorkerPlugin() {
-  return {
-    name: "vfs-sw-allowed",
-    configureServer(server) {
-      server.middlewares.use((_req, res, next) => {
-        res.setHeader("Service-Worker-Allowed", "/");
-        next();
-      });
-    },
-  };
-}
-
 export default defineConfig({
   base: "/",
   appType: "spa",
-  plugins: [vfsServiceWorkerPlugin(), react(), uiPlugin(), embeddedExtensions()],
+  plugins: [react(), uiPlugin(), embeddedExtensions()],
   resolve: {
     alias: {
       "@": path.resolve(process.cwd(), "./src"),

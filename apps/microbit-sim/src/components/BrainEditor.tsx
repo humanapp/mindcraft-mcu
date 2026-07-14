@@ -12,12 +12,15 @@ interface BrainEditorProps {
 /** Loads a brain and edits it in the Brain Editor, saving the result on submit. */
 export function BrainEditor({ brainId, onClose }: BrainEditorProps) {
   const store = useMicrobitSimEnvironment();
-  // Rebuild the editor config when user tiles install so the palette picks up newly compiled tiles.
+  // Rebuild the editor config when user tiles install so the palette picks up newly compiled tiles,
+  // and when the VFS revision advances so tile icons re-resolve against the new asset generation.
   const docRevision = useSyncExternalStore(store.subscribeToDocRevision, store.getDocRevisionSnapshot);
+  const vfsRevision = useSyncExternalStore(store.subscribeToVfsRevision, store.getVfsRevisionSnapshot);
   const config = useMemo(() => {
     void docRevision;
-    return buildMicrobitBrainEditorConfig(store.env);
-  }, [store, docRevision]);
+    void vfsRevision;
+    return buildMicrobitBrainEditorConfig(store.env, (url) => store.resolveVfsAssetUrl(url));
+  }, [store, docRevision, vfsRevision]);
   const [srcBrainDef, setSrcBrainDef] = useState<BrainDef | undefined>(undefined);
   const [isOpen, setIsOpen] = useState(false);
 

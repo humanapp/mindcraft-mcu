@@ -100,25 +100,46 @@ Reference transports:
 - **Local.** Another project in the same project store
   (`local:<project-id>`), serving the author's inner development loop: build
   an extension as an ordinary local project, add it to a host project, and
-  iterate without publishing. Local extensions appear in the extension
-  browser as their own grouping, surfaced at the host application's
-  discretion as an advanced feature. A local dependency is **mounted, not
-  installed**: it is never snapshotted, carries no pin and no update
-  affordance, and always reflects the live source project -- imports resolve
-  directly against its files, and edits to it stream into consuming projects
-  through the same recompile pipeline as the host project's own code edits.
-  Adding or removing the dependency is transactional as usual, and a change
-  to the local dependency's own extensions list re-resolves through the
-  normal install pipeline (it can introduce new fetched content). A local
-  origin is an identity like any other: switching a dependency from a local
-  origin to a published one is a change of extension. Deleting the source
+  iterate without publishing a version. Local extensions appear in the
+  extension browser as their own grouping, surfaced at the host
+  application's discretion as an advanced feature.
+
+  A project is eligible as a local extension once its declared
+  `<owner>/<repo>` coordinate exists as a repository -- an empty stub
+  repository suffices, and the ordinary way a repository comes to exist is
+  the project's first publish. Creating the repository is the act that
+  claims the name: the coordinate is grounded in the same namespace remote content
+  mirrors, a local project cannot assume an identity its author does not
+  control, and the local mount and any content later published to that
+  repository are one extension across its whole life -- the import
+  specifier, install path, and registered keys never change from first
+  mount to publication. Switching a dependency between a `local:` reference
+  and a published reference to the same repository is a change of delivery,
+  not of extension. The host application verifies the repository exists
+  when offering or adding the project and records the confirmation; a
+  mounted dependency is not re-verified.
+
+  A local dependency is **mounted, not installed**: it is never
+  snapshotted, carries no pin and no update affordance, and always reflects
+  the live source project -- imports resolve directly against its files,
+  and edits to it stream into consuming projects through the same recompile
+  pipeline as the host project's own code edits. Adding or removing the
+  dependency is transactional as usual, and a change to the local
+  dependency's own extensions list re-resolves through the normal install
+  pipeline (it can introduce new fetched content). Deleting the source
   project leaves consuming projects with an unresolvable dependency,
   surfaced immediately through ordinary diagnostics; a project with local
   dependencies is not self-contained, and exporting or publishing one warns
   accordingly.
 
 Fetched transports install identically and differ only in provenance; the
-local transport mounts.
+local transport mounts. A host application may satisfy a fetch from a
+machine-local, pre-seeded extension cache before reaching the network. What
+the cache holds is a deployment concern -- an application may seed it with
+approved catalog extensions, or an administrator may provision a curated
+set for offline environments. A cache-satisfied install is an ordinary
+install: identity, layout, and compilation are unchanged, and the cache is
+a fetch source like the app bundle, not a transport of its own.
 
 A host application may designate **default extensions**: extensions included
 in every project's extensions list at creation. A default extension is an
@@ -305,13 +326,23 @@ there is no universal wildcard.
 
 ## Catalog and approved extensions
 
-A host application may consume a catalog: a curated document, injected from
-the application's service and verified against the application's trust root,
-listing approved extensions with their origins, versions, targets, and
-redirects. The catalog is a trust authority:
+A host application may consume a catalog: a curated document listing
+approved extensions with their origins, versions, targets, and redirects.
+The catalog's delivery is at the application's discretion -- bundled with
+the application, hosted in the application's own repository and fetched at
+runtime, or served -- and its integrity rests on the application's trust
+root; for a repository-hosted catalog, that root is the repository's
+maintainership. Curation may be an ordinary repository workflow: third
+parties propose a new extension, or an update to an approved one, as a pull
+request against the catalog document, validated mechanically and merged by
+the maintainers. The catalog is a trust authority:
 
-- Catalog entries may pin content hashes for approved versions, giving
-  integrity beyond the tag pin.
+- Approval pins exact content: a catalog entry references the approved
+  version by commit (or content hash), so what consumers install cannot
+  drift from what was reviewed -- integrity beyond the tag pin, immune to
+  moved tags and later pushes. Updating an approved extension is a pin bump,
+  and reviewing one is reviewing the difference between the two pinned
+  states.
 - **Redirects** handle source reorganization: a redirect is an
   identity-preserving alias, mapping an old origin to a new one so that
   existing content keyed under the old origin resolves against content
@@ -326,18 +357,33 @@ curation status.
 
 ## Publishing
 
-Publishing a new version of an extension is a repository operation on the
-author's own repository, performed from the Mindcraft VS Code extension on
-desktop or web. The publish command owns the whole sequence: it bumps the
-manifest version (patch, minor, or major), verifies the working tree is
+Publishing is defined by repository state: a published version is the
+project's content at the tag `v<version>` on the author's own repository,
+with the manifest version authoritative and matching the tag. A published
+repository carries the whole project: the manifest's `files` entries
+expanded as individual files on disk, and the manifest itself, which
+carries everything else the project comprises -- brains and
+application-specific content travel inside `mindcraft.json`, preserved
+verbatim whether or not the reading application recognizes them. Two surfaces
+perform the publish sequence over one shared engine: the web editor's
+publish command, for authors whose projects live in an application's
+project store and who have no filesystem or git -- it authenticates through
+the editor's built-in GitHub authentication provider and performs the
+repository operations through the GitHub REST API -- and a command-line
+tool that performs the same sequence with ordinary git for authors working
+in a repository checkout. A first publish may also claim the extension's
+identity:
+when the project has no repository yet, the publish command creates it,
+records the `<owner>/<repo>` coordinate in the project manifest, and pushes
+the initial version -- one gesture that turns an ordinary project into a
+published extension. The publish command owns the whole sequence: it bumps
+the manifest version (patch, minor, or major), verifies the working tree is
 otherwise clean, commits, creates the tag `v<version>` matching the new
 manifest version, and pushes the branch and the tag. Every publish bumps the
 version. When the project's extensions list contains local origins, the
 publish command asks for confirmation first -- a project with local
 dependencies may not work for anyone else -- and proceeds only on explicit
-consent. On the web, the command authenticates through the editor's built-in
-GitHub authentication provider and performs the repository operations through
-the GitHub REST API; on desktop it uses git directly. Published extension
+consent. Published extension
 repositories are public (the CDN transport serves public repositories).
 
 Separately, a host application can offer publishing a project to the
