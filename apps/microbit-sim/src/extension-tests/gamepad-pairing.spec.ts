@@ -51,12 +51,12 @@ import {
   WodalMicroBitRuntime,
 } from "@mindcraft-lang/wodal/targets/microbit-v2";
 import {
-  buildExampleHarness,
+  buildExtensionTestHarness,
   CUTEBOT_EXT_COORDINATE,
-  type ExampleHarness,
+  type ExtensionTestHarness,
   POSITION_IDENTITY,
   YAHBOOM_GAMEPAD_EXT_COORDINATE,
-} from "./example-harness";
+} from "./extension-test-harness";
 
 /** Cutebot STM8 motor-driver I2C address the arbitrator writes wheel commands to. */
 const CHASSIS_ADDRESS = 0x10;
@@ -137,10 +137,10 @@ function workspaceTiles(): Record<string, string> {
 
 const environment = { current: undefined as MindcraftEnvironment | undefined };
 const bundleTiles = { current: [] as readonly IBrainTileDef[] };
-const harnessRef = { current: undefined as ExampleHarness | undefined };
+const harnessRef = { current: undefined as ExtensionTestHarness | undefined };
 
 before(() => {
-  const harness = buildExampleHarness({
+  const harness = buildExtensionTestHarness({
     install: [CUTEBOT_EXT_COORDINATE, YAHBOOM_GAMEPAD_EXT_COORDINATE],
     workspaceTiles: workspaceTiles(),
   });

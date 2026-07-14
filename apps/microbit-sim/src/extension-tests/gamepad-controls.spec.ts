@@ -29,11 +29,11 @@ import type { LinkedBrainProgram, TypeId } from "@mindcraft-lang/core/runtime";
 import { buildWodalProgramImage, getWodalDeviceProfile, WodalDeviceProfileId } from "@mindcraft-lang/wodal";
 import { MicroBit, WodalMicroBitRuntime } from "@mindcraft-lang/wodal/targets/microbit-v2";
 import {
-  buildExampleHarness,
-  type ExampleHarness,
+  buildExtensionTestHarness,
+  type ExtensionTestHarness,
   POSITION_IDENTITY,
   YAHBOOM_GAMEPAD_EXT_COORDINATE,
-} from "./example-harness";
+} from "./extension-test-harness";
 
 /** Stick analog axes: pin 1 vertical, pin 2 horizontal. */
 const VERTICAL_PIN = 1;
@@ -160,10 +160,10 @@ interface RunResult {
 
 const environment = { current: undefined as MindcraftEnvironment | undefined };
 const bundleTiles = { current: [] as readonly IBrainTileDef[] };
-const harnessRef = { current: undefined as ExampleHarness | undefined };
+const harnessRef = { current: undefined as ExtensionTestHarness | undefined };
 
 before(() => {
-  const harness = buildExampleHarness({
+  const harness = buildExtensionTestHarness({
     install: [YAHBOOM_GAMEPAD_EXT_COORDINATE],
     workspaceTiles: workspaceTiles(),
   });

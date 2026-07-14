@@ -26,11 +26,11 @@ import { CoreHostActions, type LinkedBrainProgram, mkModifierTileId } from "@min
 import { buildWodalProgramImage, getWodalDeviceProfile, WodalDeviceProfileId } from "@mindcraft-lang/wodal";
 import { MicroBit, WodalMicroBitRuntime } from "@mindcraft-lang/wodal/targets/microbit-v2";
 import {
-  buildExampleHarness,
+  buildExtensionTestHarness,
   CUTEBOT_EXT_COORDINATE,
-  type ExampleHarness,
   type ExtensionFileOverlay,
-} from "./example-harness";
+  type ExtensionTestHarness,
+} from "./extension-test-harness";
 
 /** Cutebot STM8 motor-driver I2C address the arbitrator writes wheel commands to. */
 const CHASSIS_ADDRESS = 0x10;
@@ -195,10 +195,10 @@ interface RunResult {
 }
 
 const environment = { current: undefined as MindcraftEnvironment | undefined };
-const harnessRef = { current: undefined as ExampleHarness | undefined };
+const harnessRef = { current: undefined as ExtensionTestHarness | undefined };
 
 before(() => {
-  const harness = buildExampleHarness({
+  const harness = buildExtensionTestHarness({
     install: [CUTEBOT_EXT_COORDINATE],
     workspaceTiles: workspaceTiles(),
     extensionTiles: arbitratorProbeTiles(),

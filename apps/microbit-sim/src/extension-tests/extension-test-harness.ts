@@ -89,8 +89,8 @@ export interface HarnessOptions {
   extensionTiles?: readonly ExtensionFileOverlay[];
 }
 
-/** A compiled example environment: the runtime env, the combined bundle, and tile lookups. */
-export interface ExampleHarness {
+/** A compiled extension test environment: the runtime env, the combined bundle, and tile lookups. */
+export interface ExtensionTestHarness {
   /** The micro:bit v2 runtime environment with the compiled bundle installed. */
   env: MindcraftEnvironment;
   /** The combined action bundle spanning the workspace and every installed extension. */
@@ -108,7 +108,7 @@ export interface ExampleHarness {
  * scaffolding tiles are compiled either in the host workspace or, when they
  * must reach an extension's internal modules, into that extension's namespace.
  */
-export function buildExampleHarness(options: HarnessOptions): ExampleHarness {
+export function buildExtensionTestHarness(options: HarnessOptions): ExtensionTestHarness {
   const overlays = options.extensionTiles ?? [];
   const embedRecord: EmbeddedExtension[] = baseEmbedRecord().map((extension) => {
     const extra = overlays.filter((overlay) => overlay.coordinate === extension.canonicalOrigin);
@@ -127,7 +127,7 @@ export function buildExampleHarness(options: HarnessOptions): ExampleHarness {
   const env = createMicroBitV2Environment();
   const mounts: readonly Mount[] = [];
   const compiler = createWorkspaceCompiler({
-    projectNamespace: "microbit-example-harness",
+    projectNamespace: "microbit-extension-tests",
     mounts,
     environment: env,
     dependencies: resolved.dependencies,

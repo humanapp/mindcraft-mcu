@@ -1,5 +1,5 @@
 /**
- * Headless compile-and-run validation for the Cutebot line-sensor example. It
+ * Headless compile-and-run validation for the Cutebot line-sensor driver. It
  * compiles the shipped `cutebot/line-sensor.ts` System and the modifier-based
  * `cutebot/line-left.ts` sensor (plus a right-side probe and observer actuators)
  * into real brains, runs them on the WODAL microbit-v2 runtime, and taps the
@@ -28,7 +28,7 @@ import {
 import { CoreHostActions, type LinkedBrainProgram, mkModifierTileId } from "@mindcraft-lang/core/runtime";
 import { buildWodalProgramImage, getWodalDeviceProfile, WodalDeviceProfileId } from "@mindcraft-lang/wodal";
 import { MicroBit, WodalMicroBitRuntime } from "@mindcraft-lang/wodal/targets/microbit-v2";
-import { buildExampleHarness, CUTEBOT_EXT_COORDINATE, type ExampleHarness } from "./example-harness";
+import { buildExtensionTestHarness, CUTEBOT_EXT_COORDINATE, type ExtensionTestHarness } from "./extension-test-harness";
 
 /** GPIO pins the Cutebot line sensors are wired to; a line reads LOW. */
 const LEFT_PIN = 13;
@@ -121,10 +121,10 @@ interface RunResult {
 }
 
 const environment = { current: undefined as MindcraftEnvironment | undefined };
-const harnessRef = { current: undefined as ExampleHarness | undefined };
+const harnessRef = { current: undefined as ExtensionTestHarness | undefined };
 
 before(() => {
-  const harness = buildExampleHarness({
+  const harness = buildExtensionTestHarness({
     install: [CUTEBOT_EXT_COORDINATE],
     workspaceTiles: workspaceTiles(),
   });
