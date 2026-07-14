@@ -13,7 +13,7 @@
     "vendor:firmware": "node scripts/vendor-firmware.mjs",
     "check:only": "biome check ./src",
     "check": "biome check ./src --write",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.spec.json",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.spec.json && tsc --noEmit -p extensions/tsconfig.json && tsc --noEmit -p extensions/codal-position-ext/tsconfig.json",
     "test": "tsx --tsconfig tsconfig.spec.json --test $(find src -name '*.spec.ts')"
   },
   "dependencies": {
