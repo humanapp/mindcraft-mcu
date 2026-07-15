@@ -1,8 +1,11 @@
 {
   "name": "Position",
   "version": "0.1.0",
+  "identity": "mindcraft-lang/codal-position-ext",
   "description": "A two-axis position value type (x, y in -100..100 game convention) for WODAL-based targets.",
-  "files": ["index.ts"],
+  "files": [
+    "index.ts"
+  ],
   "targets": {
     "mindcraft-lang/codal": {
       "packageVersion": "^0.2.0"
