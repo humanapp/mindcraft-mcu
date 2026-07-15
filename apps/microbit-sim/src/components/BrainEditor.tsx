@@ -19,7 +19,11 @@ export function BrainEditor({ brainId, onClose }: BrainEditorProps) {
   const config = useMemo(() => {
     void docRevision;
     void vfsRevision;
-    return buildMicrobitBrainEditorConfig(store.env, (url) => store.resolveVfsAssetUrl(url));
+    return buildMicrobitBrainEditorConfig(
+      store.env,
+      (url) => store.resolveVfsAssetUrl(url),
+      store.activeProjectManifest?.id
+    );
   }, [store, docRevision, vfsRevision]);
   const [srcBrainDef, setSrcBrainDef] = useState<BrainDef | undefined>(undefined);
   const [isOpen, setIsOpen] = useState(false);

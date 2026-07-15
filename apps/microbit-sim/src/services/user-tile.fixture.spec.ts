@@ -13,17 +13,11 @@ import {
   buildWodalProgramImage,
   createWodalSharedModule,
   getWodalDeviceProfile,
-  validateWodalTarget,
   WodalDeviceProfileId,
 } from "@mindcraft-lang/wodal";
 import { createMicroBitV2Environment } from "@mindcraft-lang/wodal/targets/microbit-v2";
-import { name as appName, version as appVersion } from "../../package.json";
-import {
-  BRAINS_INDEX_KEY,
-  buildMicrobitSimExportDocument,
-  parseMicrobitSimTarget,
-  SIMULATOR_STATE_KEY,
-} from "./project-io";
+import { name as appName } from "../../package.json";
+import { buildMicrobitSimExportDocument, translateMicrobitSimAppChunk } from "./project-io";
 
 // The app-host reads localStorage for app-side caches; provide an in-memory shim so the host runs headlessly.
 function memoryStorage(): Storage {
@@ -174,37 +168,21 @@ describe("user-tile source round-trips through .mindcraft", () => {
       newEtag: "etag-1",
     });
 
-    const document = await buildMicrobitSimExportDocument(host.projectManager, profile.profileId, {
+    const document = await buildMicrobitSimExportDocument(host.projectManager, {
       brainOrder: [],
       simulator: undefined,
     });
     host.dispose();
 
-    const parsed = JSON.parse(document) as { files: Array<{ path: string; content: string }> };
-    const exported = parsed.files.find((file) => file.path === tilePath);
-    assert.ok(exported, "exported document should include the user-tile source");
-    assert.equal(exported.content, SENSOR_SOURCE);
+    const parsed = JSON.parse(document) as { contents: Record<string, string> };
+    assert.equal(parsed.contents[tilePath], SENSOR_SOURCE, "exported document should include the user-tile source");
 
     const importStore = await createIdbProjectStore(`user-tile-import-${storeCounter++}`);
     const importPm = new ProjectManager(importStore);
     await importPm.init();
     const file = new File([document], "tile-project.mindcraft");
-    const result = await importProjectDocument(file, appName, appVersion, importPm, {
-      targetsCallback: (targets, appTarget) => {
-        const wodal = validateWodalTarget(targets);
-        if (!wodal.ok) {
-          return { diagnostics: wodal.errors.map((error) => ({ severity: "error" as const, message: error.message })) };
-        }
-        const app = parseMicrobitSimTarget(appTarget);
-        const appData: Record<string, string> = {};
-        if (app.brainOrder.length > 0) {
-          appData[BRAINS_INDEX_KEY] = JSON.stringify(app.brainOrder);
-        }
-        if (app.simulator) {
-          appData[SIMULATOR_STATE_KEY] = JSON.stringify(app.simulator);
-        }
-        return { diagnostics: [], appData };
-      },
+    const result = await importProjectDocument(file, appName, importPm, {
+      appChunkCallback: translateMicrobitSimAppChunk,
     });
 
     assert.equal(result.success, true);

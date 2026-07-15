@@ -383,6 +383,12 @@ expanded as individual files on disk, and the manifest itself, which
 carries everything else the project comprises -- brains and
 application-specific content travel inside `mindcraft.json`, preserved
 verbatim whether or not the reading application recognizes them.
+Serialized brains reference their own project's tiles and types
+namespace-relatively -- the namespace is a field on the persisted
+reference, absent for the project's own content and present for another
+extension's -- so bundled brains survive every change of the project's
+namespace (graduation, forks) while references into dependencies stay
+exact.
 
 Publishing is performed with the Mindcraft command-line tool -- against a
 repository checkout or a project directory -- or by any ordinary git

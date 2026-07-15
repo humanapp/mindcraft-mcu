@@ -6,18 +6,14 @@ import { fileURLToPath } from "node:url";
 import { createIdbProjectStore, importProjectDocument, ProjectManager } from "@mindcraft-lang/app-host";
 import { AppEnvironmentHost } from "@mindcraft-lang/bridge-app";
 import { BrainDef, coreModule } from "@mindcraft-lang/core/app";
-import {
-  createWodalSharedModule,
-  getWodalDeviceProfile,
-  validateWodalTarget,
-  WodalDeviceProfileId,
-} from "@mindcraft-lang/wodal";
-import { name as appName, version as appVersion } from "../../package.json";
+import { createWodalSharedModule, getWodalDeviceProfile, WodalDeviceProfileId } from "@mindcraft-lang/wodal";
+import { name as appName } from "../../package.json";
 import {
   BRAINS_INDEX_KEY,
   buildMicrobitSimExportDocument,
-  parseMicrobitSimTarget,
+  parseMicrobitSimAppChunk,
   SIMULATOR_STATE_KEY,
+  translateMicrobitSimAppChunk,
 } from "./project-io";
 
 const FIXTURE_PATH = fileURLToPath(new URL("./__fixtures__/sample-project.mindcraft", import.meta.url));
@@ -114,7 +110,7 @@ async function generateFixtureDocument(): Promise<string> {
   const button = host.env.withServices((services) => BrainDef.emptyBrainDef(services, "Button"));
   await host.saveBrainForKey(button.id(), button);
 
-  const document = await buildMicrobitSimExportDocument(host.projectManager, profile.profileId, {
+  const document = await buildMicrobitSimExportDocument(host.projectManager, {
     brainOrder: [blink.id(), button.id()],
     simulator: { order: ["microbit-1", "microbit-2"], flash: { "microbit-1": blink.id() } },
   });
@@ -127,8 +123,8 @@ describe("sample .mindcraft fixture", () => {
 
   before(async () => {
     generated = await generateFixtureDocument();
-    // Bootstrap the committed fixture on first run; a later drift in the export path fails the equality
-    // test below rather than silently rewriting the committed artifact.
+    // Bootstrap the committed fixture on first run; on later runs the equality
+    // test below pins the committed bytes against the export path.
     if (!existsSync(FIXTURE_PATH)) {
       writeFileSync(FIXTURE_PATH, generated);
     }
@@ -138,33 +134,31 @@ describe("sample .mindcraft fixture", () => {
     assert.equal(generated, readFileSync(FIXTURE_PATH, "utf8"));
   });
 
-  it("carries the whole project: tile source, asset, brains, and both target payloads", () => {
+  it("carries the whole project: tile source, asset, brains, and the app chunk", () => {
     const document = JSON.parse(generated) as {
-      files: Array<{ path: string; content: string }>;
-      brains: Record<string, { name: string }>;
-      targets: Record<string, unknown>;
-      extensions: Record<string, string>;
+      manifest: {
+        brains: Record<string, { name: string }>;
+        app: Record<string, unknown>;
+        extensions: Record<string, string>;
+      };
+      contents: Record<string, string>;
     };
 
-    const tile = document.files.find((file) => file.path === FIXTURE_TILE_PATH);
-    assert.equal(tile?.content, FIXTURE_TILE_SOURCE);
-    const asset = document.files.find((file) => file.path === FIXTURE_ASSET_PATH);
-    assert.equal(asset?.content, FIXTURE_ASSET_CONTENT);
+    assert.equal(document.contents[FIXTURE_TILE_PATH], FIXTURE_TILE_SOURCE);
+    assert.equal(document.contents[FIXTURE_ASSET_PATH], FIXTURE_ASSET_CONTENT);
 
     assert.deepEqual(
-      Object.values(document.brains)
+      Object.values(document.manifest.brains)
         .map((brain) => brain.name)
         .sort(),
       ["Blink", "Button"]
     );
 
-    const appTarget = parseMicrobitSimTarget(document.targets[appName]);
-    assert.equal(appTarget.brainOrder.length, 2);
-    assert.deepEqual(appTarget.simulator?.order, ["microbit-1", "microbit-2"]);
-    const wodal = validateWodalTarget(document.targets);
-    assert.equal(wodal.ok, true);
+    const appChunk = parseMicrobitSimAppChunk(document.manifest.app[appName]);
+    assert.equal(appChunk.brainOrder.length, 2);
+    assert.deepEqual(appChunk.simulator?.order, ["microbit-1", "microbit-2"]);
 
-    assert.deepEqual(document.extensions, FIXTURE_EXTENSIONS);
+    assert.deepEqual(document.manifest.extensions, FIXTURE_EXTENSIONS);
   });
 
   it("imports through the real seam, seeding brains and the flashed fleet", async () => {
@@ -173,24 +167,9 @@ describe("sample .mindcraft fixture", () => {
     await projectManager.init();
 
     const file = new File([readFileSync(FIXTURE_PATH, "utf8")], "sample-project.mindcraft");
-    const result = await importProjectDocument(file, appName, appVersion, projectManager, {
-      // The store's targetsCallback over the same building blocks: validate the WODAL target, then seed
-      // microbit-sim's payload into app-data.
-      targetsCallback: (targets, appTarget) => {
-        const wodal = validateWodalTarget(targets);
-        if (!wodal.ok) {
-          return { diagnostics: wodal.errors.map((error) => ({ severity: "error" as const, message: error.message })) };
-        }
-        const app = parseMicrobitSimTarget(appTarget);
-        const appData: Record<string, string> = {};
-        if (app.brainOrder.length > 0) {
-          appData[BRAINS_INDEX_KEY] = JSON.stringify(app.brainOrder);
-        }
-        if (app.simulator) {
-          appData[SIMULATOR_STATE_KEY] = JSON.stringify(app.simulator);
-        }
-        return { diagnostics: [], appData };
-      },
+    const result = await importProjectDocument(file, appName, projectManager, {
+      // The store's import callback: seed microbit-sim's session chunk into app-data.
+      appChunkCallback: translateMicrobitSimAppChunk,
     });
 
     assert.equal(result.success, true);

@@ -14,9 +14,11 @@ const ICON_BASE = "/assets/brain/icons";
  */
 export function buildMicrobitBrainEditorConfig(
   env: MindcraftEnvironment,
-  resolveVfsAssetUrl: (url: string) => string
+  resolveVfsAssetUrl: (url: string) => string,
+  projectNamespace: string | undefined
 ): BrainEditorConfig {
   return {
+    projectNamespace,
     dataTypeIcons: new Map([
       [CoreTypeIds.Boolean, `${ICON_BASE}/boolean.svg`],
       [CoreTypeIds.Number, `${ICON_BASE}/number.svg`],

@@ -2,7 +2,6 @@ import {
   createIdbProjectStore,
   createWebLocksProjectLock,
   DEFAULT_PROJECT_NAME,
-  type ImportProjectTargetsResult,
   type ImportResult,
   importProjectDocument,
   type ProjectFileSystem,
@@ -22,20 +21,19 @@ import { isCompilerControlledPath, type Mount } from "@mindcraft-lang/ts-compile
 import {
   createWodalSharedModule,
   getWodalDeviceProfile,
-  validateWodalTarget,
   type WodalBuildInput,
   type WodalDeviceProfile,
   WodalDeviceProfileId,
 } from "@mindcraft-lang/wodal";
-import { name as appName, version as appVersion } from "../../package.json";
+import { name as appName } from "../../package.json";
 import { loadBindingToken, saveBindingToken } from "./binding-token-persistence";
 import { microbitDefaultExtensions, microbitEmbeddedExtensions } from "./microbit-embedded-extensions";
 import {
   BRAINS_INDEX_KEY,
   buildMicrobitSimExportDocument,
   type MicrobitSimFleet,
-  parseMicrobitSimTarget,
   SIMULATOR_STATE_KEY,
+  translateMicrobitSimAppChunk,
 } from "./project-io";
 import { MicrobitSimulator } from "./simulator";
 import { UserCodeReflasher } from "./user-code-reflasher";
@@ -378,8 +376,8 @@ export class MicrobitSimEnvironmentStore {
 
   /** Imports a `.mindcraft` file as a new durable project and switches to it on success. */
   async importProject(file: File): Promise<ImportResult> {
-    const result = await importProjectDocument(file, appName, appVersion, this.host.projectManager, {
-      targetsCallback: (targets, appTarget) => this.translateTargets(targets, appTarget),
+    const result = await importProjectDocument(file, appName, this.host.projectManager, {
+      appChunkCallback: translateMicrobitSimAppChunk,
     });
     if (result.success && result.projectId) {
       await this.switchProject(result.projectId);
@@ -387,37 +385,9 @@ export class MicrobitSimEnvironmentStore {
     return result;
   }
 
-  /** Validates the WODAL target and translates microbit-sim's payload into seeded app-data. */
-  private translateTargets(targets: Readonly<Record<string, unknown>>, appTarget: unknown): ImportProjectTargetsResult {
-    const wodal = validateWodalTarget(targets);
-    if (!wodal.ok) {
-      return { diagnostics: wodal.errors.map((error) => ({ severity: "error" as const, message: error.message })) };
-    }
-    if (wodal.target.profile !== this.activeDeviceProfile.profileId) {
-      return {
-        diagnostics: [
-          {
-            severity: "error",
-            message: `This project targets "${wodal.target.profile}"; this simulator runs "${this.activeDeviceProfile.profileId}".`,
-          },
-        ],
-      };
-    }
-
-    const app = parseMicrobitSimTarget(appTarget);
-    const appData: Record<string, string> = {};
-    if (app.brainOrder.length > 0) {
-      appData[BRAINS_INDEX_KEY] = JSON.stringify(app.brainOrder);
-    }
-    if (app.simulator) {
-      appData[SIMULATOR_STATE_KEY] = JSON.stringify(app.simulator);
-    }
-    return { diagnostics: [], appData };
-  }
-
   /** Exports the active project as a shared `.mindcraft` document string. */
   async exportProject(): Promise<string> {
-    return buildMicrobitSimExportDocument(this.host.projectManager, this.activeDeviceProfile.profileId, {
+    return buildMicrobitSimExportDocument(this.host.projectManager, {
       brainOrder: [...this._brainIds],
       simulator: this.simulatorStateSnapshot(),
     });
@@ -461,7 +431,7 @@ export class MicrobitSimEnvironmentStore {
     if (typeof plain.id === "string" && this._brainIds.includes(plain.id)) {
       plain.id = undefined;
     }
-    const brainDef = this.env.deserializeBrainJsonFromPlain(plain);
+    const brainDef = this.env.deserializeBrainJsonFromPlain(plain, this.activeProjectId());
     if (brainDef.pages().size() === 0) {
       brainDef.appendNewPage();
     }
@@ -499,6 +469,20 @@ export class MicrobitSimEnvironmentStore {
   /** Loads a brain definition by id. */
   async getBrain(id: string): Promise<BrainDef | undefined> {
     return (await this.host.loadBrainFromProject(id)) as BrainDef | undefined;
+  }
+
+  /** Namespace of the active project; persisted brain JSON is relative to it. */
+  private activeProjectId(): string {
+    return this.host.projectManager.activeProject!.manifest.id;
+  }
+
+  /** Serializes a brain into portable `.brain` JSON text, or undefined when it cannot be loaded. */
+  async exportBrainSource(id: string): Promise<string | undefined> {
+    const brainDef = this.host.getCachedBrain(id) ?? (await this.getBrain(id));
+    if (!brainDef) {
+      return undefined;
+    }
+    return JSON.stringify(this.host.serializeBrainForStorage(brainDef), null, 2);
   }
 
   /** Persists an edited brain definition (replacing the cached instance) and re-flashes instances running it. */

@@ -1,9 +1,12 @@
-import { buildActiveProjectExportDocument, type ProjectManager } from "@mindcraft-lang/app-host";
-import { buildWodalProjectTarget, WODAL_PROJECT_TARGET_KEY, type WodalDeviceProfileId } from "@mindcraft-lang/wodal";
+import {
+  buildActiveProjectExportDocument,
+  type ImportAppChunkResult,
+  type ProjectManager,
+} from "@mindcraft-lang/app-host";
 import { name as appName } from "../../package.json";
 
-/** Target key for microbit-sim's own project payload in a shared `.mindcraft` document. */
-export const MICROBIT_SIM_TARGET_KEY = appName;
+/** App name microbit-sim's session chunk is keyed under in a `.mindcraft` document's manifest `app` map. */
+export const MICROBIT_SIM_APP_CHUNK_KEY = appName;
 
 /** Project app-data key holding the ordered list of brain ids. */
 export const BRAINS_INDEX_KEY = "brains-index";
@@ -17,15 +20,15 @@ export interface MicrobitSimFleet {
   readonly flash: Readonly<Record<string, string>>;
 }
 
-/** microbit-sim's payload inside the shared document's `targets` map: brain order and the simulator fleet. */
-export interface MicrobitSimTarget {
+/** microbit-sim's session chunk inside a document manifest's `app` map: brain order and the simulator fleet. */
+export interface MicrobitSimAppChunk {
   readonly brainOrder: readonly string[];
   readonly simulator: MicrobitSimFleet | undefined;
 }
 
-/** Reads microbit-sim's target payload from a shared document, tolerating absence and malformed shapes. */
-export function parseMicrobitSimTarget(appTarget: unknown): MicrobitSimTarget {
-  const record = (appTarget ?? {}) as { brainOrder?: unknown; simulator?: unknown };
+/** Reads microbit-sim's session chunk from a shared document, tolerating absence and malformed shapes. */
+export function parseMicrobitSimAppChunk(appChunk: unknown): MicrobitSimAppChunk {
+  const record = (appChunk ?? {}) as { brainOrder?: unknown; simulator?: unknown };
   const brainOrder = Array.isArray(record.brainOrder)
     ? record.brainOrder.filter((id): id is string => typeof id === "string")
     : [];
@@ -48,26 +51,30 @@ export function parseMicrobitSimTarget(appTarget: unknown): MicrobitSimTarget {
   return { brainOrder, simulator };
 }
 
+/** Translates microbit-sim's imported session chunk into seeded app-data. */
+export function translateMicrobitSimAppChunk(appChunk: unknown): ImportAppChunkResult {
+  const app = parseMicrobitSimAppChunk(appChunk);
+  const appData: Record<string, string> = {};
+  if (app.brainOrder.length > 0) {
+    appData[BRAINS_INDEX_KEY] = JSON.stringify(app.brainOrder);
+  }
+  if (app.simulator) {
+    appData[SIMULATOR_STATE_KEY] = JSON.stringify(app.simulator);
+  }
+  return { diagnostics: [], appData };
+}
+
 /**
- * Builds a shared `.mindcraft` document string for the active project: the common export document plus
- * the WODAL target and microbit-sim's payload. Unknown `targets` entries are preserved.
+ * Builds a shared `.mindcraft` document string for the active project: the
+ * common export document with microbit-sim's session chunk embedded in the
+ * manifest's `app` map. Chunks stored for other apps are preserved.
  */
 export async function buildMicrobitSimExportDocument(
   projectManager: ProjectManager,
-  profile: WodalDeviceProfileId,
-  payload: MicrobitSimTarget
+  payload: MicrobitSimAppChunk
 ): Promise<string> {
-  const doc = await buildActiveProjectExportDocument(projectManager);
-  return JSON.stringify(
-    {
-      ...doc,
-      targets: {
-        ...doc.targets,
-        [WODAL_PROJECT_TARGET_KEY]: buildWodalProjectTarget(profile),
-        [MICROBIT_SIM_TARGET_KEY]: payload,
-      },
-    },
-    null,
-    2
-  );
+  const doc = await buildActiveProjectExportDocument(projectManager, {
+    appChunk: { name: MICROBIT_SIM_APP_CHUNK_KEY, chunk: payload },
+  });
+  return JSON.stringify(doc, null, 2);
 }

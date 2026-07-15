@@ -1,102 +1,92 @@
 {
-  "format": "mindcraft.project",
-  "name": "Sample Project",
-  "version": "0.1.0",
-  "description": "",
-  "files": [
-    {
-      "path": "tiles/button-a-pressed.ts",
-      "content": "import { Sensor, type Context } from \"mindcraft\";\n\nexport default Sensor({\n  name: \"button-a-pressed\",\n  onExecute(ctx: Context): boolean {\n    return ctx.microbit.buttonA.isPressed() !== 0;\n  },\n});\n"
+  "format": "mindcraft.project/2",
+  "manifest": {
+    "name": "Sample Project",
+    "version": "0.1.0",
+    "description": "",
+    "extensions": {
+      "example-org/mindcraft-position": "gh:example-org/mindcraft-position@v1.2.0",
+      "mindcraft-lang/codal": "embedded:mindcraft-lang/codal",
+      "author/scratch": "local:8f14e45f-ceea-4e17-a396-7f34c2d51b3a"
     },
-    {
-      "path": "assets/logo.svg",
-      "content": "<svg xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"8\" height=\"8\"/></svg>\n"
-    }
-  ],
-  "brains": {
-    "owFRdwWIbNpAKZo8": {
-      "version": 1,
-      "id": "owFRdwWIbNpAKZo8",
-      "name": "Blink",
-      "catalog": [
-        {
-          "version": 2,
-          "kind": "page",
-          "tileId": "tile.page->1uQGngetiRKxqU5k",
-          "pageId": "1uQGngetiRKxqU5k",
-          "label": "Unnamed Page"
-        }
-      ],
-      "pages": [
-        {
-          "version": 2,
-          "pageId": "1uQGngetiRKxqU5k",
-          "name": "Unnamed Page",
-          "rules": [
-            {
-              "version": 1,
-              "when": [],
-              "do": [],
-              "children": []
-            }
-          ]
-        }
-      ]
-    },
-    "u8yHC92S78jxQkEk": {
-      "version": 1,
-      "id": "u8yHC92S78jxQkEk",
-      "name": "Button",
-      "catalog": [
-        {
-          "version": 2,
-          "kind": "page",
-          "tileId": "tile.page->K2ub6oZbxcviYzjL",
-          "pageId": "K2ub6oZbxcviYzjL",
-          "label": "Unnamed Page"
-        }
-      ],
-      "pages": [
-        {
-          "version": 2,
-          "pageId": "K2ub6oZbxcviYzjL",
-          "name": "Unnamed Page",
-          "rules": [
-            {
-              "version": 1,
-              "when": [],
-              "do": [],
-              "children": []
-            }
-          ]
-        }
-      ]
-    }
-  },
-  "targets": {
-    "@mindcraft-lang/wodal": {
-      "packageVersion": "0.2.1",
-      "profile": "microbit-v2"
-    },
-    "@mindcraft-lang/microbit-sim": {
-      "brainOrder": [
-        "owFRdwWIbNpAKZo8",
-        "u8yHC92S78jxQkEk"
-      ],
-      "simulator": {
-        "order": [
-          "microbit-1",
-          "microbit-2"
+    "brains": {
+      "owFRdwWIbNpAKZo8": {
+        "version": 1,
+        "id": "owFRdwWIbNpAKZo8",
+        "name": "Blink",
+        "catalog": [
+          {
+            "version": 2,
+            "kind": "page",
+            "pageId": "1uQGngetiRKxqU5k",
+            "label": "Unnamed Page"
+          }
         ],
-        "flash": {
-          "microbit-1": "owFRdwWIbNpAKZo8"
+        "pages": [
+          {
+            "version": 2,
+            "pageId": "1uQGngetiRKxqU5k",
+            "name": "Unnamed Page",
+            "rules": [
+              {
+                "version": 1,
+                "when": [],
+                "do": [],
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      "u8yHC92S78jxQkEk": {
+        "version": 1,
+        "id": "u8yHC92S78jxQkEk",
+        "name": "Button",
+        "catalog": [
+          {
+            "version": 2,
+            "kind": "page",
+            "pageId": "K2ub6oZbxcviYzjL",
+            "label": "Unnamed Page"
+          }
+        ],
+        "pages": [
+          {
+            "version": 2,
+            "pageId": "K2ub6oZbxcviYzjL",
+            "name": "Unnamed Page",
+            "rules": [
+              {
+                "version": 1,
+                "when": [],
+                "do": [],
+                "children": []
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "app": {
+      "@mindcraft-lang/microbit-sim": {
+        "brainOrder": [
+          "owFRdwWIbNpAKZo8",
+          "u8yHC92S78jxQkEk"
+        ],
+        "simulator": {
+          "order": [
+            "microbit-1",
+            "microbit-2"
+          ],
+          "flash": {
+            "microbit-1": "owFRdwWIbNpAKZo8"
+          }
         }
       }
     }
   },
-  "extensions": {
-    "example-org/mindcraft-position": "gh:example-org/mindcraft-position@v1.2.0",
-    "mindcraft-lang/codal": "embedded:mindcraft-lang/codal",
-    "author/scratch": "local:8f14e45f-ceea-4e17-a396-7f34c2d51b3a"
+  "contents": {
+    "tiles/button-a-pressed.ts": "import { Sensor, type Context } from \"mindcraft\";\n\nexport default Sensor({\n  name: \"button-a-pressed\",\n  onExecute(ctx: Context): boolean {\n    return ctx.microbit.buttonA.isPressed() !== 0;\n  },\n});\n",
+    "assets/logo.svg": "<svg xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"8\" height=\"8\"/></svg>\n"
   }
 }

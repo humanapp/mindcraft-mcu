@@ -103,12 +103,12 @@ export function BrainList() {
 
   /** Downloads the brain's editable source as a JSON `.brain` file. */
   async function handleDownloadSource(brainId: string, brainName: string) {
-    const brainDef = await store.getBrain(brainId);
-    if (!brainDef) {
+    const text = await store.exportBrainSource(brainId);
+    if (text === undefined) {
       toast.error("Could not load brain");
       return;
     }
-    downloadTextFile(JSON.stringify(brainDef.toJson(), null, 2), `${filenameSlug(brainName)}.brain`);
+    downloadTextFile(text, `${filenameSlug(brainName)}.brain`);
   }
 
   /** Imports a brain from a picked `.brain` file, toasting the outcome. */
