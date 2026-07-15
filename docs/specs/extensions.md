@@ -106,8 +106,7 @@ Reference transports:
 
   A project is eligible as a local extension once its declared
   `<owner>/<repo>` coordinate exists as a repository -- an empty stub
-  repository suffices, and the ordinary way a repository comes to exist is
-  the project's first publish. Creating the repository is the act that
+  repository suffices. Creating the repository is the author's act that
   claims the name: the coordinate is grounded in the same namespace remote content
   mirrors, a local project cannot assume an identity its author does not
   control, and the local mount and any content later published to that
@@ -140,6 +139,17 @@ approved catalog extensions, or an administrator may provision a curated
 set for offline environments. A cache-satisfied install is an ordinary
 install: identity, layout, and compilation are unchanged, and the cache is
 a fetch source like the app bundle, not a transport of its own.
+
+Development linking is a resolution-time affordance of a development
+surface, not a reference form. A workspace or application may link a
+coordinate to a local source -- a workspace folder, a store project -- and
+while linked, that coordinate resolves to the local source wherever it
+appears in the transitive closure, with edits streaming through the same
+recompile pipeline as the host project's own. The manifest keeps its real
+references and never records links; unlinking restores ordinary
+resolution. A link may satisfy a declared reference that is not yet
+fetchable, serving co-development of a dependency that has not yet
+published its first version.
 
 A host application may designate **default extensions**: extensions included
 in every project's extensions list at creation. A default extension is an
@@ -364,25 +374,26 @@ repository carries the whole project: the manifest's `files` entries
 expanded as individual files on disk, and the manifest itself, which
 carries everything else the project comprises -- brains and
 application-specific content travel inside `mindcraft.json`, preserved
-verbatim whether or not the reading application recognizes them. Two surfaces
-perform the publish sequence over one shared engine: the web editor's
-publish command, for authors whose projects live in an application's
-project store and who have no filesystem or git -- it authenticates through
-the editor's built-in GitHub authentication provider and performs the
-repository operations through the GitHub REST API -- and a command-line
-tool that performs the same sequence with ordinary git for authors working
-in a repository checkout. A first publish may also claim the extension's
-identity:
-when the project has no repository yet, the publish command creates it,
-records the `<owner>/<repo>` coordinate in the project manifest, and pushes
-the initial version -- one gesture that turns an ordinary project into a
-published extension. The publish command owns the whole sequence: it bumps
+verbatim whether or not the reading application recognizes them.
+
+Publishing is performed with the Mindcraft command-line tool -- against a
+repository checkout or a project directory -- or by any ordinary git
+workflow that satisfies the contract. The web editor does not publish: it
+is a credential-free surface. A project authored in a host application
+graduates instead: export the project document, rehydrate it as a project
+directory with the command-line tool, and publish from there. (Web-native
+sharing, with no git or repository required of the user, is the community
+feed.) Creating the repository is the author's act that claims the
+extension's identity; the first publish to an empty repository may carry
+the manifest's current version as published, and every subsequent publish
+bumps the version. The publish command owns the whole sequence: it bumps
 the manifest version (patch, minor, or major), verifies the working tree is
 otherwise clean, commits, creates the tag `v<version>` matching the new
-manifest version, and pushes the branch and the tag. Every publish bumps the
-version. When the project's extensions list contains local origins, the
-publish command asks for confirmation first -- a project with local
-dependencies may not work for anyone else -- and proceeds only on explicit
+manifest version, and pushes the branch and the tag.
+When the project's extensions list contains a dependency that is not
+publicly fetchable -- a local origin, or a reference to a version that has
+not been published -- the publish command asks for confirmation first: such
+a project may not work for anyone else. It proceeds only on explicit
 consent. Published extension
 repositories are public (the CDN transport serves public repositories).
 
