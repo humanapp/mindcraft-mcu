@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import type { EmbeddedExtension } from "@mindcraft-lang/bridge-app";
-import { resolveEmbeddedExtensions } from "@mindcraft-lang/bridge-app";
+import { resolveProjectExtensions } from "@mindcraft-lang/bridge-app";
 import { buildEmbeddedExtensionFromDir } from "@mindcraft-lang/bridge-app/node";
 import type { CompiledActionBundle } from "@mindcraft-lang/core";
 import type { MindcraftEnvironment } from "@mindcraft-lang/core/app";
@@ -122,7 +122,7 @@ export function buildExtensionTestHarness(options: HarnessOptions): ExtensionTes
   for (const coordinate of options.install) {
     extensions[coordinate] = `embedded:${coordinate}`;
   }
-  const resolved = resolveEmbeddedExtensions(extensions, embedRecord);
+  const resolved = resolveProjectExtensions(extensions, { embedded: embedRecord });
 
   const env = createMicroBitV2Environment();
   const mounts: readonly Mount[] = [];

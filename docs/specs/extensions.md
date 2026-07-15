@@ -25,13 +25,13 @@ model; host applications surface it.
 
 **An extension's identity is its `<owner>/<repo>` coordinate**: a name in a
 namespace Mindcraft defines, independent of how the content is delivered. The
-transports below (remote, app-embedded, local) are delivery mechanisms, not
+transports below (remote, app-embedded) are delivery mechanisms, not
 identity schemes -- GitHub is where remote content is fetched from, not what an
 identity is; no identity carries a transport prefix. For remotely fetched
 content the coordinate mirrors the repository it was fetched from, so its owner
 segment is a real, owned GitHub handle and an identity cannot be claimed by
-content that does not live there; embedded and local content carry a declared
-coordinate under an owner the platform or author controls. A fork is a
+content that does not live there; embedded content carries a declared
+coordinate under an owner the platform controls. A fork is a
 different coordinate and therefore a different extension. Two dependents unify
 on a shared dependency exactly when they reference the same coordinate.
 
@@ -101,46 +101,8 @@ Reference transports:
   the identity is the coordinate, and the content installs into `.extensions/`
   exactly like any other dependency -- the bundle is simply the fetch source in
   place of a network download.
-- **Local.** Another project in the same project store
-  (`local:<project-id>`), serving the author's inner development loop: build
-  an extension as an ordinary local project, add it to a host project, and
-  iterate without publishing a version. Local extensions appear in the
-  extension browser as their own grouping, surfaced at the host
-  application's discretion as an advanced feature.
-
-  A project is eligible as a local extension once its declared
-  `<owner>/<repo>` coordinate exists as a repository -- an empty stub
-  repository suffices. The coordinate is never hand-authored into the
-  manifest: it is established by the repository and recorded by tooling --
-  publishing stamps it into the manifest from the repository's remote, and
-  a development surface derives it from the manifest or the checkout's
-  remote. Creating the repository is the author's act that
-  claims the name: the coordinate is grounded in the same namespace remote content
-  mirrors, a local project cannot assume an identity its author does not
-  control, and the local mount and any content later published to that
-  repository are one extension across its whole life -- the import
-  specifier, install path, and registered keys never change from first
-  mount to publication. Switching a dependency between a `local:` reference
-  and a published reference to the same repository is a change of delivery,
-  not of extension. The host application verifies the repository exists
-  when offering or adding the project and records the confirmation; a
-  mounted dependency is not re-verified.
-
-  A local dependency is **mounted, not installed**: it is never
-  snapshotted, carries no pin and no update affordance, and always reflects
-  the live source project -- imports resolve directly against its files,
-  and edits to it stream into consuming projects through the same recompile
-  pipeline as the host project's own code edits. Adding or removing the
-  dependency is transactional as usual, and a change to the local
-  dependency's own extensions list re-resolves through the normal install
-  pipeline (it can introduce new fetched content). Deleting the source
-  project leaves consuming projects with an unresolvable dependency,
-  surfaced immediately through ordinary diagnostics; a project with local
-  dependencies is not self-contained, and exporting or publishing one warns
-  accordingly.
-
-Fetched transports install identically and differ only in provenance; the
-local transport mounts. A host application may satisfy a fetch from a
+Fetched transports install identically and differ only in provenance. A
+host application may satisfy a fetch from a
 machine-local, pre-seeded extension cache before reaching the network. What
 the cache holds is a deployment concern -- an application may seed it with
 approved catalog extensions, or an administrator may provision a curated
@@ -158,6 +120,14 @@ references and never records links; unlinking restores ordinary
 resolution. A link may satisfy a declared reference that is not yet
 fetchable, serving co-development of a dependency that has not yet
 published its first version.
+
+A host application's add-by-reference affordance accepts generous input: a
+repository URL in any common form, a bare `<owner>/<repo>` coordinate, or a
+reference, normalized to a reference before installing. Input that names a
+repository without a version resolves to the repository's latest published
+version; input that names a tag, commit, or branch resolves to the
+corresponding reference form. Only reference forms are ever recorded in the
+manifest.
 
 A host application may designate **default extensions**: extensions included
 in every project's extensions list at creation. A default extension is an
@@ -183,8 +153,8 @@ Mounts are the one mechanism by which content reaches a project from outside
 its own files. They have two kinds of provider:
 
 - **Extensions produce mounts through their lifecycle.** A fetched
-  extension's installed snapshot is a mount; a local extension is a live
-  mount of its source project.
+  extension's installed snapshot is a mount; a development-linked
+  coordinate is a live mount of its linked source.
 - **Platform layers produce ambient mounts directly.** The core package
   contributes its ambient type declarations, the target package contributes
   the device API declarations, and a host application may contribute its
@@ -212,7 +182,7 @@ symbols are keyed under their origin.
 Every dependency, regardless of transport, installs its source under an
 extensions folder in the host project (`.extensions/<owner>/<repo>/`), each as
 a complete project. The transports differ only in how the content is fetched
-(bundle read, CDN download, live local binding); installation, layout, and
+(bundle read, CDN download); installation, layout, and
 compilation are identical. The installed tree is read-only and reproducible: it
 can be regenerated from the manifest and the project store, so it need not bloat
 the saved project. Installed extension content is built by the host project's
@@ -266,7 +236,8 @@ affordance: on demand, the host checks the dependency's transport for a
 newer version (a newer tag for remote origins, the catalog for approved
 entries) and applies it as an ordinary transactional install with the same
 outcome report. Update checks happen on request, not in the background.
-Local dependencies have no update affordance -- they are always current.
+A development-linked coordinate has no update affordance while linked --
+it is always current.
 
 Installation events -- take-newer resolutions, tie-break warnings, installs,
 removals, undos -- are recorded in the project's install log. The log is a
@@ -401,7 +372,8 @@ feed.) Creating the repository is the author's act that claims the
 extension's identity; the first publish to an empty repository may carry
 the manifest's current version as published, and every subsequent publish
 bumps the version. Every publish stamps the repository's coordinate into
-the manifest as the extension's identity. Republishing cloned content to a
+the manifest as the extension's identity; the coordinate is always
+recorded by tooling, never hand-authored. Republishing cloned content to a
 different repository is a fork: the publish restamps the new repository's
 coordinate, creating a new extension that shares history -- the original
 extension and its consumers are unaffected. When a publish changes the
@@ -410,10 +382,10 @@ the manifest version (patch, minor, or major), verifies the working tree is
 otherwise clean, commits, creates the tag `v<version>` matching the new
 manifest version, and pushes the branch and the tag.
 When the project's extensions list contains a dependency that is not
-publicly fetchable -- a local origin, or a reference to a version that has
-not been published -- the publish command asks for confirmation first: such
-a project may not work for anyone else. It proceeds only on explicit
-consent. Published extension
+stable for consumers -- a reference to a version that has never been
+published, or a branch reference, whose target moves -- the publish command
+asks for confirmation first: such a project may not work, or may not keep
+working, for anyone else. It proceeds only on explicit consent. Published extension
 repositories are public (the CDN transport serves public repositories).
 
 Separately, a host application can offer publishing a project to the

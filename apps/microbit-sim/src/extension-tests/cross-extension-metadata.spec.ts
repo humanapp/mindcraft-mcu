@@ -18,7 +18,7 @@ import type { EmbeddedExtension } from "@mindcraft-lang/bridge-app";
 import {
   applyCompiledUserTiles,
   collectMetadataFromCompile,
-  resolveEmbeddedExtensions,
+  resolveProjectExtensions,
 } from "@mindcraft-lang/bridge-app";
 import { buildEmbeddedExtensionFromDir } from "@mindcraft-lang/bridge-app/node";
 import type { MindcraftEnvironment } from "@mindcraft-lang/core/app";
@@ -73,7 +73,7 @@ function compileGamepadAndCutebot(env: MindcraftEnvironment): WorkspaceCompileRe
     [YAHBOOM_GAMEPAD_EXT_COORDINATE]: `embedded:${YAHBOOM_GAMEPAD_EXT_COORDINATE}`,
     [CUTEBOT_EXT_COORDINATE]: `embedded:${CUTEBOT_EXT_COORDINATE}`,
   };
-  const resolved = resolveEmbeddedExtensions(extensions, embedRecord());
+  const resolved = resolveProjectExtensions(extensions, { embedded: embedRecord() });
   const compiler = createWorkspaceCompiler({
     projectNamespace: "cross-extension-metadata",
     mounts: [],

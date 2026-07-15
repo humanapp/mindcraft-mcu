@@ -1,5 +1,6 @@
 import {
   createIdbProjectStore,
+  createJsDelivrExtensionTransport,
   createWebLocksProjectLock,
   DEFAULT_PROJECT_NAME,
   type ImportResult,
@@ -253,6 +254,7 @@ export class MicrobitSimEnvironmentStore {
       numerics: createProfileNumerics(activeProfile.numberPrecision),
       mounts: microbitMounts,
       embeddedExtensions: microbitEmbeddedExtensions,
+      extensionFetchTransport: createJsDelivrExtensionTransport(),
       bridgeUrl: appSettings.vscodeBridgeUrl,
       loadBindingToken,
       saveBindingToken,

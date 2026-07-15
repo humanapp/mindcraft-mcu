@@ -9,7 +9,7 @@ import { after, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import { createIdbProjectStore, type ProjectFileSnapshot, ProjectManager } from "@mindcraft-lang/app-host";
 import type { EmbeddedExtension } from "@mindcraft-lang/bridge-app";
-import { AppEnvironmentHost, resolveEmbeddedExtensions } from "@mindcraft-lang/bridge-app";
+import { AppEnvironmentHost, resolveProjectExtensions } from "@mindcraft-lang/bridge-app";
 import { buildEmbeddedExtensionFromDir } from "@mindcraft-lang/bridge-app/node";
 import { BrainDef, coreModule } from "@mindcraft-lang/core/app";
 import type { IBrainDef, IBrainRuleDef, IBrainTileDef } from "@mindcraft-lang/core/brain";
@@ -262,10 +262,10 @@ describe("published extension demo brain", () => {
       await runGit(root, "clone", "--quiet", "--branch", "v0.1.0", remote, clone);
 
       // -- Mount: resolve the published clone as an extension through the real resolver --
-      const resolved = resolveEmbeddedExtensions({ [DEMO_COORDINATE]: `embedded:${DEMO_COORDINATE}` }, [
-        buildEmbeddedExtensionFromDir(clone, DEMO_COORDINATE),
-        ...layerEmbeds(),
-      ]);
+      const resolved = resolveProjectExtensions(
+        { [DEMO_COORDINATE]: `embedded:${DEMO_COORDINATE}` },
+        { embedded: [buildEmbeddedExtensionFromDir(clone, DEMO_COORDINATE), ...layerEmbeds()] }
+      );
       assert.deepEqual(
         resolved.dependencies.map((dependency) => dependency.coordinate),
         [DEMO_COORDINATE]

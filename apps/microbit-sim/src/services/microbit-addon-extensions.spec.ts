@@ -7,7 +7,7 @@ import {
   collectMetadataFromCompile,
   findEmbeddedExtensionsMissingStableIds,
   formatEmbeddedExtensionIdViolations,
-  resolveEmbeddedExtensions,
+  resolveProjectExtensions,
 } from "@mindcraft-lang/bridge-app";
 import { buildEmbeddedExtensionFromDir } from "@mindcraft-lang/bridge-app/node";
 import { createWorkspaceCompiler, type Mount, type WorkspaceSnapshot } from "@mindcraft-lang/ts-compiler";
@@ -91,7 +91,7 @@ describe("microbit add-on extensions -- the gamepad add-on depends on the Positi
       [MICROBIT_V2_LIB_COORDINATE]: MICROBIT_V2_LIB_REFERENCE,
       [YAHBOOM_GAMEPAD_EXT_COORDINATE]: YAHBOOM_GAMEPAD_EXT_REFERENCE,
     };
-    const resolved = resolveEmbeddedExtensions(extensions, microbitEmbedRecord());
+    const resolved = resolveProjectExtensions(extensions, { embedded: microbitEmbedRecord() });
 
     // The gamepad's manifest edge to the Position add-on resolves transitively,
     // even though Position targets the lower wodal layer and the gamepad targets
@@ -210,7 +210,7 @@ export default Sensor({
       [MICROBIT_V2_LIB_COORDINATE]: MICROBIT_V2_LIB_REFERENCE,
       [CODAL_POSITION_EXT_COORDINATE]: CODAL_POSITION_EXT_REFERENCE,
     };
-    const resolved = resolveEmbeddedExtensions(extensions, microbitEmbedRecord());
+    const resolved = resolveProjectExtensions(extensions, { embedded: microbitEmbedRecord() });
     const environment = createMicroBitV2Environment();
     const mounts: readonly Mount[] = [];
     const compiler = createWorkspaceCompiler({

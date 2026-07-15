@@ -1,3 +1,5 @@
+import type { UnstableDependency } from "@mindcraft-lang/app-host";
+import type { ExtensionInstallReport } from "@mindcraft-lang/bridge-app";
 import {
   Button,
   DropdownMenu,
@@ -14,11 +16,14 @@ import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";
 import { microbitEmbeddedExtensions } from "@/services/microbit-embedded-extensions";
 import {
   buildMicrobitExtensionEntries,
+  checkMicrobitExtensionUpdates,
   installMicrobitExtension,
+  installMicrobitExtensionReference,
   uninstallMicrobitExtension,
 } from "@/services/microbit-extension-browser";
 import { downloadTextFile } from "@/utils/file-download";
 import { pickFile } from "@/utils/file-upload";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { InlineRename } from "./InlineRename";
 import { NewProjectDialog } from "./NewProjectDialog";
 import { ProjectPickerDialog } from "./ProjectPickerDialog";
@@ -38,11 +43,48 @@ export function ProjectHeader() {
   const getExtensions = useCallback(() => store.activeProjectManifest?.extensions, [store]);
   const extensions = useSyncExternalStore(store.subscribeToActiveProject, getExtensions);
   const [dialog, setDialog] = useState<OpenDialog>("none");
+  const [unstableExportDependencies, setUnstableExportDependencies] = useState<readonly UnstableDependency[] | null>(
+    null
+  );
 
   const extensionEntries = useMemo(
-    () => buildMicrobitExtensionEntries(extensions, microbitEmbeddedExtensions),
-    [extensions]
+    () =>
+      buildMicrobitExtensionEntries(
+        extensions,
+        microbitEmbeddedExtensions,
+        store.host.installedExtensionContent,
+        store.host.extensionFetchFailures
+      ),
+    [extensions, store]
   );
+
+  const surfaceExtensionReport = (report: ExtensionInstallReport | undefined) => {
+    if (!report) {
+      return;
+    }
+    if (!report.committed) {
+      const detail =
+        report.refusal.kind === "fetch"
+          ? `${report.refusal.error.code}: ${report.refusal.error.message}`
+          : report.refusal.message;
+      toast.error(`Could not install extension. ${detail}`);
+      return;
+    }
+    if (report.outcome.kind === "worsened") {
+      const undo = report.undo;
+      toast.warning("Installed with new problems", {
+        description: report.outcome.newProblems
+          .slice(0, 3)
+          .map((problem) => `${problem.location}: ${problem.description}`)
+          .join("\n"),
+        ...(undo ? { action: { label: "Undo", onClick: () => void undo() } } : {}),
+      });
+      return;
+    }
+    if (report.outcome.kind === "improved") {
+      toast.success(`Extensions updated; ${report.outcome.resolvedProblems.length} problem(s) resolved`);
+    }
+  };
 
   const handleInstallExtension = (coordinate: string) => {
     void (async () => {
@@ -52,9 +94,33 @@ export function ProjectHeader() {
         coordinate,
         microbitEmbeddedExtensions
       );
-      if (!result.ok) {
-        toast.error(`Could not install extension (${result.code})`);
+      if (!result.action.ok) {
+        toast.error(`Could not install extension (${result.action.code})`);
+        return;
       }
+      surfaceExtensionReport(result.report);
+    })();
+  };
+
+  const handleInstallExtensionReference = (input: string) => {
+    void (async () => {
+      const result = await installMicrobitExtensionReference(
+        store.host,
+        store.activeProjectManifest?.extensions,
+        input
+      );
+      if (!result.ok) {
+        toast.error(`Could not add extension. ${result.code}: ${result.message}`);
+        return;
+      }
+      if (!result.action.ok) {
+        toast.error(`Could not add extension (${result.action.code})`);
+        return;
+      }
+      if (result.report?.committed) {
+        toast.success(`Installed ${result.reference}`);
+      }
+      surfaceExtensionReport(result.report);
     })();
   };
 
@@ -64,21 +130,75 @@ export function ProjectHeader() {
         store.host,
         store.activeProjectManifest?.extensions,
         coordinate,
-        microbitEmbeddedExtensions
+        microbitEmbeddedExtensions,
+        store.host.installedExtensionContent
       );
-      if (!result.ok) {
-        toast.error(`Could not remove extension (${result.code})`);
+      if (!result.action.ok) {
+        toast.error(`Could not remove extension (${result.action.code})`);
+        return;
       }
+      surfaceExtensionReport(result.report);
     })();
   };
 
-  const handleExport = async () => {
+  const handleCheckUpdates = (coordinates: readonly string[]) => {
+    void (async () => {
+      const summary = await checkMicrobitExtensionUpdates(store.host, coordinates);
+      for (const failure of summary.failures) {
+        toast.error(
+          `Could not check ${failure.coordinate} for updates. ${failure.error.code}: ${failure.error.message}`
+        );
+      }
+      if (summary.updates.length === 0) {
+        if (summary.failures.length === 0) {
+          toast.success("Extensions are up to date");
+        }
+        return;
+      }
+      const updates = summary.updates;
+      const description = updates
+        .map((update) => `${update.coordinate} -> ${update.latestVersion ?? update.resolvedSha?.slice(0, 12) ?? ""}`)
+        .join("\n");
+      toast.info(`${updates.length} update(s) available`, {
+        description,
+        action: {
+          label: updates.length > 1 ? "Update all" : "Update",
+          onClick: () => {
+            void (async () => {
+              surfaceExtensionReport(await store.host.applyExtensionUpdates(updates));
+            })();
+          },
+        },
+      });
+    })();
+  };
+
+  const handleCheckAllUpdates = () => {
+    handleCheckUpdates(extensionEntries.filter((entry) => entry.updatable === true).map((entry) => entry.coordinate));
+  };
+
+  const handleRetryExtension = () => {
+    void (async () => {
+      surfaceExtensionReport(await store.host.updateProjectExtensions(store.activeProjectManifest?.extensions ?? {}));
+    })();
+  };
+
+  const performExport = async () => {
     try {
       const content = await store.exportProject();
       downloadTextFile(content, projectFilename(store.getActiveProjectName()));
     } catch {
       toast.error("Export failed");
     }
+  };
+
+  const handleExport = async () => {
+    const unstable = await store.host.collectUnstableProjectDependencies();
+    if (unstable.length > 0) {
+      setUnstableExportDependencies(unstable);
+      return;
+    }
+    await performExport();
   };
 
   const handleImport = async () => {
@@ -159,12 +279,31 @@ export function ProjectHeader() {
       {dialog === "new" && <NewProjectDialog onClose={() => setDialog("none")} />}
       {dialog === "open" && <ProjectPickerDialog onClose={() => setDialog("none")} />}
       {dialog === "settings" && <SettingsDialog onClose={() => setDialog("none")} />}
+      {unstableExportDependencies !== null && (
+        <ConfirmDialog
+          title="Export with unstable dependencies?"
+          message={
+            "This project depends on extensions that are not stable for consumers: " +
+            `${unstableExportDependencies
+              .map((dependency) => `${dependency.coordinate} (${dependency.code})`)
+              .join(", ")}. ` +
+            "The exported project may not work, or may not keep working, for anyone else."
+          }
+          confirmLabel="Export anyway"
+          onConfirm={performExport}
+          onClose={() => setUnstableExportDependencies(null)}
+        />
+      )}
       <ExtensionBrowserDialog
         open={dialog === "extensions"}
         onOpenChange={(open) => setDialog(open ? "extensions" : "none")}
         entries={extensionEntries}
         onInstall={handleInstallExtension}
         onUninstall={handleUninstallExtension}
+        onCheckUpdate={(coordinate) => handleCheckUpdates([coordinate])}
+        onRetry={handleRetryExtension}
+        onCheckAllUpdates={handleCheckAllUpdates}
+        onInstallReference={handleInstallExtensionReference}
       />
     </header>
   );

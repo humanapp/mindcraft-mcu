@@ -6,7 +6,7 @@ import type { EmbeddedExtension } from "@mindcraft-lang/bridge-app";
 import {
   findEmbeddedExtensionsMissingStableIds,
   formatEmbeddedExtensionIdViolations,
-  resolveEmbeddedExtensions,
+  resolveProjectExtensions,
 } from "@mindcraft-lang/bridge-app";
 import { buildEmbeddedExtensionFromDir } from "@mindcraft-lang/bridge-app/node";
 import { createWorkspaceCompiler, type Mount, type WorkspaceSnapshot } from "@mindcraft-lang/ts-compiler";
@@ -43,9 +43,9 @@ function embeddedLayers(): EmbeddedExtension[] {
 
 describe("microbit embedded layers -- transitive resolution of the core <- codal <- microbit-v2 stack", () => {
   test("seeding the microbit-v2 layer alone resolves all three layers with their edges and ambient declarations", () => {
-    const resolved = resolveEmbeddedExtensions(
+    const resolved = resolveProjectExtensions(
       { [MICROBIT_V2_LIB_COORDINATE]: MICROBIT_V2_LIB_REFERENCE },
-      embeddedLayers()
+      { embedded: embeddedLayers() }
     );
 
     assert.deepEqual(resolved.dependencies, [{ coordinate: MICROBIT_V2_LIB_COORDINATE }]);
@@ -72,9 +72,9 @@ describe("microbit embedded layers -- transitive resolution of the core <- codal
 
 describe("microbit embedded layers -- ambient declarations arrive through the resolved extensions", () => {
   test("user code resolves types spanning all three layers with no root ambient mount, and the .d.ts materialize under .extensions/", () => {
-    const resolved = resolveEmbeddedExtensions(
+    const resolved = resolveProjectExtensions(
       { [MICROBIT_V2_LIB_COORDINATE]: MICROBIT_V2_LIB_REFERENCE },
-      embeddedLayers()
+      { embedded: embeddedLayers() }
     );
     const environment = createMicroBitV2Environment();
 
