@@ -40,7 +40,7 @@ export function InstanceCard({ instance, label, brains }: InstanceCardProps) {
             data-testid="instance-brain-select"
             aria-label={`Brain for ${label}`}
             disabled={brains.length === 0}
-            className={`w-full rounded border bg-background px-2 py-1 text-sm disabled:opacity-50 ${loaded ? "text-green-500" : "text-foreground"}`}
+            className={`w-full rounded border bg-background px-2 py-1 text-sm disabled:opacity-50 ${loaded ? "text-success" : "text-foreground"}`}
             value={instance.flashedBrainId ?? ""}
             onChange={(event) => {
               if (event.target.value) {

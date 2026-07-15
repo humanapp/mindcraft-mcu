@@ -76,7 +76,7 @@ export function InlineRename({ value, ariaLabel, onRename }: InlineRenameProps) 
         type="button"
         data-testid="inline-rename-save"
         aria-label={`Save ${ariaLabel}`}
-        className="rounded p-0.5 text-green-500 hover:text-green-400"
+        className="rounded p-0.5 text-success hover:text-success/80"
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => void commit()}
       >

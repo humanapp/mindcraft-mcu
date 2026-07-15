@@ -35,7 +35,7 @@ export function ProjectPickerDialog({ onClose }: ProjectPickerDialogProps) {
   return (
     <Modal title="Open project" onClose={onClose}>
       {projects.length === 0 ? (
-        <p className="text-sm text-gray-500">No projects yet.</p>
+        <p className="text-sm text-muted-foreground">No projects yet.</p>
       ) : (
         <ul className="max-h-72 overflow-auto">
           {projects.map((project) => (
@@ -44,11 +44,11 @@ export function ProjectPickerDialog({ onClose }: ProjectPickerDialogProps) {
                 type="button"
                 data-testid="project-item"
                 data-project-name={project.name}
-                className="flex w-full items-center justify-between rounded px-3 py-2 text-left text-sm hover:bg-gray-100"
+                className="flex w-full items-center justify-between rounded px-3 py-2 text-left text-sm hover:bg-accent"
                 onClick={() => void open(project.id)}
               >
                 <span>{project.name}</span>
-                {project.id === activeId && <span className="text-xs text-gray-400">current</span>}
+                {project.id === activeId && <span className="text-xs text-muted-foreground">current</span>}
               </button>
             </li>
           ))}

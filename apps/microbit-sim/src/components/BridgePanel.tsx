@@ -32,9 +32,9 @@ export function BridgePanel() {
 
   const statusColor =
     bridgeStatus === "connected"
-      ? "text-green-600"
+      ? "text-success"
       : bridgeStatus === "connecting" || bridgeStatus === "reconnecting"
-        ? "text-yellow-600"
+        ? "text-warning"
         : "text-muted-foreground";
 
   return (
