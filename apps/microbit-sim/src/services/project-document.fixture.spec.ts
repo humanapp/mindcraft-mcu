@@ -29,6 +29,22 @@ const FIXTURE_EXTENSIONS = {
   "author/scratch": "local:8f14e45f-ceea-4e17-a396-7f34c2d51b3a",
 };
 
+/** User-tile source seeded into the sample project's workspace. */
+const FIXTURE_TILE_PATH = "tiles/button-a-pressed.ts";
+const FIXTURE_TILE_SOURCE = `import { Sensor, type Context } from "mindcraft";
+
+export default Sensor({
+  name: "button-a-pressed",
+  onExecute(ctx: Context): boolean {
+    return ctx.microbit.buttonA.isPressed() !== 0;
+  },
+});
+`;
+
+/** Asset file seeded into the sample project's workspace. */
+const FIXTURE_ASSET_PATH = "assets/logo.svg";
+const FIXTURE_ASSET_CONTENT = '<svg xmlns="http://www.w3.org/2000/svg"><rect width="8" height="8"/></svg>\n';
+
 // The app-host reads localStorage/sessionStorage for its user-tile cache; provide an in-memory shim
 // alongside fake-indexeddb so the host runs headlessly.
 function memoryStorage(): Storage {
@@ -80,6 +96,19 @@ async function generateFixtureDocument(): Promise<string> {
 
   await host.projectManager.updateActive({ extensions: FIXTURE_EXTENSIONS });
 
+  host.projectFileSystem.applyLocalChange({
+    action: "write",
+    path: FIXTURE_TILE_PATH,
+    content: FIXTURE_TILE_SOURCE,
+    newEtag: "fixture-tile",
+  });
+  host.projectFileSystem.applyLocalChange({
+    action: "write",
+    path: FIXTURE_ASSET_PATH,
+    content: FIXTURE_ASSET_CONTENT,
+    newEtag: "fixture-asset",
+  });
+
   const blink = host.env.withServices((services) => BrainDef.emptyBrainDef(services, "Blink"));
   await host.saveBrainForKey(blink.id(), blink);
   const button = host.env.withServices((services) => BrainDef.emptyBrainDef(services, "Button"));
@@ -107,6 +136,35 @@ describe("sample .mindcraft fixture", () => {
 
   it("is byte-for-byte what the export code generates", () => {
     assert.equal(generated, readFileSync(FIXTURE_PATH, "utf8"));
+  });
+
+  it("carries the whole project: tile source, asset, brains, and both target payloads", () => {
+    const document = JSON.parse(generated) as {
+      files: Array<{ path: string; content: string }>;
+      brains: Record<string, { name: string }>;
+      targets: Record<string, unknown>;
+      extensions: Record<string, string>;
+    };
+
+    const tile = document.files.find((file) => file.path === FIXTURE_TILE_PATH);
+    assert.equal(tile?.content, FIXTURE_TILE_SOURCE);
+    const asset = document.files.find((file) => file.path === FIXTURE_ASSET_PATH);
+    assert.equal(asset?.content, FIXTURE_ASSET_CONTENT);
+
+    assert.deepEqual(
+      Object.values(document.brains)
+        .map((brain) => brain.name)
+        .sort(),
+      ["Blink", "Button"]
+    );
+
+    const appTarget = parseMicrobitSimTarget(document.targets[appName]);
+    assert.equal(appTarget.brainOrder.length, 2);
+    assert.deepEqual(appTarget.simulator?.order, ["microbit-1", "microbit-2"]);
+    const wodal = validateWodalTarget(document.targets);
+    assert.equal(wodal.ok, true);
+
+    assert.deepEqual(document.extensions, FIXTURE_EXTENSIONS);
   });
 
   it("imports through the real seam, seeding brains and the flashed fleet", async () => {

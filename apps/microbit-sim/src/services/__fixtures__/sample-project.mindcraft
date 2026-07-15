@@ -3,7 +3,16 @@
   "name": "Sample Project",
   "version": "0.1.0",
   "description": "",
-  "files": [],
+  "files": [
+    {
+      "path": "tiles/button-a-pressed.ts",
+      "content": "import { Sensor, type Context } from \"mindcraft\";\n\nexport default Sensor({\n  name: \"button-a-pressed\",\n  onExecute(ctx: Context): boolean {\n    return ctx.microbit.buttonA.isPressed() !== 0;\n  },\n});\n"
+    },
+    {
+      "path": "assets/logo.svg",
+      "content": "<svg xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"8\" height=\"8\"/></svg>\n"
+    }
+  ],
   "brains": {
     "owFRdwWIbNpAKZo8": {
       "version": 1,

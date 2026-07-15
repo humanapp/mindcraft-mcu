@@ -9,9 +9,13 @@ model; host applications surface it.
 
 - **Project.** The only unit of authorship and packaging. A project carries a
   content manifest holding its display name, semantic version, and its own
-  extensions list. The project interchange document (`.mindcraft`) carries the
-  manifest data together with the project's files, brains, and `targets`
-  section.
+  extensions list. The project interchange document (`.mindcraft`) embeds
+  that manifest verbatim alongside the contents of the project's files --
+  the manifest is the one schema, and the document adds only what a
+  single-file container requires: a format marker and the file contents.
+  Everything that is not a file travels inside the manifest (brains and
+  application-specific content as application chunks), identically in an
+  interchange document, a published repository, and a shared upload.
 - **Extension.** Any project added as a dependency of another project.
 - **Host project.** The project whose extensions list names the dependency.
 - **Host application.** The app that loads a project, compiles it, and decides
@@ -106,7 +110,11 @@ Reference transports:
 
   A project is eligible as a local extension once its declared
   `<owner>/<repo>` coordinate exists as a repository -- an empty stub
-  repository suffices. Creating the repository is the author's act that
+  repository suffices. The coordinate is never hand-authored into the
+  manifest: it is established by the repository and recorded by tooling --
+  publishing stamps it into the manifest from the repository's remote, and
+  a development surface derives it from the manifest or the checkout's
+  remote. Creating the repository is the author's act that
   claims the name: the coordinate is grounded in the same namespace remote content
   mirrors, a local project cannot assume an identity its author does not
   control, and the local mount and any content later published to that
@@ -386,7 +394,12 @@ sharing, with no git or repository required of the user, is the community
 feed.) Creating the repository is the author's act that claims the
 extension's identity; the first publish to an empty repository may carry
 the manifest's current version as published, and every subsequent publish
-bumps the version. The publish command owns the whole sequence: it bumps
+bumps the version. Every publish stamps the repository's coordinate into
+the manifest as the extension's identity. Republishing cloned content to a
+different repository is a fork: the publish restamps the new repository's
+coordinate, creating a new extension that shares history -- the original
+extension and its consumers are unaffected. When a publish changes the
+manifest's previously recorded identity, it says so. The publish command owns the whole sequence: it bumps
 the manifest version (patch, minor, or major), verifies the working tree is
 otherwise clean, commits, creates the tag `v<version>` matching the new
 manifest version, and pushes the branch and the tag.
