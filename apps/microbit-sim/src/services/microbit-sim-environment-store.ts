@@ -5,6 +5,7 @@ import {
   DEFAULT_PROJECT_NAME,
   type ImportResult,
   importProjectDocument,
+  MINDCRAFT_JSON_PATH,
   type ProjectFileSystem,
   ProjectManager,
   type ProjectManifest,
@@ -48,6 +49,9 @@ import { UserCodeReflasher } from "./user-code-reflasher";
  * carried by the resolved layer extensions as their own extension content.
  */
 const microbitMounts: readonly Mount[] = [];
+
+/** Volume name a micro:bit in mass-storage mode mounts as. */
+const MICROBIT_VOLUME_NAME = "MICROBIT";
 
 /** Parses the persisted simulator fleet; returns undefined when absent or malformed. */
 function parseSimulatorState(raw: string | undefined): MicrobitSimFleet | undefined {
@@ -244,6 +248,11 @@ export class MicrobitSimEnvironmentStore {
       this._uiPreferences = this._isSwitchingProject ? { ...prefs, bridgeEnabled: false } : prefs;
       void this.reloadProjectState();
     });
+    if (folderSession) {
+      this.host.onCompilerControlledFilesChanged(() => {
+        this.publishCompilerControlledFiles();
+      });
+    }
   }
 
   /** Creates the store with the core module and the active device profile's module installed. */
@@ -300,7 +309,11 @@ export class MicrobitSimEnvironmentStore {
     if (this._folderSession) {
       this._folderSession.onExternalChange((change) => {
         this.host.applyExternalProjectFileChange(change);
+        if (change.action === "write" && change.path === MINDCRAFT_JSON_PATH) {
+          void this.refreshFromExternalManifest();
+        }
       });
+      this.publishCompilerControlledFiles();
       return;
     }
     this.host.initBridge();
@@ -579,6 +592,24 @@ export class MicrobitSimEnvironmentStore {
     this.simulator.reflash(brainId, input);
   }
 
+  /** True when brains flash to a physical micro:bit by writing the built hex onto its USB drive. */
+  get flashesViaMicrobitDrive(): boolean {
+    return this._folderSession !== undefined;
+  }
+
+  /**
+   * Writes a built firmware hex file to the root of the mounted MICROBIT
+   * drive. Rejects with a `FolderSessionError` carrying
+   * `REMOVABLE_VOLUME_NOT_FOUND` when the drive is not mounted, or
+   * `WRITE_FAILED` when the copy fails.
+   */
+  async writeHexToMicrobitDrive(filename: string, hex: string): Promise<void> {
+    if (!this._folderSession) {
+      throw new Error("Flashing to the micro:bit drive requires a folder session");
+    }
+    await this._folderSession.writeRemovableVolumeFile(MICROBIT_VOLUME_NAME, filename, hex);
+  }
+
   /**
    * Reacts to a finished project compile by reflashing flashed instances whose brains use a user
    * action the compile changed.
@@ -734,6 +765,44 @@ export class MicrobitSimEnvironmentStore {
   private async reloadProjectState(): Promise<void> {
     await this.reloadBrains();
     await this.reloadSimulatorState();
+  }
+
+  /**
+   * Publishes the compiler-controlled file set and the installed
+   * fetched-extension provenance to the folder-session host. A no-op outside
+   * a folder session or before the compiler is wired.
+   */
+  private publishCompilerControlledFiles(): void {
+    if (!this._folderSession) {
+      return;
+    }
+    const files = this.host.getCompilerControlledFiles();
+    if (!files) {
+      return;
+    }
+    this._folderSession.publishCompilerControlledFiles(files, this.host.getInstalledExtensionMetadata());
+  }
+
+  /**
+   * Applies an external `mindcraft.json` edit to the live app state: the
+   * brain cache reconciles against the stored brains chunk (changed brains
+   * re-flash, removed brains unflash), the brain list reloads, and a changed
+   * simulator chunk restores the fleet.
+   */
+  private async refreshFromExternalManifest(): Promise<void> {
+    const { changed, removed } = await this.host.reconcileBrainsFromStore();
+    await this.reloadBrains();
+    for (const id of removed) {
+      this.simulator.unflash(id);
+    }
+    for (const id of changed) {
+      await this.reflashBrain(id);
+    }
+    const raw = await this.host.projectManager.loadAppData(SIMULATOR_STATE_KEY);
+    const stored = parseSimulatorState(raw);
+    if (stored && JSON.stringify(stored) !== JSON.stringify(this.simulatorStateSnapshot())) {
+      await this.reloadSimulatorState();
+    }
   }
 
   private async reloadBrains(): Promise<void> {

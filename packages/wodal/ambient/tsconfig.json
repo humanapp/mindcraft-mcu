@@ -8,7 +8,7 @@
   },
   "files": [
     "../../../external/mindcraft-lang/packages/core/ambient/mindcraft.core.d.ts",
-    "mindcraft.wodal.d.ts",
+    "mindcraft.codal.d.ts",
     "mindcraft.microbit-v2.d.ts"
   ]
 }

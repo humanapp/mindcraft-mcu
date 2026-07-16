@@ -4,12 +4,15 @@ import type { FolderAppMessage, FolderHostMessage, FolderHostPort } from "@mindc
 import {
   FOLDER_HOST_MODE_FOLDER,
   FOLDER_HOST_MODE_GLOBAL,
+  FolderSessionError,
+  FolderSessionErrorCode,
   WORKSPACE_FOLDER_PROJECT_COLLECTION_ID,
 } from "@mindcraft-lang/bridge-app";
 import {
   appChromeForMode,
   connectMicrobitFolderSession,
   isFolderHostMode,
+  isRemovableDriveMissingError,
   microbitSimFolderAppDataCodec,
 } from "./folder-host-mode";
 import { BRAINS_INDEX_KEY, SIMULATOR_STATE_KEY } from "./project-io";
@@ -27,6 +30,22 @@ describe("isFolderHostMode", () => {
     assert.strictEqual(isFolderHostMode("?mindcraftHostMode=folder", {}), true);
     assert.strictEqual(isFolderHostMode("", { [FOLDER_HOST_MODE_GLOBAL]: "other" }), false);
     assert.strictEqual(isFolderHostMode("", {}), false);
+  });
+});
+
+describe("isRemovableDriveMissingError", () => {
+  it("is true only for a folder-session error carrying the drive-missing code", () => {
+    assert.strictEqual(
+      isRemovableDriveMissingError(
+        new FolderSessionError(FolderSessionErrorCode.REMOVABLE_VOLUME_NOT_FOUND, "not mounted")
+      ),
+      true
+    );
+    assert.strictEqual(
+      isRemovableDriveMissingError(new FolderSessionError(FolderSessionErrorCode.WRITE_FAILED, "copy failed")),
+      false
+    );
+    assert.strictEqual(isRemovableDriveMissingError(new Error("not mounted")), false);
   });
 });
 

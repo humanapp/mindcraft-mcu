@@ -11,6 +11,6 @@
   "include": ["*.ts"],
   "files": [
     "../../../external/mindcraft-lang/packages/core/ambient/mindcraft.core.d.ts",
-    "../ambient/mindcraft.wodal.d.ts"
+    "../ambient/mindcraft.codal.d.ts"
   ]
 }

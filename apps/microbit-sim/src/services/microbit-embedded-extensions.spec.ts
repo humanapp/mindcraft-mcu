@@ -59,10 +59,10 @@ describe("microbit embedded layers -- transitive resolution of the core <- codal
 
     // Each layer carries its own ambient `.d.ts` as extension content and declares it in its manifest.
     assert.deepEqual(mountFor(CORE_LIB_COORDINATE).ambient, ["mindcraft.core.d.ts"]);
-    assert.deepEqual(mountFor(CODAL_LIB_COORDINATE).ambient, ["mindcraft.wodal.d.ts"]);
+    assert.deepEqual(mountFor(CODAL_LIB_COORDINATE).ambient, ["mindcraft.codal.d.ts"]);
     assert.deepEqual(mountFor(MICROBIT_V2_LIB_COORDINATE).ambient, ["mindcraft.microbit-v2.d.ts"]);
     assert.match(mountFor(CORE_LIB_COORDINATE).files.get("/mindcraft.core.d.ts") ?? "", /declare var Buffer/);
-    assert.match(mountFor(CODAL_LIB_COORDINATE).files.get("/mindcraft.wodal.d.ts") ?? "", /interface Button/);
+    assert.match(mountFor(CODAL_LIB_COORDINATE).files.get("/mindcraft.codal.d.ts") ?? "", /interface Button/);
     assert.match(
       mountFor(MICROBIT_V2_LIB_COORDINATE).files.get("/mindcraft.microbit-v2.d.ts") ?? "",
       /interface MicroBit\b/
@@ -129,8 +129,8 @@ export default Actuator({
       "the core ambient materializes under .extensions/"
     );
     assert.ok(
-      controlled.has(".extensions/mindcraft-lang/codal/mindcraft.wodal.d.ts"),
-      "the wodal ambient materializes under .extensions/"
+      controlled.has(".extensions/mindcraft-lang/codal/mindcraft.codal.d.ts"),
+      "the codal ambient materializes under .extensions/"
     );
     assert.ok(
       controlled.has(".extensions/mindcraft-lang/microbit-v2/mindcraft.microbit-v2.d.ts"),

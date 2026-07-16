@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";
 import { microbitFirmwareHex, microbitFirmwareMetadata } from "@/services/firmware-asset";
 import { patchFirmwareForImage, programJsonFromImage } from "@/services/firmware-deploy";
+import { isRemovableDriveMissingError } from "@/services/folder-host-mode";
 import { isWebUsbSupported, microbitFlasher } from "@/services/microbit-flasher";
 import { downloadHexFile, downloadTextFile } from "@/utils/file-download";
 import { pickFile } from "@/utils/file-upload";
@@ -41,8 +42,10 @@ export function BrainList() {
   const paired = useSyncExternalStore(microbitFlasher.subscribe, microbitFlasher.isPaired);
   const [dialog, setDialog] = useState<BrainDialog>(null);
   const [editingBrainId, setEditingBrainId] = useState<string | null>(null);
+  const [driveFlashBrainId, setDriveFlashBrainId] = useState<string | null>(null);
   const headingId = useId();
   const webUsbSupported = isWebUsbSupported();
+  const flashesViaDrive = store.flashesViaMicrobitDrive;
 
   /** Loads and builds a brain's program image, toasting on failure. */
   async function buildImageForBrain(brainId: string) {
@@ -141,6 +144,35 @@ export function BrainList() {
     }
   }
 
+  /** Flashes a brain by copying its built hex onto the micro:bit's MICROBIT drive, toasting the outcome. */
+  async function handleFlashToDrive(brainId: string, brainName: string) {
+    if (driveFlashBrainId !== null) {
+      return;
+    }
+    setDriveFlashBrainId(brainId);
+    const toastId = toast.loading("Flashing micro:bit...");
+    try {
+      const hex = await buildHexForBrain(brainId);
+      if (hex === undefined) {
+        toast.dismiss(toastId);
+        return;
+      }
+      await store.writeHexToMicrobitDrive(`${filenameSlug(brainName)}.hex`, hex);
+      toast.success("Flashed micro:bit", { id: toastId });
+    } catch (error) {
+      if (isRemovableDriveMissingError(error)) {
+        toast.error(
+          "No micro:bit drive found. Plug the micro:bit in over USB, wait for the MICROBIT drive to appear, and try again.",
+          { id: toastId }
+        );
+      } else {
+        toast.error(`Flash failed: ${error instanceof Error ? error.message : String(error)}`, { id: toastId });
+      }
+    } finally {
+      setDriveFlashBrainId(null);
+    }
+  }
+
   return (
     <section aria-labelledby={headingId} className="max-w-md">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -148,7 +180,8 @@ export function BrainList() {
           Brains
         </h2>
         <div className="flex flex-wrap items-center gap-2">
-          {webUsbSupported &&
+          {!flashesViaDrive &&
+            webUsbSupported &&
             (paired ? (
               <span className="text-xs text-muted-foreground" data-testid="microbit-connected">
                 micro:bit connected
@@ -228,16 +261,24 @@ export function BrainList() {
                   >
                     Edit
                   </button>
-                  {webUsbSupported && paired && (
+                  {(flashesViaDrive || (webUsbSupported && paired)) && (
                     <button
                       type="button"
                       data-testid="brain-flash"
                       data-brain-name={brain.name}
-                      aria-label={`Flash ${brain.name} to the connected micro:bit`}
-                      className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
-                      onClick={() => handleFlash(brain.id)}
+                      aria-label={`Flash ${brain.name} to the micro:bit`}
+                      aria-busy={driveFlashBrainId === brain.id}
+                      disabled={flashesViaDrive && driveFlashBrainId !== null}
+                      className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+                      onClick={() => {
+                        if (flashesViaDrive) {
+                          void handleFlashToDrive(brain.id, brain.name);
+                        } else {
+                          void handleFlash(brain.id);
+                        }
+                      }}
                     >
-                      Flash
+                      {driveFlashBrainId === brain.id ? "Flashing..." : "Flash"}
                     </button>
                   )}
                   <DropdownMenu>

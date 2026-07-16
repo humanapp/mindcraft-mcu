@@ -55,8 +55,8 @@ function microbitAmbientFiles(): readonly AmbientFile[] {
       content: readText("../../../../external/mindcraft-lang/packages/core/ambient/mindcraft.core.d.ts"),
     },
     {
-      path: "mindcraft.wodal.d.ts",
-      content: readText("../../../../packages/wodal/ambient/mindcraft.wodal.d.ts"),
+      path: "mindcraft.codal.d.ts",
+      content: readText("../../../../packages/wodal/ambient/mindcraft.codal.d.ts"),
     },
     {
       path: "mindcraft.microbit-v2.d.ts",

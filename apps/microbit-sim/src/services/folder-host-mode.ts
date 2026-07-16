@@ -9,6 +9,8 @@ import {
   FOLDER_HOST_MODE_FOLDER,
   FOLDER_HOST_MODE_GLOBAL,
   FOLDER_HOST_MODE_URL_PARAM,
+  FolderSessionError,
+  FolderSessionErrorCode,
 } from "@mindcraft-lang/bridge-app";
 import { name as appName } from "../../package.json";
 import {
@@ -31,6 +33,11 @@ export function isFolderHostMode(
     return true;
   }
   return hostGlobals[FOLDER_HOST_MODE_GLOBAL] === FOLDER_HOST_MODE_FOLDER;
+}
+
+/** True when `error` reports that the target removable drive is not mounted. */
+export function isRemovableDriveMissingError(error: unknown): boolean {
+  return error instanceof FolderSessionError && error.code === FolderSessionErrorCode.REMOVABLE_VOLUME_NOT_FOUND;
 }
 
 /** Visibility of the app's top-level chrome sections. */

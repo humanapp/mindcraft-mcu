@@ -26,7 +26,7 @@ const TARGETS: readonly AmbientTarget[] = [
 ];
 
 const packageDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const wodalAmbientPath = resolve(packageDir, "ambient/mindcraft.wodal.d.ts");
+const codalAmbientPath = resolve(packageDir, "ambient/mindcraft.codal.d.ts");
 
 const coreEnvironment = createMindcraftEnvironment({ modules: [coreModule()] });
 const coreTypes = coreEnvironment.brainServices.runtime.types;
@@ -39,8 +39,8 @@ const layeredByTarget = TARGETS.map((target) => ({
 // The wodal-general device surface is shared across all targets and written
 // once. Its device types are registered only on the concrete targets today, so
 // the shared layer is taken from the first target's build.
-writeFileSync(wodalAmbientPath, layeredByTarget[0].layers.wodal, "utf8");
-console.log(`ambient: generated ${wodalAmbientPath}`);
+writeFileSync(codalAmbientPath, layeredByTarget[0].layers.wodal, "utf8");
+console.log(`ambient: generated ${codalAmbientPath}`);
 
 for (const { name, layers } of layeredByTarget) {
   const targetAmbientPath = resolve(packageDir, `ambient/mindcraft.${name}.d.ts`);

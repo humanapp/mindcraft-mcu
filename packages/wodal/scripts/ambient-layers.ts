@@ -24,7 +24,7 @@ export const WODAL_AMBIENT_TYPE_NAMES: ReadonlySet<string> = new Set([
 
 /** The two layer sources a platform's non-core `"mindcraft"` types split into. */
 export interface LayeredPlatformAmbients {
-  /** wodal-general device surface, written to `mindcraft.wodal.d.ts`. */
+  /** wodal-general device surface, written to `mindcraft.codal.d.ts`. */
   wodal: string;
   /** target-specific surface, written to `mindcraft.<target>.d.ts`. */
   target: string;
