@@ -1,6 +1,6 @@
 {
   "name": "Yahboom Gamepad",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "identity": "mindcraft-lang/microbit-yahboom-gamepad-ext",
   "description": "Yahboom GHBit gamepad driver for the micro:bit (v2): the thumb-stick direction and continuous position sensors, the colored-button sensor, the received-packet decoder, and the position-to-packet radio encoding.",
   "extensions": {
