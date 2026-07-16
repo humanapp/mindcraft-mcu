@@ -12,7 +12,9 @@ import {
 import {
   type AppBridgeState,
   AppEnvironmentHost,
+  createFolderCompileDiagnosticsPublisher,
   createVfsAssetUrlProvider,
+  type FolderHostSession,
   type UserTileApplyResult,
   type VfsAssetUrlProvider,
 } from "@mindcraft-lang/bridge-app";
@@ -28,6 +30,7 @@ import {
 } from "@mindcraft-lang/wodal";
 import { name as appName } from "../../package.json";
 import { loadBindingToken, saveBindingToken } from "./binding-token-persistence";
+import { type AppChrome, appChromeForMode, connectMicrobitFolderSession, isFolderHostMode } from "./folder-host-mode";
 import { microbitDefaultExtensions, microbitEmbeddedExtensions } from "./microbit-embedded-extensions";
 import {
   BRAINS_INDEX_KEY,
@@ -202,10 +205,18 @@ export class MicrobitSimEnvironmentStore {
   private _vfsRevisionWiringInitialized = false;
   private readonly _vfsAssetUrlProvider: VfsAssetUrlProvider;
   private _isSwitchingProject = false;
+  private readonly _folderSession: FolderHostSession | undefined;
+  private readonly _chrome: AppChrome;
 
-  private constructor(host: AppEnvironmentHost, activeDeviceProfile: WodalDeviceProfile) {
+  private constructor(
+    host: AppEnvironmentHost,
+    activeDeviceProfile: WodalDeviceProfile,
+    folderSession: FolderHostSession | undefined
+  ) {
     this.host = host;
     this.activeDeviceProfile = activeDeviceProfile;
+    this._folderSession = folderSession;
+    this._chrome = appChromeForMode(folderSession !== undefined);
     this._vfsAssetUrlProvider = createVfsAssetUrlProvider({
       getProjectFileSystem: () => this.host.servedProjectFileSystem,
       getVfsRevision: () => this.host.getVfsRevisionSnapshot(),
@@ -240,14 +251,16 @@ export class MicrobitSimEnvironmentStore {
     // The one place this app declares its device; the module and the build profile both derive from it.
     const activeProfile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
     const appSettings = loadAppSettings();
-    const projectStore = await createIdbProjectStore(appName);
+    const folderSession = isFolderHostMode() ? await connectMicrobitFolderSession() : undefined;
+    const publishFolderDiagnostics = folderSession ? createFolderCompileDiagnosticsPublisher(folderSession) : undefined;
+    const projectStore = folderSession ? folderSession.store : await createIdbProjectStore(appName);
     let instanceRef: MicrobitSimEnvironmentStore | undefined;
     const host = new AppEnvironmentHost({
       projectManager: new ProjectManager(projectStore, {
         filesystemOptions: {
           shouldExclude: (path) => isCompilerControlledPath(path, microbitMounts),
         },
-        lock: createWebLocksProjectLock(appName),
+        ...(folderSession ? {} : { lock: createWebLocksProjectLock(appName) }),
         defaultExtensions: microbitDefaultExtensions,
       }),
       modules: [coreModule(), createWodalSharedModule(), activeProfile.createMindcraftModule()],
@@ -255,17 +268,18 @@ export class MicrobitSimEnvironmentStore {
       mounts: microbitMounts,
       embeddedExtensions: microbitEmbeddedExtensions,
       extensionFetchTransport: createJsDelivrExtensionTransport(),
-      bridgeUrl: appSettings.vscodeBridgeUrl,
+      ...(folderSession ? {} : { bridgeUrl: appSettings.vscodeBridgeUrl }),
       loadBindingToken,
       saveBindingToken,
       // Minted ids (brain id, page id) must be unique across sessions; the deterministic MathOps.random
       // LCG repeats every load and would collide.
       rng: { next: () => Math.random() },
-      onDidCompile: (_result, tileResult) => {
+      onDidCompile: (result, tileResult) => {
         instanceRef?.handleProjectCompiled(tileResult);
+        publishFolderDiagnostics?.(result.files);
       },
     });
-    const instance = new MicrobitSimEnvironmentStore(host, activeProfile);
+    const instance = new MicrobitSimEnvironmentStore(host, activeProfile, folderSession);
     instanceRef = instance;
     instance._appSettings = appSettings;
     return instance;
@@ -283,12 +297,23 @@ export class MicrobitSimEnvironmentStore {
       this.initVfsRevisionWiring();
       this._vfsRevisionWiringInitialized = true;
     }
+    if (this._folderSession) {
+      this._folderSession.onExternalChange((change) => {
+        this.host.applyExternalProjectFileChange(change);
+      });
+      return;
+    }
     this.host.initBridge();
     this.onAppSettingsChange((settings, prev) => {
       if (settings.vscodeBridgeUrl !== prev.vscodeBridgeUrl) {
         this.host.updateBridgeUrl(settings.vscodeBridgeUrl);
       }
     });
+  }
+
+  /** Visibility of the app's top-level chrome sections for the current mode. */
+  get chrome(): AppChrome {
+    return this._chrome;
   }
 
   /**
@@ -701,6 +726,7 @@ export class MicrobitSimEnvironmentStore {
   /** Releases host resources owned by this store. */
   dispose(): void {
     this._userCodeReflasher.cancelPending();
+    this._folderSession?.dispose();
     this.host.dispose();
   }
 

@@ -5,7 +5,9 @@ import { uiPlugin } from "../../../external/mindcraft-lang/packages/ui/src/vite-
 import { embeddedExtensions } from "./embedded-extensions.mjs";
 
 export default defineConfig({
-  base: "/",
+  // Relative base: the built app must load both from a server root and from a
+  // non-root path (VS Code webview resource hosting).
+  base: "./",
   plugins: [react(), uiPlugin(), embeddedExtensions()],
   resolve: {
     alias: {

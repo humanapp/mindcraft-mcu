@@ -39,6 +39,7 @@ function projectFilename(name: string): string {
 /** Top bar showing the active project with create, open, import, and export controls. */
 export function ProjectHeader() {
   const store = useMicrobitSimEnvironment();
+  const chrome = store.chrome;
   const projectName = useSyncExternalStore(store.subscribeToActiveProject, store.getActiveProjectName);
   const getExtensions = useCallback(() => store.activeProjectManifest?.extensions, [store]);
   const extensions = useSyncExternalStore(store.subscribeToActiveProject, getExtensions);
@@ -231,49 +232,65 @@ export function ProjectHeader() {
           <InlineRename value={projectName} ariaLabel="project name" onRename={(name) => store.renameProject(name)} />
         </div>
         <div className="flex flex-wrap gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button type="button" variant="outline" size="sm" data-testid="project-menu-button">
-                Project
-                <ChevronDown />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem data-testid="new-project-button" onClick={() => setDialog("new")}>
-                <FilePlus />
-                New project...
-              </DropdownMenuItem>
-              <DropdownMenuItem data-testid="open-project-button" onClick={() => setDialog("open")}>
-                <FolderOpen />
-                Open...
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem data-testid="import-project-button" onClick={() => void handleImport()}>
-                <Upload />
-                Import...
-              </DropdownMenuItem>
-              <DropdownMenuItem data-testid="export-project-button" onClick={() => void handleExport()}>
-                <Download />
-                Export
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem data-testid="extensions-button" onClick={() => setDialog("extensions")}>
-                <Blocks />
-                Extensions...
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            data-testid="settings-button"
-            aria-label="Settings"
-            title="Settings"
-            onClick={() => setDialog("settings")}
-          >
-            <Settings />
-          </Button>
+          {chrome.showProjectMenu && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="outline" size="sm" data-testid="project-menu-button">
+                  Project
+                  <ChevronDown />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem data-testid="new-project-button" onClick={() => setDialog("new")}>
+                  <FilePlus />
+                  New project...
+                </DropdownMenuItem>
+                <DropdownMenuItem data-testid="open-project-button" onClick={() => setDialog("open")}>
+                  <FolderOpen />
+                  Open...
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem data-testid="import-project-button" onClick={() => void handleImport()}>
+                  <Upload />
+                  Import...
+                </DropdownMenuItem>
+                <DropdownMenuItem data-testid="export-project-button" onClick={() => void handleExport()}>
+                  <Download />
+                  Export
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem data-testid="extensions-button" onClick={() => setDialog("extensions")}>
+                  <Blocks />
+                  Extensions...
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          {chrome.showExtensionsButton && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              data-testid="host-extensions-button"
+              onClick={() => setDialog("extensions")}
+            >
+              <Blocks />
+              Extensions
+            </Button>
+          )}
+          {chrome.showSettings && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              data-testid="settings-button"
+              aria-label="Settings"
+              title="Settings"
+              onClick={() => setDialog("settings")}
+            >
+              <Settings />
+            </Button>
+          )}
         </div>
       </div>
       {dialog === "new" && <NewProjectDialog onClose={() => setDialog("none")} />}

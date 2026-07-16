@@ -1,7 +1,7 @@
 import { CoreTypeIds, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
-import type { BrainEditorConfig, TileVisual } from "@mindcraft-lang/ui";
+import { type BrainEditorConfig, staticAssetUrl, type TileVisual } from "@mindcraft-lang/ui";
 
-const ICON_BASE = "/assets/brain/icons";
+const ICON_BASE = staticAssetUrl("assets/brain/icons");
 
 /**
  * Builds the microbit-v2 brain editor config from the app environment.
