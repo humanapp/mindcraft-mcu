@@ -7,6 +7,7 @@ import type {
 import {
   connectFolderHostSession,
   FOLDER_HOST_MODE_FOLDER,
+  FOLDER_HOST_MODE_GLOBAL,
   FOLDER_HOST_MODE_URL_PARAM,
 } from "@mindcraft-lang/bridge-app";
 import { name as appName } from "../../package.json";
@@ -18,11 +19,18 @@ import {
 } from "./project-io";
 
 /**
- * True when the page URL carries the folder host-mode bootstrap flag: the app
- * is embedded by a host that owns the project as a workspace folder.
+ * True when the page carries the folder host-mode bootstrap flag -- as the
+ * URL search parameter or as the host-defined global: the app is embedded by
+ * a host that owns the project as a workspace folder.
  */
-export function isFolderHostMode(search: string = window.location.search): boolean {
-  return new URLSearchParams(search).get(FOLDER_HOST_MODE_URL_PARAM) === FOLDER_HOST_MODE_FOLDER;
+export function isFolderHostMode(
+  search: string = window.location.search,
+  hostGlobals: Readonly<Record<string, unknown>> = globalThis as Record<string, unknown>
+): boolean {
+  if (new URLSearchParams(search).get(FOLDER_HOST_MODE_URL_PARAM) === FOLDER_HOST_MODE_FOLDER) {
+    return true;
+  }
+  return hostGlobals[FOLDER_HOST_MODE_GLOBAL] === FOLDER_HOST_MODE_FOLDER;
 }
 
 /** Visibility of the app's top-level chrome sections. */

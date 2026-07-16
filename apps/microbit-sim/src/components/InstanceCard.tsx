@@ -49,7 +49,7 @@ export function InstanceCard({ instance, label, brains }: InstanceCardProps) {
             }}
           >
             <option value="" disabled hidden>
-              no program
+              (no brain)
             </option>
             {brains.map((brain) => (
               <option key={brain.id} value={brain.id}>
