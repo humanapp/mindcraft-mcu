@@ -133,6 +133,21 @@ The passing bar for format/lint checks is no warnings, infos, or fixable output.
 Any output beyond a clean success summary means the check has failed. Treat
 infos identically to errors.
 
+## Tests Never Key on Display Prose
+
+Static display chrome -- placeholders, labels, button captions, tooltips,
+aria-labels, and any other user-facing wording -- is not a test contract.
+Do not assert it in tests: wording changes freely and will be localized, and
+a test keyed to it breaks without any behavior change.
+
+- Assert structure and behavior instead: the element exists (queried by role
+  or a test id), its disabled/enabled state, the callback fired, the value
+  produced.
+- Dynamic data rendered into output IS assertable: a resolved reference, a
+  version, an error code, a file path. These are machine forms produced by
+  the behavior under test.
+- Error and diagnostic assertions match stable codes, never message prose.
+
 ## Broad View Before Acting
 
 Before making any change that touches more than one call site, method
