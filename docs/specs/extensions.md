@@ -69,9 +69,9 @@ available regardless of exports or entry.
 
 A dependency is imported and stored by its **`<owner>/<repo>` coordinate**,
 which is its identity, not by a renamable local alias. Host-project and extension code
-import from a dependency through the specifier `@ext/<owner>/<repo>` (exactly
+import from a dependency through the specifier `@lib/<owner>/<repo>` (exactly
 the two coordinate segments; a longer path is a deep import and is rejected),
-and its installed content lives at `.extensions/<owner>/<repo>/`. The import
+and its installed content lives at `.libraries/<owner>/<repo>/`. The import
 specifier is derived from identity: the same extension imports identically in
 every project, and two extensions differ in import exactly when they differ in
 identity. Identity, saved-brain references, type unification, the import
@@ -98,7 +98,7 @@ Reference transports:
   its **canonical `<owner>/<repo>` coordinate** in the application's embed
   record -- under an owner the platform controls -- so the embedded copy and
   any later published copy are the same extension. Embedding is delivery only;
-  the identity is the coordinate, and the content installs into `.extensions/`
+  the identity is the coordinate, and the content installs into `.libraries/`
   exactly like any other dependency -- the bundle is simply the fetch source in
   place of a network download.
 Fetched transports install identically and differ only in provenance. A
@@ -180,7 +180,7 @@ symbols are keyed under their origin.
 ## Install layout
 
 Every dependency, regardless of transport, installs its source under an
-extensions folder in the host project (`.extensions/<owner>/<repo>/`), each as
+extensions folder in the host project (`.libraries/<owner>/<repo>/`), each as
 a complete project. The transports differ only in how the content is fetched
 (bundle read, CDN download); installation, layout, and
 compilation are identical. The installed tree is read-only and reproducible: it
@@ -189,7 +189,7 @@ the saved project. Installed extension content is built by the host project's
 local compilation pipeline; there are no prebuilt artifacts.
 
 The installed source is a first-class, inspectable surface: a user reading or
-writing code can browse every dependency's source under `.extensions/` to learn
+writing code can browse every dependency's source under `.libraries/` to learn
 its API, and a debugger can map execution to those real source paths and step
 into dependency code. Dependencies are therefore materialized as real files,
 not served through a compiler-only view.
@@ -259,7 +259,7 @@ resolution's registrations satisfy the next.
 
 Host-project code and extension code import from an extension by its
 `<owner>/<repo>` coordinate through a dedicated specifier prefix
-(`@ext/<owner>/<repo>`, exactly the two coordinate segments), resolved via
+(`@lib/<owner>/<repo>`, exactly the two coordinate segments), resolved via
 the importing manifest's extensions list to the installed extension's entry
 module. Consumers import the published surface only; a longer path is a deep
 module import and is rejected. A project's own modules keep ordinary relative

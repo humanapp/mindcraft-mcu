@@ -1,4 +1,4 @@
-import { Position } from "@ext/mindcraft-lang/codal-position-ext";
+import { Position } from "@lib/mindcraft-lang/codal-position-ext";
 import { BufferType, Conversion } from "mindcraft";
 import { PACKET_MAGIC } from "./protocol";
 

@@ -68,7 +68,7 @@ export function ProjectHeader() {
         report.refusal.kind === "fetch"
           ? `${report.refusal.error.code}: ${report.refusal.error.message}`
           : report.refusal.message;
-      toast.error(`Could not install extension. ${detail}`);
+      toast.error(`Could not install library. ${detail}`);
       return;
     }
     if (report.outcome.kind === "worsened") {
@@ -83,7 +83,7 @@ export function ProjectHeader() {
       return;
     }
     if (report.outcome.kind === "improved") {
-      toast.success(`Extensions updated; ${report.outcome.resolvedProblems.length} problem(s) resolved`);
+      toast.success(`Libraries updated; ${report.outcome.resolvedProblems.length} problem(s) resolved`);
     }
   };
 
@@ -96,7 +96,7 @@ export function ProjectHeader() {
         microbitEmbeddedExtensions
       );
       if (!result.action.ok) {
-        toast.error(`Could not install extension (${result.action.code})`);
+        toast.error(`Could not install library (${result.action.code})`);
         return;
       }
       surfaceExtensionReport(result.report);
@@ -111,11 +111,11 @@ export function ProjectHeader() {
         input
       );
       if (!result.ok) {
-        toast.error(`Could not add extension. ${result.code}: ${result.message}`);
+        toast.error(`Could not add library. ${result.code}: ${result.message}`);
         return;
       }
       if (!result.action.ok) {
-        toast.error(`Could not add extension (${result.action.code})`);
+        toast.error(`Could not add library (${result.action.code})`);
         return;
       }
       if (result.report?.committed) {
@@ -135,7 +135,7 @@ export function ProjectHeader() {
         store.host.installedExtensionContent
       );
       if (!result.action.ok) {
-        toast.error(`Could not remove extension (${result.action.code})`);
+        toast.error(`Could not remove library (${result.action.code})`);
         return;
       }
       surfaceExtensionReport(result.report);
@@ -152,7 +152,7 @@ export function ProjectHeader() {
       }
       if (summary.updates.length === 0) {
         if (summary.failures.length === 0) {
-          toast.success("Extensions are up to date");
+          toast.success("Libraries are up to date");
         }
         return;
       }
@@ -261,7 +261,7 @@ export function ProjectHeader() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem data-testid="extensions-button" onClick={() => setDialog("extensions")}>
                   <Blocks />
-                  Extensions...
+                  Libraries...
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -275,7 +275,7 @@ export function ProjectHeader() {
               onClick={() => setDialog("extensions")}
             >
               <Blocks />
-              Extensions
+              Libraries
             </Button>
           )}
           {chrome.showSettings && (
@@ -300,7 +300,7 @@ export function ProjectHeader() {
         <ConfirmDialog
           title="Export with unstable dependencies?"
           message={
-            "This project depends on extensions that are not stable for consumers: " +
+            "This project depends on libraries that are not stable for consumers: " +
             `${unstableExportDependencies
               .map((dependency) => `${dependency.coordinate} (${dependency.code})`)
               .join(", ")}. ` +

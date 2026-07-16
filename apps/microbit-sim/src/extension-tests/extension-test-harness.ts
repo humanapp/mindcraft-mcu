@@ -31,7 +31,7 @@ function extensionDir(relativePath: string): string {
 /**
  * Registry name the Position struct type is registered under: the Position
  * add-on's coordinate namespace, its entry module, and the `Position` binding.
- * The gamepad tiles reference it across the `@ext` boundary, but its accessor
+ * The gamepad tiles reference it across the `@lib` boundary, but its accessor
  * and variable-factory tiles register under this declaring namespace.
  */
 export const POSITION_IDENTITY = qualifiedClassName(CODAL_POSITION_EXT_COORDINATE, "/index.ts", "Position");

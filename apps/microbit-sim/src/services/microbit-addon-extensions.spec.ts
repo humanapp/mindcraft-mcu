@@ -120,7 +120,7 @@ describe("microbit add-on extensions -- the gamepad add-on depends on the Positi
 
     // The gamepad's Position-typed inline sensor lowers into the bundle, and the
     // Position struct's accessor and variable tiles register under the Position
-    // add-on's own namespace -- proof the `@ext` struct-type reference resolves
+    // add-on's own namespace -- proof the `@lib` struct-type reference resolves
     // across the add-on boundary at runtime.
     const tiles = collectMetadataFromCompile(result);
     const stickPosition = tiles.find((t) => t.name === "stick position");
@@ -193,7 +193,7 @@ describe("microbit add-on extensions -- browser catalog compatibility", () => {
 
 describe("microbit add-on extensions -- install materializes a usable type", () => {
   const HOST_PROGRAM = `import { Sensor, type Context } from "mindcraft";
-import { Position } from "@ext/mindcraft-lang/codal-position-ext";
+import { Position } from "@lib/mindcraft-lang/codal-position-ext";
 
 export default Sensor({
   name: "position probe",
@@ -205,7 +205,7 @@ export default Sensor({
 });
 `;
 
-  test("installing Position lets a host program reference its published struct type across the @ext boundary", () => {
+  test("installing Position lets a host program reference its published struct type across the @lib boundary", () => {
     const extensions: Record<string, string> = {
       [MICROBIT_V2_LIB_COORDINATE]: MICROBIT_V2_LIB_REFERENCE,
       [CODAL_POSITION_EXT_COORDINATE]: CODAL_POSITION_EXT_REFERENCE,
@@ -229,15 +229,15 @@ export default Sensor({
     assert.equal(
       result.projectResult.tsErrors.size,
       0,
-      `the host program references Position across @ext and must compile clean: ${JSON.stringify([
+      `the host program references Position across @lib and must compile clean: ${JSON.stringify([
         ...result.projectResult.tsErrors,
       ])}`
     );
 
     const controlled = compiler.getCompilerControlledFiles();
     assert.ok(
-      controlled.has(`.extensions/${CODAL_POSITION_EXT_COORDINATE}/index.ts`),
-      "the Position extension entry materializes under .extensions/"
+      controlled.has(`.libraries/${CODAL_POSITION_EXT_COORDINATE}/index.ts`),
+      "the Position extension entry materializes under .libraries/"
     );
 
     // The host sensor lowers, and no duplicate-stable-id diagnostic (5014) is raised.

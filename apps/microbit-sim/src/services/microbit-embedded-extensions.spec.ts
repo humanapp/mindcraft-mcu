@@ -71,7 +71,7 @@ describe("microbit embedded layers -- transitive resolution of the core <- codal
 });
 
 describe("microbit embedded layers -- ambient declarations arrive through the resolved extensions", () => {
-  test("user code resolves types spanning all three layers with no root ambient mount, and the .d.ts materialize under .extensions/", () => {
+  test("user code resolves types spanning all three layers with no root ambient mount, and the .d.ts materialize under .libraries/", () => {
     const resolved = resolveProjectExtensions(
       { [MICROBIT_V2_LIB_COORDINATE]: MICROBIT_V2_LIB_REFERENCE },
       { embedded: embeddedLayers() }
@@ -90,7 +90,7 @@ describe("microbit embedded layers -- ambient declarations arrive through the re
     });
 
     const crossLayer = `import { Actuator, type Context, type Image, type Button, type MicroBit } from "mindcraft";
-import { heart } from "@ext/mindcraft-lang/microbit-v2";
+import { heart } from "@lib/mindcraft-lang/microbit-v2";
 
 const heartIcon: Image = heart();
 
@@ -122,19 +122,19 @@ export default Actuator({
     );
 
     // The layer ambient `.d.ts` are inspectable in the project file tree under
-    // each layer's `.extensions/<owner>/<repo>/` subtree.
+    // each layer's `.libraries/<owner>/<repo>/` subtree.
     const controlled = compiler.getCompilerControlledFiles();
     assert.ok(
-      controlled.has(".extensions/mindcraft-lang/core/mindcraft.core.d.ts"),
-      "the core ambient materializes under .extensions/"
+      controlled.has(".libraries/mindcraft-lang/core/mindcraft.core.d.ts"),
+      "the core ambient materializes under .libraries/"
     );
     assert.ok(
-      controlled.has(".extensions/mindcraft-lang/codal/mindcraft.codal.d.ts"),
-      "the codal ambient materializes under .extensions/"
+      controlled.has(".libraries/mindcraft-lang/codal/mindcraft.codal.d.ts"),
+      "the codal ambient materializes under .libraries/"
     );
     assert.ok(
-      controlled.has(".extensions/mindcraft-lang/microbit-v2/mindcraft.microbit-v2.d.ts"),
-      "the microbit-v2 ambient materializes under .extensions/"
+      controlled.has(".libraries/mindcraft-lang/microbit-v2/mindcraft.microbit-v2.d.ts"),
+      "the microbit-v2 ambient materializes under .libraries/"
     );
   });
 });

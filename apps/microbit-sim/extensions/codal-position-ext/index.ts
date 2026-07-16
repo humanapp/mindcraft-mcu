@@ -9,7 +9,7 @@ import { NumberType, type StructOf, StructType } from "mindcraft";
  * `returnType` and take it as a typed argument, `accessors: true` derives the
  * `[x]` / `[y]` read tiles, and `variables: true` offers a "create variable of
  * type position" factory tile. Import it as the extension's published surface
- * from `@ext/mindcraft-lang/codal-position-ext`.
+ * from `@lib/mindcraft-lang/codal-position-ext`.
  */
 export const Position = StructType({
   name: "position",

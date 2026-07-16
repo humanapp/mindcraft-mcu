@@ -1,6 +1,6 @@
 /**
  * Live-path coverage for cross-extension user-tile registration when two
- * installed extensions share a third extension's struct type across the `@ext`
+ * installed extensions share a third extension's struct type across the `@lib`
  * boundary: the Yahboom gamepad's `decoded stick position` (returnType
  * `Position`) and the Cutebot's `cutebot steer` (a `Position` param) both
  * reference the Position add-on's type. It resolves the gamepad + Cutebot

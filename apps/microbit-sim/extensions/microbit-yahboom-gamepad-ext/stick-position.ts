@@ -1,4 +1,4 @@
-import { Position } from "@ext/mindcraft-lang/codal-position-ext";
+import { Position } from "@lib/mindcraft-lang/codal-position-ext";
 import { type Context, Sensor } from "mindcraft";
 import { readStickX, readStickY } from "./stick-read";
 
