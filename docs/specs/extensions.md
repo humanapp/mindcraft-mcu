@@ -381,6 +381,13 @@ manifest's previously recorded identity, it says so. The publish command owns th
 the manifest version (patch, minor, or major), verifies the working tree is
 otherwise clean, commits, creates the tag `v<version>` matching the new
 manifest version, and pushes the branch and the tag.
+The command discovers what it can rather than requiring it: run from a project
+directory, it takes that directory as the project, and it determines the
+publish location from the project itself -- the checkout's own remote when the
+checkout is the extension's repository, otherwise the location derived from the
+recorded identity coordinate. An explicit location may be given to override the
+derivation, and is required for the first publish, before an identity is
+recorded.
 When the project's extensions list contains a dependency that is not
 stable for consumers -- a reference to a version that has never been
 published, or a branch reference, whose target moves -- the publish command
