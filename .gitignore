@@ -5,6 +5,7 @@ node_modules/
 dist/
 cpp/build/
 cpp/out/
+apps/microbit-sim/target-package/app/
 
 # Environment
 .env

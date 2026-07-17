@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "vite --config vite/config.dev.mjs --force",
     "build": "vite build --config vite/config.prod.mjs",
+    "package": "vite build --config vite/config.prod.mjs && node scripts/assemble-target-package.mjs",
     "clean": "rm -rf dist && rm -rf node_modules/.vite",
     "vendor:firmware": "node scripts/vendor-firmware.mjs",
     "generate:docs": "node scripts/build-docs.mjs",
