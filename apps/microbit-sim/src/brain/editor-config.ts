@@ -1,7 +1,26 @@
 import { CoreTypeIds, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
+import type { IBrainTileDef } from "@mindcraft-lang/core/brain";
 import { type BrainEditorConfig, staticAssetUrl, type TileVisual } from "@mindcraft-lang/ui";
 
 const ICON_BASE = staticAssetUrl("assets/brain/icons");
+
+/**
+ * Returns a tile-visual resolver that rewrites compiler-minted `/vfs/<path>`
+ * tile icon URLs to loadable URLs via `resolveVfsAssetUrl`. Tiles without a
+ * VFS icon URL resolve to undefined and keep their intrinsic visuals.
+ */
+export function createMicrobitTileVisualResolver(
+  resolveVfsAssetUrl: (url: string) => string
+): (tileDef: IBrainTileDef) => TileVisual | undefined {
+  return (tileDef) => {
+    const intrinsic = tileDef.metadata as TileVisual | undefined;
+    if (!intrinsic?.iconUrl) {
+      return undefined;
+    }
+    const resolved = resolveVfsAssetUrl(intrinsic.iconUrl);
+    return resolved === intrinsic.iconUrl ? undefined : { ...intrinsic, iconUrl: resolved };
+  };
+}
 
 /**
  * Builds the microbit-v2 brain editor config from the app environment.
@@ -15,10 +34,14 @@ const ICON_BASE = staticAssetUrl("assets/brain/icons");
 export function buildMicrobitBrainEditorConfig(
   env: MindcraftEnvironment,
   resolveVfsAssetUrl: (url: string) => string,
-  projectNamespace: string | undefined
+  projectNamespace: string | undefined,
+  onTileHelp?: BrainEditorConfig["onTileHelp"],
+  docsIntegration?: BrainEditorConfig["docsIntegration"]
 ): BrainEditorConfig {
   return {
     projectNamespace,
+    onTileHelp,
+    docsIntegration,
     dataTypeIcons: new Map([
       [CoreTypeIds.Boolean, `${ICON_BASE}/boolean.svg`],
       [CoreTypeIds.Number, `${ICON_BASE}/number.svg`],
@@ -32,13 +55,6 @@ export function buildMicrobitBrainEditorConfig(
     customLiteralTypes: [],
     brainServices: env.brainServices,
     tileCatalogs: env.tileCatalogs(),
-    resolveTileVisual: (tileDef) => {
-      const intrinsic = tileDef.metadata as TileVisual | undefined;
-      if (!intrinsic?.iconUrl) {
-        return undefined;
-      }
-      const resolved = resolveVfsAssetUrl(intrinsic.iconUrl);
-      return resolved === intrinsic.iconUrl ? undefined : { ...intrinsic, iconUrl: resolved };
-    },
+    resolveTileVisual: createMicrobitTileVisualResolver(resolveVfsAssetUrl),
   };
 }

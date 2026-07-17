@@ -1,4 +1,5 @@
 import type { BrainDef } from "@mindcraft-lang/core/app";
+import { useDocsSidebar } from "@mindcraft-lang/docs";
 import { BrainEditorDialog, BrainEditorProvider } from "@mindcraft-lang/ui";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { buildMicrobitBrainEditorConfig } from "@/brain/editor-config";
@@ -16,15 +17,18 @@ export function BrainEditor({ brainId, onClose }: BrainEditorProps) {
   // and when the VFS revision advances so tile icons re-resolve against the new asset generation.
   const docRevision = useSyncExternalStore(store.subscribeToDocRevision, store.getDocRevisionSnapshot);
   const vfsRevision = useSyncExternalStore(store.subscribeToVfsRevision, store.getVfsRevisionSnapshot);
+  const { openDocsForTile, isOpen: isDocsOpen, toggle: toggleDocs, close: closeDocs } = useDocsSidebar();
   const config = useMemo(() => {
     void docRevision;
     void vfsRevision;
     return buildMicrobitBrainEditorConfig(
       store.env,
       (url) => store.resolveVfsAssetUrl(url),
-      store.activeProjectManifest?.id
+      store.activeProjectManifest?.id,
+      openDocsForTile,
+      { isOpen: isDocsOpen, toggle: toggleDocs, close: closeDocs }
     );
-  }, [store, docRevision, vfsRevision]);
+  }, [store, docRevision, vfsRevision, openDocsForTile, isDocsOpen, toggleDocs, closeDocs]);
   const [srcBrainDef, setSrcBrainDef] = useState<BrainDef | undefined>(undefined);
   const [isOpen, setIsOpen] = useState(false);
 

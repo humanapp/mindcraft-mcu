@@ -1,5 +1,6 @@
 import type { UnstableDependency } from "@mindcraft-lang/app-host";
 import type { ExtensionInstallReport } from "@mindcraft-lang/bridge-app";
+import { useDocsSidebar } from "@mindcraft-lang/docs";
 import {
   Button,
   DropdownMenu,
@@ -9,7 +10,7 @@ import {
   DropdownMenuTrigger,
   ExtensionBrowserDialog,
 } from "@mindcraft-lang/ui";
-import { Blocks, ChevronDown, Download, FilePlus, FolderOpen, Settings, Upload } from "lucide-react";
+import { Blocks, BookOpen, ChevronDown, Download, FilePlus, FolderOpen, Settings, Upload } from "lucide-react";
 import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";
@@ -47,6 +48,7 @@ export function ProjectHeader() {
   const [unstableExportDependencies, setUnstableExportDependencies] = useState<readonly UnstableDependency[] | null>(
     null
   );
+  const { toggle: toggleDocs, isOpen: isDocsOpen } = useDocsSidebar();
 
   const extensionEntries = useMemo(
     () =>
@@ -282,6 +284,19 @@ export function ProjectHeader() {
               Libraries
             </Button>
           )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            data-testid="docs-button"
+            aria-label="Documentation"
+            title="Documentation"
+            aria-expanded={isDocsOpen}
+            aria-controls="docs-sidebar"
+            onClick={toggleDocs}
+          >
+            <BookOpen />
+          </Button>
           {chrome.showSettings && (
             <Button
               type="button"

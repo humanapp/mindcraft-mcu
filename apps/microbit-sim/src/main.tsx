@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { MicrobitSimEnvironmentProvider } from "./contexts/microbit-sim-environment";
+import { DocsPage } from "./DocsPage";
 import { MicrobitSimEnvironmentStore } from "./services/microbit-sim-environment-store";
 import "./globals.css";
 
@@ -16,7 +17,7 @@ async function bootstrap(mount: HTMLElement): Promise<void> {
   createRoot(mount).render(
     <StrictMode>
       <MicrobitSimEnvironmentProvider value={store}>
-        <App />
+        {window.location.pathname.startsWith("/docs") ? <DocsPage /> : <App />}
       </MicrobitSimEnvironmentProvider>
     </StrictMode>
   );
