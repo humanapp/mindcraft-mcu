@@ -35,6 +35,20 @@ export function createMicrobitTileVisualResolver(
   };
 }
 
+/** Data-type icon URLs keyed by type id, shared by the brain editor and the docs surfaces. */
+export const microbitDataTypeIcons: ReadonlyMap<string, string> = new Map([
+  [CoreTypeIds.Boolean, `${ICON_BASE}/boolean.svg`],
+  [CoreTypeIds.Number, `${ICON_BASE}/number.svg`],
+  [CoreTypeIds.String, `${ICON_BASE}/text.svg`],
+]);
+
+/** Friendly data-type names keyed by type id, shared by the brain editor and the docs surfaces. */
+export const microbitDataTypeNames: ReadonlyMap<string, string> = new Map([
+  [CoreTypeIds.Boolean, "boolean"],
+  [CoreTypeIds.Number, "number"],
+  [CoreTypeIds.String, "text"],
+]);
+
 /**
  * Builds the microbit-v2 brain editor config from the app environment.
  *
@@ -57,16 +71,8 @@ export function buildMicrobitBrainEditorConfig(
     onTileHelp,
     docsIntegration,
     libraries,
-    dataTypeIcons: new Map([
-      [CoreTypeIds.Boolean, `${ICON_BASE}/boolean.svg`],
-      [CoreTypeIds.Number, `${ICON_BASE}/number.svg`],
-      [CoreTypeIds.String, `${ICON_BASE}/text.svg`],
-    ]),
-    dataTypeNames: new Map([
-      [CoreTypeIds.Boolean, "boolean"],
-      [CoreTypeIds.Number, "number"],
-      [CoreTypeIds.String, "text"],
-    ]),
+    dataTypeIcons: microbitDataTypeIcons,
+    dataTypeNames: microbitDataTypeNames,
     customLiteralTypes: [],
     brainServices: env.brainServices,
     tileCatalogs: env.tileCatalogs(),

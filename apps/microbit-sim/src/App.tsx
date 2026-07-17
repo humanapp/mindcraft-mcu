@@ -1,7 +1,7 @@
 import { DocsSidebar, DocsSidebarProvider } from "@mindcraft-lang/docs";
 import { useMemo, useSyncExternalStore } from "react";
 import { Toaster } from "sonner";
-import { createMicrobitTileVisualResolver } from "./brain/editor-config";
+import { createMicrobitTileVisualResolver, microbitDataTypeIcons, microbitDataTypeNames } from "./brain/editor-config";
 import { BrainList } from "./components/BrainList";
 import { BridgePanel } from "./components/BridgePanel";
 import { ProjectHeader } from "./components/ProjectHeader";
@@ -36,6 +36,8 @@ export function App() {
       tileCatalog={docsTileCatalog}
       brainServices={store.env.brainServices}
       libraries={docsLibraries}
+      dataTypeNames={microbitDataTypeNames}
+      dataTypeIcons={microbitDataTypeIcons}
       resolveTileVisual={docsResolveTileVisual}
     >
       <div className="min-h-screen">

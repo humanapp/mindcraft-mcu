@@ -1,6 +1,6 @@
 import { DocsPage as SharedDocsPage } from "@mindcraft-lang/docs";
 import { useMemo } from "react";
-import { createMicrobitTileVisualResolver } from "./brain/editor-config";
+import { createMicrobitTileVisualResolver, microbitDataTypeIcons, microbitDataTypeNames } from "./brain/editor-config";
 import { useMicrobitSimEnvironment } from "./contexts/microbit-sim-environment";
 import { createDocsTileCatalog, createMicrobitDocsRegistry } from "./docs/docs-registry";
 
@@ -20,6 +20,8 @@ export function DocsPage() {
       tileCatalog={docsTileCatalog}
       brainServices={store.env.brainServices}
       libraries={store.host.installedLibraries}
+      dataTypeNames={microbitDataTypeNames}
+      dataTypeIcons={microbitDataTypeIcons}
       resolveTileVisual={resolveTileVisual}
       backLabel="Simulator"
       backHref="/"
