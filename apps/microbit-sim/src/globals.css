@@ -7,7 +7,7 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
-    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-family: var(--font-sans);
   }
 }
 
@@ -21,7 +21,7 @@
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #424242 transparent;
+  scrollbar-color: #3a3a3a transparent;
 }
 
 *::-webkit-scrollbar {
@@ -34,40 +34,63 @@
 }
 
 *::-webkit-scrollbar-thumb {
-  background-color: #424242;
+  background-color: #3a3a3a;
   border-radius: 5px;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background-color: #4f4f4f;
+  background-color: #4a4a4a;
 }
 
 /*
- * Dark theme modeled after VS Code Dark+. Surfaces are layered (background ->
- * card/popover) and borders are visible, with the signature blue primary.
- * The app is dark-only for now; a light theme can be added later if needed.
+ * Dark developer-tool theme in the micro:bit brand family. Working surfaces
+ * are neutral near-blacks; identity comes from the green pill primaries, the
+ * bold category accents on chart/category roles, and the blue->green->teal
+ * strip at the top of the header. The app is dark-only.
  */
 @theme {
-  --color-background: #1e1e1e;
-  --color-foreground: #d4d4d4;
-  --color-card: #252526;
-  --color-card-foreground: #d4d4d4;
-  --color-popover: #252526;
-  --color-popover-foreground: #d4d4d4;
-  --color-primary: #0e639c;
-  --color-primary-foreground: #ffffff;
-  --color-secondary: #3a3d41;
-  --color-secondary-foreground: #d4d4d4;
-  --color-muted: #2d2d30;
-  --color-muted-foreground: #9d9d9d;
-  --color-accent: #2a2d2e;
-  --color-accent-foreground: #ffffff;
-  --color-destructive: #f14c4c;
+  --color-background: #191919;
+  --color-foreground: #e7e7e7;
+  --color-card: #232323;
+  --color-card-foreground: #e7e7e7;
+  --color-popover: #282828;
+  --color-popover-foreground: #e7e7e7;
+  --color-panel: #101010;
+  --color-panel-foreground: #e7e7e7;
+  --color-primary: #33e56b;
+  --color-primary-foreground: #06130a;
+  --color-secondary: #484848;
+  --color-secondary-foreground: #e7e7e7;
+  --color-muted: #3f3f3f;
+  --color-muted-foreground: #a0a0a0;
+  --color-accent: #4a4a4a;
+  --color-accent-foreground: #e7e7e7;
+  --color-destructive: #e5484d;
   --color-destructive-foreground: #ffffff;
-  --color-border: #454545;
-  --color-input: #3c3c3c;
-  --color-ring: #007acc;
+  --color-success: #58d36a;
+  --color-success-foreground: #06130a;
+  --color-warning: #f7b500;
+  --color-warning-foreground: #201700;
+  --color-border: #3a3a3a;
+  --color-input: #303030;
+  --color-ring: #7bcdc2;
+  --color-chart-1: #00a000;
+  --color-chart-2: #6c4bc1;
+  --color-chart-3: #cd0365;
+  --color-chart-4: #7bcdc2;
+  --color-chart-5: #f7b500;
+  /* Header bar -- app-local; the brand near-black behind the signature strip. */
+  --color-header: #111111;
   --radius: 0.5rem;
+  --radius-button: 9999px;
+  --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-mono:
     "Roboto Mono", ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+}
+
+/* Signature strip stops -- app-local; the brand blue->green->teal gradient. */
+:root {
+  --strip-blue: #3adcfe;
+  --strip-green: #3affb3;
+  --strip-teal: #7bcdc2;
 }

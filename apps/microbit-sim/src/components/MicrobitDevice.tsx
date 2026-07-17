@@ -19,7 +19,7 @@ export function MicrobitDevice({ instance }: { instance: SimulatorInstance }) {
         data-testid="display"
         role="img"
         aria-label="LED display"
-        className="grid grid-cols-5 gap-1 rounded bg-black/40 p-2"
+        className="grid grid-cols-5 gap-1 rounded bg-panel p-2"
       >
         {display.pixels.map((brightness, i) => {
           const cellKey = `r${Math.trunc(i / display.width)}c${i % display.width}`;

@@ -224,10 +224,14 @@ export function ProjectHeader() {
   };
 
   return (
-    <header className="border-b border-border px-4 py-3 sm:px-6">
-      <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-y-2">
+    <header className="border-b border-border bg-header">
+      <div
+        aria-hidden="true"
+        className="h-0.75 bg-linear-to-r from-(--strip-blue) via-(--strip-green) to-(--strip-teal)"
+      />
+      <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-y-2 px-4 py-3 sm:px-6">
         <div className="flex items-center gap-2">
-          <h1 className="text-base font-bold">micro:bit Simulator</h1>
+          <h1 className="text-base font-bold">Mindcraft / micro:bit Simulator</h1>
           <span className="text-sm text-muted-foreground">/</span>
           <InlineRename value={projectName} ariaLabel="project name" onRename={(name) => store.renameProject(name)} />
         </div>

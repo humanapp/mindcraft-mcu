@@ -19,7 +19,7 @@ export function Simulator() {
   return (
     <section aria-labelledby={headingId}>
       <div className="flex flex-wrap items-center gap-3">
-        <h2 id={headingId} className="text-base font-semibold">
+        <h2 id={headingId} className="text-base font-bold">
           Simulator
         </h2>
         <Button

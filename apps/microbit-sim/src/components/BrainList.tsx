@@ -176,7 +176,7 @@ export function BrainList() {
   return (
     <section aria-labelledby={headingId} className="max-w-md">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id={headingId} className="text-base font-semibold">
+        <h2 id={headingId} className="text-base font-bold">
           Brains
         </h2>
         <div className="flex flex-wrap items-center gap-2">
