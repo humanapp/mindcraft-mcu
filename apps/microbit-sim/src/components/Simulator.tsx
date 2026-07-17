@@ -20,7 +20,7 @@ export function Simulator() {
     <section aria-labelledby={headingId}>
       <div className="flex flex-wrap items-center gap-3">
         <h2 id={headingId} className="text-base font-bold">
-          Simulator
+          Simulators
         </h2>
         <Button
           type="button"
