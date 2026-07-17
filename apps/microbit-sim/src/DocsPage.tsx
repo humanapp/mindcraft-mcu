@@ -19,6 +19,7 @@ export function DocsPage() {
       registry={docsRegistry}
       tileCatalog={docsTileCatalog}
       brainServices={store.env.brainServices}
+      libraries={store.host.installedLibraries}
       resolveTileVisual={resolveTileVisual}
       backLabel="Simulator"
       backHref="/"

@@ -45,12 +45,14 @@ export function buildMicrobitBrainEditorConfig(
   resolveVfsAssetUrl: (url: string) => string,
   projectNamespace: string | undefined,
   onTileHelp?: BrainEditorConfig["onTileHelp"],
-  docsIntegration?: BrainEditorConfig["docsIntegration"]
+  docsIntegration?: BrainEditorConfig["docsIntegration"],
+  libraries?: BrainEditorConfig["libraries"]
 ): BrainEditorConfig {
   return {
     projectNamespace,
     onTileHelp,
     docsIntegration,
+    libraries,
     dataTypeIcons: new Map([
       [CoreTypeIds.Boolean, `${ICON_BASE}/boolean.svg`],
       [CoreTypeIds.Number, `${ICON_BASE}/number.svg`],

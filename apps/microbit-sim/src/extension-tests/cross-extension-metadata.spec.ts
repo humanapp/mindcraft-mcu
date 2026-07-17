@@ -30,6 +30,11 @@ import {
   type WorkspaceSnapshot,
 } from "@mindcraft-lang/ts-compiler";
 import { createMicroBitV2Environment } from "@mindcraft-lang/wodal/targets/microbit-v2";
+import {
+  groupTilesByLibrary,
+  type TileSourceLibrary,
+  tileSourceNamespace,
+} from "../../../../external/mindcraft-lang/packages/ui/src/brain-editor/tile-library-groups.js";
 import { createMicrobitTileVisualResolver } from "../brain/editor-config.js";
 import { createMicrobitDocsRegistry } from "../docs/docs-registry.js";
 import {
@@ -70,14 +75,16 @@ function embedRecord(): EmbeddedExtension[] {
   ];
 }
 
+/** The project extensions map both add-ons install through, alongside the seeded platform layer. */
+const projectExtensions: Record<string, string> = {
+  [MICROBIT_V2_LIB_COORDINATE]: MICROBIT_V2_LIB_REFERENCE,
+  [YAHBOOM_GAMEPAD_EXT_COORDINATE]: `embedded:${YAHBOOM_GAMEPAD_EXT_COORDINATE}`,
+  [CUTEBOT_EXT_COORDINATE]: `embedded:${CUTEBOT_EXT_COORDINATE}`,
+};
+
 /** Compile the gamepad + Cutebot add-ons into a fresh micro:bit v2 environment via the real transitive resolver. */
 function compileGamepadAndCutebot(env: MindcraftEnvironment): WorkspaceCompileResult {
-  const extensions: Record<string, string> = {
-    [MICROBIT_V2_LIB_COORDINATE]: MICROBIT_V2_LIB_REFERENCE,
-    [YAHBOOM_GAMEPAD_EXT_COORDINATE]: `embedded:${YAHBOOM_GAMEPAD_EXT_COORDINATE}`,
-    [CUTEBOT_EXT_COORDINATE]: `embedded:${CUTEBOT_EXT_COORDINATE}`,
-  };
-  const resolved = resolveProjectExtensions(extensions, { embedded: embedRecord() });
+  const resolved = resolveProjectExtensions(projectExtensions, { embedded: embedRecord() });
   const compiler = createWorkspaceCompiler({
     projectNamespace: "cross-extension-metadata",
     mounts: [],
@@ -183,6 +190,73 @@ describe("cross-extension user-tile metadata", () => {
     for (const entry of metadata) {
       const tileId = entry.kind === "sensor" ? mkSensorTileId(entry.key) : mkActuatorTileId(entry.key);
       assert.equal(registry.tiles.get(tileId)?.content, entry.docsMarkdown, `registry content for ${tileId}`);
+    }
+  });
+
+  test("every library tile's identity namespace is its extension coordinate, on the metadata and the registered def", () => {
+    applyCompiledUserTiles(env, result);
+    const metadata = collectMetadataFromCompile(result);
+    assert.ok(metadata.length > 0, "the compile produced tile metadata");
+    const addOnCoordinates = new Set([
+      YAHBOOM_GAMEPAD_EXT_COORDINATE,
+      CUTEBOT_EXT_COORDINATE,
+      CODAL_POSITION_EXT_COORDINATE,
+    ]);
+    for (const entry of metadata) {
+      assert.ok(
+        addOnCoordinates.has(entry.namespace),
+        `metadata namespace is a library coordinate: ${entry.key} -> ${entry.namespace}`
+      );
+      const tileId = entry.kind === "sensor" ? mkSensorTileId(entry.key) : mkActuatorTileId(entry.key);
+      let tileDef: IBrainTileDef | undefined;
+      for (const catalog of env.tileCatalogs()) {
+        tileDef ??= catalog.get(tileId);
+      }
+      assert.ok(tileDef, `registered tile for ${tileId}`);
+      assert.equal(tileSourceNamespace(tileDef), entry.namespace, `registered identity namespace for ${tileId}`);
+    }
+  });
+
+  test("the resolved closure names each library from its manifest and grouping clusters registered tiles by coordinate", () => {
+    applyCompiledUserTiles(env, result);
+    const resolved = resolveProjectExtensions(projectExtensions, { embedded: embedRecord() });
+
+    const cutebotEmbed = embedRecord().find((extension) => extension.canonicalOrigin === CUTEBOT_EXT_COORDINATE);
+    assert.ok(cutebotEmbed, "the Cutebot add-on is in the embed record");
+    const cutebotManifestFile = cutebotEmbed.files.find((file) => file.path === "mindcraft.json");
+    assert.ok(cutebotManifestFile, "the Cutebot add-on bundles a mindcraft.json");
+    const cutebotManifest = JSON.parse(cutebotManifestFile.content) as { name: string };
+    const cutebotOrigin = resolved.origins.find((origin) => origin.origin === CUTEBOT_EXT_COORDINATE);
+    assert.equal(cutebotOrigin?.name, cutebotManifest.name, "the origin display name comes from the library manifest");
+
+    const libraries: TileSourceLibrary[] = resolved.origins.map((origin) => ({
+      coordinate: origin.origin,
+      name: origin.name,
+    }));
+    const allTiles: IBrainTileDef[] = [];
+    for (const catalog of env.tileCatalogs()) {
+      allTiles.push(...catalog.getAll().toArray());
+    }
+    const groups = groupTilesByLibrary(allTiles, (tileDef) => tileDef, libraries);
+
+    const clusterCoordinates = groups.clusters.map((cluster) => cluster.library.coordinate);
+    assert.ok(clusterCoordinates.includes(CUTEBOT_EXT_COORDINATE), "a Cutebot cluster forms");
+    assert.ok(clusterCoordinates.includes(YAHBOOM_GAMEPAD_EXT_COORDINATE), "a gamepad cluster forms");
+    for (const cluster of groups.clusters) {
+      for (const tileDef of cluster.items) {
+        assert.equal(
+          tileSourceNamespace(tileDef),
+          cluster.library.coordinate,
+          `cluster member namespace for ${tileDef.tileId}`
+        );
+      }
+    }
+    for (const tileDef of groups.unattributed) {
+      const namespace = tileSourceNamespace(tileDef);
+      assert.ok(
+        namespace === undefined || !clusterCoordinates.includes(namespace),
+        `unattributed tile carries no clustered library namespace: ${tileDef.tileId}`
+      );
     }
   });
 });

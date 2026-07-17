@@ -26,7 +26,8 @@ export function BrainEditor({ brainId, onClose }: BrainEditorProps) {
       (url) => store.resolveVfsAssetUrl(url),
       store.activeProjectManifest?.id,
       openDocsForTile,
-      { isOpen: isDocsOpen, toggle: toggleDocs, close: closeDocs }
+      { isOpen: isDocsOpen, toggle: toggleDocs, close: closeDocs },
+      store.host.installedLibraries
     );
   }, [store, docRevision, vfsRevision, openDocsForTile, isDocsOpen, toggleDocs, closeDocs]);
   const [srcBrainDef, setSrcBrainDef] = useState<BrainDef | undefined>(undefined);

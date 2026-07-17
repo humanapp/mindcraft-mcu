@@ -21,6 +21,10 @@ export function App() {
     void docRevision;
     return createMicrobitDocsRegistry(store.env, store.host.lastUserTileMetadata);
   }, [docRevision, store]);
+  const docsLibraries = useMemo(() => {
+    void docRevision;
+    return store.host.installedLibraries;
+  }, [docRevision, store]);
   const docsTileCatalog = useMemo(() => createDocsTileCatalog(store.env), [store]);
   const docsResolveTileVisual = useMemo(() => {
     void vfsRevision;
@@ -31,6 +35,7 @@ export function App() {
       registry={docsRegistry}
       tileCatalog={docsTileCatalog}
       brainServices={store.env.brainServices}
+      libraries={docsLibraries}
       resolveTileVisual={docsResolveTileVisual}
     >
       <div className="min-h-screen">
