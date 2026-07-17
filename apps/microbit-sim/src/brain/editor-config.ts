@@ -5,9 +5,10 @@ import { ICON_BASE, tileVisuals } from "./tile-visuals";
 
 /**
  * Returns a tile-visual resolver that supplies the app's mapped visuals for
- * core tiles (see `tileVisuals`) and rewrites compiler-minted `/vfs/<path>`
- * tile icon URLs to loadable URLs via `resolveVfsAssetUrl`. Tiles with
- * neither a map entry nor a VFS icon URL resolve to undefined and keep their
+ * core tiles (see `tileVisuals`), gives page tiles the shared page icon when
+ * they carry none of their own, and rewrites compiler-minted `/vfs/<path>`
+ * tile icon URLs to loadable URLs via `resolveVfsAssetUrl`. Tiles with no
+ * map entry, page icon, or VFS icon URL resolve to undefined and keep their
  * intrinsic visuals.
  */
 export function createMicrobitTileVisualResolver(
@@ -19,13 +20,16 @@ export function createMicrobitTileVisualResolver(
     const intrinsicIconUrl = intrinsic?.iconUrl;
     const resolvedIconUrl = intrinsicIconUrl ? resolveVfsAssetUrl(intrinsicIconUrl) : undefined;
     const rewrittenIconUrl = resolvedIconUrl !== intrinsicIconUrl ? resolvedIconUrl : undefined;
-    if (!mapped && rewrittenIconUrl === undefined) {
+    const pageIconUrl =
+      tileDef.kind === "page" && !mapped?.iconUrl && !intrinsicIconUrl ? `${ICON_BASE}/page3.svg` : undefined;
+    if (!mapped && rewrittenIconUrl === undefined && pageIconUrl === undefined) {
       return undefined;
     }
     const visual: Partial<TileVisual> = {
       ...(intrinsic ?? {}),
       ...(mapped ?? {}),
       ...(rewrittenIconUrl !== undefined ? { iconUrl: rewrittenIconUrl } : {}),
+      ...(pageIconUrl !== undefined ? { iconUrl: pageIconUrl } : {}),
     };
     return visual as TileVisual;
   };
