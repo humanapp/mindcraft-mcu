@@ -36,7 +36,7 @@ checked against ground truth.
 
 ## The Assistant contract
 
-Four principles bind every Assistant feature on every target. They are the product's trust
+Five principles bind every Assistant feature on every target. They are the product's trust
 guarantees, peers of the compiler trust contract.
 
 1. **Legality.** The Assistant only produces edits the editor itself would allow. Tile placements
@@ -53,6 +53,11 @@ guarantees, peers of the compiler trust contract.
    the user's own; the user can take over mid-stream at any point.
 4. **Presence is optional.** Every target functions completely without the Assistant -- offline,
    unconfigured, or disabled. No editor, compiler, or runtime capability may require it.
+5. **Grounded character.** Persona is voice, never psychology. On in-character targets the
+   creature's inner life *is* its brain: it explains itself from the rules that fired and the
+   state it holds, and claims no motive its rules do not encode. A Mindcraft character is
+   auditable by construction -- its entire psychology is inspectable, simulable state the user
+   authored. This is a child-safety property, not a styling rule.
 
 ## The authoring loop
 
@@ -76,22 +81,28 @@ A request flows: intent -> plan -> incremental edits -> verify -> demonstrate.
 ## The edit stream is the lesson
 
 The narrated edit sequence is a first-class artifact -- the **lesson** -- not a transient chat
-transcript. Its defining property: teaching and doing are the same artifact at different playback
-speeds.
+transcript (session-scoped in its baseline form). Its defining property: teaching and doing are the
+same artifact at different playback speeds.
 
 - **Watch** plays the edits tile by tile with narration, the brain simulating at each step.
 - **Step** advances one edit at a time under user control.
 - **Skip** applies the remainder immediately and jumps to the demonstration.
 
-A lesson can be replayed later against the brain state it started from. Steps are the editor's own
-command operations, so a replay is a real re-application, not a video.
-
-**Guided mode.** Because the tile suggestion service computes the true valid-tile set at every
-point, the Assistant can pose any step as a question instead of an action: "we need a tile that
-senses light -- which of these is it?", offering a small choice set drawn from the real offering with
-one correct answer. Guided mode turns authoring into a game without hand-authored lesson content,
-and it degrades gracefully: a wrong pick gets a grounded explanation of what that tile actually
-does, drawn from the same catalog metadata.
+**Guided mode: adaptive guidance.** Guided mode is goal-directed tutoring that replans around
+the learner's actual path. The substrate makes this possible and nothing else does: the
+suggestion service always knows the true valid next steps, the command history always shows
+what the learner actually did, and the simulator always knows whether the current brain
+satisfies the goal. A learner's divergence is therefore input, not error -- wander off the path
+and the lesson reroutes, like navigation recalculating, rather than failing. Lesson content is
+authored as **goals and checkpoints** ("the robot ends up hiding from moving objects, touching
+sensing, comparison, and motion"), never as scripts; the Assistant generates each learner's
+individual path through them. This is teaching at scale and curriculum authoring at scale in
+one mechanism: static step-by-step tutorials are tedious to write and cannot follow an
+explorer, while goals compose and endure. Presentation is free to vary -- steps posed as
+actions, as questions with small choice sets drawn from the real offering, or as
+demonstrations -- and a wrong pick earns a grounded explanation of what the chosen tile actually
+does. Question design, concept sequencing, and what a lesson *is* when it can reroute are
+curriculum craft, owned downstream of this contract.
 
 The lesson deliberately mirrors the experience of reading an agent's verbalized reasoning: the value
 is that the process is there to read, not that the user is forced through it. Skip is always
@@ -141,10 +152,14 @@ still gates tiles (e.g. by attached peripherals) and the Assistant reasons about
 
 When the Assistant claims a behavior works, it shows it: it stages a scenario through the target's
 deterministic injectable-input mechanism (the same paths the conformance harness scripts -- sensor
-values, radio packets, world state), runs the simulation, and presents the outcome. The scenario is
-part of the lesson artifact and doubles as the behavior's acceptance check: replaying the lesson
-replays the demonstration. A demonstration that stops passing after later edits is surfaced, not
-silently dropped.
+values, radio packets, world state), runs the simulation, and presents the outcome. The scenario
+travels with the lesson for the session and can be rerun on demand -- by the user, or by a future
+teacher-facing surface -- to check that later edits still satisfy it. Standing, automatically
+re-verified acceptance checks are deliberately out of scope: demonstrations are moments in a
+conversation, not a CI system.
+
+Scenario staging uses a shared core description format over the injectable-input mechanisms, with
+per-target extensions -- the same pattern as every other contract in the platform.
 
 ## The Assistant bridge
 
@@ -164,9 +179,7 @@ their presentation.
 
 Properties:
 
-- **Model-agnostic.** The bridge presumes nothing about which model or harness drives it. Targets
-  may tier work -- a large model for planning and narration, a small or local model (or plain
-  search) for constrained pick-among-offered steps -- behind the same tools.
+- **Model-agnostic.** The bridge presumes nothing about which model or harness drives it.
 - **Validated at the boundary.** `propose edit` enforces the legality principle mechanically; a
   misbehaving model cannot corrupt a brain document.
 - **Morphology extension.** On capability-coupled targets the bridge additionally exposes the part
@@ -175,15 +188,76 @@ Properties:
   assistant-originated for display and undo grouping, but structurally identical to user edits --
   one history, one document format, nothing assistant-specific persisted in the brain document
   itself.
+- **Transport.** In-process service is the baseline. Exposure over a wire protocol (the VS Code
+  bridge precedent) is deferred, not precluded.
+
+## The open/closed line
+
+The Assistant splits along the platform's standing boundary: everything the *language* needs to
+be delightful anywhere is open; everything that is Mindcraft-the-product is closed.
+
+- **Open: the bridge.** The tool surface, its validation, its diagnostics, and its document and
+  trace formats ship with the open editor and core. Any harness -- including third-party and
+  local models -- can drive it; a target embedding the open editor may wire its own model.
+  Bring-your-own-model is an accepted consequence, not a leak: the hosted Assistant competes on
+  quality, integration, and zero setup, never on locked doors.
+- **Closed: the harness.** Model orchestration, prompts, persona voices, tiering policy, and
+  metering are product, server-side.
+- **Metered at the wallet.** Assisted authoring draws from the account's shared token wallet:
+  baseline allotments per tier, purchasable refills, caps enforced server-side (default $0
+  overage; the free tier receives a monthly trickle). Institutional contexts pool the wallet
+  and disable end-user purchasing. Cost control is an entitlement property of the wallet, never
+  a client-side promise.
+
+Most of the loop is free: suggest, compile, simulate, and trace reads are deterministic local
+services. Tokens buy planning and narration -- a thin, expensive layer over cheap ground truth.
+Harnesses should tier accordingly (a large model for planning and narration; a small or local
+model, or plain search, for constrained pick-among-offered steps).
 
 ## Authoring new tiles
 
-When intent exceeds the catalog ("make it sing when it is happy" on a target with no such tile), the
-Assistant's escape hatch is the same one a person has: author a user tile in TypeScript through the
-Device API surface. Assistant-authored tiles are ordinary user code -- compiled, validated, and
-reviewed in the project like any other -- and travel through the extension system when shared. The
-Assistant states clearly when it is crossing from arranging existing tiles to authoring new ones,
-and the lesson shows the new tile's source as part of the process.
+When intent exceeds the catalog, the default answer is not code. The Assistant fails in
+character (see Failure is comedy), names the gap precisely, and points outward: to the
+libraries ecosystem where someone may already have built the capability -- or to the person who
+might, possibly you.
+
+Authoring a new tile in TypeScript through the Device API remains the platform's real escape
+hatch, and the Assistant may walk through it -- but doing so **exits the safety envelope**, and
+the contract says so out loud. Legality cannot validate arbitrary TypeScript; simulation
+observes behavior but cannot bound what the Device API permits; and review is not meaningful
+when the reviewer is a child. Assistant-authored tiles are therefore a gated capability --
+available by tier, audience, and institutional policy, never the default path out of "the
+language can't express that." When the gate is open, the Assistant states plainly that it is
+crossing from arranging tiles to writing code, shows the new tile's source as part of the
+process, and the result is ordinary user code: compiled, validated, versioned, and shareable
+through the extension system like anything a person writes.
+
+## Descriptions are API
+
+The Assistant plans with every catalog tile, including user-authored ones -- a kid's sonar
+sensor is as reachable as a built-in. When the Assistant reaches for it ("we can use your sonar
+tile here"), the author's vocabulary has become part of the language the teacher speaks.
+
+This makes a tile's description functional, not decorative: the Assistant interprets purpose
+from metadata, so authoring surfaces treat "describe what this senses or does" as a required,
+first-class field. And because the platform has ground truth, descriptions are checkable -- a
+tile whose description disagrees with its simulated behavior can be flagged. Description lint
+against reality is a capability unique to this platform; the bridge's metadata contract
+preserves it.
+
+## Failure is comedy
+
+When intent exceeds what the language can express, the refusal is a product moment, not an
+apology. The Assistant fails expressively and in character -- a shrug, a sputter, a cheerful
+admission -- and converts the miss into the lesson it actually teaches: what the language can
+say, why precision matters, and where the escape hatches are ("I don't have a sadness sensor...
+but here's how someone could make one"). Contradictory or impossible requests produce charming,
+legible failures rather than error states.
+
+This posture is doctrine. It sets honest expectations about what AI can and cannot do, it
+teaches specification through laughter rather than correction, and it makes the tool's limits
+shareable rather than shameful. Comedy never compromises grounding: the joke is in the voice;
+the truth is in the trace.
 
 ## Personas
 
@@ -213,19 +287,6 @@ Design intent with no current consumer, named to bound the surface rather than t
 - **Multi-brain reasoning** (the Assistant reasoning about several brains interacting, e.g. a
   gamepad sender and a chassis receiver) extends read/simulate to multiple documents; single-brain
   scope is the baseline.
-
-## Open questions
-
-(Draft-only; resolve before this spec is normative.)
-
-- **Lesson persistence.** Is the lesson artifact saved with the project, exportable, both? What is
-  its document format, and does replay tolerate a brain that has since diverged?
-- **Bridge transport.** In-process service for the browser targets is the obvious baseline; is the
-  bridge also exposed over a wire protocol (the VS Code bridge precedent) so external harnesses can
-  drive it, and is that v1 or deferred?
-- **Scenario vocabulary.** Scenario staging needs a target-neutral description format over the
-  injectable-input mechanisms; per-target or shared?
-- **Guided-mode authoring content.** Fully emergent from catalog metadata, or may targets curate
-  question templates for key concepts?
-- **Cost and pacing controls.** What budget/consent affordances does a classroom deployment need
-  (per-request, per-session, none)?
+- **Lesson persistence and replay** -- the live narrated stream is session-scoped. Saving
+  lessons as documents and replaying them against a brain that has since diverged is a real
+  rebase problem; it waits until watching behavior shows anyone wants more than Skip.

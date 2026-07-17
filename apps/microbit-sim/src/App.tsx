@@ -19,7 +19,7 @@ export function App() {
   const vfsRevision = useSyncExternalStore(store.subscribeToVfsRevision, store.getVfsRevisionSnapshot);
   const docsRegistry = useMemo(() => {
     void docRevision;
-    return createMicrobitDocsRegistry(store.host.lastUserTileMetadata);
+    return createMicrobitDocsRegistry(store.env, store.host.lastUserTileMetadata);
   }, [docRevision, store]);
   const docsTileCatalog = useMemo(() => createDocsTileCatalog(store.env), [store]);
   const docsResolveTileVisual = useMemo(() => {

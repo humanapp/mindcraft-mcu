@@ -7,7 +7,7 @@ import { createDocsTileCatalog, createMicrobitDocsRegistry } from "./docs/docs-r
 /** Full-page documentation view served at `/docs`. */
 export function DocsPage() {
   const store = useMicrobitSimEnvironment();
-  const docsRegistry = useMemo(() => createMicrobitDocsRegistry(store.host.lastUserTileMetadata), [store]);
+  const docsRegistry = useMemo(() => createMicrobitDocsRegistry(store.env, store.host.lastUserTileMetadata), [store]);
   const docsTileCatalog = useMemo(() => createDocsTileCatalog(store.env), [store]);
   const resolveTileVisual = useMemo(
     () => createMicrobitTileVisualResolver((url) => store.resolveVfsAssetUrl(url)),
