@@ -13,7 +13,11 @@
     "button.ts",
     "stick-position.ts",
     "decoded-stick-position.ts",
-    "position-to-buffer.ts"
+    "position-to-buffer.ts",
+    "docs/stick.md",
+    "docs/button.md",
+    "docs/stick-position.md",
+    "docs/decoded-stick-position.md"
   ],
   "targets": {
     "mindcraft-lang/microbit-v2": {

@@ -16,6 +16,7 @@ import { PACKET_MAGIC } from "./protocol";
 export default Sensor({
   name: "decoded stick position",
   id: "jnQW2Oaatx2xRjLb",
+  docs: "./docs/decoded-stick-position.md",
   returnType: Position,
   consumesWhenResult: BufferType,
   inline: true,

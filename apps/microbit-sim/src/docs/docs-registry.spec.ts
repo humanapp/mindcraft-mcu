@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import { describe, test } from "node:test";
+import { fileURLToPath } from "node:url";
 import { BrainTileModifierDef, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
 import type { IBrainTileDef } from "@mindcraft-lang/core/brain";
 import { createMicroBitV2Environment } from "@mindcraft-lang/wodal/targets/microbit-v2";
+import { tileContent } from "./_generated/en";
 import { createMicrobitDocsRegistry } from "./docs-registry";
 import { tileCategoryOverrides, tileDocContent, tileKindCategories, undocumentedTileIds } from "./manifest";
 
@@ -23,6 +27,19 @@ const EXCLUDED_TILE_IDS = [
   "tile.literal->boolean:<boolean>->true",
   "tile.literal->boolean:<boolean>->false",
   "tile.literal->nil:<nil>->nil",
+];
+
+/**
+ * Core-owned docs entries whose markdown body is missing upstream: the core
+ * manifest registers these tile ids but ships no content for their content
+ * keys. Shrink-only; content for them belongs in the core docs package.
+ */
+const CORE_ENTRIES_WITHOUT_CONTENT = [
+  "tile.var.factory->boolean",
+  "tile.var.factory->number",
+  "tile.var.factory->string",
+  "tile.lit.factory->number",
+  "tile.lit.factory->string",
 ];
 
 /**
@@ -67,6 +84,29 @@ describe("microbit-sim docs registry", () => {
     ];
     const stale = curatedTileIds.filter((tileId) => !shippedTileIds.has(tileId));
     assert.deepEqual(stale, [], `curation entries without a shipped catalog tile: ${stale.join(", ")}`);
+  });
+
+  test("every visible catalog tile resolves docs content or is a declared exclusion", () => {
+    const env = createMicroBitV2Environment();
+    const registry = createMicrobitDocsRegistry(env, []);
+    const contentless = visibleCatalogTiles(env)
+      .filter((tileDef) => !EXCLUDED_KINDS.has(tileDef.kind))
+      .map((tileDef) => tileDef.tileId)
+      .filter((tileId) => (registry.tiles.get(tileId)?.content ?? "").trim() === "")
+      .sort();
+    assert.deepEqual(contentless, [...EXCLUDED_TILE_IDS, ...CORE_ENTRIES_WITHOUT_CONTENT].sort());
+  });
+
+  test("the generated content module matches the markdown files on disk", () => {
+    const contentDir = fileURLToPath(new URL("./content/en/tiles", import.meta.url));
+    const fromDisk: Record<string, string> = {};
+    for (const file of fs.readdirSync(contentDir).sort()) {
+      if (!file.endsWith(".md")) {
+        continue;
+      }
+      fromDisk[file.slice(0, -3)] = fs.readFileSync(path.join(contentDir, file), "utf-8");
+    }
+    assert.deepEqual(tileContent, fromDisk, "run `npm run generate:docs` after editing content/en/tiles");
   });
 
   test("a tile added to the host catalog gets a docs entry with a kind-derived category", () => {

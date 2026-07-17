@@ -15,7 +15,14 @@
     "steer.ts",
     "line-sensor.ts",
     "line-left.ts",
-    "line-right.ts"
+    "line-right.ts",
+    "docs/drive.md",
+    "docs/turn.md",
+    "docs/pivot.md",
+    "docs/stop.md",
+    "docs/steer.md",
+    "docs/line-left.md",
+    "docs/line-right.md"
   ],
   "targets": {
     "mindcraft-lang/microbit-v2": {

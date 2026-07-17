@@ -12,6 +12,7 @@ import { Movement } from "./movement";
 export default Actuator({
   name: "cutebot steer",
   id: "mwQw6UokYjp3HVBD",
+  docs: "./docs/steer.md",
   args: [param("position", { type: Position, anonymous: true })],
   onExecute(ctx: Context, args: { position: Position }): void {
     Movement.drive(args.position.y);

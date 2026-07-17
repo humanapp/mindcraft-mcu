@@ -22,12 +22,14 @@ import {
 } from "@mindcraft-lang/bridge-app";
 import { buildEmbeddedExtensionFromDir } from "@mindcraft-lang/bridge-app/node";
 import type { MindcraftEnvironment } from "@mindcraft-lang/core/app";
+import { mkActuatorTileId, mkSensorTileId } from "@mindcraft-lang/core/app";
 import {
   createWorkspaceCompiler,
   type WorkspaceCompileResult,
   type WorkspaceSnapshot,
 } from "@mindcraft-lang/ts-compiler";
 import { createMicroBitV2Environment } from "@mindcraft-lang/wodal/targets/microbit-v2";
+import { createMicrobitDocsRegistry } from "../docs/docs-registry.js";
 import {
   CODAL_LIB_COORDINATE,
   CODAL_POSITION_EXT_COORDINATE,
@@ -133,5 +135,18 @@ describe("cross-extension user-tile metadata", () => {
     assert.ok(applyResult, "applying produced a result");
     assert.ok(envHasTile(env, DECODED_LABEL), "decoded stick position registered in the environment");
     assert.ok(envHasTile(env, STEER_LABEL), "cutebot steer registered in the environment");
+  });
+
+  test("every library tile carries docsMarkdown and it reaches the docs registry", () => {
+    const metadata = collectMetadataFromCompile(result);
+    assert.ok(metadata.length > 0, "the compile produced tile metadata");
+    const withoutDocs = metadata.filter((m) => (m.docsMarkdown ?? "").trim() === "").map((m) => m.key);
+    assert.deepEqual(withoutDocs, [], "library tiles without docsMarkdown");
+
+    const registry = createMicrobitDocsRegistry(env, metadata);
+    for (const entry of metadata) {
+      const tileId = entry.kind === "sensor" ? mkSensorTileId(entry.key) : mkActuatorTileId(entry.key);
+      assert.equal(registry.tiles.get(tileId)?.content, entry.docsMarkdown, `registry content for ${tileId}`);
+    }
   });
 });

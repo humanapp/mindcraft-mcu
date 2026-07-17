@@ -9,7 +9,7 @@ import { Simulator } from "./components/Simulator";
 import { useMicrobitSimEnvironment } from "./contexts/microbit-sim-environment";
 import { createDocsTileCatalog, createMicrobitDocsRegistry } from "./docs/docs-registry";
 
-/** Root application component for the micro:bit Simulator. */
+/** Root application component for the Mindcraft micro:bit target. */
 export function App() {
   const store = useMicrobitSimEnvironment();
   const chrome = store.chrome;

@@ -11,6 +11,7 @@ import { CutebotLine } from "./line-sensor";
 export default Sensor({
   name: "cutebot line (right)",
   id: "O589P92kylCpz3tv",
+  docs: "./docs/line-right.md",
   args: [
     // Modifiers use the shared "modifier.cutebot-line" namespace, matched by the
     // left line sensor so the same modifier is valid on either.

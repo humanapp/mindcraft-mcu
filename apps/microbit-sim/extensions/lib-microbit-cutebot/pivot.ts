@@ -11,6 +11,7 @@ import { Movement, rateFromWords } from "./movement";
 export default Actuator({
   name: "cutebot pivot",
   id: "UnyIyxxcQ7EPnbAQ",
+  docs: "./docs/pivot.md",
   args: [
     // Rate words use the shared "modifier.speed" namespace, matched by the
     // drive and turn tiles so a rate word is valid on any movement tile.

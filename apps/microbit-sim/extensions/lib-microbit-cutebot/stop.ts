@@ -11,6 +11,7 @@ import { Movement } from "./movement";
 export default Actuator({
   name: "cutebot stop",
   id: "U36vDJTcZtUzBsh8",
+  docs: "./docs/stop.md",
   onExecute(ctx: Context): void {
     Movement.stop();
   },

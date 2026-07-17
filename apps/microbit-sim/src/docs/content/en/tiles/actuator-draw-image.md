@@ -1,0 +1,18 @@
+```brain noframe do
+{ "tile": "tile.actuator->microbit-v2.draw-image" }
+```
+
+# Draw image
+
+Shows one or more images on the display.
+
+---
+
+Draws each given `tile:tile.parameter->microbit-v2.image` in order, holding
+each for `tile:tile.parameter->microbit-v2.duration` seconds (default 1
+second); the last image stays on the display. With no image it draws
+`tile:tile.literal->struct:<Image>->happy`. The rule waits for the hold to
+finish, and a draw made while the display is busy is dropped; add
+`tile:tile.modifier->microbit-v2.immediately` to take over the display at once,
+or `tile:tile.modifier->microbit-v2.in-background` to let the rule continue
+without waiting. A duration of 0 paints the image and continues at once.
