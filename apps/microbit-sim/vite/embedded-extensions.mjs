@@ -15,16 +15,16 @@ const registrations = [
     dir: path.resolve(process.cwd(), "../../external/mindcraft-lang/packages/core/lib"),
   },
   {
-    coordinate: "mindcraft-lang/codal-position-ext",
-    dir: path.resolve(process.cwd(), "./extensions/codal-position-ext"),
+    coordinate: "mindcraft-lang/lib-codal-position",
+    dir: path.resolve(process.cwd(), "./extensions/lib-codal-position"),
   },
   {
-    coordinate: "mindcraft-lang/microbit-cutebot-ext",
-    dir: path.resolve(process.cwd(), "./extensions/microbit-cutebot-ext"),
+    coordinate: "mindcraft-lang/lib-microbit-cutebot",
+    dir: path.resolve(process.cwd(), "./extensions/lib-microbit-cutebot"),
   },
   {
-    coordinate: "mindcraft-lang/microbit-yahboom-gamepad-ext",
-    dir: path.resolve(process.cwd(), "./extensions/microbit-yahboom-gamepad-ext"),
+    coordinate: "mindcraft-lang/lib-microbit-yahboom-gamepad",
+    dir: path.resolve(process.cwd(), "./extensions/lib-microbit-yahboom-gamepad"),
   },
 ];
 

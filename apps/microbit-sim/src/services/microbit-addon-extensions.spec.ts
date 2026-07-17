@@ -33,20 +33,20 @@ function extensionDir(relativePath: string): string {
 /** The Position add-on assembled from its own `mindcraft.json` `files` list through the shared loader. */
 function codalPositionAddon(): EmbeddedExtension {
   return buildEmbeddedExtensionFromDir(
-    extensionDir("../../extensions/codal-position-ext"),
+    extensionDir("../../extensions/lib-codal-position"),
     CODAL_POSITION_EXT_COORDINATE
   );
 }
 
 /** The Cutebot chassis add-on assembled from its own `mindcraft.json` `files` list through the shared loader. */
 function cutebotAddon(): EmbeddedExtension {
-  return buildEmbeddedExtensionFromDir(extensionDir("../../extensions/microbit-cutebot-ext"), CUTEBOT_EXT_COORDINATE);
+  return buildEmbeddedExtensionFromDir(extensionDir("../../extensions/lib-microbit-cutebot"), CUTEBOT_EXT_COORDINATE);
 }
 
 /** The Yahboom gamepad add-on assembled from its own `mindcraft.json` `files` list through the shared loader. */
 function gamepadAddon(): EmbeddedExtension {
   return buildEmbeddedExtensionFromDir(
-    extensionDir("../../extensions/microbit-yahboom-gamepad-ext"),
+    extensionDir("../../extensions/lib-microbit-yahboom-gamepad"),
     YAHBOOM_GAMEPAD_EXT_COORDINATE
   );
 }
@@ -193,7 +193,7 @@ describe("microbit add-on extensions -- browser catalog compatibility", () => {
 
 describe("microbit add-on extensions -- install materializes a usable type", () => {
   const HOST_PROGRAM = `import { Sensor, type Context } from "mindcraft";
-import { Position } from "@lib/mindcraft-lang/codal-position-ext";
+import { Position } from "@lib/mindcraft-lang/lib-codal-position";
 
 export default Sensor({
   name: "position probe",

@@ -75,8 +75,8 @@ dot around the micro:bit display from the stick alone
 are no separate x/y output tiles; the struct + accessors are the one way to read the stick.
 
 **`position` is a shared user-declared struct type** - not a platform type. It is declared once in
-its own extension (`codal-position-ext`, the codal layer) and imported from
-`@lib/mindcraft-lang/codal-position-ext` by BOTH the gamepad (the stick sensor's and decoder's
+its own extension (`lib-codal-position`, the codal layer) and imported from
+`@lib/mindcraft-lang/lib-codal-position` by BOTH the gamepad (the stick sensor's and decoder's
 return types, the producers) AND the Cutebot chassis (the `cutebot steer` argument, the consumer),
 so producers and consumer speak one type. It is keyed by its exported symbol identity (the same
 `<file>::<binding>` scheme Systems use). The type travels in the
@@ -139,15 +139,15 @@ Position is a storable one" below.
 
 ## Usage sketch (user code)
 
-The four load-bearing declarations. `position.ts` sits in the shared `codal-position-ext`
+The four load-bearing declarations. `position.ts` sits in the shared `lib-codal-position`
 extension; the other three sit in the gamepad module and import `Position` from
-`@lib/mindcraft-lang/codal-position-ext`. Types are named by
+`@lib/mindcraft-lang/lib-codal-position`. Types are named by
 **reference**: user types by their imported binding, core types by the ambient tokens
 (`BufferType`, `NumberType`, ...). String names are the deprecated form, and canonical registry
 names are lowercase (`"buffer"`, not `"Buffer"`) - one more reason refs are preferred.
 
 ```ts
-// position.ts (in codal-position-ext) -- the shared type, declared once, identity-keyed by its exported symbol
+// position.ts (in lib-codal-position) -- the shared type, declared once, identity-keyed by its exported symbol
 import { StructType, type StructOf } from "mindcraft";
 
 /** Stick position in game convention: x right-positive, y up-positive, both -100..100. */
@@ -161,7 +161,7 @@ export type Position = StructOf<typeof Position>;
 
 // stick-position.ts -- the inline producer
 import { Sensor, type Context } from "mindcraft";
-import { Position } from "@lib/mindcraft-lang/codal-position-ext";
+import { Position } from "@lib/mindcraft-lang/lib-codal-position";
 import { readStickX, readStickY } from "./stick-read";
 
 export default Sensor({
@@ -175,7 +175,7 @@ export default Sensor({
 
 // position-to-buffer.ts -- the wire encode as an implicit conversion
 import { Conversion } from "mindcraft";
-import { Position } from "@lib/mindcraft-lang/codal-position-ext";
+import { Position } from "@lib/mindcraft-lang/lib-codal-position";
 import { PACKET_MAGIC } from "./protocol"; // 0x47 ('G'), shared with the decoder
 
 export default Conversion({
@@ -190,7 +190,7 @@ export default Conversion({
 
 // decoded-stick-position.ts -- inline decoder: reads the received packet from the WHEN result
 import { Sensor, type Context } from "mindcraft";
-import { Position } from "@lib/mindcraft-lang/codal-position-ext";
+import { Position } from "@lib/mindcraft-lang/lib-codal-position";
 import { PACKET_MAGIC } from "./protocol";
 
 export default Sensor({

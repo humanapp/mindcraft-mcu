@@ -1,4 +1,4 @@
-import { Position } from "@lib/mindcraft-lang/codal-position-ext";
+import { Position } from "@lib/mindcraft-lang/lib-codal-position";
 import { Actuator, type Context, param } from "mindcraft";
 import { Movement } from "./movement";
 

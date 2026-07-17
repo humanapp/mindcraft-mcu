@@ -28,10 +28,10 @@ export const MICROBIT_V2_LIB_REFERENCE = "embedded:mindcraft-lang/microbit-v2";
  * `<owner>/<repo>` identity; the repo segment is human-readable and never parsed
  * by code.
  */
-export const CODAL_POSITION_EXT_COORDINATE = "mindcraft-lang/codal-position-ext";
+export const CODAL_POSITION_EXT_COORDINATE = "mindcraft-lang/lib-codal-position";
 
 /** Manifest reference form delivering the Position add-on from the app bundle. */
-export const CODAL_POSITION_EXT_REFERENCE = "embedded:mindcraft-lang/codal-position-ext";
+export const CODAL_POSITION_EXT_REFERENCE = "embedded:mindcraft-lang/lib-codal-position";
 
 /**
  * Coordinate of the Cutebot chassis add-on: an installable capability extension
@@ -39,20 +39,20 @@ export const CODAL_POSITION_EXT_REFERENCE = "embedded:mindcraft-lang/codal-posit
  * `<owner>/<repo>` identity; the repo segment is human-readable and never parsed
  * by code.
  */
-export const CUTEBOT_EXT_COORDINATE = "mindcraft-lang/microbit-cutebot-ext";
+export const CUTEBOT_EXT_COORDINATE = "mindcraft-lang/lib-microbit-cutebot";
 
 /** Manifest reference form delivering the Cutebot add-on from the app bundle. */
-export const CUTEBOT_EXT_REFERENCE = "embedded:mindcraft-lang/microbit-cutebot-ext";
+export const CUTEBOT_EXT_REFERENCE = "embedded:mindcraft-lang/lib-microbit-cutebot";
 
 /**
  * Coordinate of the Yahboom gamepad add-on: an installable capability extension
  * whose stick, button, and packet-decode tiles target the micro:bit v2 layer and
  * depend on the Position add-on for their struct type.
  */
-export const YAHBOOM_GAMEPAD_EXT_COORDINATE = "mindcraft-lang/microbit-yahboom-gamepad-ext";
+export const YAHBOOM_GAMEPAD_EXT_COORDINATE = "mindcraft-lang/lib-microbit-yahboom-gamepad";
 
 /** Manifest reference form delivering the Yahboom gamepad add-on from the app bundle. */
-export const YAHBOOM_GAMEPAD_EXT_REFERENCE = "embedded:mindcraft-lang/microbit-yahboom-gamepad-ext";
+export const YAHBOOM_GAMEPAD_EXT_REFERENCE = "embedded:mindcraft-lang/lib-microbit-yahboom-gamepad";
 
 /**
  * Extensions seeded into every new microbit-sim project's manifest, keyed by

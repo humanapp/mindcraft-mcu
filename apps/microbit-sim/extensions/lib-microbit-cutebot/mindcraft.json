@@ -1,10 +1,10 @@
 {
   "name": "Cutebot",
-  "version": "0.1.1",
-  "identity": "mindcraft-lang/microbit-cutebot-ext",
+  "version": "0.1.2",
+  "identity": "mindcraft-lang/lib-microbit-cutebot",
   "description": "ELECFREAKS Cutebot chassis driver for the micro:bit (v2): a shared movement arbitrator with drive, turn, pivot, stop, and continuous steer tiles, plus the two-side line-tracking sensor.",
   "extensions": {
-    "mindcraft-lang/codal-position-ext": "embedded:mindcraft-lang/codal-position-ext"
+    "mindcraft-lang/lib-codal-position": "embedded:mindcraft-lang/lib-codal-position"
   },
   "files": [
     "movement.ts",

@@ -57,10 +57,10 @@ function embedRecord(): EmbeddedExtension[] {
       extensionDir("../../../../external/mindcraft-lang/packages/core/lib"),
       CORE_LIB_COORDINATE
     ),
-    buildEmbeddedExtensionFromDir(extensionDir("../../extensions/codal-position-ext"), CODAL_POSITION_EXT_COORDINATE),
-    buildEmbeddedExtensionFromDir(extensionDir("../../extensions/microbit-cutebot-ext"), CUTEBOT_EXT_COORDINATE),
+    buildEmbeddedExtensionFromDir(extensionDir("../../extensions/lib-codal-position"), CODAL_POSITION_EXT_COORDINATE),
+    buildEmbeddedExtensionFromDir(extensionDir("../../extensions/lib-microbit-cutebot"), CUTEBOT_EXT_COORDINATE),
     buildEmbeddedExtensionFromDir(
-      extensionDir("../../extensions/microbit-yahboom-gamepad-ext"),
+      extensionDir("../../extensions/lib-microbit-yahboom-gamepad"),
       YAHBOOM_GAMEPAD_EXT_COORDINATE
     ),
   ];
