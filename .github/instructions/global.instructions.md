@@ -4,7 +4,11 @@ applyTo: "**"
 
 <!-- Adapted from external/mindcraft-lang/.github/instructions/global.instructions.md -->
 
-# GitHub Copilot Instructions
+# Global Instructions
+
+These rules apply to every agent working anywhere in this repository. This file
+is the canonical home of the comment guidelines, the plan-only-names ban, the
+ASCII-only rule, the zero-noise check policy, and the broad-view rule.
 
 ## Code Examples and Documentation
 
@@ -76,10 +80,6 @@ functionality.
 - Avoid: `Builds the image without constructing a runtime.`
 - Prefer: `Compiles and links a brain and returns the linked program. Throws if
   it fails to compile or link.`
-
-Do not include plan-only or work-item names in comments. These markers are meaningful
-only while the work is in progress and become noise once the plan is complete. Examples:
-"phase 2b", "surface 1", "surface-2"
 
 ## Plan-Only Names in Code
 

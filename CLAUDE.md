@@ -1,24 +1,18 @@
-## STOP - read the authoritative rules before any work
+## Project rules
 
-A SessionStart hook (`.claude/settings.json`) auto-injects this project's complete
-rule set into context at the start of every Claude session: `AGENTS.md` plus every
-`.github/instructions/*.instructions.md`. Read and follow them.
+This file is a pointer, not the rule set. The authoritative rules live in
+`AGENTS.md` and `.github/instructions/*.instructions.md`; read the full files,
+not summaries of them.
 
-If for any reason that injected block is not present in this session (hook disabled,
-or a different agent/harness), then before your first edit, comment, or audit you
-MUST open and read these files IN FULL:
+A SessionStart hook (`.claude/settings.json`) lists these files at the start of
+every Claude session, and a companion gate blocks Edit/Write/Bash until each has
+been read in full. If the hooks are not active in this harness, read these
+before your first edit, comment, or audit:
 
 - `AGENTS.md`
 - `.github/instructions/global.instructions.md`
 - `.github/instructions/agent-posture.instructions.md` (working temperament and
   decision style; `applyTo: "**"`, so it always applies)
-- every `.github/instructions/*.instructions.md` whose `applyTo` glob matches the
-  area you are touching (for `cpp/`, `packages/wodal/`, `apps/microbit-sim/`, that is
-  `vm.instructions.md`)
-
-This file is NOT the rule set; it is a pointer to it. Do not treat this file, the
-auto-injected `CLAUDE.md` snippets, or any summary as complete. Do not satisfy the
-read by grepping for a keyword or skimming one section - read each file end to end.
-The rules you are accountable for (comment guidelines, the plan-only-names ban, the
-authoring-only scope of the ASCII rule, the zero-noise check policy, minimalism) live
-only in those files, not here.
+- every other `.github/instructions/*.instructions.md` whose `applyTo` glob
+  matches the area you are touching (for `cpp/`, `packages/wodal/`,
+  `apps/microbit-sim/`, that is `vm.instructions.md`)

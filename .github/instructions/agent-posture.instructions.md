@@ -138,15 +138,10 @@ Shared Mindcraft packages own:
 - Shared service APIs.
 - Compiler/runtime contracts that apply across Mindcraft targets.
 
-Shared Mindcraft packages have **two first-class, co-equal consumers**:
-`apps/microbit-sim` and `external/mindcraft-lang/apps/sim` (the game/sim app,
-with live capability tiles on its own platform, unrelated to wodal/microbit).
-Any change to a shared package or a shared model MUST be swept and gated against
-BOTH by their exact paths; a change verified only against microbit-sim is
-incomplete. Design shared features for both platforms from the start -- a
-default or example tied to microbit-sim's platform must state how it serves
-apps/sim's distinct platform too. `apps/sim` is never "the standalone checkout";
-it is at `external/mindcraft-lang/apps/sim` in this tree.
+Shared Mindcraft packages have two first-class, co-equal consumers:
+`apps/microbit-sim` and `external/mindcraft-lang/apps/sim`. The binding rule
+(sweep and gate both apps, design for both platforms) is stated once, in
+"Repo-Specific Scope" in `AGENTS.md`.
 
 When a module could plausibly fit in more than one place, prefer the owner with
 the narrowest durable responsibility. If a shape is a product-level contract, do

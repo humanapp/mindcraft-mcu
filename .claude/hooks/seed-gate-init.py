@@ -42,19 +42,19 @@ def main():
     with open(os.path.join(target, "required"), "w") as handle:
         handle.write("\n".join(required))
 
-    print("==== AUTHORITATIVE PROJECT RULES (not injected inline) ====")
-    print("The complete ruleset is too large to inject without truncation, so it")
-    print("is NOT in your context. Before any work (edit, comment, audit, analysis)")
-    print("you MUST read these files IN FULL with the Read tool (no offset/limit):")
+    print("==== Authoritative project rules (not injected inline) ====")
+    print("The ruleset is too large to inject without truncation, so it is not in")
+    print("your context. Before any work, read each of these files in full with")
+    print("the Read tool (no offset/limit):")
     if required:
         for path in required:
             print("  - " + path)
     else:
-        print("  (NONE FOUND. AGENTS.md / .github/instructions are missing:")
-        print("   fatal seeding fault -- halt and report, do not continue.)")
-    print("Edit/Write/MultiEdit/Bash are BLOCKED until you have read them all this")
-    print("session. Incomplete seed is a fault: recover by reading, or halt if")
-    print("the files cannot be read.")
+        print("  (None found. AGENTS.md / .github/instructions are missing:")
+        print("   halt and report rather than continuing unseeded.)")
+    print("A PreToolUse gate blocks Edit/Write/MultiEdit/Bash until every file")
+    print("above has been read this session. If a file cannot be read, stop and")
+    print("report it.")
 
 
 if __name__ == "__main__":

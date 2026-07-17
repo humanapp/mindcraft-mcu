@@ -57,7 +57,7 @@ def main():
     if remaining:
         sys.stderr.write(
             "Seed gate: session not yet seeded with the authoritative posture. "
-            "Read these files IN FULL (Read tool, no offset/limit) before any "
+            "Read these files in full (Read tool, no offset/limit) before any "
             "edit, write, or shell command:\n"
             + "\n".join("  - " + path for path in remaining)
             + "\nUse the Read tool on each (Read and Glob are not gated); do not "
