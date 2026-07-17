@@ -1,12 +1,14 @@
 // ---------------------------------------------------------------------------
 // App-specific documentation curation. Host tile docs entries are derived
 // from the environment's tile catalog at registry-build time; these maps hold
-// the hand-curated exceptions and the markdown content, keyed by tile id.
-// Content bodies live as .md files under content/en/tiles/ and reach this
-// module through the generated locale module (npm run generate:docs).
+// the hand-curated exceptions, the pattern page metadata, and the markdown
+// content, keyed by tile id or content key. Content bodies live as .md files
+// under content/en/tiles/ and content/en/patterns/ and reach this module
+// through the generated locale module (npm run generate:docs).
 // ---------------------------------------------------------------------------
 
 import type { BrainTileKind } from "@mindcraft-lang/core/app";
+import type { AppPatternDocMeta } from "@mindcraft-lang/docs";
 import { tileContent } from "./_generated/en";
 
 /**
@@ -36,6 +38,20 @@ export const undocumentedTileIds: ReadonlySet<string> = new Set([
  * kind-derived category is wrong.
  */
 export const tileCategoryOverrides: Readonly<Record<string, string>> = {};
+
+/**
+ * Pattern doc pages. Each entry's `contentKey` is a filename stem under
+ * content/en/patterns/.
+ */
+export const patternDocs: readonly AppPatternDocMeta[] = [
+  {
+    id: "button-press-response",
+    title: "Respond to a Button Press",
+    tags: ["buttons", "display", "basics"],
+    category: "Basics",
+    contentKey: "button-press-response",
+  },
+];
 
 /**
  * Content key (a filename stem under content/en/tiles/) for each documented

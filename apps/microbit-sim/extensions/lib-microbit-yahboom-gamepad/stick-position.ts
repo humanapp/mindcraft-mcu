@@ -13,6 +13,7 @@ import { readStickX, readStickY } from "./stick-read";
 export default Sensor({
   name: "stick position",
   id: "cz4jLqjYRy2bAwR3",
+  icon: "./icons/stick-position.svg",
   docs: "./docs/stick-position.md",
   returnType: Position,
   inline: true,

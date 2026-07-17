@@ -6,9 +6,15 @@ import { fileURLToPath } from "node:url";
 import { BrainTileModifierDef, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
 import type { IBrainTileDef } from "@mindcraft-lang/core/brain";
 import { createMicroBitV2Environment } from "@mindcraft-lang/wodal/targets/microbit-v2";
-import { tileContent } from "./_generated/en";
+import { patternContent, tileContent } from "./_generated/en";
 import { createMicrobitDocsRegistry } from "./docs-registry";
-import { tileCategoryOverrides, tileDocContent, tileKindCategories, undocumentedTileIds } from "./manifest";
+import {
+  patternDocs,
+  tileCategoryOverrides,
+  tileDocContent,
+  tileKindCategories,
+  undocumentedTileIds,
+} from "./manifest";
 
 /**
  * Tile kinds with no docs entry of their own. Output tiles expose fields of a
@@ -98,15 +104,37 @@ describe("microbit-sim docs registry", () => {
   });
 
   test("the generated content module matches the markdown files on disk", () => {
-    const contentDir = fileURLToPath(new URL("./content/en/tiles", import.meta.url));
-    const fromDisk: Record<string, string> = {};
-    for (const file of fs.readdirSync(contentDir).sort()) {
-      if (!file.endsWith(".md")) {
-        continue;
+    const readContentDir = (subdir: string): Record<string, string> => {
+      const contentDir = fileURLToPath(new URL(`./content/en/${subdir}`, import.meta.url));
+      const fromDisk: Record<string, string> = {};
+      for (const file of fs.readdirSync(contentDir).sort()) {
+        if (!file.endsWith(".md")) {
+          continue;
+        }
+        fromDisk[file.slice(0, -3)] = fs.readFileSync(path.join(contentDir, file), "utf-8");
       }
-      fromDisk[file.slice(0, -3)] = fs.readFileSync(path.join(contentDir, file), "utf-8");
+      return fromDisk;
+    };
+    assert.deepEqual(
+      tileContent,
+      readContentDir("tiles"),
+      "run `npm run generate:docs` after editing content/en/tiles"
+    );
+    assert.deepEqual(
+      patternContent,
+      readContentDir("patterns"),
+      "run `npm run generate:docs` after editing content/en/patterns"
+    );
+  });
+
+  test("every pattern doc entry registers with non-empty content", () => {
+    const env = createMicroBitV2Environment();
+    const registry = createMicrobitDocsRegistry(env, []);
+    for (const meta of patternDocs) {
+      const entry = registry.patterns.get(meta.id);
+      assert.ok(entry, `pattern '${meta.id}' should register`);
+      assert.notEqual(entry.content.trim(), "", `pattern '${meta.id}' should resolve markdown content`);
     }
-    assert.deepEqual(tileContent, fromDisk, "run `npm run generate:docs` after editing content/en/tiles");
   });
 
   test("a tile added to the host catalog gets a docs entry with a kind-derived category", () => {

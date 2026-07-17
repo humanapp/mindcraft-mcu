@@ -14,6 +14,7 @@ import { DIRECTION_DOWN, DIRECTION_LEFT, DIRECTION_RIGHT, DIRECTION_UP, readStic
 export default Sensor({
   name: "stick",
   id: "qyPhWctORp9bXYAc",
+  icon: "./icons/stick.svg",
   docs: "./docs/stick.md",
   args: [
     optional(modifier("modifier.direction.up", { label: "up" })),

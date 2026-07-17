@@ -11,6 +11,7 @@ import { Movement, rateFromWords } from "./movement";
 export default Actuator({
   name: "cutebot drive",
   id: "zClgsu5drwdekq7r",
+  icon: "./icons/drive.svg",
   docs: "./docs/drive.md",
   args: [
     // Rate words use the shared "modifier.speed" namespace, matched by the

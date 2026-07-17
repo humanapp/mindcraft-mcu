@@ -23,12 +23,14 @@ import {
 import { buildEmbeddedExtensionFromDir } from "@mindcraft-lang/bridge-app/node";
 import type { MindcraftEnvironment } from "@mindcraft-lang/core/app";
 import { mkActuatorTileId, mkSensorTileId } from "@mindcraft-lang/core/app";
+import type { IBrainTileDef } from "@mindcraft-lang/core/brain";
 import {
   createWorkspaceCompiler,
   type WorkspaceCompileResult,
   type WorkspaceSnapshot,
 } from "@mindcraft-lang/ts-compiler";
 import { createMicroBitV2Environment } from "@mindcraft-lang/wodal/targets/microbit-v2";
+import { createMicrobitTileVisualResolver } from "../brain/editor-config.js";
 import { createMicrobitDocsRegistry } from "../docs/docs-registry.js";
 import {
   CODAL_LIB_COORDINATE,
@@ -135,6 +137,40 @@ describe("cross-extension user-tile metadata", () => {
     assert.ok(applyResult, "applying produced a result");
     assert.ok(envHasTile(env, DECODED_LABEL), "decoded stick position registered in the environment");
     assert.ok(envHasTile(env, STEER_LABEL), "cutebot steer registered in the environment");
+  });
+
+  test("every library action tile carries a /vfs/ icon and it reaches the registered tile and the resolver", () => {
+    const metadata = collectMetadataFromCompile(result);
+    assert.ok(metadata.length > 0, "the compile produced tile metadata");
+    const withoutIcon = metadata.filter((m) => !/^\/vfs\/.+\.svg$/.test(m.iconUrl ?? "")).map((m) => m.key);
+    assert.deepEqual(withoutIcon, [], "library action tiles without a /vfs/ svg icon");
+
+    // Kinds with no icon attach point in the library authoring surface
+    // (modifier icons are raw strings without VFS resolution; accessor,
+    // variable-factory, and parameter tiles are compiler-derived without
+    // metadata config) stay on the app's missing-tile fallback.
+    const iconlessKinds = new Set(["modifier", "accessor", "factory", "parameter"]);
+    const bundle = result.bundle;
+    assert.ok(bundle, "the compile produced an action bundle");
+    for (const tile of bundle.tiles) {
+      if (tile.kind === "sensor" || tile.kind === "actuator") {
+        continue;
+      }
+      assert.ok(iconlessKinds.has(tile.kind), `unexpected library tile kind without an icon contract: ${tile.kind}`);
+    }
+
+    applyCompiledUserTiles(env, result);
+    const resolveTileVisual = createMicrobitTileVisualResolver((url) => `resolved:${url}`);
+    for (const entry of metadata) {
+      const tileId = entry.kind === "sensor" ? mkSensorTileId(entry.key) : mkActuatorTileId(entry.key);
+      let tileDef: IBrainTileDef | undefined;
+      for (const catalog of env.tileCatalogs()) {
+        tileDef ??= catalog.get(tileId);
+      }
+      assert.ok(tileDef, `registered tile for ${tileId}`);
+      assert.equal(tileDef.metadata?.iconUrl, entry.iconUrl, `registered icon URL for ${tileId}`);
+      assert.equal(resolveTileVisual(tileDef)?.iconUrl, `resolved:${entry.iconUrl}`, `resolved icon URL for ${tileId}`);
+    }
   });
 
   test("every library tile carries docsMarkdown and it reaches the docs registry", () => {

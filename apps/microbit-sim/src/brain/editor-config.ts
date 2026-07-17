@@ -1,9 +1,7 @@
 import { CoreTypeIds, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
 import type { IBrainTileDef } from "@mindcraft-lang/core/brain";
-import { type BrainEditorConfig, staticAssetUrl, type TileVisual } from "@mindcraft-lang/ui";
-import { tileVisuals } from "./tile-visuals";
-
-const ICON_BASE = staticAssetUrl("assets/brain/icons");
+import type { BrainEditorConfig, TileVisual } from "@mindcraft-lang/ui";
+import { ICON_BASE, tileVisuals } from "./tile-visuals";
 
 /**
  * Returns a tile-visual resolver that supplies the app's mapped visuals for
@@ -36,9 +34,9 @@ export function createMicrobitTileVisualResolver(
 /**
  * Builds the microbit-v2 brain editor config from the app environment.
  *
- * Tile and data-type icon URLs point at `public/assets/brain/icons`. Missing
- * art resolves to the bundled `question_mark.svg` missing-tile fallback until
- * the real SVGs are supplied. Host tiles registered by the microbit-v2 module
+ * Tile and data-type icon URLs point at `public/assets/brain/icons`. A tile
+ * with no mapped or intrinsic icon resolves to the bundled `question_mark.svg`
+ * missing-tile fallback. Host tiles registered by the microbit-v2 module
  * appear automatically through `tileCatalogs`. Compiler-minted `/vfs/<path>`
  * tile icons resolve to loadable URLs through `resolveVfsAssetUrl`.
  */

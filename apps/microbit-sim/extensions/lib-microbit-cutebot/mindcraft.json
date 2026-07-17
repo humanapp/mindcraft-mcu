@@ -22,7 +22,14 @@
     "docs/stop.md",
     "docs/steer.md",
     "docs/line-left.md",
-    "docs/line-right.md"
+    "docs/line-right.md",
+    "icons/drive.svg",
+    "icons/turn.svg",
+    "icons/pivot.svg",
+    "icons/stop.svg",
+    "icons/steer.svg",
+    "icons/line-left.svg",
+    "icons/line-right.svg"
   ],
   "targets": {
     "mindcraft-lang/microbit-v2": {

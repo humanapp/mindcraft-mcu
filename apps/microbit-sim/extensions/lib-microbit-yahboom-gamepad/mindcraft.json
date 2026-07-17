@@ -17,7 +17,11 @@
     "docs/stick.md",
     "docs/button.md",
     "docs/stick-position.md",
-    "docs/decoded-stick-position.md"
+    "docs/decoded-stick-position.md",
+    "icons/stick.svg",
+    "icons/button.svg",
+    "icons/stick-position.svg",
+    "icons/decoded-stick-position.svg"
   ],
   "targets": {
     "mindcraft-lang/microbit-v2": {

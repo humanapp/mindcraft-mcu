@@ -13,6 +13,7 @@ import { BUTTON_BLUE_PIN, BUTTON_GREEN_PIN, BUTTON_RED_PIN, BUTTON_YELLOW_PIN, r
 export default Sensor({
   name: "button",
   id: "bt6WY8kcZymPzSAA",
+  icon: "./icons/button.svg",
   docs: "./docs/button.md",
   args: [
     optional(modifier("modifier.color.red", { label: "red" })),

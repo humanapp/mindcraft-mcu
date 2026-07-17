@@ -4,7 +4,14 @@ import { mkActuatorTileId, mkSensorTileId } from "@mindcraft-lang/core/app";
 import type { ITileCatalog } from "@mindcraft-lang/core/brain";
 import type { DocsRegistry, DocsTileEntry } from "@mindcraft-lang/docs";
 import { buildDocsRegistry } from "@mindcraft-lang/docs";
-import { tileCategoryOverrides, tileDocContent, tileKindCategories, undocumentedTileIds } from "./manifest";
+import { patternContent } from "./_generated/en";
+import {
+  patternDocs,
+  tileCategoryOverrides,
+  tileDocContent,
+  tileKindCategories,
+  undocumentedTileIds,
+} from "./manifest";
 
 /** Maps compiled user-tile metadata to docs entries keyed by tile id. */
 function buildUserTileDocEntries(metadata: readonly UserTileMetadata[]): DocsTileEntry[] {
@@ -52,17 +59,19 @@ function buildHostTileDocEntries(catalog: ITileCatalog, isDocumented: (tileId: s
 }
 
 /**
- * Builds the docs registry for the micro:bit simulator: the core docs, entries
- * derived from the environment's visible host catalog tiles, and entries for
- * the project's compiled user tiles. Host tiles without markdown content yet
- * register with empty content and render the sidebar's no-documentation
- * fallback.
+ * Builds the docs registry for the micro:bit simulator: the core docs, the
+ * app's pattern pages, entries derived from the environment's visible host
+ * catalog tiles, and entries for the project's compiled user tiles. Host
+ * tiles without markdown content yet register with empty content and render
+ * the sidebar's no-documentation fallback.
  */
 export function createMicrobitDocsRegistry(
   env: MindcraftEnvironment,
   userTileMetadata: readonly UserTileMetadata[] | undefined
 ): DocsRegistry {
-  const registry = buildDocsRegistry();
+  const registry = buildDocsRegistry({
+    appPatterns: { meta: patternDocs, content: patternContent },
+  });
   const hostTileEntries = buildHostTileDocEntries(env.brainServices.edit.tiles, (tileId) => registry.tiles.has(tileId));
   if (hostTileEntries.length > 0) {
     registry.register({ tiles: hostTileEntries });
