@@ -42,12 +42,17 @@ Arcade device) slots in as a new target without changing the family model or the
 
 The audio family is delivered on the three standard surfaces:
 
-- **Tiles.** The `play sound` actuator (with an optional `interrupt` modifier)
-  plus a **`create a sound`** factory tile that opens the sound-effect editor and produces a
-  `Sound` value. The device's built-in named sounds are also selectable on `play sound`.
-- **Device API.** `ctx.microbit.audio` (registry: `microbit-context.md`) gains
-  a play method with an optional **`interrupt`** flag (e.g. `playSound(sound, interrupt = false)`);
-  the `Sound` type is visible to TS user code.
+- **Tiles.** The `play sound` actuator: an **anonymous sound argument** (a built-in sound
+  literal tile, or an authored `Sound`) plus the shared **`immediately`** and
+  **`in background`** modifiers - the display family's pair, interpreted the same way against
+  the speaker lease (see Arbitration). A bare `play sound` plays the target's default built-in
+  sound. A **`create a sound`** factory tile opens the sound-effect editor and produces a
+  `Sound` value.
+- **Device API.** `ctx.microbit.audio` (registry: `microbit-context.md`) has an awaited
+  **`playSound(sound)`** method taking a built-in sound name (a name outside the target's
+  built-in set is a silent no-op that resolves at once); the `Sound` type is visible to TS
+  user code. Busy-speaker behavior is reject-by-default; the modifiers are a tile-surface
+  affordance.
 - **Simulator - the sound-effect editor.** A **custom literal factory** bound to the `Sound`
   type - a simplified, friendlier sfxr: the controls are the `Sound` fields (waveform, base
   frequency, duration, volume, a frequency sweep, a vibrato, and a volume envelope / fade in-out),
@@ -70,13 +75,16 @@ the display.
 - **By default a `play sound` dispatched while a sound is playing is rejected**: the new sound is
   **dropped - not played, the actuator completes immediately, no error** (a missed feedback sound
   must not fault a reactive rule). There is no queue or mixing.
-- **An `interrupt` modifier overrides that**: the new sound **stops the current one and takes the
-  speaker** - the interrupted sound's awaiting rule **resolves** (it continues, not an error), and
-  the new sound plays for its duration. `interrupt` is available on the actuator (the Tiles) and
-  the the Device API.
+- **The `immediately` modifier overrides that**: the play **preempts the speaker lease** - the
+  current sound stops, its awaiting rule's handle **resolves** (it continues, not an error), and
+  the new sound takes the speaker for its duration. This is the display family's `immediately`,
+  applied to the speaker lease.
+- **The `in background` modifier**: the sound keeps its speaker lease (settled on tick time as
+  usual) but the actuator's handle resolves at dispatch, so the issuing rule continues this
+  round without parking on the playback - the display family's `in background`.
 - Determinism: rule execution order within a round is deterministic, so which sound holds the
-  speaker - and whether a competitor is dropped or interrupts - is a deterministic function of
-  round order + the `interrupt` flag.
+  speaker - and whether a competitor is dropped or preempts - is a deterministic function of
+  round order + the modifiers.
 
 No mixing bus or voice pool is built: a single sound effect is monophonic, and concurrent
 playback (the only polyphony case) is handled by the lease, not by summing voices.
@@ -106,17 +114,39 @@ playback (the only polyphony case) is handled by the lease, not by summing voice
 
 ## Member: play sound
 
-- An async actuator placed in `do`. Plays a `Sound` - either an authored sound effect (from a
-  `create a sound` factory tile or a `Sound` variable) or one of the target's built-in named
-  sounds. An optional **`interrupt`** modifier selects the busy behavior (see Arbitration):
-  `play sound <sound>` is reject-by-default; `play sound <sound> interrupt` stops a playing sound
-  and takes the speaker.
+- An async actuator placed in `do`. Plays a sound - a built-in sound literal, an authored sound
+  effect (from a `create a sound` factory tile), or a sound-typed variable - given as the
+  **anonymous sound argument**. A bare `play sound` (no argument) plays the target's default
+  built-in sound; the rule's captured WHEN result is not consulted. The **`immediately`** and
+  **`in background`** modifiers select the lease behavior (see Arbitration).
 - Behavior: when the speaker is free, the sound's encoded segments are handed to the target's
   synthesis engine, the rule awaits the total duration, and the speaker is leased for that time.
-  When busy: default drops the new sound and completes immediately; `interrupt` stops the current
-  sound (its rule resolves) and plays.
+  When busy: default drops the new sound and completes immediately; `immediately` preempts the
+  current sound (its rule resolves) and plays.
 - Completion: `start + sum(segment durations)` vs VM tick time. Negative-duration segments are
   dropped per Durations and looping.
+
+## Built-in sounds as literals
+
+A target's built-in named sounds surface as **literal tiles**, one per sound, mirroring the
+built-in image set:
+
+- Each tile carries a baked value of a registered **`SoundEmoji`** struct holding the sound's
+  **name** - the durable discriminator (literal tile ids derive from it; the set is
+  append-only). The value is a brain-program constant, like a built-in `Image` literal.
+- The nominal `SoundEmoji` type keeps the picker and typecheck exact: the `play sound` sound
+  slot admits sound values, not arbitrary strings.
+- The **target resolves the name** to its encoded sound data at the audio port. A name outside
+  the target's built-in set is a **silent no-op**: nothing plays and the actuator resolves at
+  once.
+- Completion uses the same duration formula: the target pins a **nominal total duration** per
+  built-in - the sum of its segments' encoded durations with any randomized contribution read
+  as zero. The speaker lease runs to `start + nominal total`. A device synth may randomize the
+  actual playback length around the nominal; that deviation is driver-side and not on the
+  parity path (the port stops the synth when it accepts a new play, so a still-ringing tail
+  never blocks the next sound).
+- The simulator's renderer reads the same encoded data with randomized contributions at zero,
+  so the rendered sound is deterministic and matches the nominal duration.
 
 ## The `Sound` type
 
@@ -199,12 +229,18 @@ The concrete fill-in of the target-parameterized pieces for micro:bit-v2:
   bit-crush are not in `SoundEffect` - deliberately out of the simplified editor.)
 - **Built-in sounds:** the 10 CODAL sound emoji - `giggle`, `happy`, `hello`, `mysterious`, `sad`,
   `slide`, `soaring`, `spring`, `twinkle`, `yawn` (each a name mapped to an encoded
-  sound-expression data string; an unrecognized string plays as raw encoded data, so authored
-  sounds use the same path). These are micro:bit-specific (`SoundExpressions`, codal-microbit-v2).
+  sound-expression data string in codal-microbit-v2's `SoundExpressions`; micro:bit-specific).
+  The default built-in (a bare `play sound`) is **`hello`**. On device the port plays an
+  accepted name through `SoundExpressions` (`playAsync`), stopping the synthesizer first; a
+  name outside the set never reaches CODAL (the port no-ops it). Each built-in's **nominal
+  total duration** is pinned in both VMs from its encoded segment durations (the encoding
+  carries per-segment randomization fields; they read as zero for the nominal).
 - **Completion:** resolved on the duration formula; CODAL's message-bus completion events are
   ignored.
 - **`Sound` type:** the registered struct authored by the `create a sound` factory tile + the
   sound-effect editor (the Simulator); type-atom id appended at implementation (append-only).
+- **`SoundEmoji` type:** the registered struct a built-in sound literal carries (`{ name }`);
+  target-side, since the built-in set is target-owned. Type-atom id appended at implementation.
 - **play sound:** action / function ids assigned at implementation (append-only). On device the
   sound expression is sequenced by the synthesizer; in the sim it renders via the Web Audio API
   (an oscillator with the chosen waveform, a gain envelope, and an LFO for vibrato/tremolo).
@@ -214,9 +250,12 @@ The concrete fill-in of the target-parameterized pieces for micro:bit-v2:
 - The wodal microbit module is the oracle; the C++ port mirrors it. Audio output is **not**
   byte-trace-matchable (it is an analog waveform), so parity is over the **play command** issued
   to the audio port - the sound's encoded segments (or built-in name) + durations - not the sound.
-  Trace: an audio-port line for the play plus the async `action ... async` dispatch line.
-  Completion resolves on VM tick time (the duration formula), so the trace is deterministic and
-  reproducible across both VMs.
+  Trace: a speaker-port line for the play (`port speaker play "<name>"` for a built-in; the
+  authored-sound form is pinned with the `Sound` type) plus the async `action ... async`
+  dispatch line. A play the busy speaker drops - or an unknown name - emits no port line (the
+  dispatch line records the attempt), mirroring the display draw. Completion resolves on VM
+  tick time (the duration formula), so the trace is deterministic and reproducible across both
+  VMs.
 - The compiled `Sound` value is a brain-program constant and is on the parity path (both VMs derive
   the same play command from it). The Simulator editor UI that authors it, and the rendered sound,
   are sim-only and not byte-matched.
@@ -231,9 +270,9 @@ The concrete fill-in of the target-parameterized pieces for micro:bit-v2:
    pin: parameter ranges + units, the segment encoding (`List` of structs vs packed), and which
    CODAL variants the named controls expose (e.g. sweep shape options; whether tremolo / warble
    are surfaced as separate controls or folded into vibrato).
-2. **`play sound` argument**: the built-in set as an enum modifier vs always a `Sound` value
-   (built-ins exposed as named `Sound` constants); whether `create a sound` can also start from a
-   built-in as a template.
+2. **`create a sound` from a template**: whether the factory can start from a built-in sound as
+   a template (the built-in argument shape itself is settled: built-ins are `SoundEmoji`
+   literal tiles - see Built-in sounds as literals).
 3. **Sim fidelity**: how faithfully the Web Audio renderer reproduces CODAL's sweeps + effects -
    exact reproduction vs a good-enough approximation (the traced command is the parity anchor
    either way).

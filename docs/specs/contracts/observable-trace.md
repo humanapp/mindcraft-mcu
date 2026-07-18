@@ -56,6 +56,10 @@ change `vm-contract.md`.
 - `port sonar distance <trig> <echo> <cm>` - one ultrasonic distance read; the
   trig/echo pins + the returned cm (the cached, one-cycle-lagged measurement), all
   minimal lowercase hex. Emitted on each read (mirrors the gpio read lines).
+- `port speaker play "<name>"` - one built-in-sound play accepted by the speaker
+  port; `<name>` is the built-in sound's name. A play the busy speaker drops, or a
+  name outside the target's built-in set (a no-op), emits no such line (mirroring
+  the display draw; the `action ... async` dispatch line records the attempt).
 - `port radio send group <g>` followed by one typed-payload token - one radio send
   crossing the port. The payload token is one of: `number <f32Bits>`,
   `double <f32Bits>`, `string "<bytes>"`, `value "<name>" number <f32Bits>`,

@@ -59,7 +59,8 @@ Each peripheral adds a feature spec + a registry row here when it lands; the sou
 the device's CODAL surface:
 
 - onboard: `accelerometer`, `thermometer` (getTemperature), `compass` (heading), display light level,
-  microphone sound level. `radio` (send/receive) has a dedicated spec (`docs/specs/radio.md`): a
+  microphone sound level. The speaker (`audio` - play built-in sounds + authored sound effects)
+  has a dedicated spec (`docs/specs/audio.md`). `radio` (send/receive) has a dedicated spec (`docs/specs/radio.md`): a
   builtin bidirectional service with tiles, the receive side modeled on the buttons poll-derived
   injected-input pattern, and a simulator multi-instance virtual ether over the `SharedMedium` broker.
 - **edge-connector primitives** (Device-API ONLY - no tile counterpart), each with a **dedicated
