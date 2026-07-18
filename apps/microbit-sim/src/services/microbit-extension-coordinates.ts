@@ -3,24 +3,24 @@ export { CORE_LIB_COORDINATE, CORE_LIB_REFERENCE } from "@mindcraft-lang/bridge-
 /**
  * The wodal-general layer's `<owner>/<repo>` coordinate: its identity, its
  * compiler namespace, and the name it is imported and stored under
- * (`@lib/mindcraft-lang/codal`). A present-but-empty placeholder for future
+ * (`@lib/mindcraft-lang/lib-codal`). A present-but-empty placeholder for future
  * wodal-general imported helpers; depends on the core layer.
  */
-export const CODAL_LIB_COORDINATE = "mindcraft-lang/codal";
+export const CODAL_LIB_COORDINATE = "mindcraft-lang/lib-codal";
 
 /** Manifest reference form delivering the wodal-general layer from the app bundle. */
-export const CODAL_LIB_REFERENCE = "embedded:mindcraft-lang/codal";
+export const CODAL_LIB_REFERENCE = "embedded:mindcraft-lang/lib-codal";
 
 /**
  * The micro:bit v2 layer's `<owner>/<repo>` coordinate: its identity, its
  * compiler namespace, and the name it is imported and stored under
- * (`@lib/mindcraft-lang/microbit-v2`). Carries the micro:bit LED-display image
+ * (`@lib/mindcraft-lang/trg-microbit-v2`). Carries the micro:bit LED-display image
  * builders and glyph helpers; depends on the wodal layer.
  */
-export const MICROBIT_V2_LIB_COORDINATE = "mindcraft-lang/microbit-v2";
+export const MICROBIT_V2_LIB_COORDINATE = "mindcraft-lang/trg-microbit-v2";
 
 /** Manifest reference form delivering the micro:bit v2 layer from the app bundle. */
-export const MICROBIT_V2_LIB_REFERENCE = "embedded:mindcraft-lang/microbit-v2";
+export const MICROBIT_V2_LIB_REFERENCE = "embedded:mindcraft-lang/trg-microbit-v2";
 
 /**
  * Coordinate of the Position add-on: an installable capability extension

@@ -7,7 +7,7 @@
     "index.ts"
   ],
   "targets": {
-    "mindcraft-lang/codal": {
+    "mindcraft-lang/lib-codal": {
       "packageVersion": "^0.2.0"
     }
   }

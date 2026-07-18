@@ -24,7 +24,7 @@
     "icons/decoded-stick-position.svg"
   ],
   "targets": {
-    "mindcraft-lang/microbit-v2": {
+    "mindcraft-lang/trg-microbit-v2": {
       "packageVersion": "^0.2.0"
     }
   }

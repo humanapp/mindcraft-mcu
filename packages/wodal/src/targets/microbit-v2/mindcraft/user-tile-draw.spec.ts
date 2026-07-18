@@ -102,7 +102,7 @@ export default Actuator({
  */
 function iconActuatorSource(name: string): string {
   return `import { Actuator, type Context } from "mindcraft";
-import { heart } from "@ext/mindcraft-lang/microbit-v2";
+import { heart } from "@lib/mindcraft-lang/trg-microbit-v2";
 
 const heartIcon = heart();
 
@@ -131,14 +131,14 @@ function wodalAmbientFiles(): readonly AmbientFile[] {
 }
 
 /** Canonical `<owner>/<repo>` coordinate the micro:bit v2 image library is mounted under. */
-const MICROBIT_V2_LIB_COORDINATE = "mindcraft-lang/microbit-v2";
+const MICROBIT_V2_LIB_COORDINATE = "mindcraft-lang/trg-microbit-v2";
 
-/** The micro:bit v2 image library dependency: `@ext/mindcraft-lang/microbit-v2` resolves to its entry module. */
+/** The micro:bit v2 image library dependency: `@lib/mindcraft-lang/trg-microbit-v2` resolves to its entry module. */
 function wodalStdlibDependencies(): readonly ProjectDependency[] {
   return [{ coordinate: MICROBIT_V2_LIB_COORDINATE }];
 }
 
-/** The micro:bit v2 image library content, mounted read-only for `@ext/mindcraft-lang/microbit-v2` resolution. */
+/** The micro:bit v2 image library content, mounted read-only for `@lib/mindcraft-lang/trg-microbit-v2` resolution. */
 function wodalStdlibDependencyMounts(): readonly DependencyMount[] {
   return [
     {
@@ -391,7 +391,7 @@ test("a user-tile can import and call the stdlib image() builder directly", () =
     services: environment.brainServices,
   });
   const source = `import { Actuator, type Context } from "mindcraft";
-import { image, heart } from "@ext/mindcraft-lang/microbit-v2";
+import { image, heart } from "@lib/mindcraft-lang/trg-microbit-v2";
 
 const dot = image(\`
 . . . . .

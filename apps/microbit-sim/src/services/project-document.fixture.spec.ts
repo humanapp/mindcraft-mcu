@@ -22,7 +22,7 @@ const FIXTURE_PATH = fileURLToPath(new URL("./__fixtures__/sample-project.mindcr
 const FIXTURE_EXTENSIONS = {
   "example-org/mindcraft-position": "gh:example-org/mindcraft-position@v1.2.0",
   "example-org/steering": "gh:example-org/steering#main",
-  "mindcraft-lang/codal": "embedded:mindcraft-lang/codal",
+  "mindcraft-lang/lib-codal": "embedded:mindcraft-lang/lib-codal",
 };
 
 /** User-tile source seeded into the sample project's workspace. */

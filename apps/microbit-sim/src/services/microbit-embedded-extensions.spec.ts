@@ -90,7 +90,7 @@ describe("microbit embedded layers -- ambient declarations arrive through the re
     });
 
     const crossLayer = `import { Actuator, type Context, type Image, type Button, type MicroBit } from "mindcraft";
-import { heart } from "@lib/mindcraft-lang/microbit-v2";
+import { heart } from "@lib/mindcraft-lang/trg-microbit-v2";
 
 const heartIcon: Image = heart();
 
@@ -125,15 +125,15 @@ export default Actuator({
     // each layer's `.libraries/<owner>/<repo>/` subtree.
     const controlled = compiler.getCompilerControlledFiles();
     assert.ok(
-      controlled.has(".libraries/mindcraft-lang/core/mindcraft.core.d.ts"),
+      controlled.has(".libraries/mindcraft-lang/lib-core/mindcraft.core.d.ts"),
       "the core ambient materializes under .libraries/"
     );
     assert.ok(
-      controlled.has(".libraries/mindcraft-lang/codal/mindcraft.codal.d.ts"),
+      controlled.has(".libraries/mindcraft-lang/lib-codal/mindcraft.codal.d.ts"),
       "the codal ambient materializes under .libraries/"
     );
     assert.ok(
-      controlled.has(".libraries/mindcraft-lang/microbit-v2/mindcraft.microbit-v2.d.ts"),
+      controlled.has(".libraries/mindcraft-lang/trg-microbit-v2/mindcraft.microbit-v2.d.ts"),
       "the microbit-v2 ambient materializes under .libraries/"
     );
   });

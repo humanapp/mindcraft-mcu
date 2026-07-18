@@ -7,7 +7,7 @@
     "extensions": {
       "example-org/mindcraft-position": "gh:example-org/mindcraft-position@v1.2.0",
       "example-org/steering": "gh:example-org/steering#main",
-      "mindcraft-lang/codal": "embedded:mindcraft-lang/codal"
+      "mindcraft-lang/lib-codal": "embedded:mindcraft-lang/lib-codal"
     },
     "brains": {
       "owFRdwWIbNpAKZo8": {
