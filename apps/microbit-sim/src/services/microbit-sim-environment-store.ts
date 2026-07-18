@@ -22,6 +22,7 @@ import {
 import { BrainDef, coreModule, createMindcraftEnvironment, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
 import { createProfileNumerics } from "@mindcraft-lang/core/runtime";
 import { isCompilerControlledPath, type Mount } from "@mindcraft-lang/ts-compiler";
+import type { PrintTransport } from "@mindcraft-lang/ui";
 import {
   createWodalSharedModule,
   getWodalDeviceProfile,
@@ -211,6 +212,7 @@ export class MicrobitSimEnvironmentStore {
   private _isSwitchingProject = false;
   private readonly _folderSession: FolderHostSession | undefined;
   private readonly _chrome: AppChrome;
+  private readonly _printTransport: PrintTransport | undefined;
 
   private constructor(
     host: AppEnvironmentHost,
@@ -221,6 +223,14 @@ export class MicrobitSimEnvironmentStore {
     this.activeDeviceProfile = activeDeviceProfile;
     this._folderSession = folderSession;
     this._chrome = appChromeForMode(folderSession !== undefined);
+    // In folder host mode the app runs in a webview iframe whose sandbox blocks
+    // window.print(); route printing to the host, which opens the document in
+    // the system browser. In browser mode printing stays the default window.print().
+    this._printTransport = folderSession
+      ? (html) => {
+          void folderSession.openExternalDocument(html);
+        }
+      : undefined;
     this._vfsAssetUrlProvider = createVfsAssetUrlProvider({
       getProjectFileSystem: () => this.host.servedProjectFileSystem,
       getVfsRevision: () => this.host.getVfsRevisionSnapshot(),
@@ -327,6 +337,15 @@ export class MicrobitSimEnvironmentStore {
   /** Visibility of the app's top-level chrome sections for the current mode. */
   get chrome(): AppChrome {
     return this._chrome;
+  }
+
+  /**
+   * Print sink for the current mode: a transport routing the printable
+   * document to the host in folder mode, or undefined in browser mode (where
+   * printing uses `window.print()`).
+   */
+  get printTransport(): PrintTransport | undefined {
+    return this._printTransport;
   }
 
   /**

@@ -39,6 +39,7 @@ export function App() {
       dataTypeNames={microbitDataTypeNames}
       dataTypeIcons={microbitDataTypeIcons}
       showDocsPageLinks={chrome.showDocsPageLinks}
+      printTransport={store.printTransport}
       resolveTileVisual={docsResolveTileVisual}
     >
       <div className="min-h-screen">

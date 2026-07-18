@@ -64,13 +64,15 @@ export function buildMicrobitBrainEditorConfig(
   projectNamespace: string | undefined,
   onTileHelp?: BrainEditorConfig["onTileHelp"],
   docsIntegration?: BrainEditorConfig["docsIntegration"],
-  libraries?: BrainEditorConfig["libraries"]
+  libraries?: BrainEditorConfig["libraries"],
+  printTransport?: BrainEditorConfig["printTransport"]
 ): BrainEditorConfig {
   return {
     projectNamespace,
     onTileHelp,
     docsIntegration,
     libraries,
+    printTransport,
     dataTypeIcons: microbitDataTypeIcons,
     dataTypeNames: microbitDataTypeNames,
     customLiteralTypes: [],

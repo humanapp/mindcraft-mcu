@@ -27,7 +27,8 @@ export function BrainEditor({ brainId, onClose }: BrainEditorProps) {
       store.activeProjectManifest?.id,
       openDocsForTile,
       { isOpen: isDocsOpen, toggle: toggleDocs, close: closeDocs },
-      store.host.installedLibraries
+      store.host.installedLibraries,
+      store.printTransport
     );
   }, [store, docRevision, vfsRevision, openDocsForTile, isDocsOpen, toggleDocs, closeDocs]);
   const [srcBrainDef, setSrcBrainDef] = useState<BrainDef | undefined>(undefined);
