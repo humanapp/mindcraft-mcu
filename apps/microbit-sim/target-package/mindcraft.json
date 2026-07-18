@@ -1,6 +1,6 @@
 {
   "name": "micro:bit v2",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "identity": "mindcraft-lang/trg-microbit-v2",
   "description": "Program the BBC micro:bit (v2) with Mindcraft.",
   "hostApp": {
@@ -91,7 +91,7 @@
       "app/assets/brain/icons/var-factory-number.svg",
       "app/assets/brain/icons/var-factory-text.svg",
       "app/assets/fonts/latinmodern-math.woff2",
-      "app/assets/index-Bf-EQn6y.js",
+      "app/assets/index-DOQWgsH8.js",
       "app/assets/index-Du4d4IDm.css",
       "app/index.html",
       "app/microbit-v2.svg"
