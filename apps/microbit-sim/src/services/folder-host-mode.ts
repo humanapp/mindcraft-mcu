@@ -50,6 +50,8 @@ export interface AppChrome {
   readonly showSettings: boolean;
   /** Standalone extensions button shown when the project menu is absent. */
   readonly showExtensionsButton: boolean;
+  /** Docs panel links to the app's standalone docs pages. */
+  readonly showDocsPageLinks: boolean;
 }
 
 /**
@@ -59,8 +61,20 @@ export interface AppChrome {
  */
 export function appChromeForMode(folderHostMode: boolean): AppChrome {
   return folderHostMode
-    ? { showProjectMenu: false, showBridgePanel: false, showSettings: false, showExtensionsButton: true }
-    : { showProjectMenu: true, showBridgePanel: true, showSettings: true, showExtensionsButton: false };
+    ? {
+        showProjectMenu: false,
+        showBridgePanel: false,
+        showSettings: false,
+        showExtensionsButton: true,
+        showDocsPageLinks: false,
+      }
+    : {
+        showProjectMenu: true,
+        showBridgePanel: true,
+        showSettings: true,
+        showExtensionsButton: false,
+        showDocsPageLinks: true,
+      };
 }
 
 function parseJson(raw: string | undefined): unknown {

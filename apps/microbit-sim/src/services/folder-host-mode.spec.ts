@@ -56,6 +56,7 @@ describe("appChromeForMode", () => {
       showBridgePanel: true,
       showSettings: true,
       showExtensionsButton: false,
+      showDocsPageLinks: true,
     });
   });
 
@@ -65,6 +66,7 @@ describe("appChromeForMode", () => {
       showBridgePanel: false,
       showSettings: false,
       showExtensionsButton: true,
+      showDocsPageLinks: false,
     });
   });
 });

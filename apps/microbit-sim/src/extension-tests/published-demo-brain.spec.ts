@@ -254,7 +254,9 @@ describe("published extension demo brain", () => {
       const unpacked = await runCli(root, "unpack", "demo-bot.mindcraft", project, "--coordinate", DEMO_COORDINATE);
       assert.equal(unpacked.code, 0, unpacked.stderr);
 
-      const published = await runCli(root, "publish", "--dir", project, "--remote", remote, "--yes");
+      // The export's embedded: layer reference publishes as-is, with no
+      // confirmation flag.
+      const published = await runCli(root, "publish", "--dir", project, "--remote", remote);
       assert.equal(published.code, 0, published.stderr);
       assert.match(published.stdout, /published 0\.1\.0 \(tag v0\.1\.0\)/);
 
