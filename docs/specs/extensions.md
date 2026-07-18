@@ -353,7 +353,13 @@ repository carries the whole project: the manifest's `files` entries
 expanded as individual files on disk, and the manifest itself, which
 carries everything else the project comprises -- brains and
 application-specific content travel inside `mindcraft.json`, preserved
-verbatim whether or not the reading application recognizes them.
+verbatim whether or not the reading application recognizes them. The
+published tree also carries a `README.md` for the repository's human
+readers: the author's own when the project provides one, otherwise a
+generated introduction naming the library or target, its coordinate, and
+how to add it. This file is repository furniture and is not part of the
+manifest's `files`, so it is never fetched when the project is installed
+as a dependency.
 Serialized brains reference their own project's tiles and types
 namespace-relatively -- the namespace is a field on the persisted
 reference, absent for the project's own content and present for another
