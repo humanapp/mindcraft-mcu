@@ -10,6 +10,7 @@ declare module "mindcraft" {
     getPixelValue(x: number, y: number): number;
     clear(): void;
     drawImage(image: Image, duration?: number): Promise<void>;
+    scrollText(text: string): Promise<void>;
   }
   export interface MicroBit {
     readonly __brand: unique symbol;

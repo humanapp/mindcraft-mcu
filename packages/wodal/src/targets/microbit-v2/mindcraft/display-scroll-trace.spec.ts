@@ -1,9 +1,9 @@
 /**
  * Hand-constructed synthetic conformance fixtures (display-scroll,
  * display-scroll-drop, managed-string-scroll), not recreatable from a real
- * compile: each rule scrolls and then writes a marker pixel (two actions in one
- * rule, while the brain compiler emits one action per rule), and the user-tile
- * API exposes no scroll.
+ * compile: each rule dispatches the display-scroll tile action and then writes
+ * a marker pixel (two actions in one rule, while the brain compiler emits one
+ * action per rule).
  *
  * Golden observable trace for a hand-authored brain that awaits an asynchronous
  * display scroll. On page entry the single rule scrolls "hi", awaits the scroll

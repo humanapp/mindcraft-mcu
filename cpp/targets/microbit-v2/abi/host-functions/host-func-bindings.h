@@ -10,6 +10,7 @@
 #include "targets/microbit-v2/abi/host-functions/button-is-pressed.h"
 #include "targets/microbit-v2/abi/host-functions/display-clear.h"
 #include "targets/microbit-v2/abi/host-functions/display-draw-image.h"
+#include "targets/microbit-v2/abi/host-functions/display-scroll-text.h"
 #include "targets/microbit-v2/abi/host-functions/display-set-pixel-value.h"
 #include "targets/microbit-v2/abi/host-functions/gpio.h"
 #include "targets/microbit-v2/abi/host-functions/i2c-read.h"
@@ -21,7 +22,7 @@ namespace mindcraft
 {
 
 /** Number of microbit-v2 target host-function bindings the slice registers. */
-inline constexpr uint32_t kMicroBitV2HostFuncBindingCount = 31;
+inline constexpr uint32_t kMicroBitV2HostFuncBindingCount = 32;
 
 /**
  * Builds the microbit-v2 target host-function binding table over `ports`, one
@@ -29,7 +30,8 @@ inline constexpr uint32_t kMicroBitV2HostFuncBindingCount = 31;
  * (the receiver discriminator selects the input); the accelerometer reads each
  * bind a distinct body over the single accelerometer port. The async
  * `DisplayDrawImage` body uses `drawEnv` (its display port, heap, and program);
- * the `I2CWriteBuffer` body uses `i2cWriteEnv` (its I2C port, heap, and
+ * the async `DisplayScrollText` body uses `scrollEnv` (its display port and
+ * heap); the `I2CWriteBuffer` body uses `i2cWriteEnv` (its I2C port, heap, and
  * program); the `I2CReadBuffer` body uses `i2cReadEnv` (its I2C port, heap, and
  * roots); the five `Gpio*` bodies each bind over the GPIO port in `ports`; the
  * `SonarDistance` body binds over the sonar port in `ports`. Pass null for an env
@@ -41,7 +43,8 @@ makeMicroBitV2HostFuncBindings(DevicePorts &ports, MicroBitV2DrawImageEnv *drawE
                                MicroBitV2I2CWriteEnv *i2cWriteEnv = nullptr,
                                MicroBitV2I2CReadEnv *i2cReadEnv = nullptr,
                                MicroBitV2RadioEnv *radioEnv = nullptr,
-                               MicroBitV2RadioReceiveEnv *radioReceiveEnv = nullptr)
+                               MicroBitV2RadioReceiveEnv *radioReceiveEnv = nullptr,
+                               MicroBitV2DisplayScrollEnv *scrollEnv = nullptr)
 {
     return {{
         {static_cast<uint32_t>(MicroBitV2HostFuncId::ButtonIsPressed), &execButtonIsPressed,
@@ -69,6 +72,8 @@ makeMicroBitV2HostFuncBindings(DevicePorts &ports, MicroBitV2DrawImageEnv *drawE
          &execAccelerometerGetGesture, &ports},
         {static_cast<uint32_t>(MicroBitV2HostFuncId::DisplayDrawImage), nullptr, drawEnv,
          &execDrawImageHostFn},
+        {static_cast<uint32_t>(MicroBitV2HostFuncId::DisplayScrollText), nullptr, scrollEnv,
+         &execScrollTextHostFn},
         {static_cast<uint32_t>(MicroBitV2HostFuncId::I2CWriteBuffer), &execI2CWriteBuffer,
          i2cWriteEnv},
         {static_cast<uint32_t>(MicroBitV2HostFuncId::I2CReadBuffer), &execI2CReadBuffer,

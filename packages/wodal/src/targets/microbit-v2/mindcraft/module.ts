@@ -61,6 +61,7 @@ import radioSendActuator from "./actions/radio-send";
 import setRadioGroupActuator from "./actions/set-radio-group";
 import { BUILT_IN_IMAGES, builtInImageStructValue } from "./built-in-images";
 import { getMicroBitContextDevice } from "./context";
+import { SCROLL_DEFAULT_DELAY_MS, scrollDurationMs } from "./display-scroll";
 import { MICROBIT_V2_MODIFIERS } from "./modifiers";
 import { MICROBIT_V2_PARAMETERS } from "./parameters";
 import { MicroBitV2HostFuncId, MicroBitV2TypeAtomId } from "./tile-ids";
@@ -197,6 +198,12 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
           { name: "image", typeId: WODAL_SHARED_TYPE_IDS.Image },
           { name: "duration", typeId: CoreTypeIds.Number, optional: true },
         ]),
+        returnTypeId: CoreTypeIds.Void,
+        isAsync: true,
+      },
+      {
+        name: "scrollText",
+        params: List.from([{ name: "text", typeId: CoreTypeIds.String }]),
         returnTypeId: CoreTypeIds.Void,
         isAsync: true,
       },
@@ -557,6 +564,25 @@ function registerMicroBitDisplayFunctions(api: MindcraftModuleApi): void {
             : toNonNegativeInteger(Math.fround(durationSeconds * 1000));
         // This host function draws a single image, leased as a one-frame sequence.
         display.drawImage([clipped], durationMs, ctx.time, () => handle.resolve(VOID_VALUE));
+      },
+    },
+    callDef: emptyCallDef,
+  });
+
+  api.registerFunction({
+    id: MicroBitV2HostFuncId.DisplayScrollText,
+    name: "MicroBitDisplay.scrollText",
+    isAsync: true,
+    fn: {
+      exec: (ctx: ExecutionContext, args: ReadonlyList<Value>, handle: AsyncHandle) => {
+        const display = getDisplayReceiver(args);
+        if (!display) {
+          handle.resolve(VOID_VALUE);
+          return;
+        }
+        const text = extractStringValue(args.get(1)) ?? "";
+        const durationMs = scrollDurationMs(text.length, SCROLL_DEFAULT_DELAY_MS);
+        display.scrollText(text, durationMs, ctx.time, () => handle.resolve(VOID_VALUE));
       },
     },
     callDef: emptyCallDef,

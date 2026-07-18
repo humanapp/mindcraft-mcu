@@ -121,8 +121,9 @@ int main()
     // and brain exist.
     CoreHostActionEnv coreEnv;
     VmRng rng;
-    // The async scroll body reaches the display and the heap (to read its text
-    // string) through this env; its heap is filled once the heap exists.
+    // The async scroll bodies (the display-text tile action and the scrollText
+    // host function) reach the display and the heap (to read their text string)
+    // through this env; its heap is filled once the heap exists.
     MicroBitV2DisplayScrollEnv scrollEnv{&display, nullptr};
     // The async draw-image body reaches the display, the heap (to read the Image
     // struct and a managed pixel buffer), and the program (to resolve a borrowed
@@ -167,7 +168,7 @@ int main()
         actions[coreBindings.size() + i] = mbBindings[i];
     }
     auto hostFuncs = makeMicroBitV2HostFuncBindings(ports, &drawEnv, &i2cWriteEnv, &i2cReadEnv,
-                                                    &radioEnv, &radioReceiveEnv);
+                                                    &radioEnv, &radioReceiveEnv, &scrollEnv);
     ManagedHeap heap(arena, &image);
     TypeRegistry types(image);
     auto nativeStructs = makeMicroBitV2NativeStructBindings(types);

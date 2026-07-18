@@ -66,12 +66,13 @@ enum class MicroBitV2HostFuncId : uint32_t
     RadioCurrentSeq = 1070,
     GpioAnalogRead = 1071,
     SensorRadioReceiveBuffer = 1072,
+    DisplayScrollText = 1073,
 };
 
 /**
  * Number of declared {@link MicroBitV2HostFuncId} members; ids are dense
  * from 1024.
  */
-inline constexpr uint32_t kMicroBitV2HostFuncIdCount = 49;
+inline constexpr uint32_t kMicroBitV2HostFuncIdCount = 50;
 
 } // namespace mindcraft

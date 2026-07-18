@@ -3513,13 +3513,14 @@ void checkDrawFixture(const std::string& name, int tickCount, float tickMs) {
   CHECK(sink.text() == golden);
 }
 
-// Loads a user-tile draw fixture `name` whose async actuator builds an Image
-// inline and awaits ctx.microbit.display.drawImage (the op-41 async host
-// function). Wires the native-struct receiver resolution and the host-function
-// table (with the draw env) alongside the core host actions (the on-page-entered
-// sensor), runs `tickCount` thinks at `tickMs` each (settling the display lease
-// before each think, as the device's pollDisplay does), and byte-compares the
-// rendered trace against the committed golden.
+// Loads a user-tile display fixture `name` whose async actuator awaits a
+// display host function (the op-41 async ctx.microbit.display.drawImage or
+// ctx.microbit.display.scrollText). Wires the native-struct receiver resolution
+// and the host-function table (with the draw and scroll envs) alongside the
+// core host actions (the on-page-entered sensor), runs `tickCount` thinks at
+// `tickMs` each (settling the display lease before each think, as the device's
+// pollDisplay does), and byte-compares the rendered trace against the committed
+// golden.
 void checkUserTileDrawFixture(const std::string& name, int tickCount, float tickMs) {
   const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/" + name;
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
@@ -3544,10 +3545,12 @@ void checkUserTileDrawFixture(const std::string& name, int tickCount, float tick
   mindcraft::ManagedHeap heap(arena, &image);
   writer.setHeap(&heap);
   mindcraft::MicroBitV2DrawImageEnv drawEnv{&microbit.display, &heap, &image};
+  mindcraft::MicroBitV2DisplayScrollEnv scrollEnv{&microbit.display, &heap};
   auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
   auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
   auto actions = combineActionTable(coreBindings, mbBindings);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports, &drawEnv);
+  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports, &drawEnv, nullptr,
+                                                             nullptr, nullptr, nullptr, &scrollEnv);
   mindcraft::TypeRegistry types(image);
   auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
@@ -4068,6 +4071,14 @@ TEST_CASE("the user-tile-draw-forget fixture byte-matches the golden observable 
 
 TEST_CASE("the user-tile-draw-icon fixture byte-matches the golden observable trace") {
   checkUserTileDrawFixture("user-tile-draw-icon", 2, 100.0f);
+}
+
+TEST_CASE("the user-tile-scroll-awaited fixture byte-matches the golden observable trace") {
+  checkUserTileDrawFixture("user-tile-scroll-awaited", 4, 1100.0f);
+}
+
+TEST_CASE("the user-tile-scroll-glyph fixture byte-matches the golden observable trace") {
+  checkUserTileDrawFixture("user-tile-scroll-glyph", 4, 1100.0f);
 }
 
 TEST_CASE("the user-tile-display-clear fixture byte-matches the golden observable trace") {
