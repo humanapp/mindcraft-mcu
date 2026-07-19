@@ -1,15 +1,19 @@
 import type {
   ExtensionAddInputErrorCode,
+  ExtensionCatalogDocument,
   ExtensionFetchError,
   ExtensionFetchErrorCode,
   ExtensionUpdateApplication,
 } from "@mindcraft-lang/app-host";
+import { parseExtensionReference, validateExtensionCatalogDocument } from "@mindcraft-lang/app-host";
 import {
   type AppEnvironmentHost,
   buildExtensionCatalog,
+  buildExtensionCatalogOffers,
   type EmbeddedExtension,
   type ExtensionActionResult,
   type ExtensionCatalogEntry,
+  type ExtensionCatalogOffer,
   type ExtensionFetchFailures,
   type ExtensionInstallReport,
   type FetchedExtensionContentMap,
@@ -23,6 +27,7 @@ import {
   CORE_LIB_COORDINATE,
   MICROBIT_V2_LIB_COORDINATE,
 } from "./microbit-extension-coordinates";
+import microbitLibraryCatalogDocument from "./microbit-library-catalog.json";
 
 /**
  * The locked platform-layer coordinates of a microbit-sim project: the core,
@@ -69,7 +74,6 @@ export function toExtensionBrowserEntry(entry: ExtensionCatalogEntry): Extension
     version: entry.version,
     ...(entry.thumbnailUrl !== undefined ? { thumbnailUrl: entry.thumbnailUrl } : {}),
     installed: entry.installed,
-    locked: entry.locked,
     docsUrl: githubDocsUrl(entry.coordinate),
     ...(entry.updatable !== undefined ? { updatable: entry.updatable } : {}),
     ...(entry.broken !== undefined ? { broken: entry.broken } : {}),
@@ -101,6 +105,42 @@ export function buildMicrobitExtensionEntries(
     installedContent,
     fetchFailures
   ).map(toExtensionBrowserEntry);
+}
+
+/**
+ * The bundled library catalog offered to microbit-sim projects: the curated set
+ * of published feature libraries, each pinned to an exact `gh:` reference.
+ */
+const microbitLibraryCatalog: ExtensionCatalogDocument = loadMicrobitLibraryCatalog();
+
+/** The curated transport-flip moves the bundled micro:bit catalog declares, keyed by coordinate. */
+export const microbitLibraryCatalogMoves = microbitLibraryCatalog.moves;
+
+/** Validate the bundled catalog document at module load, throwing when the bundled asset is malformed. */
+function loadMicrobitLibraryCatalog(): ExtensionCatalogDocument {
+  const result = validateExtensionCatalogDocument(microbitLibraryCatalogDocument);
+  if (!result.ok) {
+    throw new Error(
+      `Bundled micro:bit library catalog is invalid: ${result.errors.map((error) => error.code).join(", ")}`
+    );
+  }
+  return result.document;
+}
+
+/**
+ * Build the catalog offers for a microbit-sim project: one offer per bundled
+ * catalog entry that is compatible with the project's micro:bit platform stack,
+ * marked installed when the project's extensions map already carries the entry's
+ * coordinate.
+ *
+ * @param extensions - The project's extensions map, keyed by coordinate.
+ * @param embedRecord - The bundled embedded extensions used to derive the platform stack and read embedded offer targets.
+ */
+export function buildMicrobitCatalogOffers(
+  extensions: Readonly<Record<string, string>> | undefined,
+  embedRecord: readonly EmbeddedExtension[]
+): ExtensionCatalogOffer[] {
+  return buildExtensionCatalogOffers(microbitLibraryCatalog, extensions, embedRecord, MICROBIT_LAYER_COORDINATES);
 }
 
 /** The surface update checks drive. */
@@ -220,6 +260,37 @@ export async function installMicrobitExtensionReference(
     action,
     report: await surface.updateProjectExtensions(action.extensions),
   };
+}
+
+/**
+ * Install a catalog offer or pasted add-field input, routing by the reference's
+ * transport. An `embedded:<coordinate>` reference installs the host-bundled
+ * library by writing that embedded reference to the manifest map; any other
+ * input flows through {@link installMicrobitExtensionReference}, which
+ * normalizes and installs a remote (`gh:`) reference. Returns that same outcome
+ * shape.
+ *
+ * @param surface - The active-project normalization and persistence surface.
+ * @param extensions - The project's current extensions map.
+ * @param embedRecord - The bundled embedded extensions an embedded install resolves against.
+ * @param input - The catalog offer reference or pasted add-field text.
+ */
+export async function installMicrobitReference(
+  surface: ExtensionReferenceInstallSurface,
+  extensions: Readonly<Record<string, string>> | undefined,
+  embedRecord: readonly EmbeddedExtension[],
+  input: string
+): Promise<ExtensionReferenceInstallOutcome> {
+  const trimmed = input.trim();
+  const parsed = parseExtensionReference(trimmed);
+  if (parsed?.transport === "embedded") {
+    const action = installEmbeddedExtension(extensions, embedRecord, parsed.coordinate);
+    if (!action.ok) {
+      return { ok: true, reference: trimmed, action };
+    }
+    return { ok: true, reference: trimmed, action, report: await surface.updateProjectExtensions(action.extensions) };
+  }
+  return installMicrobitExtensionReference(surface, extensions, input);
 }
 
 /**

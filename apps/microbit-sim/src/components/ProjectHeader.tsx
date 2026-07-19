@@ -16,10 +16,11 @@ import { toast } from "sonner";
 import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";
 import { microbitEmbeddedExtensions } from "@/services/microbit-embedded-extensions";
 import {
+  buildMicrobitCatalogOffers,
   buildMicrobitExtensionEntries,
   checkMicrobitExtensionUpdates,
   installMicrobitExtension,
-  installMicrobitExtensionReference,
+  installMicrobitReference,
   uninstallMicrobitExtension,
 } from "@/services/microbit-extension-browser";
 import { downloadTextFile } from "@/utils/file-download";
@@ -49,6 +50,8 @@ export function ProjectHeader() {
     null
   );
   const { toggle: toggleDocs, isOpen: isDocsOpen } = useDocsSidebar();
+
+  const catalogOffers = useMemo(() => buildMicrobitCatalogOffers(extensions, microbitEmbeddedExtensions), [extensions]);
 
   const extensionEntries = useMemo(
     () =>
@@ -107,9 +110,10 @@ export function ProjectHeader() {
 
   const handleInstallExtensionReference = (input: string) => {
     void (async () => {
-      const result = await installMicrobitExtensionReference(
+      const result = await installMicrobitReference(
         store.host,
         store.activeProjectManifest?.extensions,
+        microbitEmbeddedExtensions,
         input
       );
       if (!result.ok) {
@@ -340,6 +344,7 @@ export function ProjectHeader() {
         onRetry={handleRetryExtension}
         onCheckAllUpdates={handleCheckAllUpdates}
         onInstallReference={handleInstallExtensionReference}
+        catalogOffers={catalogOffers}
       />
     </header>
   );

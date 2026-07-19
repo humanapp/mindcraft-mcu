@@ -1,0 +1,21 @@
+{
+  "format": "mindcraft.catalog/1",
+  "entries": [
+    {
+      "kind": "library",
+      "coordinate": "mindcraft-lang/lib-microbit-cutebot",
+      "ref": "embedded:mindcraft-lang/lib-microbit-cutebot",
+      "name": "Cutebot",
+      "version": "0.1.2",
+      "description": "ELECFREAKS Cutebot chassis driver for the micro:bit (v2): drive, turn, pivot, stop, and directional steer tiles, plus the two-side line-tracking sensor."
+    },
+    {
+      "kind": "library",
+      "coordinate": "mindcraft-lang/lib-microbit-yahboom-gamepad",
+      "ref": "embedded:mindcraft-lang/lib-microbit-yahboom-gamepad",
+      "name": "Yahboom Gamepad",
+      "version": "0.1.2",
+      "description": "Yahboom GHBit gamepad driver for the micro:bit (v2): the thumb-stick direction and continuous position sensors, the colored-button sensor, the received-packet decoder, and the position-to-packet radio encoding."
+    }
+  ]
+}

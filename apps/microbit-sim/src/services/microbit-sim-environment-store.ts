@@ -34,6 +34,7 @@ import { name as appName } from "../../package.json";
 import { loadBindingToken, saveBindingToken } from "./binding-token-persistence";
 import { type AppChrome, appChromeForMode, connectMicrobitFolderSession, isFolderHostMode } from "./folder-host-mode";
 import { microbitDefaultExtensions, microbitEmbeddedExtensions } from "./microbit-embedded-extensions";
+import { microbitLibraryCatalogMoves } from "./microbit-extension-browser";
 import {
   BRAINS_INDEX_KEY,
   buildMicrobitSimExportDocument,
@@ -287,6 +288,7 @@ export class MicrobitSimEnvironmentStore {
       mounts: microbitMounts,
       embeddedExtensions: microbitEmbeddedExtensions,
       extensionFetchTransport: createJsDelivrExtensionTransport(),
+      catalogMoves: microbitLibraryCatalogMoves,
       ...(folderSession ? {} : { bridgeUrl: appSettings.vscodeBridgeUrl }),
       loadBindingToken,
       saveBindingToken,

@@ -15,6 +15,7 @@ import {
   githubDocsUrl,
   installMicrobitExtension,
   installMicrobitExtensionReference,
+  installMicrobitReference,
   toExtensionBrowserEntry,
   uninstallMicrobitExtension,
 } from "./microbit-extension-browser";
@@ -101,31 +102,38 @@ function capturingPersistence(): ExtensionProjectPersistence & { patches: Array<
   };
 }
 
-describe("buildMicrobitExtensionEntries -- catalog build and adaptation", () => {
-  test("lists the locked micro:bit layer and the compatible add-on, each with a derived docs URL", () => {
+describe("buildMicrobitExtensionEntries -- direct dependencies adapted to browser entries", () => {
+  test("lists nothing for a fresh project: the platform layer is not an entry card", () => {
     const entries = buildMicrobitExtensionEntries(project, embedRecord);
-    assert.deepEqual(entries.map((e) => e.coordinate).sort(), [MICROBIT_V2_LIB_COORDINATE, POSITION].sort());
+    assert.deepEqual(
+      entries.map((e) => e.coordinate),
+      []
+    );
+  });
 
-    const microbit = entries.find((e) => e.coordinate === MICROBIT_V2_LIB_COORDINATE);
-    assert.ok(microbit);
-    assert.equal(microbit.locked, true);
-    assert.equal(microbit.installed, true);
-    assert.equal(microbit.docsUrl, `https://github.com/${MICROBIT_V2_LIB_COORDINATE}`);
+  test("lists a directly-installed add-on as an installed entry with a derived docs URL", () => {
+    const withPosition = { ...project, [POSITION]: `embedded:${POSITION}` };
+    const entries = buildMicrobitExtensionEntries(withPosition, embedRecord);
+    assert.deepEqual(
+      entries.map((e) => e.coordinate),
+      [POSITION]
+    );
 
     const position = entries.find((e) => e.coordinate === POSITION);
     assert.ok(position);
-    assert.equal(position.locked, false);
-    assert.equal(position.installed, false);
+    assert.equal(position.installed, true);
     assert.equal(position.name, "Position");
     assert.equal(position.thumbnailUrl, "data:,pos");
     assert.equal(position.docsUrl, `https://github.com/${POSITION}`);
   });
 
-  test("excludes transitive layer libs and a version-incompatible add-on", () => {
+  test("excludes the platform layer, transitive layer libs, and every non-referenced bundled add-on", () => {
     const entries = buildMicrobitExtensionEntries(project, embedRecord);
     const coordinates = entries.map((e) => e.coordinate);
+    assert.equal(coordinates.includes(MICROBIT_V2_LIB_COORDINATE), false);
     assert.equal(coordinates.includes(CORE_LIB_COORDINATE), false);
     assert.equal(coordinates.includes(CODAL_LIB_COORDINATE), false);
+    assert.equal(coordinates.includes(POSITION), false);
     assert.equal(coordinates.includes(LEGACY), false);
   });
 });
@@ -138,7 +146,6 @@ describe("toExtensionBrowserEntry", () => {
       version: "1.3.0",
       thumbnailUrl: "data:,pos",
       installed: false,
-      locked: false,
     };
     assert.deepEqual(toExtensionBrowserEntry(catalogEntry), {
       coordinate: POSITION,
@@ -146,7 +153,6 @@ describe("toExtensionBrowserEntry", () => {
       version: "1.3.0",
       thumbnailUrl: "data:,pos",
       installed: false,
-      locked: false,
       docsUrl: `https://github.com/${POSITION}`,
     });
   });
@@ -157,7 +163,6 @@ describe("toExtensionBrowserEntry", () => {
       name: "Micro:bit v2",
       version: "0.2.1",
       installed: true,
-      locked: true,
     };
     assert.equal("thumbnailUrl" in toExtensionBrowserEntry(catalogEntry), false);
   });
@@ -305,7 +310,6 @@ describe("toExtensionBrowserEntry -- fetched-dependency annotations", () => {
       name: "Position",
       version: "0.1.0",
       installed: true,
-      locked: false,
       updatable: true,
       broken: { code: "EXTENSION_FETCH_UNREACHABLE", message: "The source is unreachable: refused" },
       identityMismatch: { declaredIdentity: "upstream-org/position-ext" },
@@ -363,5 +367,25 @@ describe("checkMicrobitExtensionUpdates", () => {
     assert.equal(summary.failures.length, 1);
     assert.equal(summary.failures[0].coordinate, "example-org/offline-ext");
     assert.equal(summary.failures[0].error.code, "EXTENSION_FETCH_UNREACHABLE");
+  });
+});
+
+describe("installMicrobitReference -- routes by transport", () => {
+  test("an embedded offer ref installs by writing embedded:<coord> to the map", async () => {
+    const surface = referenceInstallSurface();
+    const result = await installMicrobitReference(surface, project, embedRecord, `embedded:${POSITION}`);
+    assert.ok(result.ok);
+    assert.equal(result.action.ok, true);
+    assert.equal(result.action.code, ExtensionActionResultCode.INSTALLED);
+    assert.equal(result.action.extensions[POSITION], `embedded:${POSITION}`);
+    assert.equal(surface.patches[0]?.[POSITION], `embedded:${POSITION}`);
+  });
+
+  test("a gh reference routes through the remote installer and writes gh:", async () => {
+    const surface = referenceInstallSurface();
+    const result = await installMicrobitReference(surface, project, embedRecord, "gh:example-org/position-ext@v0.1.0");
+    assert.ok(result.ok);
+    assert.equal(result.action.ok, true);
+    assert.equal(surface.patches[0]?.["example-org/position-ext"], "gh:example-org/position-ext@v0.1.0");
   });
 });

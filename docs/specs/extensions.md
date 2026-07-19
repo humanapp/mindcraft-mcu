@@ -79,7 +79,7 @@ specifier, and the install path all follow the coordinate -- there is no
 separate local name to choose or collide. Renaming or moving a source repository is an
 identity migration: fetches under the old name keep working where the hosting
 service redirects them, but adopting the new identity is an explicit,
-consumer-visible step (see catalog redirects below for the managed form).
+consumer-visible step (see catalog moves below for the managed form).
 
 ## Adding extensions: by reference
 
@@ -316,7 +316,7 @@ there is no universal wildcard.
 ## Catalog and approved extensions
 
 A host application may consume a catalog: a curated document listing
-approved extensions with their origins, versions, targets, and redirects.
+approved extensions with their origins, versions, targets, and moves.
 The catalog's delivery is at the application's discretion -- bundled with
 the application, hosted in the application's own repository and fetched at
 runtime, or served -- and its integrity rests on the application's trust
@@ -332,17 +332,73 @@ the maintainers. The catalog is a trust authority:
   moved tags and later pushes. Updating an approved extension is a pin bump,
   and reviewing one is reviewing the difference between the two pinned
   states.
-- **Redirects** handle source reorganization: a redirect is an
-  identity-preserving alias, mapping an old origin to a new one so that
-  existing content keyed under the old origin resolves against content
-  fetched from the new origin, while new installs use the new origin
-  canonically. Redirect chains collapse; cycles are rejected; a redirect may
-  only target an origin within the catalog.
+- **Moves** carry source reorganization -- a transport change, a coordinate
+  rename, or an owner move -- as an identity-level claim only the catalog
+  makes. A project referencing a moved coordinate migrates to the move's
+  target; the mechanism is detailed under Moves below.
 - The catalog owns name governance for what it lists.
 
 The community feed -- user-published projects browsed and downloaded from
 within an application -- shares the catalog document shape, differing by
 curation status.
+
+## Moves
+
+Sources reorganize: an embedded platform library graduates to a fetched
+repository, an author renames or moves a repository, or ownership transfers.
+A **move** is the catalog's managed, consumer-safe expression of such a
+change. Moves live only in the catalog -- the trust authority -- and are never
+read from fetched package content: a package's claim about its own identity is
+unverifiable, so only the curated catalog may assert that one coordinate's
+content now lives at another.
+
+A move maps a **source coordinate** to its new home: the **reference** that now
+pins the moved content and, when the coordinate itself changes, the new
+**coordinate**. A move that changes only the reference is a transport change --
+identity is preserved and only delivery changes; a move that changes the
+coordinate is a rename or owner move, and identity changes with it.
+
+A move is applied by **migration, not by a standing alias**. When a project
+resolves a reference to a moved coordinate, the pipeline rewrites the project
+to adopt the new home: its extensions-list reference becomes the move's target
+and re-resolves as an ordinary transactional install, reported like any other
+update. Serving the old identity indefinitely from new content is deliberately
+not the model -- it would keep stale identities resolvable forever and smear a
+retired name across every surface that keys on identity. A migrated project
+holds only the new identity.
+
+A rename also rewrites identity where the project records it. Saved brains
+reference their dependencies' tiles and types by namespace, so a rename that
+left those references untouched would strand them; the migration rewrites the
+saved-brain reference namespaces in the same step as the manifest, so a
+project's manifest and its brains adopt the new identity together and a project
+is never half-migrated. A transport change leaves the coordinate unchanged and
+touches no saved reference.
+
+A move is followed **at every depth of the dependency closure**, for any
+reference to the moved coordinate -- whether a top-level entry in the project's
+own extensions list or a transitive dependency declared inside another
+extension's content, regardless of which dependent declared it. Following a
+move for a transitive dependency resolves the moved content without recording
+the coordinate in the host manifest (a transitive dependency is not a manifest
+entry) and without altering the declaring extension's immutable content. A
+dependency can therefore migrate independently of its dependents: a library
+moves and every dependent follows, with no dependent republish.
+
+That independence is complete for a transport change and bounded for a rename.
+A rename changes identity, and identity is compiled into a published
+dependent's import specifiers (`@lib/<owner>/<repo>`) as well as its
+saved-brain references; migration rewrites the identities a project owns -- its
+manifest and its own brains -- but cannot rewrite a published extension's
+compiled-in imports. A coordinate imported as a dependency inside a published
+extension is adopted only by republishing that extension; only the
+reorganizations a consumer records for itself migrate on the fly.
+
+Governance is the catalog's: moves are flattened at curation so none targets
+another's source (resolution never walks a chain), each names exactly one
+target, cycles are rejected, a target's pin must exist, and a transport
+change's target coordinate must equal its source. A move may only target
+content the catalog governs.
 
 ## Publishing
 

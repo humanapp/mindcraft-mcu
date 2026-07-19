@@ -3,7 +3,6 @@ import { describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import type { EmbeddedExtension } from "@mindcraft-lang/bridge-app";
 import {
-  buildExtensionCatalog,
   collectMetadataFromCompile,
   findEmbeddedExtensionsMissingStableIds,
   formatEmbeddedExtensionIdViolations,
@@ -142,47 +141,26 @@ describe("microbit add-on extensions -- the gamepad add-on depends on the Positi
   });
 });
 
-describe("microbit add-on extensions -- browser catalog compatibility", () => {
-  test("a microbit project lists the wodal-targeted Position add-on as an installable, unlocked entry", () => {
+describe("microbit add-on extensions -- browser entries list direct dependencies only", () => {
+  test("a fresh microbit project does not list the bundled Position add-on it does not directly reference", () => {
     const entries = buildMicrobitExtensionEntries(microbitProject, microbitEmbedRecord());
 
-    const position = entries.find((e) => e.coordinate === CODAL_POSITION_EXT_COORDINATE);
-    assert.ok(position, "Position is in the microbit project catalog even though it targets the lower wodal layer");
-    assert.equal(position.locked, false, "an add-on is not a locked layer library");
-    assert.equal(position.installed, false, "an add-on is not installed by default");
-    assert.equal(position.name, "Position");
+    // Position is a bundled add-on surfaced through the catalog offers, not an
+    // entry card, until the project directly references it.
+    assert.equal(
+      entries.find((e) => e.coordinate === CODAL_POSITION_EXT_COORDINATE),
+      undefined
+    );
   });
 
-  test("a sim-shaped project's catalog excludes the wodal-targeted Position add-on", () => {
-    const SIM_COORDINATE = "mindcraft-lang/sim";
-    const simLayer: EmbeddedExtension = {
-      canonicalOrigin: SIM_COORDINATE,
-      files: [
-        {
-          path: "mindcraft.json",
-          content: JSON.stringify({
-            name: "Sim",
-            version: "0.1.0",
-            extensions: { [CORE_LIB_COORDINATE]: `embedded:${CORE_LIB_COORDINATE}` },
-          }),
-        },
-      ],
-    };
-    const coreLayer = microbitLayers().find((layer) => layer.canonicalOrigin === CORE_LIB_COORDINATE)!;
-    const embedRecord = [simLayer, coreLayer, codalPositionAddon()];
-    const simLayerCoordinates = new Set([CORE_LIB_COORDINATE, SIM_COORDINATE]);
+  test("a directly-installed Position add-on lists as an installed entry", () => {
+    const project = { ...microbitProject, [CODAL_POSITION_EXT_COORDINATE]: CODAL_POSITION_EXT_REFERENCE };
+    const entries = buildMicrobitExtensionEntries(project, microbitEmbedRecord());
 
-    const catalog = buildExtensionCatalog(
-      { [SIM_COORDINATE]: `embedded:${SIM_COORDINATE}` },
-      embedRecord,
-      simLayerCoordinates
-    );
-    const coordinates = catalog.map((e) => e.coordinate);
-    assert.equal(
-      coordinates.includes(CODAL_POSITION_EXT_COORDINATE),
-      false,
-      "Position is hidden off a stack that lacks the wodal layer"
-    );
+    const position = entries.find((e) => e.coordinate === CODAL_POSITION_EXT_COORDINATE);
+    assert.ok(position, "a directly-referenced add-on is an entry card");
+    assert.equal(position.installed, true);
+    assert.equal(position.name, "Position");
   });
 
   test("the locked layer coordinates cover the three platform layers only", () => {
