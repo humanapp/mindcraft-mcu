@@ -296,7 +296,12 @@ own manifest, and the addition is seen wherever the project is embedded or
 depended on, with no change to the consumer. Code files are compiled and their
 published symbols registered; asset and other payload files, which no import
 graph reaches, are declared here and carried through opaquely. The manifest is
-always part of the project and does not list itself.
+always part of the project and does not list itself. A project need not comprise
+content files when it is a runnable target: such a project provides a
+host-application bundle rather than a library surface, so its `files` list is
+empty (equivalently, omitted) and it reaches consumers only through its manifest
+-- its dependency edges and the platform it delivers. Every other project
+declares the content files it comprises.
 
 Membership is asymmetric. The project's storage is a filesystem and may hold
 more than the build: a file present in storage but absent from the list is

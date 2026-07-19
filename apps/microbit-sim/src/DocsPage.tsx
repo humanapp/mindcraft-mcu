@@ -1,5 +1,5 @@
 import { DocsPage as SharedDocsPage } from "@mindcraft-lang/docs";
-import { useMemo } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import { createMicrobitTileVisualResolver, microbitDataTypeIcons, microbitDataTypeNames } from "./brain/editor-config";
 import { useMicrobitSimEnvironment } from "./contexts/microbit-sim-environment";
 import { createDocsTileCatalog, createMicrobitDocsRegistry } from "./docs/docs-registry";
@@ -7,19 +7,31 @@ import { createDocsTileCatalog, createMicrobitDocsRegistry } from "./docs/docs-r
 /** Full-page documentation view served at `/docs`. */
 export function DocsPage() {
   const store = useMicrobitSimEnvironment();
-  const docsRegistry = useMemo(() => createMicrobitDocsRegistry(store.env, store.host.lastUserTileMetadata), [store]);
+  // Rebuild the registry and library list when user tiles install so a library added while this page
+  // is open surfaces its tiles and docs, and the visual resolver when the VFS revision advances so
+  // tile icons re-resolve against the new asset generation.
+  const docRevision = useSyncExternalStore(store.subscribeToDocRevision, store.getDocRevisionSnapshot);
+  const vfsRevision = useSyncExternalStore(store.subscribeToVfsRevision, store.getVfsRevisionSnapshot);
+  const docsRegistry = useMemo(() => {
+    void docRevision;
+    return createMicrobitDocsRegistry(store.env, store.host.lastUserTileMetadata);
+  }, [docRevision, store]);
+  const docsLibraries = useMemo(() => {
+    void docRevision;
+    return store.host.installedLibraries;
+  }, [docRevision, store]);
   const docsTileCatalog = useMemo(() => createDocsTileCatalog(store.env), [store]);
-  const resolveTileVisual = useMemo(
-    () => createMicrobitTileVisualResolver((url) => store.resolveVfsAssetUrl(url)),
-    [store]
-  );
+  const resolveTileVisual = useMemo(() => {
+    void vfsRevision;
+    return createMicrobitTileVisualResolver((url) => store.resolveVfsAssetUrl(url));
+  }, [store, vfsRevision]);
 
   return (
     <SharedDocsPage
       registry={docsRegistry}
       tileCatalog={docsTileCatalog}
       brainServices={store.env.brainServices}
-      libraries={store.host.installedLibraries}
+      libraries={docsLibraries}
       dataTypeNames={microbitDataTypeNames}
       dataTypeIcons={microbitDataTypeIcons}
       resolveTileVisual={resolveTileVisual}

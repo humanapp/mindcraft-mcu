@@ -7,6 +7,10 @@ import { embeddedExtensionsVitePlugin } from "@mindcraft-lang/bridge-app/node";
 const registrations = [
   {
     coordinate: "mindcraft-lang/trg-microbit-v2",
+    dir: path.resolve(process.cwd(), "./target-package"),
+  },
+  {
+    coordinate: "mindcraft-lang/lib-microbit-v2",
     dir: path.resolve(process.cwd(), "../../packages/wodal/targets/microbit-v2/lib"),
   },
   { coordinate: "mindcraft-lang/lib-codal", dir: path.resolve(process.cwd(), "../../packages/wodal/lib") },

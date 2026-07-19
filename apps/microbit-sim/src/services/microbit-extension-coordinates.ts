@@ -12,15 +12,28 @@ export const CODAL_LIB_COORDINATE = "mindcraft-lang/lib-codal";
 export const CODAL_LIB_REFERENCE = "embedded:mindcraft-lang/lib-codal";
 
 /**
- * The micro:bit v2 layer's `<owner>/<repo>` coordinate: its identity, its
- * compiler namespace, and the name it is imported and stored under
- * (`@lib/mindcraft-lang/trg-microbit-v2`). Carries the micro:bit LED-display image
- * builders and glyph helpers; depends on the wodal layer.
+ * The micro:bit v2 standard-library layer's `<owner>/<repo>` coordinate: its
+ * identity, its compiler namespace, and the name it is imported and stored under
+ * (`@lib/mindcraft-lang/lib-microbit-v2`). Carries the micro:bit LED-display image
+ * builders and glyph helpers; depends on the wodal layer. This is the layer a
+ * user library targets and the compatibility filter reads.
  */
-export const MICROBIT_V2_LIB_COORDINATE = "mindcraft-lang/trg-microbit-v2";
+export const MICROBIT_V2_LIB_COORDINATE = "mindcraft-lang/lib-microbit-v2";
 
-/** Manifest reference form delivering the micro:bit v2 layer from the app bundle. */
-export const MICROBIT_V2_LIB_REFERENCE = "embedded:mindcraft-lang/trg-microbit-v2";
+/** Manifest reference form delivering the micro:bit v2 standard-library layer from the app bundle. */
+export const MICROBIT_V2_LIB_REFERENCE = "embedded:mindcraft-lang/lib-microbit-v2";
+
+/**
+ * The micro:bit v2 editor/hostApp target's `<owner>/<repo>` coordinate: the
+ * runnable platform a project references. It carries no standard-library code;
+ * its manifest declares an embedded dependency on {@link
+ * MICROBIT_V2_LIB_COORDINATE}, so the standard library resolves transitively
+ * into a project's stack.
+ */
+export const MICROBIT_V2_TARGET_COORDINATE = "mindcraft-lang/trg-microbit-v2";
+
+/** Manifest reference form delivering the micro:bit v2 target from the app bundle. */
+export const MICROBIT_V2_TARGET_REFERENCE = "embedded:mindcraft-lang/trg-microbit-v2";
 
 /**
  * Coordinate of the Position add-on: an installable capability extension
@@ -56,11 +69,12 @@ export const YAHBOOM_GAMEPAD_EXT_REFERENCE = "embedded:mindcraft-lang/lib-microb
 
 /**
  * Extensions seeded into every new microbit-sim project's manifest, keyed by
- * coordinate. Seeding the micro:bit v2 layer alone is enough: its bundled
- * `mindcraft.json` declares the edge to the wodal layer, which in turn declares
- * the edge to the core layer, so transitive resolution pulls all three into the
+ * coordinate. Seeding the micro:bit v2 target alone is enough: its bundled
+ * `mindcraft.json` declares the edge to the standard-library layer, which
+ * declares the edge to the wodal layer, which declares the edge to the core
+ * layer, so transitive resolution pulls the target and all three layers into the
  * project.
  */
 export const microbitDefaultExtensions: Readonly<Record<string, string>> = {
-  [MICROBIT_V2_LIB_COORDINATE]: MICROBIT_V2_LIB_REFERENCE,
+  [MICROBIT_V2_TARGET_COORDINATE]: MICROBIT_V2_TARGET_REFERENCE,
 };

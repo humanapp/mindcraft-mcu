@@ -10,6 +10,8 @@ export {
   CORE_LIB_REFERENCE,
   MICROBIT_V2_LIB_COORDINATE,
   MICROBIT_V2_LIB_REFERENCE,
+  MICROBIT_V2_TARGET_COORDINATE,
+  MICROBIT_V2_TARGET_REFERENCE,
   microbitDefaultExtensions,
 } from "./microbit-extension-coordinates";
 
@@ -18,9 +20,9 @@ export {
  * references. Each bundle is assembled at build time from its own extension's
  * `mindcraft.json` `files` list; the app registers coordinates in its Vite
  * config and never enumerates an extension's files. The layer stack is
- * core <- wodal <- microbit-v2; seeding the micro:bit v2 layer alone resolves
- * all three layers transitively through their bundled `mindcraft.json` edges.
- * The Position add-on is an installable-on-demand entry and is not seeded by
- * default.
+ * core <- wodal <- microbit-v2; seeding the micro:bit v2 target alone resolves
+ * the target and all three layers transitively through their bundled
+ * `mindcraft.json` edges. The Position add-on is an installable-on-demand entry
+ * and is not seeded by default.
  */
 export const microbitEmbeddedExtensions: readonly EmbeddedExtension[] = embeddedExtensionBundles;

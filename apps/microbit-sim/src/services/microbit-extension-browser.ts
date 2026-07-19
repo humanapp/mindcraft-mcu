@@ -26,18 +26,33 @@ import {
   CODAL_LIB_COORDINATE,
   CORE_LIB_COORDINATE,
   MICROBIT_V2_LIB_COORDINATE,
+  MICROBIT_V2_TARGET_COORDINATE,
 } from "./microbit-extension-coordinates";
 import microbitLibraryCatalogDocument from "./microbit-library-catalog.json";
 
 /**
- * The locked platform-layer coordinates of a microbit-sim project: the core,
- * wodal-general, and micro:bit v2 layers. These are required layer libraries the
- * user can neither install nor uninstall.
+ * The compatibility-layer coordinates of a microbit-sim project: the core,
+ * wodal-general, and micro:bit v2 standard-library layers. Compatibility
+ * filtering matches a library's declared targets against these layers, and each
+ * carries a semantic version the filter reads. The runnable target is not a
+ * compatibility layer.
  */
 export const MICROBIT_LAYER_COORDINATES: ReadonlySet<string> = new Set([
   CORE_LIB_COORDINATE,
   CODAL_LIB_COORDINATE,
   MICROBIT_V2_LIB_COORDINATE,
+]);
+
+/**
+ * The non-manageable platform coordinates of a microbit-sim project: the
+ * compatibility layers plus the runnable micro:bit v2 target. None of these are
+ * shown as browser entry cards, and none can be uninstalled. The target is
+ * seeded into every project and so is a direct dependency, but it is platform
+ * scaffolding the user manages through the target-update flow, not a library.
+ */
+export const MICROBIT_PLATFORM_COORDINATES: ReadonlySet<string> = new Set([
+  ...MICROBIT_LAYER_COORDINATES,
+  MICROBIT_V2_TARGET_COORDINATE,
 ]);
 
 /** The project-persistence surface the install and uninstall handlers drive. */
@@ -78,9 +93,9 @@ export function toExtensionBrowserEntry(entry: ExtensionCatalogEntry): Extension
 
 /**
  * Build the browser entries for a microbit-sim project: the extension catalog for
- * the project's extensions against the given embed record, the micro:bit layer
- * set, the project's installed fetched-extension content, and the last recorded
- * fetch failures, adapted into browser view models.
+ * the project's extensions against the given embed record, the micro:bit
+ * platform set, the project's installed fetched-extension content, and the last
+ * recorded fetch failures, adapted into browser view models.
  *
  * @param extensions - The project's extensions map, keyed by coordinate.
  * @param embedRecord - The bundled embedded extensions to resolve against.
@@ -96,7 +111,7 @@ export function buildMicrobitExtensionEntries(
   return buildExtensionCatalog(
     extensions,
     embedRecord,
-    MICROBIT_LAYER_COORDINATES,
+    MICROBIT_PLATFORM_COORDINATES,
     installedContent,
     fetchFailures
   ).map(toExtensionBrowserEntry);
@@ -124,9 +139,10 @@ function loadMicrobitLibraryCatalog(): ExtensionCatalogDocument {
 
 /**
  * Build the catalog offers for a microbit-sim project: one offer per bundled
- * catalog entry that is compatible with the project's micro:bit platform stack,
- * marked installed when the project's extensions map already carries the entry's
- * coordinate.
+ * catalog entry that is compatible with the project's micro:bit platform stack
+ * and not already installed. An entry whose coordinate the project's extensions
+ * map already carries is dropped, since it is represented by its manageable
+ * entry card instead.
  *
  * @param extensions - The project's extensions map, keyed by coordinate.
  * @param embedRecord - The bundled embedded extensions used to derive the platform stack and read embedded offer targets.
@@ -290,9 +306,10 @@ export async function installMicrobitReference(
 
 /**
  * Uninstall an extension and, when the extensions map changed, run the removal
- * transaction through the active project. A locked layer library and a
- * coordinate another installed extension depends on are both rejected. Returns
- * the action result and the transaction's report.
+ * transaction through the active project. A non-manageable platform coordinate
+ * (a compatibility layer or the runnable target) and a coordinate another
+ * installed extension depends on are both rejected. Returns the action result
+ * and the transaction's report.
  *
  * @param persistence - The active-project persistence surface.
  * @param extensions - The project's current extensions map.
@@ -307,7 +324,13 @@ export async function uninstallMicrobitExtension(
   embedRecord: readonly EmbeddedExtension[],
   installedContent?: FetchedExtensionContentMap
 ): Promise<ExtensionActionOutcome> {
-  const action = uninstallExtension(extensions, coordinate, MICROBIT_LAYER_COORDINATES, embedRecord, installedContent);
+  const action = uninstallExtension(
+    extensions,
+    coordinate,
+    MICROBIT_PLATFORM_COORDINATES,
+    embedRecord,
+    installedContent
+  );
   if (!action.ok) {
     return { action };
   }
