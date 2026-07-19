@@ -2,7 +2,7 @@
   "name": "Micro:bit v2 Standard Library",
   "version": "0.2.1",
   "description": "Mindcraft library for the BBC micro:bit (v2).",
-  "files": ["index.ts", "image.ts", "../../../ambient/mindcraft.microbit-v2.d.ts"],
+  "files": ["index.ts", "image.ts", "mindcraft.microbit-v2.d.ts"],
   "ambient": ["mindcraft.microbit-v2.d.ts"],
   "extensions": {
     "mindcraft-lang/lib-codal": "embedded:mindcraft-lang/lib-codal"

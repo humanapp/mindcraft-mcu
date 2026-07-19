@@ -9,8 +9,5 @@
     "types": []
   },
   "include": ["*.ts"],
-  "files": [
-    "../../../external/mindcraft-lang/packages/core/ambient/mindcraft.core.d.ts",
-    "../ambient/mindcraft.codal.d.ts"
-  ]
+  "files": ["../../../external/mindcraft-lang/packages/core/lib/mindcraft.core.d.ts"]
 }

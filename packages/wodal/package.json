@@ -24,7 +24,6 @@
   ],
   "files": [
     "dist",
-    "ambient",
     "lib",
     "targets",
     "README.md"
@@ -51,11 +50,11 @@
       "browser": "./dist/targets/microbit-v2/index.js",
       "import": "./dist/targets/microbit-v2/index.js"
     },
-    "./ambient/mindcraft.codal.d.ts": {
-      "default": "./ambient/mindcraft.codal.d.ts"
+    "./lib/mindcraft.codal.d.ts": {
+      "default": "./lib/mindcraft.codal.d.ts"
     },
-    "./ambient/mindcraft.microbit-v2.d.ts": {
-      "default": "./ambient/mindcraft.microbit-v2.d.ts"
+    "./targets/microbit-v2/lib/mindcraft.microbit-v2.d.ts": {
+      "default": "./targets/microbit-v2/lib/mindcraft.microbit-v2.d.ts"
     },
     "./lib/mindcraft.json": {
       "default": "./lib/mindcraft.json"
@@ -88,7 +87,7 @@
     "lint": "biome lint ./src --write",
     "check": "biome check ./src --write",
     "pretypecheck": "npm run build:deps",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.spec.json && tsc --noEmit -p ambient/tsconfig.json && tsc --noEmit -p scripts/tsconfig.json && tsc --noEmit -p lib/tsconfig.json && tsc --noEmit -p targets/microbit-v2/lib/tsconfig.json",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.spec.json && tsc --noEmit -p scripts/tsconfig.json && tsc --noEmit -p lib/tsconfig.json && tsc --noEmit -p targets/microbit-v2/lib/tsconfig.json",
     "format": "biome format ./src --write",
     "pretest": "npm run build:deps && npm run build:prod",
     "test": "tsx --tsconfig tsconfig.spec.json --test $(find src -name '*.spec.ts')",

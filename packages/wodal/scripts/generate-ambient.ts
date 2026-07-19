@@ -7,10 +7,10 @@ import { buildLayeredPlatformAmbients } from "./ambient-layers";
 
 /**
  * One platform target whose target-specific ambient declarations are generated.
- * The emitted file is `ambient/mindcraft.<name>.d.ts`.
+ * The emitted file is `targets/<name>/lib/mindcraft.<name>.d.ts`.
  */
 interface AmbientTarget {
-  /** Target slug; drives the emitted file name `ambient/mindcraft.<name>.d.ts`. */
+  /** Target slug; drives the emitted file name `targets/<name>/lib/mindcraft.<name>.d.ts`. */
   name: string;
   /** Builds the target's Mindcraft environment, whose type registry drives the ambient. */
   createEnvironment: () => MindcraftEnvironment;
@@ -19,14 +19,14 @@ interface AmbientTarget {
 /**
  * Platform targets whose ambient declarations are generated. Add a target by
  * appending an entry; its target-specific ambient is written to
- * `ambient/mindcraft.<name>.d.ts` on the next generation run.
+ * `targets/<name>/lib/mindcraft.<name>.d.ts` on the next generation run.
  */
 const TARGETS: readonly AmbientTarget[] = [
   { name: "microbit-v2", createEnvironment: createMicroBitV2Environment },
 ];
 
 const packageDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const codalAmbientPath = resolve(packageDir, "ambient/mindcraft.codal.d.ts");
+const codalAmbientPath = resolve(packageDir, "lib/mindcraft.codal.d.ts");
 
 const coreEnvironment = createMindcraftEnvironment({ modules: [coreModule()] });
 const coreTypes = coreEnvironment.brainServices.runtime.types;
@@ -43,7 +43,7 @@ writeFileSync(codalAmbientPath, layeredByTarget[0].layers.wodal, "utf8");
 console.log(`ambient: generated ${codalAmbientPath}`);
 
 for (const { name, layers } of layeredByTarget) {
-  const targetAmbientPath = resolve(packageDir, `ambient/mindcraft.${name}.d.ts`);
+  const targetAmbientPath = resolve(packageDir, `targets/${name}/lib/mindcraft.${name}.d.ts`);
   writeFileSync(targetAmbientPath, layers.target, "utf8");
   console.log(`ambient: generated ${targetAmbientPath}`);
 }

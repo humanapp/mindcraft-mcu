@@ -26,9 +26,9 @@ test("checked-in wodal and target ambient declarations match generated declarati
     layers: buildLayeredPlatformAmbients(coreTypes, target.createEnvironment().brainServices.runtime.types),
   }));
 
-  assert.equal(readText("../../../../ambient/mindcraft.codal.d.ts"), layeredByTarget[0].layers.wodal);
+  assert.equal(readText("../../../../lib/mindcraft.codal.d.ts"), layeredByTarget[0].layers.wodal);
 
   for (const { name, layers } of layeredByTarget) {
-    assert.equal(readText(`../../../../ambient/mindcraft.${name}.d.ts`), layers.target);
+    assert.equal(readText(`../../../../targets/${name}/lib/mindcraft.${name}.d.ts`), layers.target);
   }
 });

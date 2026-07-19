@@ -20,7 +20,7 @@ function readText(relativePath: string): string {
   return readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), "utf8");
 }
 
-const CORE_AMBIENT = readText("../../../../external/mindcraft-lang/packages/core/ambient/mindcraft.core.d.ts");
+const CORE_AMBIENT = readText("../../../../external/mindcraft-lang/packages/core/lib/mindcraft.core.d.ts");
 
 const BEAM_COORDINATE = "mindcraft-lang/beam-lib";
 const BEAM_REFERENCE = `embedded:${BEAM_COORDINATE}`;

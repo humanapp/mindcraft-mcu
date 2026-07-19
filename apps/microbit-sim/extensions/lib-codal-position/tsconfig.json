@@ -10,7 +10,7 @@
   },
   "include": ["*.ts"],
   "files": [
-    "../../../../external/mindcraft-lang/packages/core/ambient/mindcraft.core.d.ts",
-    "../../../../packages/wodal/ambient/mindcraft.codal.d.ts"
+    "../../../../external/mindcraft-lang/packages/core/lib/mindcraft.core.d.ts",
+    "../../../../packages/wodal/lib/mindcraft.codal.d.ts"
   ]
 }

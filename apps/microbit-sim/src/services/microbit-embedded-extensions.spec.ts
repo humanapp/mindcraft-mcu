@@ -157,7 +157,10 @@ describe("microbit embedded layers -- the manifest-driven bundle matches the han
     const handAssembled = new Map([
       ["index.ts", read("../../../../packages/wodal/targets/microbit-v2/lib/index.ts")],
       ["image.ts", read("../../../../packages/wodal/targets/microbit-v2/lib/image.ts")],
-      ["mindcraft.microbit-v2.d.ts", read("../../../../packages/wodal/ambient/mindcraft.microbit-v2.d.ts")],
+      [
+        "mindcraft.microbit-v2.d.ts",
+        read("../../../../packages/wodal/targets/microbit-v2/lib/mindcraft.microbit-v2.d.ts"),
+      ],
       ["mindcraft.json", read("../../../../packages/wodal/targets/microbit-v2/lib/mindcraft.json")],
     ]);
     const builtByPath = new Map(built.files.map((f) => [f.path, f.content]));

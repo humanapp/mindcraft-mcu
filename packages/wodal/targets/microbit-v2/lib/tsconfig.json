@@ -10,8 +10,7 @@
   },
   "include": ["*.ts"],
   "files": [
-    "../../../../../external/mindcraft-lang/packages/core/ambient/mindcraft.core.d.ts",
-    "../../../ambient/mindcraft.codal.d.ts",
-    "../../../ambient/mindcraft.microbit-v2.d.ts"
+    "../../../../../external/mindcraft-lang/packages/core/lib/mindcraft.core.d.ts",
+    "../../../lib/mindcraft.codal.d.ts"
   ]
 }
