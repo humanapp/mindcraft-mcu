@@ -12,7 +12,6 @@ import {
   checkMicrobitExtensionUpdates,
   type ExtensionProjectPersistence,
   type ExtensionReferenceInstallSurface,
-  githubDocsUrl,
   installMicrobitExtension,
   installMicrobitExtensionReference,
   installMicrobitReference,
@@ -111,7 +110,7 @@ describe("buildMicrobitExtensionEntries -- direct dependencies adapted to browse
     );
   });
 
-  test("lists a directly-installed add-on as an installed entry with a derived docs URL", () => {
+  test("lists a directly-installed embedded add-on as an installed entry with no repository URL", () => {
     const withPosition = { ...project, [POSITION]: `embedded:${POSITION}` };
     const entries = buildMicrobitExtensionEntries(withPosition, embedRecord);
     assert.deepEqual(
@@ -124,7 +123,8 @@ describe("buildMicrobitExtensionEntries -- direct dependencies adapted to browse
     assert.equal(position.installed, true);
     assert.equal(position.name, "Position");
     assert.equal(position.thumbnailUrl, "data:,pos");
-    assert.equal(position.docsUrl, `https://github.com/${POSITION}`);
+    // An embedded add-on's coordinate is not a GitHub repository, so it carries no repoUrl.
+    assert.equal("repoUrl" in position, false);
   });
 
   test("excludes the platform layer, transitive layer libs, and every non-referenced bundled add-on", () => {
@@ -139,13 +139,14 @@ describe("buildMicrobitExtensionEntries -- direct dependencies adapted to browse
 });
 
 describe("toExtensionBrowserEntry", () => {
-  test("derives the docs URL and passes through a declared thumbnail", () => {
+  test("carries a repository URL and thumbnail through when the catalog entry declares them", () => {
     const catalogEntry: ExtensionCatalogEntry = {
       coordinate: POSITION,
       name: "Position",
       version: "1.3.0",
       thumbnailUrl: "data:,pos",
       installed: false,
+      repoUrl: `https://github.com/${POSITION}`,
     };
     assert.deepEqual(toExtensionBrowserEntry(catalogEntry), {
       coordinate: POSITION,
@@ -153,8 +154,18 @@ describe("toExtensionBrowserEntry", () => {
       version: "1.3.0",
       thumbnailUrl: "data:,pos",
       installed: false,
-      docsUrl: `https://github.com/${POSITION}`,
+      repoUrl: `https://github.com/${POSITION}`,
     });
+  });
+
+  test("omits the repository URL when the catalog entry declares none", () => {
+    const catalogEntry: ExtensionCatalogEntry = {
+      coordinate: POSITION,
+      name: "Position",
+      version: "1.3.0",
+      installed: false,
+    };
+    assert.equal("repoUrl" in toExtensionBrowserEntry(catalogEntry), false);
   });
 
   test("omits the thumbnail when the catalog entry declares none", () => {
@@ -165,10 +176,6 @@ describe("toExtensionBrowserEntry", () => {
       installed: true,
     };
     assert.equal("thumbnailUrl" in toExtensionBrowserEntry(catalogEntry), false);
-  });
-
-  test("githubDocsUrl builds the repository URL", () => {
-    assert.equal(githubDocsUrl(POSITION), "https://github.com/mindcraft-lang/microbit-position");
   });
 });
 
