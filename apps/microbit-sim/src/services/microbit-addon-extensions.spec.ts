@@ -94,12 +94,17 @@ describe("microbit add-on extensions -- the gamepad add-on depends on the Positi
 
     // The gamepad's manifest edge to the Position add-on resolves transitively,
     // even though Position targets the lower wodal layer and the gamepad targets
-    // micro:bit v2 -- the first cross-layer add-on -> add-on dependency.
+    // micro:bit v2 -- the first cross-layer add-on -> add-on dependency. The
+    // gamepad's own target edge to the micro:bit v2 layer joins its dependencies
+    // alongside that extension edge.
     const origins = resolved.dependencyMounts.map((m) => m.namespace);
     assert.ok(origins.includes(YAHBOOM_GAMEPAD_EXT_COORDINATE), "the gamepad is in the closure");
     assert.ok(origins.includes(CODAL_POSITION_EXT_COORDINATE), "the Position add-on is pulled in as the gamepad's dep");
     const gamepadMount = resolved.dependencyMounts.find((m) => m.namespace === YAHBOOM_GAMEPAD_EXT_COORDINATE)!;
-    assert.deepEqual(gamepadMount.dependencies, [{ coordinate: CODAL_POSITION_EXT_COORDINATE }]);
+    assert.deepEqual(gamepadMount.dependencies, [
+      { coordinate: CODAL_POSITION_EXT_COORDINATE },
+      { coordinate: MICROBIT_V2_LIB_COORDINATE },
+    ]);
 
     const environment = createMicroBitV2Environment();
     const mounts: readonly Mount[] = [];

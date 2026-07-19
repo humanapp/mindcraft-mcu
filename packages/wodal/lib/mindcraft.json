@@ -4,7 +4,9 @@
   "description": "Mindcraft library for all WODAL- and CODAL-based targets.",
   "files": ["index.ts", "mindcraft.codal.d.ts"],
   "ambient": ["mindcraft.codal.d.ts"],
-  "extensions": {
-    "mindcraft-lang/lib-core": "embedded:mindcraft-lang/lib-core"
+  "targets": {
+    "mindcraft-lang/lib-core": {
+      "packageVersion": "^0.2.0"
+    }
   }
 }

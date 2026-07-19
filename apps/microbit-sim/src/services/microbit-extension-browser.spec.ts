@@ -138,6 +138,38 @@ describe("buildMicrobitExtensionEntries -- direct dependencies adapted to browse
   });
 });
 
+describe("buildMicrobitExtensionEntries -- a platform reached through target edges stays non-manageable", () => {
+  // The layers below the referenced platform chain through `targets`, as the
+  // migrated platform manifests do: micro:bit v2 --targets--> wodal --targets--> core.
+  const microbitLibViaTargets = ext(MICROBIT_V2_LIB_COORDINATE, {
+    name: "Micro:bit v2",
+    version: "0.2.1",
+    targets: { [CODAL_LIB_COORDINATE]: { packageVersion: "^0.2.0" } },
+  });
+  const wodalLibViaTargets = ext(CODAL_LIB_COORDINATE, {
+    name: "Wodal",
+    version: "0.2.1",
+    targets: { [CORE_LIB_COORDINATE]: { packageVersion: "^0.2.0" } },
+  });
+  const targetsEmbedRecord: readonly EmbeddedExtension[] = [microbitLibViaTargets, wodalLibViaTargets, coreLib];
+
+  test("the layers materialized through target edges are not entry cards", () => {
+    const entries = buildMicrobitExtensionEntries(project, targetsEmbedRecord);
+    const coordinates = entries.map((e) => e.coordinate);
+    assert.equal(coordinates.includes(MICROBIT_V2_LIB_COORDINATE), false);
+    assert.equal(coordinates.includes(CODAL_LIB_COORDINATE), false);
+    assert.equal(coordinates.includes(CORE_LIB_COORDINATE), false);
+  });
+
+  test("a layer reached through a target edge cannot be uninstalled", async () => {
+    const persistence = capturingPersistence();
+    const result = await uninstallMicrobitExtension(persistence, project, CODAL_LIB_COORDINATE, targetsEmbedRecord);
+    assert.equal(result.action.ok, false);
+    assert.equal(result.action.code, ExtensionActionResultCode.LOCKED);
+    assert.equal(persistence.patches.length, 0);
+  });
+});
+
 describe("toExtensionBrowserEntry", () => {
   test("carries a repository URL and thumbnail through when the catalog entry declares them", () => {
     const catalogEntry: ExtensionCatalogEntry = {
