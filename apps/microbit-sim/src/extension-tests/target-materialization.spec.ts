@@ -48,12 +48,31 @@ const PROBE_SOURCE =
   'import { NumberType, StructType } from "mindcraft";\n' +
   'export const Point = StructType({ name: "Point", fields: { x: NumberType, y: NumberType } });\n';
 
-function probeSnapshot(): WorkspaceSnapshot {
-  return new Map([["tile.ts", { kind: "file", content: PROBE_SOURCE, etag: "e0", isReadonly: false }]]);
+/**
+ * A user-content actuator that `@lib`-imports the micro:bit standard-library
+ * layer; it compiles only when that layer is one of the project's own
+ * importable dependencies.
+ */
+const MY_ACTUATOR_SOURCE = `import { Actuator } from "mindcraft";
+import { heart } from "@lib/${MICROBIT_V2_LIB_COORDINATE}"
+const icon = heart();
+export default Actuator({ id: "fbkHu4V3tO8EQ8Bd", name: "my actuator", onExecute(ctx, params) {}, });
+`;
+
+function probeSnapshot(extraFiles: Readonly<Record<string, string>> = {}): WorkspaceSnapshot {
+  return new Map(
+    Object.entries({ "tile.ts": PROBE_SOURCE, ...extraFiles }).map(([path, content]) => [
+      path,
+      { kind: "file", content, etag: "e0", isReadonly: false },
+    ])
+  );
 }
 
-/** Compile the probe source against a resolved closure, returning the compile result and the controlled file set. */
-function compileProbe(resolved: ResolvedExtensions): {
+/** Compile the probe sources against a resolved closure, returning the compile result and the controlled file set. */
+function compileProbe(
+  resolved: ResolvedExtensions,
+  extraFiles: Readonly<Record<string, string>> = {}
+): {
   tsErrorCount: number;
   controlledFiles: ReadonlyMap<string, string>;
 } {
@@ -66,7 +85,7 @@ function compileProbe(resolved: ResolvedExtensions): {
     dependencies: resolved.dependencies,
     dependencyMounts: resolved.dependencyMounts,
   });
-  compiler.replaceWorkspace(probeSnapshot());
+  compiler.replaceWorkspace(probeSnapshot(extraFiles));
   const result = compiler.compile();
   return { tsErrorCount: result.projectResult.tsErrors.size, controlledFiles: compiler.getCompilerControlledFiles() };
 }
@@ -108,9 +127,18 @@ describe("target-driven materialization -- a targets-only project resolves its p
     );
     const origins = resolved.origins.map((origin) => origin.origin).sort();
     assert.deepEqual(origins, [CODAL_LIB_COORDINATE, CORE_LIB_COORDINATE, MICROBIT_V2_LIB_COORDINATE]);
+    // The target-recursed lower layers join the project's own importable
+    // dependencies alongside the listed root.
+    assert.deepEqual(resolved.dependencies.map((dependency) => dependency.coordinate).sort(), [
+      CODAL_LIB_COORDINATE,
+      CORE_LIB_COORDINATE,
+      MICROBIT_V2_LIB_COORDINATE,
+    ]);
     assert.deepEqual(resolved.warnings, []);
 
-    const { tsErrorCount, controlledFiles } = compileProbe(resolved);
+    const { tsErrorCount, controlledFiles } = compileProbe(resolved, {
+      "my-actuator/my-actuator.ts": MY_ACTUATOR_SOURCE,
+    });
     assert.equal(controlledFiles.has(CORE_AMBIENT_CONTROLLED_PATH), true);
     assert.equal(tsErrorCount, 0);
   });

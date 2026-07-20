@@ -1,10 +1,11 @@
 # Authentication and access
 
-The Assistant harness is a metered, auth-gated service. This spec fixes how a
-client establishes an authenticated session, how the service decides what that
-session may do, and why those answers hold uniformly across every environment a
-client runs in. It is the identity and access contract that the harness service
-(see `docs/specs/assistant.md`, "The open/closed line") is built on.
+Mindcraft's hosted services share one authentication and access contract; the
+Assistant harness, a metered and auth-gated service, is its first consumer.
+This spec fixes how a client establishes an authenticated session, how the
+service decides what that session may do, and why those answers hold uniformly
+across every environment a client runs in. The harness service builds on it
+(see `docs/specs/assistant.md`, "The open/closed line").
 
 The editor and the bridge are open source. This spec assumes a modified,
 hostile client and never relies on client good behavior for any security
@@ -65,7 +66,7 @@ environment.
 
 - On the web, a server web tier (a backend-for-frontend) completes the
   authorization-code exchange and holds the refresh credential. The browser
-  receives only an `httpOnly`, `Secure`, `SameSite` session cookie.
+  receives only an `httpOnly`, `Secure`, `SameSite=Lax` session cookie.
 - In the vscode extension, the extension host performs the authorization flow
   and holds tokens in the editor's secret storage. The webview never holds them.
 
@@ -73,18 +74,33 @@ The script context only ever holds ephemeral, short-lived material. The
 authorization-code flow uses PKCE, so no client secret is required and an
 intercepted code cannot be redeemed by another party.
 
+A cookie-authenticated endpoint is a request-forgery surface. Every
+state-changing backend-for-frontend endpoint, including ticket minting, carries
+cross-site request-forgery defense: the `SameSite=Lax` cookie attribute plus an
+origin check or anti-forgery token on the request. This is origin checking in
+its ordinary defensive role -- rejecting forged cross-site requests -- and is
+distinct from the access boundary, which origin never decides.
+
 ## The WebSocket ticket
 
 A browser cannot set authorization headers on a WebSocket handshake, and a
-credential in a URL is not acceptable. Session establishment therefore separates
+credential never appears in a URL. Session establishment therefore separates
 authentication from connection:
 
-1. The client makes an authenticated request over HTTP -- carrying the session
-   cookie on the web, or an extension-held token in the webview.
+1. An authenticated HTTP request asks for a connection ticket. On the web, the
+   page calls the backend-for-frontend with its session cookie. In the vscode
+   extension, the extension host makes the call with the token it holds and
+   hands the resulting ticket -- and only the ticket -- to the webview.
 2. The service issues a short-lived, single-use connection ticket bound to the
    principal, entitlements, and tier.
-3. The client opens the WebSocket with that ticket, and the service binds the
-   live session.
+3. The client opens the WebSocket bare and presents the ticket as the first
+   frame; the URL carries no credential. The service binds the live session on
+   a valid first frame and closes the socket if one does not arrive within a
+   short window.
+
+A dropped connection is re-established the same way: tickets are single-use, so
+every reconnect mints a fresh ticket through the authenticated HTTP path.
+Tickets are never cached for reuse.
 
 Ticket acquisition differs by environment; ticket presentation on the socket is
 uniform. This is the layer at which all environments converge.
@@ -109,8 +125,11 @@ redirect URIs:
   or the editor's redirect broker); the extension host receives the code, not
   the webview.
 
-Origin and referer headers, a client secret, and endpoint obscurity are not the
-boundary and are not relied upon. The registered redirect allowlist is.
+A client secret and endpoint obscurity are not the boundary and are not relied
+upon; the registered redirect allowlist is. Origin and referer headers are
+likewise never the access boundary. They keep their ordinary defensive role in
+request-forgery protection on the web tier, which is a different job: rejecting
+forged cross-site requests, not deciding who may log in.
 
 ## Tokens are audience-scoped and short-lived
 
@@ -155,11 +174,15 @@ deployment choice; the hub-plus-federated-sources shape is the contract.
 
 ## Data minimization
 
-The service stores the least identifying data that function requires: a stable
-opaque subject identifier from the identity provider and a self-chosen display
-name. Personal data not needed for function is neither requested nor stored.
-Minimizing held personal data is a standing constraint, not an optimization: it
-bounds the data-subject obligations the service can incur.
+The service stores the least identifying data its live functions require. The
+invariant is the principle, not a fixed list: each identity channel stores the
+floor its function demands. For the home channel that floor is a stable opaque
+subject identifier from the identity provider and a self-chosen display name.
+The institutional channel's rostering necessarily adds relations such as class
+membership, and stores no more than the rostering function requires. Personal
+data not needed for function is neither requested nor stored. Minimizing held
+personal data is a standing constraint, not an optimization: it bounds the
+data-subject obligations the service can incur.
 
 ## The phishing residual
 
@@ -178,9 +201,10 @@ little or no password surface:
 The audience is children, and these constraints are invariants any deployment
 must satisfy, independent of any rollout order:
 
-- Verifiable parental consent is obtained before an under-age child uses the
-  service. A parental payment transaction through a notifying payment system is
-  an accepted method, so consent can be satisfied by the subscription flow.
+- Consent from the holder of parental responsibility is obtained before an
+  under-age child uses the service. Which consent methods qualify is
+  jurisdiction-specific and is a deployment concern; the invariant is that a
+  qualifying method is in place wherever the service operates.
 - Held personal data is minimized as above.
 - A data-processing agreement governs the identity provider and any processor
   that handles principal data.

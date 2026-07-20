@@ -22,7 +22,8 @@ import {
   CORE_LIB_COORDINATE,
   CUTEBOT_EXT_COORDINATE,
   MICROBIT_V2_LIB_COORDINATE,
-  MICROBIT_V2_LIB_REFERENCE,
+  MICROBIT_V2_TARGET_COORDINATE,
+  microbitDefaultExtensions,
   YAHBOOM_GAMEPAD_EXT_COORDINATE,
 } from "../services/microbit-extension-coordinates";
 import { codalPositionPublishedFetched } from "./codal-position-fixture";
@@ -43,14 +44,16 @@ export const POSITION_IDENTITY = qualifiedClassName(CODAL_POSITION_EXT_COORDINAT
 export { CUTEBOT_EXT_COORDINATE, YAHBOOM_GAMEPAD_EXT_COORDINATE } from "../services/microbit-extension-coordinates";
 
 /**
- * The microbit-sim embed record: the three platform layers plus the Cutebot and
- * Yahboom gamepad add-ons, each assembled from its own `mindcraft.json` `files`
- * list through the shared loader -- the single content-assembly path the app's
- * Vite provider also uses. The Position library is not bundled; it resolves
- * through the catalog move to its published `gh:` content served by the fixture.
+ * The microbit-sim embed record: the runnable target, the three platform
+ * layers, and the Cutebot and Yahboom gamepad add-ons, each assembled from its
+ * own `mindcraft.json` `files` list through the shared loader -- the single
+ * content-assembly path the app's Vite provider also uses. The Position library
+ * is not bundled; it resolves through the catalog move to its published `gh:`
+ * content served by the fixture.
  */
 function baseEmbedRecord(): EmbeddedExtension[] {
   return [
+    buildEmbeddedExtensionFromDir(extensionDir("../../target-package"), MICROBIT_V2_TARGET_COORDINATE),
     buildEmbeddedExtensionFromDir(
       extensionDir("../../../../packages/wodal/targets/microbit-v2/lib"),
       MICROBIT_V2_LIB_COORDINATE
@@ -80,7 +83,7 @@ export interface ExtensionFileOverlay {
 
 /** Inputs describing what a spec installs and which test-only tiles it compiles. */
 export interface HarnessOptions {
-  /** Coordinates to install on top of the seeded micro:bit v2 layer. */
+  /** Coordinates to install on top of the seeded micro:bit v2 target. */
   install: readonly string[];
   /** Test-only tile sources compiled in the host workspace, keyed by file name. Ids are minted. */
   workspaceTiles?: Readonly<Record<string, string>>;
@@ -121,7 +124,9 @@ export function buildExtensionTestHarness(options: HarnessOptions): ExtensionTes
     return { ...extension, files: [...extension.files, ...extra.map((o) => ({ path: o.path, content: o.content }))] };
   });
 
-  const extensions: Record<string, string> = { [MICROBIT_V2_LIB_COORDINATE]: MICROBIT_V2_LIB_REFERENCE };
+  // The production default seed: the runnable target alone, whose manifest
+  // reaches the standard-library layers through target edges.
+  const extensions: Record<string, string> = { ...microbitDefaultExtensions };
   for (const coordinate of options.install) {
     // Mirror the app's load-time top-level rewrite: a direct install of a moved
     // coordinate (Position) writes the move's `gh:` reference, not an embedded one.

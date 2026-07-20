@@ -268,9 +268,11 @@ describe("published extension demo brain", () => {
         { [DEMO_COORDINATE]: `embedded:${DEMO_COORDINATE}` },
         { embedded: [buildEmbeddedExtensionFromDir(clone, DEMO_COORDINATE), ...layerEmbeds()] }
       );
+      // The published extension is the project's listed dependency; the layers
+      // its target edges recurse to join the importable set alongside it.
       assert.deepEqual(
-        resolved.dependencies.map((dependency) => dependency.coordinate),
-        [DEMO_COORDINATE]
+        resolved.dependencies.map((dependency) => dependency.coordinate).sort(),
+        [DEMO_COORDINATE, CODAL_LIB_COORDINATE, CORE_LIB_COORDINATE].sort()
       );
 
       const env = createMicroBitV2Environment();

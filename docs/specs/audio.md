@@ -78,7 +78,9 @@ the display.
 - **The `immediately` modifier overrides that**: the play **preempts the speaker lease** - the
   current sound stops, its awaiting rule's handle **resolves** (it continues, not an error), and
   the new sound takes the speaker for its duration. This is the display family's `immediately`,
-  applied to the speaker lease.
+  applied to the speaker lease. The preempt happens **at dispatch, before the new play is
+  examined** (the display family's order): even when the new play then turns out to be a no-op
+  (an unknown name), the current sound has still been preempted.
 - **The `in background` modifier**: the sound keeps its speaker lease (settled on tick time as
   usual) but the actuator's handle resolves at dispatch, so the issuing rule continues this
   round without parking on the playback - the display family's `in background`.
@@ -138,7 +140,7 @@ built-in image set:
   slot admits sound values, not arbitrary strings.
 - The **target resolves the name** to its encoded sound data at the audio port. A name outside
   the target's built-in set is a **silent no-op**: nothing plays and the actuator resolves at
-  once.
+  once (with `immediately`, the dispatch preempt still occurs first - see Arbitration).
 - Completion uses the same duration formula: the target pins a **nominal total duration** per
   built-in - the sum of its segments' encoded durations with any randomized contribution read
   as zero. The speaker lease runs to `start + nominal total`. A device synth may randomize the

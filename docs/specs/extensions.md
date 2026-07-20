@@ -338,9 +338,9 @@ the maintainers. The catalog is a trust authority:
   and reviewing one is reviewing the difference between the two pinned
   states.
 - **Moves** carry source reorganization -- a transport change, a coordinate
-  rename, or an owner move -- as an identity-level claim only the catalog
-  makes. A project referencing a moved coordinate migrates to the move's
-  target; the mechanism is detailed under Moves below.
+  rename, an owner move, or a version steer -- as an identity-level claim only
+  the catalog makes. A project referencing a captured coordinate migrates to
+  the move's destination; the mechanism is detailed under Moves below.
 - The catalog owns name governance for what it lists.
 
 The community feed -- user-published projects browsed and downloaded from
@@ -350,35 +350,78 @@ curation status.
 ## Moves
 
 Sources reorganize: an embedded platform library graduates to a fetched
-repository, an author renames or moves a repository, or ownership transfers.
-A **move** is the catalog's managed, consumer-safe expression of such a
-change. Moves live only in the catalog -- the trust authority -- and are never
+repository, an author renames or moves a repository, ownership transfers, or
+a defective release window must be steered to a corrected version. A **move**
+is the catalog's managed, consumer-safe expression of such a change. Moves live only in the catalog -- the trust authority -- and are never
 read from fetched package content: a package's claim about its own identity is
 unverifiable, so only the curated catalog may assert that one coordinate's
 content now lives at another.
 
-A move maps a **source coordinate** to its new home: the **reference** that now
-pins the moved content and, when the coordinate itself changes, the new
-**coordinate**. A move that changes only the reference is a transport change --
-identity is preserved and only delivery changes; a move that changes the
-coordinate is a rename or owner move, and identity changes with it.
+A move maps a **source coordinate** to one or more entries, each pairing an
+optional **source selector** with a **destination reference**. The destination
+alone describes the new home: a destination whose coordinate equals the source
+is a transport or delivery change -- identity is preserved; a destination
+whose coordinate differs is a rename or owner move, and identity changes with
+it. A destination may name exact content (a pin or a branch), or may carry no
+version component at all, meaning the latest stable release **at migration
+time**: the migration resolves it to a pin and the project records the pin. A
+componentless destination is not a tracker -- a project's reference, once
+migrated, is always exact, and a completed migration performs no further
+resolution.
+
+The selector decides which references an entry captures; the source coordinate
+is matched across transports, since a coordinate is one identity however it is
+delivered:
+
+- Absent, the entry captures any reference to the source coordinate not
+  already delivered from the destination's coordinate and transport. A
+  reference already on that home keeps its own version: migration never
+  rewrites the version of content that already lives where the move points.
+- An exact-reference selector captures only that reference, compared
+  structurally.
+- A structured selector captures by transport, by a declared-version range, or
+  both. A range reads the referenced content's declared version; a reference
+  whose version cannot be determined is skipped loudly and retried later,
+  never guessed, and a branch reference -- which names no version -- is never
+  range-captured.
+
+A reference already equal to an entry's destination is never captured, so
+migration is idempotent. At most one entry may capture a given reference:
+collisions the catalog can prove are rejected at validation, and a collision
+only application can see fails there -- ambiguity is never resolved by entry
+order. A componentless destination additionally may not pair with a selector
+able to capture references already on the destination's home, which would
+re-resolve on every application.
+
+Moves compose. A coordinate may change delivery and later be renamed; a
+reference to the oldest home follows the whole chain to the final destination
+in a single migration. Chains are validated acyclic by following every entry's
+destination through the full move set, and application independently refuses
+to revisit a shape, so migration always terminates.
 
 A move is applied by **migration, not by a standing alias**. When a project
-resolves a reference to a moved coordinate, the pipeline rewrites the project
-to adopt the new home: its extensions-list reference becomes the move's target
-and re-resolves as an ordinary transactional install, reported like any other
-update. Serving the old identity indefinitely from new content is deliberately
-not the model -- it would keep stale identities resolvable forever and smear a
-retired name across every surface that keys on identity. A migrated project
-holds only the new identity.
+resolves a reference a move captures, the pipeline rewrites the project to
+adopt the new home: its extensions-list reference becomes the final
+destination and re-resolves as an ordinary transactional install, reported
+like any other update. Serving the old identity indefinitely from new content
+is deliberately not the model -- it would keep stale identities resolvable
+forever and smear a retired name across every surface that keys on identity.
+A migrated project holds only the new identity.
 
 A rename also rewrites identity where the project records it. Saved brains
 reference their dependencies' tiles and types by namespace, so a rename that
 left those references untouched would strand them; the migration rewrites the
 saved-brain reference namespaces in the same step as the manifest, so a
-project's manifest and its brains adopt the new identity together and a project
-is never half-migrated. A transport change leaves the coordinate unchanged and
-touches no saved reference.
+project's manifest and its brains adopt the new identity together and a
+project is never half-migrated. Under a chain, every source coordinate the
+project holds -- original or intermediate -- rewrites to the final identity.
+A move that preserves the coordinate touches no saved reference.
+
+Each captured reference migrates as one unit: its manifest rewrite, its
+saved-brain identity rewrite, and the fetches its new home requires succeed or
+fail together. Independent migrations are independent -- a migration that
+cannot complete (its destination unresolvable, its content unreachable) is
+reported and retried on a later resolution without holding up the others.
 
 A move is followed **at every depth of the dependency closure**, for any
 reference to the moved coordinate -- whether a top-level entry in the project's
@@ -399,11 +442,13 @@ compiled-in imports. A coordinate imported as a dependency inside a published
 extension is adopted only by republishing that extension; only the
 reorganizations a consumer records for itself migrate on the fly.
 
-Governance is the catalog's: moves are flattened at curation so none targets
-another's source (resolution never walks a chain), each names exactly one
-target, cycles are rejected, a target's pin must exist, and a transport
-change's target coordinate must equal its source. A move may only target
-content the catalog governs.
+Governance is the catalog's: every destination must be a valid reference to
+content the catalog governs, an exact selector must name its own source
+coordinate and differ from its entry's destination, at most one selectorless
+entry may exist per source, exact selectors are pairwise distinct, and chains
+are validated acyclic as above. Range grammar is the same dialect the
+compatibility declarations use; a range outside that dialect is rejected at
+validation, never approximated.
 
 ## Publishing
 

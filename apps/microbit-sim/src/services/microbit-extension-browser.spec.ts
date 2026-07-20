@@ -6,7 +6,7 @@ import {
   resolveExtensionAddInput,
 } from "@mindcraft-lang/app-host";
 import type { EmbeddedExtension, ExtensionCatalogEntry } from "@mindcraft-lang/bridge-app";
-import { ExtensionActionResultCode } from "@mindcraft-lang/bridge-app";
+import { ExtensionActionResultCode, resolveProjectExtensions } from "@mindcraft-lang/bridge-app";
 import {
   buildMicrobitExtensionEntries,
   checkMicrobitExtensionUpdates,
@@ -167,6 +167,20 @@ describe("buildMicrobitExtensionEntries -- a platform reached through target edg
     assert.equal(result.action.ok, false);
     assert.equal(result.action.code, ExtensionActionResultCode.LOCKED);
     assert.equal(persistence.patches.length, 0);
+  });
+
+  test("a platform layer listed in the resolved dependencies is still not an entry card", () => {
+    // The target-recursed layers join the project's importable dependencies,
+    // yet the entry cards derive from the extensions map and the platform set.
+    const resolved = resolveProjectExtensions(project, { embedded: targetsEmbedRecord });
+    const dependencyCoordinates = resolved.dependencies.map((dependency) => dependency.coordinate);
+    assert.ok(dependencyCoordinates.includes(CODAL_LIB_COORDINATE));
+    assert.ok(dependencyCoordinates.includes(CORE_LIB_COORDINATE));
+
+    const coordinates = buildMicrobitExtensionEntries(project, targetsEmbedRecord).map((entry) => entry.coordinate);
+    assert.equal(coordinates.includes(MICROBIT_V2_LIB_COORDINATE), false);
+    assert.equal(coordinates.includes(CODAL_LIB_COORDINATE), false);
+    assert.equal(coordinates.includes(CORE_LIB_COORDINATE), false);
   });
 });
 

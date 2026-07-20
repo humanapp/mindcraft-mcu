@@ -48,7 +48,13 @@ describe("microbit embedded layers -- transitive resolution of the core <- codal
       { embedded: embeddedLayers() }
     );
 
-    assert.deepEqual(resolved.dependencies, [{ coordinate: MICROBIT_V2_LIB_COORDINATE }]);
+    // The seeded layer plus the two layers its target edges recurse to are all
+    // importable dependencies of the project.
+    assert.deepEqual(resolved.dependencies.map((dependency) => dependency.coordinate).sort(), [
+      CODAL_LIB_COORDINATE,
+      CORE_LIB_COORDINATE,
+      MICROBIT_V2_LIB_COORDINATE,
+    ]);
     const origins = resolved.dependencyMounts.map((m) => m.namespace).sort();
     assert.deepEqual(origins, [CODAL_LIB_COORDINATE, CORE_LIB_COORDINATE, MICROBIT_V2_LIB_COORDINATE]);
 
