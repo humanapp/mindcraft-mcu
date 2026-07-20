@@ -1,5 +1,5 @@
 ```brain noframe do
-{ "tile": "tile.parameter->microbit-v2.sound-emoji" }
+{ "tile": "${tileId}" }
 ```
 
 # Sound

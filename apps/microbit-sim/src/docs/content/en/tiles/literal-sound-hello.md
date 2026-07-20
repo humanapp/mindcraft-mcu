@@ -1,5 +1,5 @@
 ```brain noframe do
-{ "tile": "tile.literal->struct:<SoundEmoji>->hello" }
+{ "tile": "${tileId}" }
 ```
 
 # Hello

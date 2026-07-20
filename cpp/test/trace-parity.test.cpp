@@ -4305,6 +4305,10 @@ TEST_CASE("the user-tile-play-sound-all fixture byte-matches the golden observab
   checkUserTilePlaySoundFixture("user-tile-play-sound-all", 86, 500.0f);
 }
 
+TEST_CASE("the display-clear-tile fixture byte-matches the golden observable trace") {
+  checkUserTileDrawFixture("display-clear-tile", 2, 100.0f);
+}
+
 TEST_CASE("the user-tile-display-clear fixture byte-matches the golden observable trace") {
   checkUserTileDrawFixture("user-tile-display-clear", 2, 100.0f);
 }

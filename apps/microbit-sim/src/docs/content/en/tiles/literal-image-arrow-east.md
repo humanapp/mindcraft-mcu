@@ -1,5 +1,5 @@
 ```brain noframe do
-{ "tile": "tile.literal->struct:<Image>->arrow-east" }
+{ "tile": "${tileId}" }
 ```
 
 # Arrow east

@@ -1,7 +1,32 @@
+import { assertUnreachable } from "@mindcraft-lang/core";
 import { CoreTypeIds, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
-import type { IBrainTileDef } from "@mindcraft-lang/core/brain";
+import type { BrainTileKind, IBrainTileDef } from "@mindcraft-lang/core/brain";
 import type { BrainEditorConfig, TileVisual } from "@mindcraft-lang/ui";
 import { ICON_BASE, tileVisuals } from "./tile-visuals";
+
+/** The default icon URL a tile of the given kind falls back to, or undefined when the kind has no kind-specific default. */
+function defaultKindIconUrl(kind: BrainTileKind): string | undefined {
+  switch (kind) {
+    case "page":
+      return `${ICON_BASE}/page3.svg`;
+    case "undefined":
+    case "sensor":
+    case "actuator":
+    case "parameter":
+    case "operator":
+    case "variable":
+    case "literal":
+    case "factory":
+    case "controlFlow":
+    case "modifier":
+    case "accessor":
+    case "output":
+    case "missing":
+      return undefined;
+    default:
+      return assertUnreachable(kind);
+  }
+}
 
 /**
  * Returns a tile-visual resolver that supplies the app's mapped visuals for
@@ -20,16 +45,15 @@ export function createMicrobitTileVisualResolver(
     const intrinsicIconUrl = intrinsic?.iconUrl;
     const resolvedIconUrl = intrinsicIconUrl ? resolveVfsAssetUrl(intrinsicIconUrl) : undefined;
     const rewrittenIconUrl = resolvedIconUrl !== intrinsicIconUrl ? resolvedIconUrl : undefined;
-    const pageIconUrl =
-      tileDef.kind === "page" && !mapped?.iconUrl && !intrinsicIconUrl ? `${ICON_BASE}/page3.svg` : undefined;
-    if (!mapped && rewrittenIconUrl === undefined && pageIconUrl === undefined) {
+    const defaultIconUrl = !mapped?.iconUrl && !intrinsicIconUrl ? defaultKindIconUrl(tileDef.kind) : undefined;
+    if (!mapped && rewrittenIconUrl === undefined && defaultIconUrl === undefined) {
       return undefined;
     }
     const visual: Partial<TileVisual> = {
       ...(intrinsic ?? {}),
       ...(mapped ?? {}),
       ...(rewrittenIconUrl !== undefined ? { iconUrl: rewrittenIconUrl } : {}),
-      ...(pageIconUrl !== undefined ? { iconUrl: pageIconUrl } : {}),
+      ...(defaultIconUrl !== undefined ? { iconUrl: defaultIconUrl } : {}),
     };
     return visual as TileVisual;
   };

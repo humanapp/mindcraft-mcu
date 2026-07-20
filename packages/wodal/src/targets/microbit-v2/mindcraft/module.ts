@@ -47,6 +47,7 @@ import { MicroBit } from "../microbit";
 import { MicroBitDisplay } from "../microbit-display";
 import { MicroBitSpeaker } from "../microbit-speaker";
 import { buttonABSensor, buttonASensor, buttonBSensor, buttonLogoSensor } from "./actions/button-sensor";
+import displayClearActuator from "./actions/display-clear";
 import displayDrawActuator, { clipImage, DEFAULT_DURATION_MS, DEFAULT_IMAGE } from "./actions/display-draw";
 import { brightnessToPort, pixelCoordToPort } from "./actions/display-pixel-conversion";
 import displayScrollActuator from "./actions/display-scroll";
@@ -1092,6 +1093,7 @@ function registerBrainTiles(api: MindcraftModuleApi): void {
   api.registerHostActuator(createHostActuator(displaySetPixelActuator));
   api.registerHostActuator(createHostActuator(displayScrollActuator));
   api.registerHostActuator(createHostActuator(displayDrawActuator));
+  api.registerHostActuator(createHostActuator(displayClearActuator));
   api.registerHostActuator(createHostActuator(playSoundActuator));
   api.registerModifiers(MICROBIT_V2_MODIFIERS);
   api.registerParameters(MICROBIT_V2_PARAMETERS);

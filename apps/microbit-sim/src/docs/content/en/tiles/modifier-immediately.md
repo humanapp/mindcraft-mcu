@@ -1,5 +1,5 @@
 ```brain noframe do
-{ "tile": "tile.modifier->microbit-v2.immediately" }
+{ "tile": "${tileId}" }
 ```
 
 # Immediately

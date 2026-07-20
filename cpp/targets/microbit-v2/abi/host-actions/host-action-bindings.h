@@ -5,6 +5,7 @@
 
 #include "core/runtime/host-action.h"
 #include "targets/microbit-v2/abi/host-actions.h"
+#include "targets/microbit-v2/abi/host-actions/actuators/display-clear.h"
 #include "targets/microbit-v2/abi/host-actions/actuators/display-draw.h"
 #include "targets/microbit-v2/abi/host-actions/actuators/display-scroll.h"
 #include "targets/microbit-v2/abi/host-actions/actuators/display-set-pixel.h"
@@ -19,7 +20,7 @@ namespace mindcraft
 {
 
 /** Number of microbit-v2 host-action bindings the slice registers. */
-inline constexpr uint32_t kMicroBitV2HostActionBindingCount = 14;
+inline constexpr uint32_t kMicroBitV2HostActionBindingCount = 15;
 
 /**
  * Builds the microbit-v2 host-action binding table over `ports`, one entry per
@@ -64,6 +65,7 @@ makeMicroBitV2HostActionBindings(DevicePorts &ports,
         {MicroBitV2HostActions::RadioReceiveBuffer.actionId, &execRadioReceiveBuffer,
          &radioReceivePageEntered, radioSensorEnv},
         {MicroBitV2HostActions::PlaySound.actionId, nullptr, nullptr, playSoundEnv, &execPlaySound},
+        {MicroBitV2HostActions::DisplayClear.actionId, &execDisplayClearAction, nullptr, &ports},
     }};
 }
 

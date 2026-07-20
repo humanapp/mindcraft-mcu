@@ -1,5 +1,5 @@
 ```brain noframe do
-{ "tile": "tile.actuator->microbit-v2.display-set-pixel" }
+{ "tile": "${tileId}" }
 ```
 
 # Set pixel

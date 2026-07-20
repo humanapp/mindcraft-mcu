@@ -1,5 +1,5 @@
 ```brain noframe do
-{ "tile": "tile.parameter->microbit-v2.duration" }
+{ "tile": "${tileId}" }
 ```
 
 # Duration

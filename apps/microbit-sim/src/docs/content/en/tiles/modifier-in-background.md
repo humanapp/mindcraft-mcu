@@ -1,5 +1,5 @@
 ```brain noframe do
-{ "tile": "tile.modifier->microbit-v2.in-background" }
+{ "tile": "${tileId}" }
 ```
 
 # In background

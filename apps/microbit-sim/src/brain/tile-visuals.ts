@@ -112,6 +112,7 @@ export const tileVisuals = new Map<string, Partial<TileVisual>>([
   [mkActuatorTileId(MicroBitV2HostActions.SetRadioGroup.key), { iconUrl: icon("actuator-set-radio-group") }],
   [mkActuatorTileId(MicroBitV2HostActions.DisplaySetPixel.key), { iconUrl: icon("actuator-display-set-pixel") }],
   [mkActuatorTileId(MicroBitV2HostActions.DisplayScroll.key), { iconUrl: icon("actuator-display-text") }],
+  [mkActuatorTileId(MicroBitV2HostActions.DisplayClear.key), { iconUrl: icon("actuator-display-clear") }],
   [mkActuatorTileId(MicroBitV2HostActions.DrawImage.key), { iconUrl: icon("actuator-draw-image") }],
   [mkActuatorTileId(MicroBitV2HostActions.PlaySound.key), { iconUrl: icon("actuator-play-sound") }],
   // Sensor outputs

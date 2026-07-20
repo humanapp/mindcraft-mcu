@@ -80,7 +80,8 @@ TEST_CASE("MicroBitV2HostFuncId values are wire-stable") {
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::DisplayScrollText) == 1073);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorPlaySound) == 1074);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::AudioPlaySound) == 1075);
-  CHECK(kMicroBitV2HostFuncIdCount == 52);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorDisplayClear) == 1076);
+  CHECK(kMicroBitV2HostFuncIdCount == 53);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::DisplaySetPixelValue) == TARGET_FUNC_ID_BASE);
 }
 
@@ -174,8 +175,12 @@ TEST_CASE("microbit-v2 host-action ids are wire-stable") {
   CHECK(MicroBitV2HostActions::PlaySound.actionId == 1037);
   CHECK(MicroBitV2HostActions::PlaySound.fnId ==
         static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorPlaySound));
+  CHECK(MicroBitV2HostActions::DisplayClear.actionId == 1038);
+  CHECK(MicroBitV2HostActions::DisplayClear.fnId ==
+        static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorDisplayClear));
+  CHECK(MicroBitV2HostActions::DisplayClear.fnId == 1076);
 
-  REQUIRE(std::size(kMicroBitV2HostActions) == 14);
+  REQUIRE(std::size(kMicroBitV2HostActions) == 15);
   for (uint32_t i = 0; i < std::size(kMicroBitV2HostActions); i++) {
     CHECK(kMicroBitV2HostActions[i].actionId == TARGET_ACTION_ID_BASE + i);
   }

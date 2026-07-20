@@ -70,6 +70,7 @@ const tileContentKeys: Readonly<Record<string, string>> = {
   "tile.actuator->microbit-v2.set-radio-group": "actuator-set-radio-group",
   "tile.actuator->microbit-v2.display-set-pixel": "actuator-set-pixel",
   "tile.actuator->microbit-v2.display-scroll": "actuator-display-text",
+  "tile.actuator->microbit-v2.display-clear": "actuator-display-clear",
   "tile.actuator->microbit-v2.draw-image": "actuator-draw-image",
   "tile.actuator->microbit-v2.play-sound": "actuator-play-sound",
   "tile.modifier->microbit-v2.pressed": "modifier-pressed",

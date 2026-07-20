@@ -71,6 +71,7 @@ export enum MicroBitV2HostFuncId {
   DisplayScrollText = 1073,
   ActuatorPlaySound = 1074,
   AudioPlaySound = 1075,
+  ActuatorDisplayClear = 1076,
 }
 
 /**
@@ -184,6 +185,13 @@ export const MicroBitV2HostActions = {
     key: "microbit-v2.play-sound",
     actionId: 1037,
     fnId: MicroBitV2HostFuncId.ActuatorPlaySound,
+  },
+
+  /** Actuator: blank the 5x5 display, cancelling any held display lease. */
+  DisplayClear: {
+    key: "microbit-v2.display-clear",
+    actionId: 1038,
+    fnId: MicroBitV2HostFuncId.ActuatorDisplayClear,
   },
 } as const satisfies Record<string, HostActionIds>;
 

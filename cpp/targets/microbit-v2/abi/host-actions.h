@@ -76,6 +76,10 @@ inline constexpr HostActionIds RadioReceiveBuffer{
 /** Actuator: play a built-in sound on the speaker, awaiting its nominal duration. */
 inline constexpr HostActionIds PlaySound{
     1037, static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorPlaySound)};
+
+/** Actuator: blank the 5x5 display, cancelling any held display lease. */
+inline constexpr HostActionIds DisplayClear{
+    1038, static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorDisplayClear)};
 } // namespace MicroBitV2HostActions
 
 /**
@@ -97,6 +101,7 @@ inline constexpr HostActionIds kMicroBitV2HostActions[] = {
     MicroBitV2HostActions::SetRadioGroup,
     MicroBitV2HostActions::RadioReceiveBuffer,
     MicroBitV2HostActions::PlaySound,
+    MicroBitV2HostActions::DisplayClear,
 };
 
 } // namespace mindcraft

@@ -1,5 +1,5 @@
 ```brain noframe do
-{ "tile": "tile.actuator->microbit-v2.set-radio-group" }
+{ "tile": "${tileId}" }
 ```
 
 # Set radio group

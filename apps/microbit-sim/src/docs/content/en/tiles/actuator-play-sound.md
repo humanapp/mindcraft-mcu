@@ -1,5 +1,5 @@
 ```brain noframe do
-{ "tile": "tile.actuator->microbit-v2.play-sound" }
+{ "tile": "${tileId}" }
 ```
 
 # Play sound

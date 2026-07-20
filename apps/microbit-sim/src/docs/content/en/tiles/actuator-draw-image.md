@@ -1,5 +1,5 @@
 ```brain noframe do
-{ "tile": "tile.actuator->microbit-v2.draw-image" }
+{ "tile": "${tileId}" }
 ```
 
 # Draw image
