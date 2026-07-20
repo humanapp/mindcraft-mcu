@@ -15,6 +15,7 @@ import {
   AppEnvironmentHost,
   createFolderCompileDiagnosticsPublisher,
   createVfsAssetUrlProvider,
+  type ExtensionResolutionWarning,
   type FolderHostSession,
   type UserTileApplyResult,
   type VfsAssetUrlProvider,
@@ -715,6 +716,18 @@ export class MicrobitSimEnvironmentStore {
   /** Snapshot of the current doc revision for `useSyncExternalStore`. */
   getDocRevisionSnapshot = (): number => {
     return this.host.getDocRevisionSnapshot();
+  };
+
+  // -- Extension resolution warnings (delegate) --
+
+  /** Subscribes to extension-resolution warning changes for `useSyncExternalStore`. Returns an unsubscribe function. */
+  subscribeToResolutionWarnings = (listener: () => void): (() => void) => {
+    return this.host.subscribeToResolutionWarnings(listener);
+  };
+
+  /** Snapshot of the active project's latest extension-resolution warnings for `useSyncExternalStore`. */
+  getResolutionWarningsSnapshot = (): readonly ExtensionResolutionWarning[] => {
+    return this.host.getResolutionWarningsSnapshot();
   };
 
   // -- VFS revision (delegate) --

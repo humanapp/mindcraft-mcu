@@ -5,6 +5,7 @@ import { createMicrobitTileVisualResolver, microbitDataTypeIcons, microbitDataTy
 import { BrainList } from "./components/BrainList";
 import { BridgePanel } from "./components/BridgePanel";
 import { ProjectHeader } from "./components/ProjectHeader";
+import { ResolutionWarningsBanner } from "./components/ResolutionWarningsBanner";
 import { Simulator } from "./components/Simulator";
 import { useMicrobitSimEnvironment } from "./contexts/microbit-sim-environment";
 import { createDocsTileCatalog, createMicrobitDocsRegistry } from "./docs/docs-registry";
@@ -44,6 +45,7 @@ export function App() {
     >
       <div className="min-h-screen">
         <ProjectHeader />
+        <ResolutionWarningsBanner />
         <main className="p-4 sm:p-6">
           <div className="mx-auto grid w-full max-w-7xl grid-cols-1 items-start gap-8 lg:grid-cols-2">
             {/* On a single column the wrapper dissolves (display: contents), making all three

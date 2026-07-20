@@ -12,7 +12,11 @@ import {
   parseExtensionReference,
 } from "@mindcraft-lang/app-host";
 import type { EmbeddedExtension } from "@mindcraft-lang/bridge-app";
-import { AppEnvironmentHost, INSTALLED_EXTENSIONS_APP_DATA_KEY } from "@mindcraft-lang/bridge-app";
+import {
+  AppEnvironmentHost,
+  CatalogMoveWarningCode,
+  INSTALLED_EXTENSIONS_APP_DATA_KEY,
+} from "@mindcraft-lang/bridge-app";
 import { buildEmbeddedExtensionFromDir } from "@mindcraft-lang/bridge-app/node";
 import { coreModule } from "@mindcraft-lang/core/app";
 import type { IBrainDef, IBrainRuleDef, IBrainTileDef } from "@mindcraft-lang/core/brain";
@@ -34,6 +38,7 @@ import {
   YAHBOOM_GAMEPAD_EXT_REFERENCE,
 } from "../services/microbit-extension-coordinates";
 import { MICROBIT_SIM_APP_CHUNK_KEY, translateMicrobitSimAppChunk } from "../services/project-io";
+import { unresolvedLibraryCoordinates } from "../services/resolution-warnings";
 import { CODAL_POSITION_GH_REF, createCodalPositionFixtureTransport } from "./codal-position-fixture";
 
 // The app-host reads localStorage/sessionStorage; provide an in-memory shim
@@ -613,6 +618,44 @@ describe("cuterbot .mindcraft import -- production wiring", () => {
       assert.deepEqual(kindsOfTile(healed, CUTEBOT_DRIVE_TILE_ID), ["actuator"]);
       assert.deepEqual(kindsOfTile(healed, YAHBOOM_STICK_TILE_ID), ["sensor"]);
       assert.deepEqual(kindsOfTile(healed, RADIO_RECEIVE_BUFFER_TILE_ID), ["sensor"]);
+    } finally {
+      host.dispose();
+    }
+  });
+
+  // The store's warning surface delegates to the host's resolution-warning
+  // snapshot; this exercises it through the same production wiring: an outage
+  // load records the stable-coded move failure, and the healed load clears it.
+  test("an outage load exposes the stable-coded move warning and the healed load clears it", async () => {
+    const { transport, restore } = outageTransport();
+    const { host, defaultProjectId, importedProjectId } = await importCuterbotProject(transport);
+    try {
+      const warnings = host.getResolutionWarningsSnapshot();
+      assert.ok(
+        warnings.some(
+          (warning) =>
+            warning.kind === "catalog-move-failed" &&
+            warning.code === CatalogMoveWarningCode.FETCH_FAILED &&
+            warning.origin === CODAL_POSITION_EXT_COORDINATE
+        ),
+        `the outage load records the move-fetch failure: ${JSON.stringify(warnings)}`
+      );
+      // The indicator model derives exactly the failed library's coordinate.
+      assert.deepEqual(unresolvedLibraryCoordinates(warnings), [CODAL_POSITION_EXT_COORDINATE]);
+
+      let notified = 0;
+      host.subscribeToResolutionWarnings(() => {
+        notified += 1;
+      });
+      restore();
+      await host.switchProject(defaultProjectId);
+      await host.switchProject(importedProjectId);
+      assert.ok(notified > 0, "the healed load notified the warning subscriber");
+      assert.deepEqual(
+        unresolvedLibraryCoordinates(host.getResolutionWarningsSnapshot()),
+        [],
+        "no library remains unresolved after the heal"
+      );
     } finally {
       host.dispose();
     }
