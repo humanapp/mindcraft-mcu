@@ -1,6 +1,6 @@
 import type { UserTileMetadata } from "@mindcraft-lang/bridge-app";
-import type { MindcraftEnvironment } from "@mindcraft-lang/core/app";
-import { mkActuatorTileId, mkSensorTileId } from "@mindcraft-lang/core/app";
+import type { ActionKind, MindcraftEnvironment } from "@mindcraft-lang/core/app";
+import { mkActionTileId } from "@mindcraft-lang/core/app";
 import type { ITileCatalog } from "@mindcraft-lang/core/brain";
 import type { DocsRegistry, DocsTileEntry } from "@mindcraft-lang/docs";
 import { buildDocsRegistry } from "@mindcraft-lang/docs";
@@ -13,15 +13,20 @@ import {
   undocumentedTileIds,
 } from "./manifest";
 
+/** Docs category label for each tile-bearing user-action kind. */
+const kUserTileDocCategories: Record<Exclude<ActionKind, "conversion">, string> = {
+  sensor: "Sensors",
+  actuator: "Actuators",
+};
+
 /** Maps compiled user-tile metadata to docs entries keyed by tile id. */
 function buildUserTileDocEntries(metadata: readonly UserTileMetadata[]): DocsTileEntry[] {
   const entries: DocsTileEntry[] = [];
   for (const entry of metadata) {
-    const tileId = entry.kind === "sensor" ? mkSensorTileId(entry.key) : mkActuatorTileId(entry.key);
     entries.push({
-      tileId,
+      tileId: mkActionTileId(entry.kind, entry.key),
       tags: entry.tags ? [...entry.tags] : [],
-      category: entry.kind === "sensor" ? "Sensors" : "Actuators",
+      category: kUserTileDocCategories[entry.kind],
       content: entry.docsMarkdown ?? "",
     });
   }

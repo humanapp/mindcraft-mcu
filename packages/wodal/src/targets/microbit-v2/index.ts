@@ -47,3 +47,23 @@ export {
   WodalMicroBitV2ModifierId,
   WodalMicroBitV2ParameterId,
 } from "./mindcraft/tile-ids";
+export {
+  type DecodedSoundSegment,
+  decodeAllBuiltInSounds,
+  decodeBuiltInSound,
+  decodeBuiltInSoundRaw,
+  decodeSoundExpression,
+  decodeSoundExpressionRaw,
+  type FrequencyInterpolationShape,
+  type RawEffectKind,
+  type RawSoundEffect,
+  type RawToneEffect,
+  type SoundEffectKind,
+  type SoundWaveform,
+} from "./sound-expression";
+export {
+  renderAllBuiltInSoundsToPcm,
+  renderBuiltInSoundToPcm,
+  renderSoundToPcm,
+  SYNTH_SAMPLE_RATE,
+} from "./sound-synthesis";

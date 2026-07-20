@@ -16,6 +16,17 @@ export function Simulator() {
     return () => store.simulator.stop();
   }, [store]);
 
+  // Browsers block the Web Audio API until a user gesture; unlock sim audio on the first interaction.
+  useEffect(() => {
+    const unlock = () => store.unlockAudio();
+    window.addEventListener("pointerdown", unlock, { once: true });
+    window.addEventListener("keydown", unlock, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    };
+  }, [store]);
+
   return (
     <section aria-labelledby={headingId}>
       <div className="flex flex-wrap items-center gap-3">

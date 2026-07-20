@@ -47,6 +47,7 @@ import {
   translateMicrobitSimAppChunk,
 } from "./project-io";
 import { MicrobitSimulator } from "./simulator";
+import { SpeakerAudio } from "./speaker-audio";
 import { UserCodeReflasher } from "./user-code-reflasher";
 
 /**
@@ -195,6 +196,9 @@ export class MicrobitSimEnvironmentStore {
   /** The simulated microbit fleet (instances, shared medium, tick driver). */
   readonly simulator: MicrobitSimulator;
 
+  /** Renders each device's built-in sound emoji audibly through the Web Audio API. */
+  private readonly _speakerAudio = new SpeakerAudio();
+
   /** The device profile this app instance runs: drives the environment module, builds, import, and export. */
   readonly activeDeviceProfile: WodalDeviceProfile;
 
@@ -255,6 +259,13 @@ export class MicrobitSimEnvironmentStore {
     // The instance-list listener fires on fleet changes (add/remove/flash), not on per-tick device updates.
     this.simulator.subscribeToInstances(() => {
       void this.persistSimulatorState();
+      this._speakerAudio.retain(new Set(this.simulator.getInstances().map((instance) => instance.id)));
+    });
+    // Feed each device's speaker snapshot to the audio renderer every frame.
+    this.simulator.subscribeToFrame(() => {
+      for (const instance of this.simulator.getInstances()) {
+        this._speakerAudio.sync(instance.id, instance.snapshot().speaker.playing);
+      }
     });
     this.host.onProjectLoaded(() => {
       const prefs = loadUiPreferences(this.host.projectManager.activeProject!.manifest.id);
@@ -821,9 +832,19 @@ export class MicrobitSimEnvironmentStore {
     return this.host.getBridgeJoinCodeSnapshot();
   };
 
+  /**
+   * Unlocks simulator audio on a user gesture. Browsers block the Web Audio API
+   * until the user interacts with the page; call this from the first click or
+   * keypress so built-in sounds become audible.
+   */
+  unlockAudio(): void {
+    this._speakerAudio.unlock();
+  }
+
   /** Releases host resources owned by this store. */
   dispose(): void {
     this._userCodeReflasher.cancelPending();
+    this._speakerAudio.dispose();
     this._folderSession?.dispose();
     this.host.dispose();
   }

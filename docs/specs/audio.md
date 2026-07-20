@@ -199,7 +199,9 @@ to a CODAL `SoundEffect` slot:
 - **Volume** - overall level.
 - **Vibrato** - depth + speed.
 - **Envelope** - fade-in (attack) + fade-out (decay) (the volume slot).
-- **Preview** - a play button (Web Audio) to hear the sound while editing.
+- **Preview** - a play button (Web Audio) to hear the sound while editing, rendered by the same
+  faithful synthesis port that plays built-in sounds (see the target section) so the preview
+  tracks the device.
 - **Presets / randomize** (recommended - the "fun" of sfxr; can be phased): a few one-click
   generators (laser, power-up, explosion, pickup, jump, blip) plus a randomize / mutate button,
   each just filling the controls above. Optional; the manual controls are the baseline.
@@ -247,8 +249,13 @@ The concrete fill-in of the target-parameterized pieces for micro:bit-v2:
 - **`SoundEmoji` type:** the registered struct a built-in sound literal carries (`{ name }`);
   target-side, since the built-in set is target-owned. Type-atom id appended at implementation.
 - **play sound:** action / function ids assigned at implementation (append-only). On device the
-  sound expression is sequenced by the synthesizer; in the sim it renders via the Web Audio API
-  (an oscillator with the chosen waveform, a gain envelope, and an LFO for vibrato/tremolo).
+  sound expression is sequenced by the synthesizer; **in the sim it is rendered by a faithful
+  port of the same synthesis** - the device's tone functions (the phase-indexed waveform tables)
+  and its stepped effect functions (frequency interpolation, volume ramp, vibrato/tremolo/warble)
+  run in software to produce the sound's PCM, played through the Web Audio API as a pre-rendered
+  buffer. The simulator does not approximate the synthesis with generic Web Audio oscillator and
+  automation nodes; it reproduces the device algorithm so the simulated sound tracks the device
+  closely.
 
 ## Conformance
 
@@ -278,9 +285,13 @@ The concrete fill-in of the target-parameterized pieces for micro:bit-v2:
 2. **`create a sound` from a template**: whether the factory can start from a built-in sound as
    a template (the built-in argument shape itself is settled: built-ins are `SoundEmoji`
    literal tiles - see Built-in sounds as literals).
-3. **Sim fidelity**: how faithfully the Web Audio renderer reproduces CODAL's sweeps + effects -
-   exact reproduction vs a good-enough approximation (the traced command is the parity anchor
-   either way).
+3. **Sim fidelity (resolved: faithful port).** The simulator reproduces the device synthesis by
+   porting its tone + effect functions and rendering PCM, played as a pre-rendered Web Audio
+   buffer - not a generic-oscillator approximation. The rendered sound is still sim-only and not
+   byte-matched (the traced command remains the parity anchor); "faithful" means the same
+   algorithm, not sample-identical output (sample-rate resampling and float precision differ).
+   Open only: whether to add a device-PCM cross-check test (a C++ dump of the real synthesizer
+   compared to the port within tolerance) as a later hardening step.
 4. **Musical notes / melodies / chords (deferred direction).** Pitched note sequences and chords
    were considered and deprioritized below sound effects. Reviving them would add a `Melody`-style
    type and, for chords, a mixing arbitration (a voice cap + over-cap policy) that replaces the
