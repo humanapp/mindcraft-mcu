@@ -72,6 +72,10 @@ inline constexpr HostActionIds SetRadioGroup{
 /** Sensor: the next received BUFFER packet, delivering its raw payload Buffer. */
 inline constexpr HostActionIds RadioReceiveBuffer{
     1036, static_cast<uint32_t>(MicroBitV2HostFuncId::SensorRadioReceiveBuffer)};
+
+/** Actuator: play a built-in sound on the speaker, awaiting its nominal duration. */
+inline constexpr HostActionIds PlaySound{
+    1037, static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorPlaySound)};
 } // namespace MicroBitV2HostActions
 
 /**
@@ -92,6 +96,7 @@ inline constexpr HostActionIds kMicroBitV2HostActions[] = {
     MicroBitV2HostActions::RadioReceiveString,
     MicroBitV2HostActions::SetRadioGroup,
     MicroBitV2HostActions::RadioReceiveBuffer,
+    MicroBitV2HostActions::PlaySound,
 };
 
 } // namespace mindcraft

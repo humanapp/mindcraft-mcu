@@ -155,6 +155,22 @@ struct RecordingSonar : mindcraft::SonarPort {
   }
 };
 
+struct RecordingSpeaker : mindcraft::SpeakerPort {
+  struct Play {
+    std::string name;
+    mindcraft::mc_number_t requestTimeMs;
+  };
+  std::vector<Play> plays;
+  int preempts = 0;
+
+  void playSoundEmoji(const uint8_t* name, uint32_t length, mindcraft::mc_number_t requestTimeMs,
+                      mindcraft::AsyncHandle) override {
+    plays.push_back({std::string(reinterpret_cast<const char*>(name), length), requestTimeMs});
+  }
+
+  void preempt() override { preempts++; }
+};
+
 struct RecordingRadio : mindcraft::RadioPort {
   int sentType = -2;
   uint8_t groupValue = 0;
@@ -182,9 +198,10 @@ TEST_CASE("a host stub can implement every device port") {
   RecordingGpio gpio;
   RecordingSonar sonar;
   RecordingRadio radio;
+  RecordingSpeaker speaker;
 
   mindcraft::DevicePorts ports{&display, &buttons, &faultDisplay, &clock, &accelerometer,
-                               &i2c,     &gpio,    &sonar,        &radio};
+                               &i2c,     &gpio,    &sonar,        &radio, &speaker};
 
   ports.display->setPixel(2, 3, 255);
   REQUIRE(display.calls.size() == 1);
@@ -262,6 +279,14 @@ TEST_CASE("a host stub can implement every device port") {
   packet.type = 0;
   ports.radio->send(packet);
   CHECK(radio.sentType == 0);
+
+  const uint8_t soundName[5] = {'h', 'e', 'l', 'l', 'o'};
+  ports.speaker->playSoundEmoji(soundName, 5, 250, mindcraft::AsyncHandle{});
+  REQUIRE(speaker.plays.size() == 1);
+  CHECK(speaker.plays[0].name == "hello");
+  CHECK(speaker.plays[0].requestTimeMs == 250);
+  ports.speaker->preempt();
+  CHECK(speaker.preempts == 1);
 }
 
 TEST_CASE("AccelerometerGesture codes match the CODAL accelerometer gesture values") {

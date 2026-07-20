@@ -4,11 +4,12 @@
 
 # Immediately
 
-Takes over the display at once.
+Takes over the display or speaker at once.
 
 ---
 
-Attach to `tile:tile.actuator->microbit-v2.display-scroll` or
-`tile:tile.actuator->microbit-v2.draw-image`: whatever the display is showing
+Attach to `tile:tile.actuator->microbit-v2.display-scroll`,
+`tile:tile.actuator->microbit-v2.draw-image`, or
+`tile:tile.actuator->microbit-v2.play-sound`: whatever is showing or playing
 is stopped and this one starts now. Without it, a request made while the
-display is busy is dropped.
+display or speaker is busy is dropped.

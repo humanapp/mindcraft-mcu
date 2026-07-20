@@ -6,6 +6,7 @@
 #include "codal/radio-wire.h"
 #include "targets/microbit-v2/abi/button-index.h"
 #include "targets/microbit-v2/abi/display-scroll.h"
+#include "targets/microbit-v2/abi/sound-emoji.h"
 
 namespace mindcraft
 {
@@ -217,6 +218,88 @@ private:
     }
 };
 
+/**
+ * Drives the on-board speaker through CODAL's `SoundExpressions`. An accepted
+ * built-in play stops any still-sounding expression and starts the named one
+ * asynchronously; CODAL resolves the name to its encoded data itself and audio
+ * activation is automatic. The speaker lease is settled against the pinned
+ * nominal-duration table (never CODAL's completion events), polled each
+ * host-loop tick by {@link pollSpeaker} against `system_timer_current_time()`;
+ * a device synth may randomize the actual playback length around the nominal,
+ * and the stop-before-play keeps a still-ringing tail from blocking the next
+ * sound. A play requested while the lease is held is silently dropped (its
+ * handle settles at once); a name outside the built-in set never reaches CODAL
+ * (settled at once, no lease).
+ */
+class MicroBitSpeakerPort : public SpeakerPort
+{
+public:
+    explicit MicroBitSpeakerPort(MicroBit &uBit) : uBit_(uBit) {}
+
+    void playSoundEmoji(const uint8_t *name, uint32_t length, mc_number_t,
+                        AsyncHandle handle) override
+    {
+        if (busy_)
+        {
+            handle.resolve(kVoidValue);
+            return;
+        }
+        uint32_t durationMs = 0;
+        if (!soundEmojiDurationMs(name, length, durationMs))
+        {
+            handle.resolve(kVoidValue);
+            return;
+        }
+        active_ = handle;
+        busy_ = true;
+        completionTime_ = static_cast<uint32_t>(system_timer_current_time()) + durationMs;
+        // Stop any still-sounding expression (a randomized tail can outlast the
+        // nominal lease) before starting the new one.
+        uBit_.audio.soundExpressions.stop();
+        ManagedString sound(reinterpret_cast<const char *>(name), static_cast<int16_t>(length));
+        uBit_.audio.soundExpressions.playAsync(sound);
+    }
+
+    /**
+     * Settles the held play's handle once its nominal duration has elapsed
+     * (enqueue-only; the think loop resumes the waiter). Call once per
+     * host-loop tick before the brain thinks.
+     */
+    void pollSpeaker()
+    {
+        if (!busy_)
+        {
+            return;
+        }
+        const uint32_t now = static_cast<uint32_t>(system_timer_current_time());
+        if (now < completionTime_)
+        {
+            return;
+        }
+        const AsyncHandle done = active_;
+        busy_ = false;
+        done.resolve(kVoidValue);
+    }
+
+    void preempt() override
+    {
+        if (!busy_)
+        {
+            return;
+        }
+        const AsyncHandle held = active_;
+        busy_ = false;
+        uBit_.audio.soundExpressions.stop();
+        held.resolve(kVoidValue);
+    }
+
+private:
+    MicroBit &uBit_;
+    bool busy_ = false;
+    uint32_t completionTime_ = 0;
+    AsyncHandle active_{};
+};
+
 /** Reads button levels: index 0 is button A, 1 is button B, 2 is the touch logo. */
 class MicroBitButtonInputPort : public ButtonInputPort
 {
@@ -313,11 +396,10 @@ class MicroBitGPIOPort : public GPIOPort
 {
 public:
     explicit MicroBitGPIOPort(MicroBit &uBit)
-        : pins_{&uBit.io.P0,  &uBit.io.P1,  &uBit.io.P2,  &uBit.io.P3,  &uBit.io.P4,
-                &uBit.io.P5,  &uBit.io.P6,  &uBit.io.P7,  &uBit.io.P8,  &uBit.io.P9,
-                &uBit.io.P10, &uBit.io.P11, &uBit.io.P12, &uBit.io.P13, &uBit.io.P14,
-                &uBit.io.P15, &uBit.io.P16, nullptr,      nullptr,      &uBit.io.P19,
-                &uBit.io.P20}
+        : pins_{&uBit.io.P0,  &uBit.io.P1,  &uBit.io.P2,  &uBit.io.P3,  &uBit.io.P4,  &uBit.io.P5,
+                &uBit.io.P6,  &uBit.io.P7,  &uBit.io.P8,  &uBit.io.P9,  &uBit.io.P10, &uBit.io.P11,
+                &uBit.io.P12, &uBit.io.P13, &uBit.io.P14, &uBit.io.P15, &uBit.io.P16, nullptr,
+                nullptr,      &uBit.io.P19, &uBit.io.P20}
     {
     }
 
@@ -388,10 +470,7 @@ private:
      * The `NRF52Pin` for `pin` (0-20), or nullptr when `pin` is out of range or is
      * P17/P18 (the board's 3V power pins, which are not GPIO).
      */
-    NRF52Pin *pinFor(int pin)
-    {
-        return pin >= 0 && pin <= kMaxPin ? pins_[pin] : nullptr;
-    }
+    NRF52Pin *pinFor(int pin) { return pin >= 0 && pin <= kMaxPin ? pins_[pin] : nullptr; }
 };
 
 /**
@@ -413,11 +492,10 @@ class MicroBitSonarPort : public SonarPort
 {
 public:
     explicit MicroBitSonarPort(MicroBit &uBit)
-        : pins_{&uBit.io.P0,  &uBit.io.P1,  &uBit.io.P2,  &uBit.io.P3,  &uBit.io.P4,
-                &uBit.io.P5,  &uBit.io.P6,  &uBit.io.P7,  &uBit.io.P8,  &uBit.io.P9,
-                &uBit.io.P10, &uBit.io.P11, &uBit.io.P12, &uBit.io.P13, &uBit.io.P14,
-                &uBit.io.P15, &uBit.io.P16, nullptr,      nullptr,      &uBit.io.P19,
-                &uBit.io.P20}
+        : pins_{&uBit.io.P0,  &uBit.io.P1,  &uBit.io.P2,  &uBit.io.P3,  &uBit.io.P4,  &uBit.io.P5,
+                &uBit.io.P6,  &uBit.io.P7,  &uBit.io.P8,  &uBit.io.P9,  &uBit.io.P10, &uBit.io.P11,
+                &uBit.io.P12, &uBit.io.P13, &uBit.io.P14, &uBit.io.P15, &uBit.io.P16, nullptr,
+                nullptr,      &uBit.io.P19, &uBit.io.P20}
     {
     }
 
@@ -443,7 +521,8 @@ private:
     /** Consecutive echo timeouts before a sonar reports max distance; rejects lone dropouts. */
     static constexpr int kMaxMisses = 3;
 
-    /** Exponential-moving-average weight on each new reading (0-1); smaller is smoother but laggier. */
+    /** Exponential-moving-average weight on each new reading (0-1); smaller is smoother but
+     * laggier. */
     static constexpr float kEmaAlpha = 0.7f;
 
     /**
@@ -498,9 +577,9 @@ private:
         // Measure the echo's HIGH-pulse width. getPulseUs reads the polarity once on
         // its first call, so set it before the fiber takes its first measurement.
         echoPin->setPolarity(1);
-        Sonar *sonar = new Sonar{
-            trig, echo, trigPin, echoPin, kMaxDistanceCm, static_cast<float>(kMaxDistanceCm), 0,
-            head_};
+        Sonar *sonar = new Sonar{trig,    echo,           trigPin,
+                                 echoPin, kMaxDistanceCm, static_cast<float>(kMaxDistanceCm),
+                                 0,       head_};
         head_ = sonar;
         if (!fiberStarted_)
         {
@@ -545,8 +624,8 @@ private:
         const int echoMicros = sonar->echoPin->getPulseUs(kEchoTimeoutUs);
         if (echoMicros >= 0)
         {
-            sonar->smoothCm =
-                kEmaAlpha * static_cast<float>(distanceCm(echoMicros)) + (1.0f - kEmaAlpha) * sonar->smoothCm;
+            sonar->smoothCm = kEmaAlpha * static_cast<float>(distanceCm(echoMicros)) +
+                              (1.0f - kEmaAlpha) * sonar->smoothCm;
             sonar->cacheCm = static_cast<int>(sonar->smoothCm + 0.5f);
             sonar->missCount = 0;
         }
@@ -591,7 +670,8 @@ public:
         uint8_t frame[kRadioMaxPacketSize];
         if (packet.type == kRadioRawPacketType)
         {
-            uint32_t len = packet.bytesLen < kRadioMaxPacketSize ? packet.bytesLen : kRadioMaxPacketSize;
+            uint32_t len =
+                packet.bytesLen < kRadioMaxPacketSize ? packet.bytesLen : kRadioMaxPacketSize;
             for (uint32_t i = 0; i < len; i++)
             {
                 frame[i] = packet.bytes[i];
@@ -715,7 +795,8 @@ private:
         }
     }
 
-    /** Append a received frame to the ring with the next sequence, evicting the oldest on overflow. */
+    /** Append a received frame to the ring with the next sequence, evicting the oldest on overflow.
+     */
     void pushPacket(const uint8_t *bytes, int length, int rssi)
     {
         uint32_t slotIndex;

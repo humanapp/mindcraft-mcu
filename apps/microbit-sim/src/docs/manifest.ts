@@ -71,6 +71,7 @@ const tileContentKeys: Readonly<Record<string, string>> = {
   "tile.actuator->microbit-v2.display-set-pixel": "actuator-set-pixel",
   "tile.actuator->microbit-v2.display-scroll": "actuator-display-text",
   "tile.actuator->microbit-v2.draw-image": "actuator-draw-image",
+  "tile.actuator->microbit-v2.play-sound": "actuator-play-sound",
   "tile.modifier->microbit-v2.pressed": "modifier-pressed",
   "tile.modifier->microbit-v2.released": "modifier-released",
   "tile.modifier->microbit-v2.click": "modifier-click",
@@ -93,6 +94,7 @@ const tileContentKeys: Readonly<Record<string, string>> = {
   "tile.parameter->microbit-v2.text": "parameter-text",
   "tile.parameter->microbit-v2.image": "parameter-image",
   "tile.parameter->microbit-v2.duration": "parameter-duration",
+  "tile.parameter->microbit-v2.sound-emoji": "parameter-sound",
   "tile.literal->struct:<Image>->heart": "literal-image-heart",
   "tile.literal->struct:<Image>->happy": "literal-image-happy",
   "tile.literal->struct:<Image>->sad": "literal-image-sad",
@@ -100,6 +102,16 @@ const tileContentKeys: Readonly<Record<string, string>> = {
   "tile.literal->struct:<Image>->arrow-south": "literal-image-arrow-south",
   "tile.literal->struct:<Image>->arrow-east": "literal-image-arrow-east",
   "tile.literal->struct:<Image>->arrow-west": "literal-image-arrow-west",
+  "tile.literal->struct:<SoundEmoji>->giggle": "literal-sound-giggle",
+  "tile.literal->struct:<SoundEmoji>->happy": "literal-sound-happy",
+  "tile.literal->struct:<SoundEmoji>->hello": "literal-sound-hello",
+  "tile.literal->struct:<SoundEmoji>->mysterious": "literal-sound-mysterious",
+  "tile.literal->struct:<SoundEmoji>->sad": "literal-sound-sad",
+  "tile.literal->struct:<SoundEmoji>->slide": "literal-sound-slide",
+  "tile.literal->struct:<SoundEmoji>->soaring": "literal-sound-soaring",
+  "tile.literal->struct:<SoundEmoji>->spring": "literal-sound-spring",
+  "tile.literal->struct:<SoundEmoji>->twinkle": "literal-sound-twinkle",
+  "tile.literal->struct:<SoundEmoji>->yawn": "literal-sound-yawn",
 };
 
 /**

@@ -51,6 +51,7 @@ import { brightnessToPort, pixelCoordToPort } from "./actions/display-pixel-conv
 import displayScrollActuator from "./actions/display-scroll";
 import displaySetPixelActuator from "./actions/display-set-pixel";
 import { gestureSensor } from "./actions/gesture-sensor";
+import playSoundActuator from "./actions/play-sound";
 import {
   radioReceiveBufferSensor,
   radioReceiveNumberSensor,
@@ -60,6 +61,7 @@ import {
 import radioSendActuator from "./actions/radio-send";
 import setRadioGroupActuator from "./actions/set-radio-group";
 import { BUILT_IN_IMAGES, builtInImageStructValue } from "./built-in-images";
+import { BUILT_IN_SOUNDS, builtInSoundStructValue, SOUND_EMOJI_TYPE_ID, SoundEmojiField } from "./built-in-sounds";
 import { getMicroBitContextDevice } from "./context";
 import { SCROLL_DEFAULT_DELAY_MS, scrollDurationMs } from "./display-scroll";
 import { MICROBIT_V2_MODIFIERS } from "./modifiers";
@@ -372,6 +374,11 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
   types.addListType("RadioPacketList", {
     atomId: MicroBitV2TypeAtomId.RadioPacketList,
     elementTypeId: WODAL_MICROBIT_V2_TYPE_IDS.RadioPacket,
+  });
+
+  types.addStructType("SoundEmoji", {
+    atomId: MicroBitV2TypeAtomId.SoundEmoji,
+    fields: List.from([{ name: "name", typeId: CoreTypeIds.String, fieldIndex: SoundEmojiField.Name }]),
   });
 
   types.addStructType("Radio", {
@@ -1038,9 +1045,11 @@ function registerBrainTiles(api: MindcraftModuleApi): void {
   api.registerHostActuator(createHostActuator(displaySetPixelActuator));
   api.registerHostActuator(createHostActuator(displayScrollActuator));
   api.registerHostActuator(createHostActuator(displayDrawActuator));
+  api.registerHostActuator(createHostActuator(playSoundActuator));
   api.registerModifiers(MICROBIT_V2_MODIFIERS);
   api.registerParameters(MICROBIT_V2_PARAMETERS);
   registerBuiltInImageTiles(api);
+  registerBuiltInSoundTiles(api);
 }
 
 /**
@@ -1056,6 +1065,27 @@ function registerBuiltInImageTiles(api: MindcraftModuleApi): void {
       new BrainTileLiteralDef(
         WODAL_SHARED_TYPE_IDS.Image,
         builtInImageStructValue(def),
+        { valueLabel: def.name, persist: false, metadata: { label: def.label } },
+        api.brainServices
+      )
+    );
+  }
+}
+
+/**
+ * Registers a surface-1 `SoundEmoji` literal tile for each built-in sound. Each
+ * tile carries the sound's baked `SoundEmoji` struct value (see
+ * {@link builtInSoundStructValue}): placing it in a `play sound` sound slot
+ * bakes that constant into the program. The tiles are catalog-provided and
+ * referenced by id, so they do not persist their struct value into a saved
+ * brain.
+ */
+function registerBuiltInSoundTiles(api: MindcraftModuleApi): void {
+  for (const def of BUILT_IN_SOUNDS) {
+    api.registerTile(
+      new BrainTileLiteralDef(
+        SOUND_EMOJI_TYPE_ID,
+        builtInSoundStructValue(def),
         { valueLabel: def.name, persist: false, metadata: { label: def.label } },
         api.brainServices
       )

@@ -1,4 +1,5 @@
 import { CoreTypeIds, mkTypeId, NativeType, type ParameterTileInput, param } from "@mindcraft-lang/core/app";
+import { SOUND_EMOJI_TYPE_ID } from "./built-in-sounds";
 import { WodalMicroBitV2ParameterId } from "./tile-ids";
 
 /** TypeId of the `Image` value struct, the data type of the image parameter. */
@@ -19,6 +20,7 @@ export const Param = {
   text: param(WodalMicroBitV2ParameterId.Text, { anonymous: true }),
   image: param(WodalMicroBitV2ParameterId.Image, { anonymous: true }),
   duration: param(WodalMicroBitV2ParameterId.Duration),
+  soundEmoji: param(WodalMicroBitV2ParameterId.SoundEmoji, { anonymous: true }),
 };
 
 /** Parameter tiles registered once with the module. */
@@ -30,4 +32,5 @@ export const MICROBIT_V2_PARAMETERS: readonly ParameterTileInput[] = [
   { id: WodalMicroBitV2ParameterId.Image, dataType: IMAGE_TYPE_ID, label: "image" },
   { id: WodalMicroBitV2ParameterId.Duration, dataType: CoreTypeIds.Number, label: "duration" },
   { id: WodalMicroBitV2ParameterId.Buffer, dataType: CoreTypeIds.Buffer, hidden: true },
+  { id: WodalMicroBitV2ParameterId.SoundEmoji, dataType: SOUND_EMOJI_TYPE_ID, label: "sound" },
 ];

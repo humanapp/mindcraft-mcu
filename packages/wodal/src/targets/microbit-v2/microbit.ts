@@ -12,6 +12,7 @@ import { NRF52FlashManager, type NRF52FlashSnapshot } from "../../nrf52/nrf52-fl
 import { NRF52Serial, type NRF52SerialSnapshot } from "../../nrf52/nrf52-serial";
 import { MICROBIT_ID_BUTTON_A, MICROBIT_ID_BUTTON_B, MICROBIT_ID_LOGO } from "./constants";
 import { MicroBitDisplay } from "./microbit-display";
+import { MicroBitSpeaker, type MicroBitSpeakerSnapshot } from "./microbit-speaker";
 
 /** Snapshot of the device state exposed to app adapters. */
 export interface MicroBitSnapshot {
@@ -29,6 +30,9 @@ export interface MicroBitSnapshot {
 
   /** Current LED matrix state. */
   readonly display: ReturnType<MicroBitDisplay["snapshot"]>;
+
+  /** State of the speaker: the playing sound and its timing, or idle. */
+  readonly speaker: MicroBitSpeakerSnapshot;
 
   /** Message bus queue and listener counts. */
   readonly messageBus: MessageBusSnapshot;
@@ -59,6 +63,9 @@ export class MicroBit {
 
   /** LED matrix display. */
   public readonly display = new MicroBitDisplay();
+
+  /** On-board speaker. */
+  public readonly speaker = new MicroBitSpeaker();
 
   /** Front button A. */
   public readonly buttonA = new Button(MICROBIT_ID_BUTTON_A, this.messageBus);
@@ -120,14 +127,16 @@ export class MicroBit {
   }
 
   /**
-   * Resets the device to a fresh power-on state: clears the display, releases the buttons and logo,
-   * resets the accelerometer, I2C bus, GPIO pins, sensor driver, timer, message bus, and serial
-   * buffers, and marks the device uninitialized. Persistent flash storage is not reset.
+   * Resets the device to a fresh power-on state: clears the display and speaker, releases the
+   * buttons and logo, resets the accelerometer, I2C bus, GPIO pins, sensor driver, timer, message
+   * bus, and serial buffers, and marks the device uninitialized. Persistent flash storage is not
+   * reset.
    */
   clear(): void {
     this.timer.reset();
     this.messageBus.clear();
     this.display.reset();
+    this.speaker.reset();
     this.serial.clear();
     this.buttonA.reset();
     this.buttonB.reset();
@@ -193,6 +202,7 @@ export class MicroBit {
       buttonB: this.buttonB.snapshot(),
       logo: this.logo.snapshot(),
       display: this.display.snapshot(),
+      speaker: this.speaker.snapshot(),
       messageBus: this.messageBus.snapshot(),
       serial: this.serial.snapshot(),
       flash: this.flash.snapshot(),

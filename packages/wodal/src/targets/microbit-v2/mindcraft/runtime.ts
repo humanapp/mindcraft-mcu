@@ -155,6 +155,8 @@ export class WodalMicroBitRuntime {
     // Complete any scroll animations whose time has arrived. A completion
     // resolves its async handle, so the awaiting fiber resumes on the next think.
     this.microbit.display.advanceScroll(this.microbit.systemTime());
+    // Complete any speaker play whose nominal duration has elapsed, the same way.
+    this.microbit.speaker.advancePlay(this.microbit.systemTime());
   }
 
   /** Returns the current simulated device snapshot. */

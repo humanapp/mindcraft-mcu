@@ -78,7 +78,8 @@ TEST_CASE("MicroBitV2HostFuncId values are wire-stable") {
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::GpioAnalogRead) == 1071);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::SensorRadioReceiveBuffer) == 1072);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::DisplayScrollText) == 1073);
-  CHECK(kMicroBitV2HostFuncIdCount == 50);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorPlaySound) == 1074);
+  CHECK(kMicroBitV2HostFuncIdCount == 51);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::DisplaySetPixelValue) == TARGET_FUNC_ID_BASE);
 }
 
@@ -113,7 +114,8 @@ TEST_CASE("MicroBitV2TypeAtomId values are wire-stable") {
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::Radio) == 1032);
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::RadioPacket) == 1033);
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::RadioPacketList) == 1034);
-  CHECK(kMicroBitV2TypeAtomIdCount == 11);
+  CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::SoundEmoji) == 1035);
+  CHECK(kMicroBitV2TypeAtomIdCount == 12);
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::MicroBitDisplay) == TARGET_TYPE_ATOM_BASE);
 }
 
@@ -167,8 +169,11 @@ TEST_CASE("microbit-v2 host-action ids are wire-stable") {
   CHECK(MicroBitV2HostActions::RadioReceiveBuffer.actionId == 1036);
   CHECK(MicroBitV2HostActions::RadioReceiveBuffer.fnId ==
         static_cast<uint32_t>(MicroBitV2HostFuncId::SensorRadioReceiveBuffer));
+  CHECK(MicroBitV2HostActions::PlaySound.actionId == 1037);
+  CHECK(MicroBitV2HostActions::PlaySound.fnId ==
+        static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorPlaySound));
 
-  REQUIRE(std::size(kMicroBitV2HostActions) == 13);
+  REQUIRE(std::size(kMicroBitV2HostActions) == 14);
   for (uint32_t i = 0; i < std::size(kMicroBitV2HostActions); i++) {
     CHECK(kMicroBitV2HostActions[i].actionId == TARGET_ACTION_ID_BASE + i);
   }

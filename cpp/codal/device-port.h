@@ -93,6 +93,35 @@ public:
 };
 
 /**
+ * Speaker sound output: a single output leased by the playing sound. The
+ * lease is resolved against logical tick time from the sound's nominal total
+ * duration, never from a device-driver completion event.
+ */
+class SpeakerPort {
+public:
+  virtual ~SpeakerPort() = default;
+
+  /**
+   * Play the built-in sound named by `length` ASCII bytes, requested at
+   * logical tick time `requestTimeMs`. The call returns immediately. An
+   * accepted play takes the speaker lease for the sound's nominal total
+   * duration and settles `handle` (resolve) once it elapses. A play requested
+   * while the speaker is busy is silently dropped: nothing plays and `handle`
+   * settles at once. A name outside the board's built-in set is a silent
+   * no-op: nothing plays, no lease is taken, and `handle` settles at once.
+   */
+  virtual void playSoundEmoji(const uint8_t* name, uint32_t length, mc_number_t requestTimeMs,
+                              AsyncHandle handle) = 0;
+
+  /**
+   * Release the current speaker lease at once: the held play stops and its
+   * handle resolves, so its awaiting rule resumes as if the sound finished. A
+   * no-op when no lease is held.
+   */
+  virtual void preempt() = 0;
+};
+
+/**
  * Momentary button input. Buttons are addressed by a zero-based index whose
  * mapping to physical inputs is board-defined (0 is button A, 1 is button B,
  * and 2 is the capacitive touch logo on a micro:bit v2).
@@ -352,6 +381,7 @@ struct DevicePorts {
   GPIOPort* gpio;
   SonarPort* sonar;
   RadioPort* radio;
+  SpeakerPort* speaker;
 };
 
 } // namespace mindcraft

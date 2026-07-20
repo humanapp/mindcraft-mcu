@@ -117,6 +117,15 @@ struct NullRadio : mindcraft::RadioPort {
   int headSequence() override { return 0; }
 };
 
+/** Speaker port that resolves every play at once and never leases. */
+struct NullSpeaker : mindcraft::SpeakerPort {
+  void playSoundEmoji(const uint8_t*, uint32_t, mindcraft::mc_number_t,
+                      mindcraft::AsyncHandle handle) override {
+    handle.resolve(mindcraft::kVoidValue);
+  }
+  void preempt() override {}
+};
+
 /** Clock returning a fixed reading. */
 struct FixedClock : mindcraft::MonotonicClockPort {
   uint32_t now = 0;
@@ -198,8 +207,9 @@ TEST_CASE("the host loop latches fault mode when startup fails") {
   NullGpio gpio;
   NullSonar sonar;
   NullRadio radio;
+  NullSpeaker speaker;
   mindcraft::DevicePorts ports{&display, &buttons, &faultDisplay, &clock, &accelerometer,
-                               &i2c,     &gpio,    &sonar,        &radio};
+                               &i2c,     &gpio,    &sonar,        &radio, &speaker};
 
   HostLoop hostLoop(brain, ports);
   const mindcraft::Status status = hostLoop.startup();

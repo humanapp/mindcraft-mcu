@@ -39,6 +39,24 @@ finish, and a draw made while the display is busy is dropped; add
 or \`tile:tile.modifier->microbit-v2.in-background\` to let the rule continue
 without waiting. A duration of 0 paints the image and continues at once.
 `,
+  "actuator-play-sound": `\`\`\`brain noframe do
+{ "tile": "tile.actuator->microbit-v2.play-sound" }
+\`\`\`
+
+# Play sound
+
+Plays a built-in sound on the speaker.
+
+---
+
+Plays the given \`tile:tile.parameter->microbit-v2.sound-emoji\`, a built-in
+sound such as \`tile:tile.literal->struct:<SoundEmoji>->twinkle\`. With no sound
+it plays \`tile:tile.literal->struct:<SoundEmoji>->hello\`. The rule waits until
+the sound finishes, and a play made while the speaker is busy is dropped; add
+\`tile:tile.modifier->microbit-v2.immediately\` to take over the speaker at
+once, or \`tile:tile.modifier->microbit-v2.in-background\` to let the rule
+continue without waiting.
+`,
   "actuator-radio-send": `\`\`\`brain noframe do
 { "tile": "tile.actuator->microbit-v2.radio-send" }
 \`\`\`
@@ -169,6 +187,126 @@ The built-in sad face image.
 
 A ready-made 5x5 image for \`tile:tile.actuator->microbit-v2.draw-image\`.
 `,
+  "literal-sound-giggle": `\`\`\`brain noframe do
+{ "tile": "tile.literal->struct:<SoundEmoji>->giggle" }
+\`\`\`
+
+# Giggle
+
+A giggling sound.
+
+---
+
+A ready-made sound for \`tile:tile.actuator->microbit-v2.play-sound\`.
+`,
+  "literal-sound-happy": `\`\`\`brain noframe do
+{ "tile": "tile.literal->struct:<SoundEmoji>->happy" }
+\`\`\`
+
+# Happy
+
+A cheerful, upbeat sound.
+
+---
+
+A ready-made sound for \`tile:tile.actuator->microbit-v2.play-sound\`.
+`,
+  "literal-sound-hello": `\`\`\`brain noframe do
+{ "tile": "tile.literal->struct:<SoundEmoji>->hello" }
+\`\`\`
+
+# Hello
+
+A short greeting sound.
+
+---
+
+A ready-made sound for \`tile:tile.actuator->microbit-v2.play-sound\`.
+`,
+  "literal-sound-mysterious": `\`\`\`brain noframe do
+{ "tile": "tile.literal->struct:<SoundEmoji>->mysterious" }
+\`\`\`
+
+# Mysterious
+
+A long, eerie sound.
+
+---
+
+A ready-made sound for \`tile:tile.actuator->microbit-v2.play-sound\`.
+`,
+  "literal-sound-sad": `\`\`\`brain noframe do
+{ "tile": "tile.literal->struct:<SoundEmoji>->sad" }
+\`\`\`
+
+# Sad
+
+A drooping, unhappy sound.
+
+---
+
+A ready-made sound for \`tile:tile.actuator->microbit-v2.play-sound\`.
+`,
+  "literal-sound-slide": `\`\`\`brain noframe do
+{ "tile": "tile.literal->struct:<SoundEmoji>->slide" }
+\`\`\`
+
+# Slide
+
+A sliding-down sound.
+
+---
+
+A ready-made sound for \`tile:tile.actuator->microbit-v2.play-sound\`.
+`,
+  "literal-sound-soaring": `\`\`\`brain noframe do
+{ "tile": "tile.literal->struct:<SoundEmoji>->soaring" }
+\`\`\`
+
+# Soaring
+
+A long rising flight of sound.
+
+---
+
+A ready-made sound for \`tile:tile.actuator->microbit-v2.play-sound\`.
+`,
+  "literal-sound-spring": `\`\`\`brain noframe do
+{ "tile": "tile.literal->struct:<SoundEmoji>->spring" }
+\`\`\`
+
+# Spring
+
+A boingy, bouncing sound.
+
+---
+
+A ready-made sound for \`tile:tile.actuator->microbit-v2.play-sound\`.
+`,
+  "literal-sound-twinkle": `\`\`\`brain noframe do
+{ "tile": "tile.literal->struct:<SoundEmoji>->twinkle" }
+\`\`\`
+
+# Twinkle
+
+A long sparkling chime.
+
+---
+
+A ready-made sound for \`tile:tile.actuator->microbit-v2.play-sound\`.
+`,
+  "literal-sound-yawn": `\`\`\`brain noframe do
+{ "tile": "tile.literal->struct:<SoundEmoji>->yawn" }
+\`\`\`
+
+# Yawn
+
+A slow, sleepy sound.
+
+---
+
+A ready-made sound for \`tile:tile.actuator->microbit-v2.play-sound\`.
+`,
   "modifier-click": `\`\`\`brain noframe when
 { "tile": "tile.modifier->microbit-v2.click" }
 \`\`\`
@@ -255,14 +393,15 @@ press.
 
 # Immediately
 
-Takes over the display at once.
+Takes over the display or speaker at once.
 
 ---
 
-Attach to \`tile:tile.actuator->microbit-v2.display-scroll\` or
-\`tile:tile.actuator->microbit-v2.draw-image\`: whatever the display is showing
+Attach to \`tile:tile.actuator->microbit-v2.display-scroll\`,
+\`tile:tile.actuator->microbit-v2.draw-image\`, or
+\`tile:tile.actuator->microbit-v2.play-sound\`: whatever is showing or playing
 is stopped and this one starts now. Without it, a request made while the
-display is busy is dropped.
+display or speaker is busy is dropped.
 `,
   "modifier-in-background": `\`\`\`brain noframe do
 { "tile": "tile.modifier->microbit-v2.in-background" }
@@ -270,15 +409,16 @@ display is busy is dropped.
 
 # In background
 
-Shows on the display without making the rule wait.
+Runs the show or sound without making the rule wait.
 
 ---
 
-Attach to \`tile:tile.actuator->microbit-v2.display-scroll\` or
-\`tile:tile.actuator->microbit-v2.draw-image\`: the animation runs as usual, but
-the rule continues at once instead of waiting for it to finish. The display
-stays busy until the animation completes, so a new request during that time is
-still dropped.
+Attach to \`tile:tile.actuator->microbit-v2.display-scroll\`,
+\`tile:tile.actuator->microbit-v2.draw-image\`, or
+\`tile:tile.actuator->microbit-v2.play-sound\`: the animation or sound runs as
+usual, but the rule continues at once instead of waiting for it to finish. The
+display or speaker stays busy until it completes, so a new request during that
+time is still dropped.
 `,
   "modifier-long-click": `\`\`\`brain noframe when
 { "tile": "tile.modifier->microbit-v2.long-click" }
@@ -430,6 +570,20 @@ An image to show on the display.
 Gives \`tile:tile.actuator->microbit-v2.draw-image\` an image to draw: a built-in
 image such as \`tile:tile.literal->struct:<Image>->heart\` or an image variable.
 Add more than one to play them in a sequence, each held for the duration.
+`,
+  "parameter-sound": `\`\`\`brain noframe do
+{ "tile": "tile.parameter->microbit-v2.sound-emoji" }
+\`\`\`
+
+# Sound
+
+A sound to play on the speaker.
+
+---
+
+Gives \`tile:tile.actuator->microbit-v2.play-sound\` a sound to play: a built-in
+sound such as \`tile:tile.literal->struct:<SoundEmoji>->happy\` or a sound
+variable.
 `,
   "parameter-text": `\`\`\`brain noframe do
 { "tile": "tile.parameter->microbit-v2.text" }

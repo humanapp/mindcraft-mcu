@@ -1,6 +1,7 @@
 declare module "mindcraft" {
   interface MindcraftTypeMap {
     MicroBitDisplay: MicroBitDisplay;
+    SoundEmoji: SoundEmoji;
     MicroBit: MicroBit;
   }
 
@@ -11,6 +12,9 @@ declare module "mindcraft" {
     clear(): void;
     drawImage(image: Image, duration?: number): Promise<void>;
     scrollText(text: string): Promise<void>;
+  }
+  export interface SoundEmoji {
+    name: string;
   }
   export interface MicroBit {
     readonly __brand: unique symbol;

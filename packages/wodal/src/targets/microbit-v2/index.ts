@@ -25,6 +25,17 @@ export {
 } from "./constants";
 export { MicroBit, type MicroBitSnapshot } from "./microbit";
 export { MicroBitDisplay } from "./microbit-display";
+export {
+  MicroBitSpeaker,
+  type MicroBitSpeakerSnapshot,
+  type SpeakerPlayingSnapshot,
+} from "./microbit-speaker";
+export {
+  BUILT_IN_SOUNDS,
+  type BuiltInSoundDef,
+  DEFAULT_BUILT_IN_SOUND_NAME,
+  SOUND_EMOJI_TYPE_ID,
+} from "./mindcraft/built-in-sounds";
 export { createMicroBitV2Environment } from "./mindcraft/environment";
 export { createMicroBitV2Module } from "./mindcraft/module";
 export {

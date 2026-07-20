@@ -69,6 +69,7 @@ export enum MicroBitV2HostFuncId {
   GpioAnalogRead = 1071,
   SensorRadioReceiveBuffer = 1072,
   DisplayScrollText = 1073,
+  ActuatorPlaySound = 1074,
 }
 
 /**
@@ -89,6 +90,7 @@ export enum MicroBitV2TypeAtomId {
   Radio = 1032,
   RadioPacket = 1033,
   RadioPacketList = 1034,
+  SoundEmoji = 1035,
 }
 
 /**
@@ -174,6 +176,13 @@ export const MicroBitV2HostActions = {
     actionId: 1036,
     fnId: MicroBitV2HostFuncId.SensorRadioReceiveBuffer,
   },
+
+  /** Actuator: play a built-in sound on the speaker, awaiting its nominal duration. */
+  PlaySound: {
+    key: "microbit-v2.play-sound",
+    actionId: 1037,
+    fnId: MicroBitV2HostFuncId.ActuatorPlaySound,
+  },
 } as const satisfies Record<string, HostActionIds>;
 
 /**
@@ -223,10 +232,10 @@ export const WodalMicroBitV2ModifierId = {
   /** Match the freefall gesture. */
   Freefall: "microbit-v2.freefall",
 
-  /** Preempt the current display lease so the draw or scroll runs at once. */
+  /** Preempt the current display or speaker lease so the operation runs at once. */
   Immediately: "microbit-v2.immediately",
 
-  /** Run the draw or scroll under its display lease without the issuing rule awaiting it. */
+  /** Run the operation under its display or speaker lease without the issuing rule awaiting it. */
   InBackground: "microbit-v2.in-background",
 } as const;
 
@@ -252,4 +261,7 @@ export const WodalMicroBitV2ParameterId = {
 
   /** Byte buffer filling an anonymous Buffer value slot. */
   Buffer: "microbit-v2.buffer",
+
+  /** Built-in sound to play on the speaker. */
+  SoundEmoji: "microbit-v2.sound-emoji",
 } as const;

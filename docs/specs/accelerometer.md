@@ -44,7 +44,7 @@ matches any detected impact; `[impact] [<N>g]` matches an impact of at least N G
 CODAL's 2G/3G/6G/8G impulse levels.
 
 **Every modifier emits a LEVEL signal: true on every tick the gesture is recognized**, false
-otherwise - uniform across all gestures. Edge / one-shot / toggle behavior is obtained by
+otherwise - uniform across all gestures. Edge / fire-once / toggle behavior is obtained by
 composing a **filter** (`docs/specs/filters.md`), the same way for every sensor, rather
 than per-gesture variants here.
 
@@ -56,7 +56,7 @@ when: gesture face up
 when: gesture freefall         // a fall (~0G)
 when: gesture impact           // any hard hit (>= ~2G)
 when: gesture impact 6g        // a hit of at least 6G
-when: gesture face up one-shot // trigger once on each facing-up detection
+when: gesture face up once     // trigger once on each facing-up detection
 ```
 
 ## Modifier grammar
@@ -108,7 +108,7 @@ sub-choice is in scope only when `[impact]` is selected.
 - **Level signal.** The tile is true on every tick its gesture is recognized, false otherwise -
   uniform across all gestures, no per-gesture edge/level split and no debounce. (For `shake` and
   an impact the recognized window is brief; for the postures it is sustained - both are just
-  "true while recognized".) Edge / one-shot / toggle behavior comes from a composed filter, not
+  "true while recognized".) Edge / fire-once / toggle behavior comes from a composed filter, not
   this tile.
 - **Independent, no suppression** (modifiers and call-sites), matching buttons.
 

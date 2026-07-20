@@ -26,12 +26,13 @@ enum class MicroBitV2TypeAtomId : uint32_t
     Radio = 1032,
     RadioPacket = 1033,
     RadioPacketList = 1034,
+    SoundEmoji = 1035,
 };
 
 /**
  * Number of declared {@link MicroBitV2TypeAtomId} members; ids are dense
  * from 1024.
  */
-inline constexpr uint32_t kMicroBitV2TypeAtomIdCount = 11;
+inline constexpr uint32_t kMicroBitV2TypeAtomIdCount = 12;
 
 } // namespace mindcraft

@@ -83,10 +83,11 @@ int main()
     MicroBitGPIOPort gpio(uBit);
     MicroBitSonarPort sonar(uBit);
     MicroBitRadioPort radio(uBit);
+    MicroBitSpeakerPort speaker(uBit);
     MicroBitMonotonicClockPort clock;
     MicroBitFaultDisplayPort faultDisplay(uBit);
     DevicePorts ports{&display, &buttons, &faultDisplay, &clock, &accelerometer,
-                      &i2c,     &gpio,    &sonar,        &radio};
+                      &i2c,     &gpio,    &sonar,        &radio, &speaker};
 
     // Read the brain image from the reserved on-flash region.
     const Result<ByteSpan, RegionError> region = readRegionProgram(programFlashRegion());
@@ -129,6 +130,9 @@ int main()
     // struct and a managed pixel buffer), and the program (to resolve a borrowed
     // pixel buffer); its heap is filled once the heap exists.
     MicroBitV2DrawImageEnv drawEnv{&display, nullptr, &image};
+    // The async play-sound body reaches the speaker and the heap (to read the
+    // sound argument's name string); its heap is filled once the heap exists.
+    MicroBitV2PlaySoundEnv playSoundEnv{&speaker, nullptr};
     // The I2C write body reaches the bus port, the heap (to resolve a managed
     // Buffer argument), and the program (to resolve a borrowed one); its heap is
     // filled once the heap exists.
@@ -155,8 +159,8 @@ int main()
     // type registry are filled once they exist.
     MicroBitV2RadioReceiveEnv radioReceiveEnv{&radio, nullptr, nullptr, nullptr};
     auto coreBindings = makeCoreHostActionBindings(coreEnv);
-    auto mbBindings = makeMicroBitV2HostActionBindings(ports, &scrollEnv, &buttonEnv, &drawEnv,
-                                                       &radioSendEnv, &radioSensorEnv);
+    auto mbBindings = makeMicroBitV2HostActionBindings(
+        ports, &scrollEnv, &buttonEnv, &drawEnv, &radioSendEnv, &radioSensorEnv, &playSoundEnv);
     std::array<HostActionBinding, kCoreHostActionBindingCount + kMicroBitV2HostActionBindingCount>
         actions{};
     for (size_t i = 0; i < coreBindings.size(); i++)
@@ -188,6 +192,7 @@ int main()
     coreEnv.roots = &scheduler;
     scrollEnv.heap = &heap;
     drawEnv.heap = &heap;
+    playSoundEnv.heap = &heap;
     i2cWriteEnv.heap = &heap;
     i2cReadEnv.heap = &heap;
     i2cReadEnv.roots = &scheduler;
@@ -214,10 +219,12 @@ int main()
 
     while (true)
     {
-        // Settle any completed scroll or timed draw, and drain any radio packets
-        // that arrived, before the brain thinks, so an awaiting rule resumes and a
-        // freshly received packet is in the ring on this round's drain.
+        // Settle any completed scroll, timed draw, or speaker play, and drain any
+        // radio packets that arrived, before the brain thinks, so an awaiting rule
+        // resumes and a freshly received packet is in the ring on this round's
+        // drain.
         display.pollDisplay();
+        speaker.pollSpeaker();
         radio.pollRx();
         hostLoop.tick();
         uBit.sleep(kTickIntervalMs);

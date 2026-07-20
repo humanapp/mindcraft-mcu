@@ -57,6 +57,7 @@
  * port gpio servo-write <pin> <angle>
  * port gpio analog-read <pin> <value>
  * port sonar distance <trig> <echo> <cm>
+ * port speaker play "<name>"
  * port radio send group <g> number <bits>
  * port radio send group <g> double <bits>
  * port radio send group <g> string "<bytes>"
@@ -124,6 +125,10 @@
  *   sensor driver for the sonar wired to `<trig>`/`<echo>` (the pin numbers in
  *   hex). `<cm>` is the distance in centimeters read back (the previous driver
  *   cycle's measurement), in hex.
+ * - `port speaker play`: one built-in-sound play accepted by the speaker device
+ *   port, with the sound's name as the quoted byte sequence passed to the
+ *   port. A play the busy speaker drops, or a name outside the built-in set (a
+ *   no-op), crosses no port and emits no such line.
  * - `port radio send`: one packet transmitted across the radio device port.
  *   `<g>` is the group in hex. The trailing tokens render the typed payload:
  *   `number <bits>` (NUMBER, an integer), `double <bits>` (DOUBLE, a
@@ -417,6 +422,15 @@ export class ObservableTraceWriter {
    */
   sonarDistance(trig: number, echo: number, cm: number): void {
     this.line(`port sonar distance ${hexU32(trig)} ${hexU32(echo)} ${hexU32(cm)}`);
+  }
+
+  /**
+   * Records one built-in-sound play accepted by the speaker device port.
+   *
+   * @param name - Name of the built-in sound accepted for playback.
+   */
+  speakerPlay(name: string): void {
+    this.line(`port speaker play ${quoted(name)}`);
   }
 
   /**

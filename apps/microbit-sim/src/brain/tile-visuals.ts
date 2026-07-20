@@ -21,6 +21,7 @@ import { staticAssetUrl } from "@mindcraft-lang/ui";
 import { WODAL_SHARED_TYPE_IDS } from "@mindcraft-lang/wodal";
 import {
   MicroBitV2HostActions,
+  SOUND_EMOJI_TYPE_ID,
   WodalMicroBitV2ModifierId,
   WodalMicroBitV2ParameterId,
 } from "@mindcraft-lang/wodal/targets/microbit-v2";
@@ -80,6 +81,17 @@ export const tileVisuals = new Map<string, Partial<TileVisual>>([
   [mkLiteralTileId(WODAL_SHARED_TYPE_IDS.Image, "arrow-south"), { iconUrl: icon("image-arrow-south") }],
   [mkLiteralTileId(WODAL_SHARED_TYPE_IDS.Image, "arrow-east"), { iconUrl: icon("image-arrow-east") }],
   [mkLiteralTileId(WODAL_SHARED_TYPE_IDS.Image, "arrow-west"), { iconUrl: icon("image-arrow-west") }],
+  // Built-in sound literals
+  [mkLiteralTileId(SOUND_EMOJI_TYPE_ID, "giggle"), { iconUrl: icon("literal-sound") }],
+  [mkLiteralTileId(SOUND_EMOJI_TYPE_ID, "happy"), { iconUrl: icon("literal-sound") }],
+  [mkLiteralTileId(SOUND_EMOJI_TYPE_ID, "hello"), { iconUrl: icon("literal-sound") }],
+  [mkLiteralTileId(SOUND_EMOJI_TYPE_ID, "mysterious"), { iconUrl: icon("literal-sound") }],
+  [mkLiteralTileId(SOUND_EMOJI_TYPE_ID, "sad"), { iconUrl: icon("literal-sound") }],
+  [mkLiteralTileId(SOUND_EMOJI_TYPE_ID, "slide"), { iconUrl: icon("literal-sound") }],
+  [mkLiteralTileId(SOUND_EMOJI_TYPE_ID, "soaring"), { iconUrl: icon("literal-sound") }],
+  [mkLiteralTileId(SOUND_EMOJI_TYPE_ID, "spring"), { iconUrl: icon("literal-sound") }],
+  [mkLiteralTileId(SOUND_EMOJI_TYPE_ID, "twinkle"), { iconUrl: icon("literal-sound") }],
+  [mkLiteralTileId(SOUND_EMOJI_TYPE_ID, "yawn"), { iconUrl: icon("literal-sound") }],
   // Sensors
   [mkSensorTileId(CoreHostActions.Random.key), { label: "random number", iconUrl: icon("sensor-random") }],
   [mkSensorTileId(CoreHostActions.OnPageEntered.key), { label: "on page entered", iconUrl: icon("sensor-on-page-entered") }],
@@ -101,6 +113,7 @@ export const tileVisuals = new Map<string, Partial<TileVisual>>([
   [mkActuatorTileId(MicroBitV2HostActions.DisplaySetPixel.key), { iconUrl: icon("actuator-display-set-pixel") }],
   [mkActuatorTileId(MicroBitV2HostActions.DisplayScroll.key), { iconUrl: icon("actuator-display-text") }],
   [mkActuatorTileId(MicroBitV2HostActions.DrawImage.key), { iconUrl: icon("actuator-draw-image") }],
+  [mkActuatorTileId(MicroBitV2HostActions.PlaySound.key), { iconUrl: icon("actuator-play-sound") }],
   // Sensor outputs
   [mkOutputTileId(CoreTypeIds.Number, "value"), { iconUrl: icon("output-number-value") }],
   [mkOutputTileId(CoreTypeIds.Number, "rssi"), { iconUrl: icon("output-number-rssi") }],
@@ -130,4 +143,5 @@ export const tileVisuals = new Map<string, Partial<TileVisual>>([
   [mkParameterTileId(WodalMicroBitV2ParameterId.Text), { iconUrl: icon("parameter-text") }],
   [mkParameterTileId(WodalMicroBitV2ParameterId.Image), { iconUrl: icon("parameter-image") }],
   [mkParameterTileId(WodalMicroBitV2ParameterId.Duration), { iconUrl: icon("parameter-duration") }],
+  [mkParameterTileId(WodalMicroBitV2ParameterId.SoundEmoji), { iconUrl: icon("parameter-sound") }],
 ]);

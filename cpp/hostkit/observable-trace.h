@@ -146,6 +146,12 @@ public:
   void sonarDistance(uint32_t trig, uint32_t echo, uint32_t cm);
 
   /**
+   * Records one built-in-sound play accepted by the speaker device port: the
+   * sound's `length` name bytes as a quoted byte sequence.
+   */
+  void speakerPlay(const uint8_t* name, uint32_t length);
+
+  /**
    * Records one packet transmitted across the radio device port: the group in
    * hex, then the typed payload. `type` is a MakeCode packet type (0-5) or -1
    * for a raw datagram. The payload renders as `number <bits>` / `double <bits>`
