@@ -149,6 +149,7 @@ function wodalStdlibDependencyMounts(): readonly DependencyMount[] {
       files: new Map([
         ["/index.ts", readText("../../../../targets/microbit-v2/lib/index.ts")],
         ["/image.ts", readText("../../../../targets/microbit-v2/lib/image.ts")],
+        ["/sounds.ts", readText("../../../../targets/microbit-v2/lib/sounds.ts")],
       ]),
     },
   ];

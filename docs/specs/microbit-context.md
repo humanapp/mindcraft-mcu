@@ -49,6 +49,7 @@ Each `ctx.microbit.*` sub-interface and the feature spec that owns its full desi
 | `gpio` | digital/pull/servo/analog-read (+ designed: analog write/PWM, touch) (edge-connector, no tile; fns 1052-1055 + 1071) | `docs/specs/gpio.md` |
 | `sonar` | `distance(trig, echo)` ultrasonic, pin-keyed (edge-connector, no tile; via the background sensor driver) | `docs/specs/sonar.md` |
 | `radio` | builtin 2.4 GHz packet radio: send (number/string/value/buffer/raw) + buffered receive (depth-4 ring, typed number/string/buffer tiles) + group/power/band config (has tiles; field 8, atoms 1032-1034, fns 1057-1070 + 1072, actions 1032-1036) | `docs/specs/radio.md` |
+| `audio` | awaited `playSound(name)`: play a built-in sound over the speaker lease; busy = silent drop, unknown name = no-op (has tiles; field 9, atoms 1035 `SoundEmoji` + 1036, fns 1074-1075, action 1037) | `docs/specs/audio.md` |
 
 (Build status, dates, and as-built history live in the build plans, not the specs - specs are
 eternal.)

@@ -163,6 +163,7 @@ describe("microbit embedded layers -- the manifest-driven bundle matches the han
     const handAssembled = new Map([
       ["index.ts", read("../../../../packages/wodal/targets/microbit-v2/lib/index.ts")],
       ["image.ts", read("../../../../packages/wodal/targets/microbit-v2/lib/image.ts")],
+      ["sounds.ts", read("../../../../packages/wodal/targets/microbit-v2/lib/sounds.ts")],
       [
         "mindcraft.microbit-v2.d.ts",
         read("../../../../packages/wodal/targets/microbit-v2/lib/mindcraft.microbit-v2.d.ts"),

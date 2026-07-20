@@ -7,6 +7,7 @@
 #include "targets/microbit-v2/abi/host-actions/actuators/display-draw.h"
 #include "targets/microbit-v2/abi/host-func-id.h"
 #include "targets/microbit-v2/abi/host-functions/accelerometer-read.h"
+#include "targets/microbit-v2/abi/host-functions/audio-play-sound.h"
 #include "targets/microbit-v2/abi/host-functions/button-is-pressed.h"
 #include "targets/microbit-v2/abi/host-functions/display-clear.h"
 #include "targets/microbit-v2/abi/host-functions/display-draw-image.h"
@@ -22,7 +23,7 @@ namespace mindcraft
 {
 
 /** Number of microbit-v2 target host-function bindings the slice registers. */
-inline constexpr uint32_t kMicroBitV2HostFuncBindingCount = 32;
+inline constexpr uint32_t kMicroBitV2HostFuncBindingCount = 33;
 
 /**
  * Builds the microbit-v2 target host-function binding table over `ports`, one
@@ -31,12 +32,13 @@ inline constexpr uint32_t kMicroBitV2HostFuncBindingCount = 32;
  * bind a distinct body over the single accelerometer port. The async
  * `DisplayDrawImage` body uses `drawEnv` (its display port, heap, and program);
  * the async `DisplayScrollText` body uses `scrollEnv` (its display port and
- * heap); the `I2CWriteBuffer` body uses `i2cWriteEnv` (its I2C port, heap, and
- * program); the `I2CReadBuffer` body uses `i2cReadEnv` (its I2C port, heap, and
- * roots); the five `Gpio*` bodies each bind over the GPIO port in `ports`; the
- * `SonarDistance` body binds over the sonar port in `ports`. Pass null for an env
- * when the table will never dispatch its body. `ports` and any supplied env must
- * outlive every dispatch through the table.
+ * heap); the async `AudioPlaySound` body uses `playSoundEnv` (its speaker port
+ * and heap); the `I2CWriteBuffer` body uses `i2cWriteEnv` (its I2C port, heap,
+ * and program); the `I2CReadBuffer` body uses `i2cReadEnv` (its I2C port, heap,
+ * and roots); the five `Gpio*` bodies each bind over the GPIO port in `ports`;
+ * the `SonarDistance` body binds over the sonar port in `ports`. Pass null for
+ * an env when the table will never dispatch its body. `ports` and any supplied
+ * env must outlive every dispatch through the table.
  */
 inline std::array<TargetHostFuncBinding, kMicroBitV2HostFuncBindingCount>
 makeMicroBitV2HostFuncBindings(DevicePorts &ports, MicroBitV2DrawImageEnv *drawEnv = nullptr,
@@ -44,7 +46,8 @@ makeMicroBitV2HostFuncBindings(DevicePorts &ports, MicroBitV2DrawImageEnv *drawE
                                MicroBitV2I2CReadEnv *i2cReadEnv = nullptr,
                                MicroBitV2RadioEnv *radioEnv = nullptr,
                                MicroBitV2RadioReceiveEnv *radioReceiveEnv = nullptr,
-                               MicroBitV2DisplayScrollEnv *scrollEnv = nullptr)
+                               MicroBitV2DisplayScrollEnv *scrollEnv = nullptr,
+                               MicroBitV2PlaySoundEnv *playSoundEnv = nullptr)
 {
     return {{
         {static_cast<uint32_t>(MicroBitV2HostFuncId::ButtonIsPressed), &execButtonIsPressed,
@@ -105,6 +108,8 @@ makeMicroBitV2HostFuncBindings(DevicePorts &ports, MicroBitV2DrawImageEnv *drawE
         {static_cast<uint32_t>(MicroBitV2HostFuncId::RadioCurrentSeq), &execRadioCurrentSeq,
          radioEnv},
         {static_cast<uint32_t>(MicroBitV2HostFuncId::GpioAnalogRead), &execGpioAnalogRead, &ports},
+        {static_cast<uint32_t>(MicroBitV2HostFuncId::AudioPlaySound), nullptr, playSoundEnv,
+         &execAudioPlaySoundHostFn},
     }};
 }
 

@@ -1,0 +1,101 @@
+mctrace 1
+profile 1
+precision f32
+tick 1 time 43fa0000 dt 00000000
+action 4 site 0 args 0 result bool 1
+tick 2 time 447a0000 dt 43fa0000
+port speaker play "giggle"
+tick 3 time 44bb8000 dt 43fa0000
+tick 4 time 44fa0000 dt 43fa0000
+tick 5 time 451c4000 dt 43fa0000
+tick 6 time 453b8000 dt 43fa0000
+tick 7 time 455ac000 dt 43fa0000
+port speaker play "happy"
+tick 8 time 457a0000 dt 43fa0000
+tick 9 time 458ca000 dt 43fa0000
+tick a time 459c4000 dt 43fa0000
+tick b time 45abe000 dt 43fa0000
+tick c time 45bb8000 dt 43fa0000
+port speaker play "hello"
+tick d time 45cb2000 dt 43fa0000
+tick e time 45dac000 dt 43fa0000
+tick f time 45ea6000 dt 43fa0000
+tick 10 time 45fa0000 dt 43fa0000
+port speaker play "mysterious"
+tick 11 time 4604d000 dt 43fa0000
+tick 12 time 460ca000 dt 43fa0000
+tick 13 time 46147000 dt 43fa0000
+tick 14 time 461c4000 dt 43fa0000
+tick 15 time 46241000 dt 43fa0000
+tick 16 time 462be000 dt 43fa0000
+tick 17 time 4633b000 dt 43fa0000
+tick 18 time 463b8000 dt 43fa0000
+tick 19 time 46435000 dt 43fa0000
+tick 1a time 464b2000 dt 43fa0000
+tick 1b time 4652f000 dt 43fa0000
+port speaker play "sad"
+tick 1c time 465ac000 dt 43fa0000
+tick 1d time 46629000 dt 43fa0000
+tick 1e time 466a6000 dt 43fa0000
+tick 1f time 46723000 dt 43fa0000
+tick 20 time 467a0000 dt 43fa0000
+tick 21 time 4680e800 dt 43fa0000
+port speaker play "slide"
+tick 22 time 4684d000 dt 43fa0000
+tick 23 time 4688b800 dt 43fa0000
+tick 24 time 468ca000 dt 43fa0000
+tick 25 time 46908800 dt 43fa0000
+tick 26 time 46947000 dt 43fa0000
+port speaker play "soaring"
+tick 27 time 46985800 dt 43fa0000
+tick 28 time 469c4000 dt 43fa0000
+tick 29 time 46a02800 dt 43fa0000
+tick 2a time 46a41000 dt 43fa0000
+tick 2b time 46a7f800 dt 43fa0000
+tick 2c time 46abe000 dt 43fa0000
+tick 2d time 46afc800 dt 43fa0000
+tick 2e time 46b3b000 dt 43fa0000
+tick 2f time 46b79800 dt 43fa0000
+tick 30 time 46bb8000 dt 43fa0000
+tick 31 time 46bf6800 dt 43fa0000
+tick 32 time 46c35000 dt 43fa0000
+tick 33 time 46c73800 dt 43fa0000
+tick 34 time 46cb2000 dt 43fa0000
+tick 35 time 46cf0800 dt 43fa0000
+tick 36 time 46d2f000 dt 43fa0000
+tick 37 time 46d6d800 dt 43fa0000
+tick 38 time 46dac000 dt 43fa0000
+tick 39 time 46dea800 dt 43fa0000
+port speaker play "spring"
+tick 3a time 46e29000 dt 43fa0000
+tick 3b time 46e67800 dt 43fa0000
+tick 3c time 46ea6000 dt 43fa0000
+tick 3d time 46ee4800 dt 43fa0000
+tick 3e time 46f23000 dt 43fa0000
+tick 3f time 46f61800 dt 43fa0000
+tick 40 time 46fa0000 dt 43fa0000
+port speaker play "twinkle"
+tick 41 time 46fde800 dt 43fa0000
+tick 42 time 4700e800 dt 43fa0000
+tick 43 time 4702dc00 dt 43fa0000
+tick 44 time 4704d000 dt 43fa0000
+tick 45 time 4706c400 dt 43fa0000
+tick 46 time 4708b800 dt 43fa0000
+tick 47 time 470aac00 dt 43fa0000
+tick 48 time 470ca000 dt 43fa0000
+tick 49 time 470e9400 dt 43fa0000
+tick 4a time 47108800 dt 43fa0000
+tick 4b time 47127c00 dt 43fa0000
+tick 4c time 47147000 dt 43fa0000
+tick 4d time 47166400 dt 43fa0000
+tick 4e time 47185800 dt 43fa0000
+tick 4f time 471a4c00 dt 43fa0000
+tick 50 time 471c4000 dt 43fa0000
+port speaker play "yawn"
+tick 51 time 471e3400 dt 43fa0000
+tick 52 time 47202800 dt 43fa0000
+tick 53 time 47221c00 dt 43fa0000
+tick 54 time 47241000 dt 43fa0000
+tick 55 time 47260400 dt 43fa0000
+tick 56 time 4727f800 dt 43fa0000
+port display set-pixel 40800000 40800000 437f0000

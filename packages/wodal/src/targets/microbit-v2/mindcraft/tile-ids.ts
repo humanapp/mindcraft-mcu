@@ -70,6 +70,7 @@ export enum MicroBitV2HostFuncId {
   SensorRadioReceiveBuffer = 1072,
   DisplayScrollText = 1073,
   ActuatorPlaySound = 1074,
+  AudioPlaySound = 1075,
 }
 
 /**
@@ -91,6 +92,7 @@ export enum MicroBitV2TypeAtomId {
   RadioPacket = 1033,
   RadioPacketList = 1034,
   SoundEmoji = 1035,
+  MicroBitAudio = 1036,
 }
 
 /**

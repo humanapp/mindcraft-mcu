@@ -226,7 +226,7 @@ function tickOfLine(trace: string, predicate: (line: string) => boolean): number
   let currentTick = 0;
   for (const line of trace.split("\n")) {
     if (line.startsWith("tick ")) {
-      currentTick = Number.parseInt(line.split(" ")[1]!, 10);
+      currentTick = Number.parseInt(line.split(" ")[1]!, 16);
     } else if (predicate(line)) {
       return currentTick;
     }
@@ -240,13 +240,36 @@ function lastTickOfLine(trace: string, predicate: (line: string) => boolean): nu
   let found = -1;
   for (const line of trace.split("\n")) {
     if (line.startsWith("tick ")) {
-      currentTick = Number.parseInt(line.split(" ")[1]!, 10);
+      currentTick = Number.parseInt(line.split(" ")[1]!, 16);
     } else if (predicate(line)) {
       found = currentTick;
     }
   }
   return found;
 }
+
+test("tickOfLine and lastTickOfLine parse the hex tick ordinal", () => {
+  const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
+  const writer = new ObservableTraceWriter({
+    profileId: profile.numericProfileId,
+    precision: profile.numberPrecision,
+  });
+  // Tick ordinals render as minimal lowercase hex, so tick 10 is the line
+  // `tick a ...`; a decimal parse of the ordinal would misread it.
+  for (let tick = 1; tick <= 10; tick++) {
+    writer.tick(tick, tick * TICK_ADVANCE_MS, TICK_ADVANCE_MS);
+  }
+  writer.displaySetPixel(0, 0, 255);
+  const trace = writer.render();
+  assert.equal(
+    tickOfLine(trace, (l) => l.startsWith("port display set-pixel ")),
+    10
+  );
+  assert.equal(
+    lastTickOfLine(trace, (l) => l.startsWith("port display set-pixel ")),
+    10
+  );
+});
 
 /**
  * Pins the `.mcprogram` / `.mcprogram.bin` / `.ticks.trace` golden triple for

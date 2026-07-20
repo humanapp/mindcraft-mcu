@@ -185,7 +185,7 @@ function pixelTicks(trace: string): number[] {
   let currentTick = 0;
   for (const line of trace.split("\n")) {
     if (line.startsWith("tick ")) {
-      currentTick = Number.parseInt(line.split(" ")[1]!, 10);
+      currentTick = Number.parseInt(line.split(" ")[1]!, 16);
     } else if (line.startsWith("port display set-pixel ")) {
       ticks.push(currentTick);
     }

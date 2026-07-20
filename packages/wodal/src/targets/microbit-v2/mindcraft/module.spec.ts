@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  type AsyncHandle,
   type BrainTileLiteralDef,
   ContextTypeIds,
   type ExecutionContext,
@@ -10,6 +11,7 @@ import {
   type MindcraftEnvironment,
   mkNativeStructValue,
   mkNumberValue,
+  mkStringValue,
   NativeType,
   NIL_VALUE,
   type StructTypeDef,
@@ -62,6 +64,40 @@ test("Context.microbit exposes the native WODAL microbit device", () => {
   assert.ok(isStructValue(gpioValue));
   assert.equal(gpioValue.typeId, WODAL_MICROBIT_V2_TYPE_IDS.GPIO);
   assert.equal(gpioValue.native, microbit.gpio);
+
+  // The audio receiver is the device's one speaker: the Device API drives the
+  // same MicroBitSpeaker instance the play-sound tile drives.
+  const audioValue = microbitDef.fieldGetter?.(microbitValue, MicroBitField.Audio, ctx);
+  assert.ok(isStructValue(audioValue));
+  assert.equal(audioValue.typeId, WODAL_MICROBIT_V2_TYPE_IDS.MicroBitAudio);
+  assert.equal(audioValue.native, microbit.speaker);
+});
+
+test("MicroBitAudio.playSound routes through the native speaker receiver", () => {
+  const env = createMicroBitV2Environment();
+  const microbit = new MicroBit();
+  const ctx = createExecutionContext(env, microbit);
+  const receiver = mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.MicroBitAudio, microbit.speaker);
+  const playSound = getAsyncFunction(env, "MicroBitAudio.playSound");
+
+  // An accepted built-in play takes the speaker lease and parks its handle
+  // until the nominal duration elapses.
+  let resolved = 0;
+  const handle: AsyncHandle = { id: 1, resolve: () => resolved++, reject: () => {}, cancel: () => {} };
+  playSound.exec(ctx, List.from<Value>([receiver, mkStringValue("happy")]), handle);
+  assert.equal(microbit.speaker.isBusy(), true);
+  assert.equal(microbit.speaker.snapshot().playing?.name, "happy");
+  assert.equal(resolved, 0);
+  microbit.speaker.advancePlay(1259);
+  assert.equal(resolved, 1);
+  assert.equal(microbit.speaker.isBusy(), false);
+
+  // A name outside the built-in set is a silent no-op: no lease, resolved at once.
+  let noopResolved = 0;
+  const noopHandle: AsyncHandle = { id: 2, resolve: () => noopResolved++, reject: () => {}, cancel: () => {} };
+  playSound.exec(ctx, List.from<Value>([receiver, mkStringValue("bogus")]), noopHandle);
+  assert.equal(microbit.speaker.isBusy(), false);
+  assert.equal(noopResolved, 1);
 });
 
 test("I2C.writeBuffer routes the address and bytes through the native bus receiver", () => {
@@ -273,5 +309,12 @@ function getSyncFunction(env: MindcraftEnvironment, name: string) {
   const entry = env.brainServices.runtime.functions.get(name);
   assert.ok(entry);
   assert.equal(entry.isAsync, false);
+  return entry.fn;
+}
+
+function getAsyncFunction(env: MindcraftEnvironment, name: string) {
+  const entry = env.brainServices.runtime.functions.get(name);
+  assert.ok(entry);
+  assert.equal(entry.isAsync, true);
   return entry.fn;
 }

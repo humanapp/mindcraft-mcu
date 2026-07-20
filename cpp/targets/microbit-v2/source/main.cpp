@@ -130,8 +130,9 @@ int main()
     // struct and a managed pixel buffer), and the program (to resolve a borrowed
     // pixel buffer); its heap is filled once the heap exists.
     MicroBitV2DrawImageEnv drawEnv{&display, nullptr, &image};
-    // The async play-sound body reaches the speaker and the heap (to read the
-    // sound argument's name string); its heap is filled once the heap exists.
+    // The async play-sound bodies (the play-sound tile action and the
+    // audio.playSound host function) reach the speaker and the heap (to read
+    // the sound name string); the heap is filled once the heap exists.
     MicroBitV2PlaySoundEnv playSoundEnv{&speaker, nullptr};
     // The I2C write body reaches the bus port, the heap (to resolve a managed
     // Buffer argument), and the program (to resolve a borrowed one); its heap is
@@ -172,7 +173,8 @@ int main()
         actions[coreBindings.size() + i] = mbBindings[i];
     }
     auto hostFuncs = makeMicroBitV2HostFuncBindings(ports, &drawEnv, &i2cWriteEnv, &i2cReadEnv,
-                                                    &radioEnv, &radioReceiveEnv, &scrollEnv);
+                                                    &radioEnv, &radioReceiveEnv, &scrollEnv,
+                                                    &playSoundEnv);
     ManagedHeap heap(arena, &image);
     TypeRegistry types(image);
     auto nativeStructs = makeMicroBitV2NativeStructBindings(types);

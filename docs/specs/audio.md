@@ -236,7 +236,10 @@ The concrete fill-in of the target-parameterized pieces for micro:bit-v2:
   accepted name through `SoundExpressions` (`playAsync`), stopping the synthesizer first; a
   name outside the set never reaches CODAL (the port no-ops it). Each built-in's **nominal
   total duration** is pinned in both VMs from its encoded segment durations (the encoding
-  carries per-segment randomization fields; they read as zero for the nominal).
+  carries per-segment randomization fields; they read as zero for the nominal). The micro:bit
+  standard library (`lib-microbit-v2`) exports the built-in names as a **`sounds` const
+  object** (`sounds.giggle` ... `sounds.yawn`, string-literal-typed), the discoverable,
+  typo-safe way for TS user code to name a built-in in `playSound`.
 - **Completion:** resolved on the duration formula; CODAL's message-bus completion events are
   ignored.
 - **`Sound` type:** the registered struct authored by the `create a sound` factory tile + the

@@ -3703,6 +3703,83 @@ void checkUserTileDrawFixture(const std::string& name, int tickCount, float tick
   CHECK(sink.text() == golden);
 }
 
+// Loads a user-tile play-sound fixture `name` whose async actuators await the
+// op-41 async ctx.microbit.audio.playSound host function. Wires the
+// native-struct receiver resolution and the host-function table (with the
+// play-sound env) alongside the core host actions (the on-page-entered
+// sensor), runs `tickCount` thinks at `tickMs` each (settling the speaker
+// lease before each think, as the device's pollSpeaker does; the fixtures
+// keep every sound's duration above the tick interval, so no play completes
+// within its own dispatch tick and the before-think poll observes the same
+// settles the wodal runtime's after-think poll does), and byte-compares the
+// rendered trace against the committed golden.
+void checkUserTilePlaySoundFixture(const std::string& name, int tickCount, float tickMs) {
+  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/" + name;
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  microbit.speaker.writer = &writer;
+  TraceTap tap(writer);
+
+  mindcraft::CoreHostActionEnv coreEnv;
+  mindcraft::VmRng rng;
+  mindcraft::ManagedHeap heap(arena, &image);
+  writer.setHeap(&heap);
+  mindcraft::MicroBitV2PlaySoundEnv playSoundEnv{&microbit.speaker, &heap};
+  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto actions = combineActionTable(coreBindings, mbBindings);
+  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(
+      microbit.ports, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, &playSoundEnv);
+  mindcraft::TypeRegistry types(image);
+  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
+  auto registeredStructs = mindcraft::makeSharedRegisteredStructSlotCounts();
+  types.setRegisteredStructSlotCounts({registeredStructs.data(), registeredStructs.size()});
+  ExecutionContext ctx;
+  RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
+  surface.rng = &rng;
+  surface.types = &types;
+  surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+  coreEnv.brain = &brain;
+  coreEnv.rng = &rng;
+  coreEnv.heap = &heap;
+  coreEnv.roots = &scheduler;
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < tickCount; i++) {
+    const float timeMs = lastThinkTimeMs + tickMs;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    microbit.speaker.advancePlay(timeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+}
+
 } // namespace
 
 TEST_CASE("the timer-brain fixture byte-matches the golden observable trace") {
@@ -4214,6 +4291,18 @@ TEST_CASE("the user-tile-scroll-awaited fixture byte-matches the golden observab
 
 TEST_CASE("the user-tile-scroll-glyph fixture byte-matches the golden observable trace") {
   checkUserTileDrawFixture("user-tile-scroll-glyph", 4, 1100.0f);
+}
+
+TEST_CASE("the user-tile-play-sound fixture byte-matches the golden observable trace") {
+  checkUserTilePlaySoundFixture("user-tile-play-sound", 5, 500.0f);
+}
+
+TEST_CASE("the user-tile-play-sound-unknown fixture byte-matches the golden observable trace") {
+  checkUserTilePlaySoundFixture("user-tile-play-sound-unknown", 2, 500.0f);
+}
+
+TEST_CASE("the user-tile-play-sound-all fixture byte-matches the golden observable trace") {
+  checkUserTilePlaySoundFixture("user-tile-play-sound-all", 86, 500.0f);
 }
 
 TEST_CASE("the user-tile-display-clear fixture byte-matches the golden observable trace") {

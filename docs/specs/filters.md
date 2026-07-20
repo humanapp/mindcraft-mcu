@@ -43,7 +43,9 @@ Category properties:
 - **Synchronous.** A filter evaluates within the think and never parks - no handles, no
   await. The WHEN side is a per-think sampling of the signal; time-dependent behavior is
   expressed by the timing filters sampling the current time, and completion-driven
-  behavior belongs to awaited actuators and to sensors that report completion.
+  behavior is ordinary rule sequencing (an awaited actuator parks only its own rule's
+  fiber; the actions and child rules after it run on completion while other rules
+  continue concurrently).
 
 ## The signal model
 

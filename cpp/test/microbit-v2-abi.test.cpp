@@ -79,7 +79,8 @@ TEST_CASE("MicroBitV2HostFuncId values are wire-stable") {
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::SensorRadioReceiveBuffer) == 1072);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::DisplayScrollText) == 1073);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorPlaySound) == 1074);
-  CHECK(kMicroBitV2HostFuncIdCount == 51);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::AudioPlaySound) == 1075);
+  CHECK(kMicroBitV2HostFuncIdCount == 52);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::DisplaySetPixelValue) == TARGET_FUNC_ID_BASE);
 }
 
@@ -90,7 +91,7 @@ TEST_CASE("the host-function binding table binds every declared device-API host 
   mindcraft::DevicePorts ports{};
   const auto bindings = mindcraft::makeMicroBitV2HostFuncBindings(ports);
   CHECK(bindings.size() == mindcraft::kMicroBitV2HostFuncBindingCount);
-  CHECK(mindcraft::kMicroBitV2HostFuncBindingCount == 32);
+  CHECK(mindcraft::kMicroBitV2HostFuncBindingCount == 33);
   const mindcraft::TargetHostFuncBinding* clearBinding = nullptr;
   for (const auto& binding : bindings) {
     if (binding.funcId == static_cast<uint32_t>(MicroBitV2HostFuncId::DisplayClear)) {
@@ -115,7 +116,8 @@ TEST_CASE("MicroBitV2TypeAtomId values are wire-stable") {
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::RadioPacket) == 1033);
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::RadioPacketList) == 1034);
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::SoundEmoji) == 1035);
-  CHECK(kMicroBitV2TypeAtomIdCount == 12);
+  CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::MicroBitAudio) == 1036);
+  CHECK(kMicroBitV2TypeAtomIdCount == 13);
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::MicroBitDisplay) == TARGET_TYPE_ATOM_BASE);
 }
 
@@ -189,7 +191,8 @@ TEST_CASE("MicroBitField values are wire-stable") {
   CHECK(static_cast<uint8_t>(MicroBitField::GPIO) == 6);
   CHECK(static_cast<uint8_t>(MicroBitField::Sonar) == 7);
   CHECK(static_cast<uint8_t>(MicroBitField::Radio) == 8);
-  CHECK(kMicroBitFieldCount == 9);
+  CHECK(static_cast<uint8_t>(MicroBitField::Audio) == 9);
+  CHECK(kMicroBitFieldCount == 10);
 }
 
 TEST_CASE("the Context.microbit extension id sits just above the core Context fields") {

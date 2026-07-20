@@ -45,6 +45,7 @@ import { TouchButton } from "../../../core/touch-button";
 import { WODAL_SHARED_TYPE_IDS } from "../../../mindcraft/shared-type-ids";
 import { MicroBit } from "../microbit";
 import { MicroBitDisplay } from "../microbit-display";
+import { MicroBitSpeaker } from "../microbit-speaker";
 import { buttonABSensor, buttonASensor, buttonBSensor, buttonLogoSensor } from "./actions/button-sensor";
 import displayDrawActuator, { clipImage, DEFAULT_DURATION_MS, DEFAULT_IMAGE } from "./actions/display-draw";
 import { brightnessToPort, pixelCoordToPort } from "./actions/display-pixel-conversion";
@@ -100,6 +101,9 @@ export const WODAL_MICROBIT_V2_TYPE_IDS = {
   /** Native-backed radio facade for the simulated device. */
   Radio: mkTypeId(NativeType.Struct, "Radio"),
 
+  /** Native-backed speaker audio facade for the simulated device. */
+  MicroBitAudio: mkTypeId(NativeType.Struct, "MicroBitAudio"),
+
   /** Value struct describing one received radio packet (drain-all element). */
   RadioPacket: mkTypeId(NativeType.Struct, "RadioPacket"),
 
@@ -138,6 +142,7 @@ export enum MicroBitField {
   GPIO = 6,
   Sonar = 7,
   Radio = 8,
+  Audio = 9,
 }
 
 /**
@@ -159,6 +164,7 @@ export function createMicroBitV2Module(): MindcraftModule {
       registerGPIOFunctions(api);
       registerSonarFunctions(api);
       registerRadioFunctions(api);
+      registerAudioFunctions(api);
       registerBrainTiles(api);
     },
   };
@@ -442,6 +448,20 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
     ]),
   });
 
+  types.addStructType("MicroBitAudio", {
+    atomId: MicroBitV2TypeAtomId.MicroBitAudio,
+    fields: List.empty(),
+    fieldGetter: () => undefined,
+    methods: List.from([
+      {
+        name: "playSound",
+        params: List.from([{ name: "sound", typeId: CoreTypeIds.String }]),
+        returnTypeId: CoreTypeIds.Void,
+        isAsync: true,
+      },
+    ]),
+  });
+
   types.addStructType("MicroBit", {
     atomId: MicroBitV2TypeAtomId.MicroBit,
     fields: List.from([
@@ -458,6 +478,7 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
       { name: "gpio", typeId: WODAL_MICROBIT_V2_TYPE_IDS.GPIO, fieldIndex: MicroBitField.GPIO },
       { name: "sonar", typeId: WODAL_MICROBIT_V2_TYPE_IDS.Sonar, fieldIndex: MicroBitField.Sonar },
       { name: "radio", typeId: WODAL_MICROBIT_V2_TYPE_IDS.Radio, fieldIndex: MicroBitField.Radio },
+      { name: "audio", typeId: WODAL_MICROBIT_V2_TYPE_IDS.MicroBitAudio, fieldIndex: MicroBitField.Audio },
     ]),
     fieldGetter: (source, fieldId) => {
       const microbit = getNativeMicroBit(source);
@@ -483,6 +504,8 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
           return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.Sonar, microbit.sensorDriver);
         case MicroBitField.Radio:
           return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.Radio, microbit.radio);
+        case MicroBitField.Audio:
+          return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.MicroBitAudio, microbit.speaker);
         default:
           return undefined;
       }
@@ -1010,6 +1033,30 @@ function registerRadioFunctions(api: MindcraftModuleApi): void {
   });
 }
 
+function registerAudioFunctions(api: MindcraftModuleApi): void {
+  const emptyCallDef = mkCallDef({ type: "bag", items: [] });
+
+  api.registerFunction({
+    id: MicroBitV2HostFuncId.AudioPlaySound,
+    name: "MicroBitAudio.playSound",
+    isAsync: true,
+    fn: {
+      exec: (ctx: ExecutionContext, args: ReadonlyList<Value>, handle: AsyncHandle) => {
+        const speaker = getAudioReceiver(args);
+        if (!speaker) {
+          handle.resolve(VOID_VALUE);
+          return;
+        }
+        // A non-string or absent argument reads as an empty name, which the
+        // speaker treats as a name outside the built-in set: a silent no-op.
+        const name = extractStringValue(args.get(1)) ?? "";
+        speaker.playSoundEmoji(name, ctx.time, () => handle.resolve(VOID_VALUE));
+      },
+    },
+    callDef: emptyCallDef,
+  });
+}
+
 /** Builds a `RadioPacket` value struct from a received packet, in field-index order. */
 function radioPacketStructValue(packet: ReceivedRadioPacket): Value {
   return mkClosedStructValue(
@@ -1150,6 +1197,14 @@ function getSonarReceiver(args: ReadonlyList<Value>): SensorDriver | undefined {
     return undefined;
   }
   return receiver.native instanceof SensorDriver ? receiver.native : undefined;
+}
+
+function getAudioReceiver(args: ReadonlyList<Value>): MicroBitSpeaker | undefined {
+  const receiver = args.get(0);
+  if (!isStructNative(receiver, WODAL_MICROBIT_V2_TYPE_IDS.MicroBitAudio)) {
+    return undefined;
+  }
+  return receiver.native instanceof MicroBitSpeaker ? receiver.native : undefined;
 }
 
 function getRadioReceiver(args: ReadonlyList<Value>): Radio | undefined {

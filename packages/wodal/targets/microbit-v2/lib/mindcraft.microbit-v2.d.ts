@@ -2,6 +2,7 @@ declare module "mindcraft" {
   interface MindcraftTypeMap {
     MicroBitDisplay: MicroBitDisplay;
     SoundEmoji: SoundEmoji;
+    MicroBitAudio: MicroBitAudio;
     MicroBit: MicroBit;
   }
 
@@ -16,6 +17,10 @@ declare module "mindcraft" {
   export interface SoundEmoji {
     name: string;
   }
+  export interface MicroBitAudio {
+    readonly __brand: unique symbol;
+    playSound(sound: string): Promise<void>;
+  }
   export interface MicroBit {
     readonly __brand: unique symbol;
     readonly display: MicroBitDisplay;
@@ -27,6 +32,7 @@ declare module "mindcraft" {
     readonly gpio: GPIO;
     readonly sonar: Sonar;
     readonly radio: Radio;
+    readonly audio: MicroBitAudio;
   }
   export interface Context {
     readonly microbit: MicroBit;

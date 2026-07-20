@@ -176,7 +176,7 @@ function tickOfLine(trace: string, predicate: (line: string) => boolean): number
   let currentTick = 0;
   for (const line of trace.split("\n")) {
     if (line.startsWith("tick ")) {
-      currentTick = Number.parseInt(line.split(" ")[1]!, 10);
+      currentTick = Number.parseInt(line.split(" ")[1]!, 16);
     } else if (predicate(line)) {
       return currentTick;
     }
