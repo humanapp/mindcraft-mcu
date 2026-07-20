@@ -7,7 +7,6 @@ import { buildEmbeddedExtensionFromDir } from "@mindcraft-lang/bridge-app/node";
 import { buildMicrobitCatalogOffers, MICROBIT_LAYER_COORDINATES } from "./microbit-extension-browser";
 import {
   CODAL_LIB_COORDINATE,
-  CODAL_POSITION_EXT_COORDINATE,
   CORE_LIB_COORDINATE,
   CUTEBOT_EXT_COORDINATE,
   MICROBIT_V2_LIB_COORDINATE,
@@ -39,7 +38,6 @@ function microbitEmbedRecord(): EmbeddedExtension[] {
       extensionDir("../../../../external/mindcraft-lang/packages/core/lib"),
       CORE_LIB_COORDINATE
     ),
-    buildEmbeddedExtensionFromDir(extensionDir("../../extensions/lib-codal-position"), CODAL_POSITION_EXT_COORDINATE),
     buildEmbeddedExtensionFromDir(extensionDir("../../extensions/lib-microbit-cutebot"), CUTEBOT_EXT_COORDINATE),
     buildEmbeddedExtensionFromDir(
       extensionDir("../../extensions/lib-microbit-yahboom-gamepad"),

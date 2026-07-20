@@ -33,7 +33,6 @@ import { createMicrobitDocsRegistry } from "../docs/docs-registry";
 import { installMicrobitExtension, microbitLibraryCatalogMoves } from "../services/microbit-extension-browser";
 import {
   CODAL_LIB_COORDINATE,
-  CODAL_POSITION_EXT_COORDINATE,
   CORE_LIB_COORDINATE,
   CUTEBOT_EXT_COORDINATE,
   MICROBIT_V2_LIB_COORDINATE,
@@ -41,12 +40,13 @@ import {
   microbitDefaultExtensions,
   YAHBOOM_GAMEPAD_EXT_COORDINATE,
 } from "../services/microbit-extension-coordinates";
+import { createCodalPositionFixtureTransport } from "./codal-position-fixture";
 
 function extensionDir(relativePath: string): string {
   return fileURLToPath(new URL(relativePath, import.meta.url));
 }
 
-/** The embed record the Vite provider assembles: the target, the three layers, and the three add-ons. */
+/** The embed record the Vite provider assembles: the target, the three layers, and the Cutebot and Yahboom add-ons; Position resolves through the catalog move to its published gh: content. */
 function microbitEmbedRecord(): EmbeddedExtension[] {
   return [
     buildEmbeddedExtensionFromDir(extensionDir("../../target-package"), MICROBIT_V2_TARGET_COORDINATE),
@@ -59,7 +59,6 @@ function microbitEmbedRecord(): EmbeddedExtension[] {
       extensionDir("../../../../external/mindcraft-lang/packages/core/lib"),
       CORE_LIB_COORDINATE
     ),
-    buildEmbeddedExtensionFromDir(extensionDir("../../extensions/lib-codal-position"), CODAL_POSITION_EXT_COORDINATE),
     buildEmbeddedExtensionFromDir(extensionDir("../../extensions/lib-microbit-cutebot"), CUTEBOT_EXT_COORDINATE),
     buildEmbeddedExtensionFromDir(
       extensionDir("../../extensions/lib-microbit-yahboom-gamepad"),
@@ -151,6 +150,7 @@ function makeHost(): AppEnvironmentHost {
     mounts: [],
     embeddedExtensions: microbitEmbedRecord(),
     catalogMoves: microbitLibraryCatalogMoves,
+    extensionFetchTransport: createCodalPositionFixtureTransport(),
   });
 }
 

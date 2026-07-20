@@ -37,14 +37,13 @@ export const MICROBIT_V2_TARGET_REFERENCE = "embedded:mindcraft-lang/trg-microbi
 
 /**
  * Coordinate of the Position add-on: an installable capability extension
- * publishing the `position` struct type for WODAL-based targets. Opaque
- * `<owner>/<repo>` identity; the repo segment is human-readable and never parsed
- * by code.
+ * publishing the `position` struct type for WODAL-based targets. It is a
+ * published (`gh:`) library fetched at install time; a bundled catalog move
+ * redirects dependents' embedded references to its pinned `gh:` reference.
+ * Opaque `<owner>/<repo>` identity; the repo segment is human-readable and never
+ * parsed by code.
  */
 export const CODAL_POSITION_EXT_COORDINATE = "mindcraft-lang/lib-codal-position";
-
-/** Manifest reference form delivering the Position add-on from the app bundle. */
-export const CODAL_POSITION_EXT_REFERENCE = "embedded:mindcraft-lang/lib-codal-position";
 
 /**
  * Coordinate of the Cutebot chassis add-on: an installable capability extension

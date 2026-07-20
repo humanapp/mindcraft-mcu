@@ -19,10 +19,6 @@ const registrations = [
     dir: path.resolve(process.cwd(), "../../external/mindcraft-lang/packages/core/lib"),
   },
   {
-    coordinate: "mindcraft-lang/lib-codal-position",
-    dir: path.resolve(process.cwd(), "./extensions/lib-codal-position"),
-  },
-  {
     coordinate: "mindcraft-lang/lib-microbit-cutebot",
     dir: path.resolve(process.cwd(), "./extensions/lib-microbit-cutebot"),
   },

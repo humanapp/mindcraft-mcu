@@ -37,6 +37,7 @@ import {
 } from "../../../../external/mindcraft-lang/packages/ui/src/brain-editor/tile-library-groups.js";
 import { createMicrobitTileVisualResolver } from "../brain/editor-config.js";
 import { createMicrobitDocsRegistry } from "../docs/docs-registry.js";
+import { microbitLibraryCatalogMoves } from "../services/microbit-extension-browser.js";
 import {
   CODAL_LIB_COORDINATE,
   CODAL_POSITION_EXT_COORDINATE,
@@ -46,6 +47,7 @@ import {
   MICROBIT_V2_LIB_REFERENCE,
   YAHBOOM_GAMEPAD_EXT_COORDINATE,
 } from "../services/microbit-extension-coordinates.js";
+import { codalPositionPublishedFetched } from "./codal-position-fixture.js";
 
 const DECODED_LABEL = "decoded stick position";
 const STEER_LABEL = "cutebot steer";
@@ -54,7 +56,7 @@ function extensionDir(relativePath: string): string {
   return fileURLToPath(new URL(relativePath, import.meta.url));
 }
 
-/** The microbit-sim embed record: the three platform layers plus the Position, Cutebot, and gamepad add-ons. */
+/** The microbit-sim embed record: the three platform layers plus the Cutebot and gamepad add-ons; Position resolves through the catalog move to its published gh: content. */
 function embedRecord(): EmbeddedExtension[] {
   return [
     buildEmbeddedExtensionFromDir(
@@ -66,7 +68,6 @@ function embedRecord(): EmbeddedExtension[] {
       extensionDir("../../../../external/mindcraft-lang/packages/core/lib"),
       CORE_LIB_COORDINATE
     ),
-    buildEmbeddedExtensionFromDir(extensionDir("../../extensions/lib-codal-position"), CODAL_POSITION_EXT_COORDINATE),
     buildEmbeddedExtensionFromDir(extensionDir("../../extensions/lib-microbit-cutebot"), CUTEBOT_EXT_COORDINATE),
     buildEmbeddedExtensionFromDir(
       extensionDir("../../extensions/lib-microbit-yahboom-gamepad"),
@@ -84,7 +85,11 @@ const projectExtensions: Record<string, string> = {
 
 /** Compile the gamepad + Cutebot add-ons into a fresh micro:bit v2 environment via the real transitive resolver. */
 function compileGamepadAndCutebot(env: MindcraftEnvironment): WorkspaceCompileResult {
-  const resolved = resolveProjectExtensions(projectExtensions, { embedded: embedRecord() });
+  const resolved = resolveProjectExtensions(projectExtensions, {
+    embedded: embedRecord(),
+    fetched: codalPositionPublishedFetched,
+    moves: microbitLibraryCatalogMoves,
+  });
   const compiler = createWorkspaceCompiler({
     projectNamespace: "cross-extension-metadata",
     mounts: [],
@@ -219,7 +224,11 @@ describe("cross-extension user-tile metadata", () => {
 
   test("the resolved closure names each library from its manifest and grouping clusters registered tiles by coordinate", () => {
     applyCompiledUserTiles(env, result);
-    const resolved = resolveProjectExtensions(projectExtensions, { embedded: embedRecord() });
+    const resolved = resolveProjectExtensions(projectExtensions, {
+      embedded: embedRecord(),
+      fetched: codalPositionPublishedFetched,
+      moves: microbitLibraryCatalogMoves,
+    });
 
     const cutebotEmbed = embedRecord().find((extension) => extension.canonicalOrigin === CUTEBOT_EXT_COORDINATE);
     assert.ok(cutebotEmbed, "the Cutebot add-on is in the embed record");

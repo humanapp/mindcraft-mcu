@@ -8,7 +8,7 @@
     "skipLibCheck": true,
     "types": [],
     "paths": {
-      "@lib/mindcraft-lang/lib-codal-position": ["./lib-codal-position/index.ts"]
+      "@lib/mindcraft-lang/lib-codal-position": ["../test-fixtures/lib-codal-position/index.ts"]
     }
   },
   "include": ["**/*.ts"],

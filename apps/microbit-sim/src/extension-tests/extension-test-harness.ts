@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
+import { applyCatalogMove } from "@mindcraft-lang/app-host";
 import type { EmbeddedExtension } from "@mindcraft-lang/bridge-app";
 import { resolveProjectExtensions } from "@mindcraft-lang/bridge-app";
 import { buildEmbeddedExtensionFromDir } from "@mindcraft-lang/bridge-app/node";
@@ -14,6 +15,7 @@ import {
   type WorkspaceSnapshot,
 } from "@mindcraft-lang/ts-compiler";
 import { createMicroBitV2Environment } from "@mindcraft-lang/wodal/targets/microbit-v2";
+import { microbitLibraryCatalogMoves } from "../services/microbit-extension-browser";
 import {
   CODAL_LIB_COORDINATE,
   CODAL_POSITION_EXT_COORDINATE,
@@ -23,6 +25,7 @@ import {
   MICROBIT_V2_LIB_REFERENCE,
   YAHBOOM_GAMEPAD_EXT_COORDINATE,
 } from "../services/microbit-extension-coordinates";
+import { codalPositionPublishedFetched } from "./codal-position-fixture";
 
 function extensionDir(relativePath: string): string {
   return fileURLToPath(new URL(relativePath, import.meta.url));
@@ -40,10 +43,11 @@ export const POSITION_IDENTITY = qualifiedClassName(CODAL_POSITION_EXT_COORDINAT
 export { CUTEBOT_EXT_COORDINATE, YAHBOOM_GAMEPAD_EXT_COORDINATE } from "../services/microbit-extension-coordinates";
 
 /**
- * The microbit-sim embed record: the three platform layers plus the Position,
- * Cutebot, and Yahboom gamepad add-ons, each assembled from its own
- * `mindcraft.json` `files` list through the shared loader -- the single
- * content-assembly path the app's Vite provider also uses.
+ * The microbit-sim embed record: the three platform layers plus the Cutebot and
+ * Yahboom gamepad add-ons, each assembled from its own `mindcraft.json` `files`
+ * list through the shared loader -- the single content-assembly path the app's
+ * Vite provider also uses. The Position library is not bundled; it resolves
+ * through the catalog move to its published `gh:` content served by the fixture.
  */
 function baseEmbedRecord(): EmbeddedExtension[] {
   return [
@@ -56,7 +60,6 @@ function baseEmbedRecord(): EmbeddedExtension[] {
       extensionDir("../../../../external/mindcraft-lang/packages/core/lib"),
       CORE_LIB_COORDINATE
     ),
-    buildEmbeddedExtensionFromDir(extensionDir("../../extensions/lib-codal-position"), CODAL_POSITION_EXT_COORDINATE),
     buildEmbeddedExtensionFromDir(extensionDir("../../extensions/lib-microbit-cutebot"), CUTEBOT_EXT_COORDINATE),
     buildEmbeddedExtensionFromDir(
       extensionDir("../../extensions/lib-microbit-yahboom-gamepad"),
@@ -120,9 +123,17 @@ export function buildExtensionTestHarness(options: HarnessOptions): ExtensionTes
 
   const extensions: Record<string, string> = { [MICROBIT_V2_LIB_COORDINATE]: MICROBIT_V2_LIB_REFERENCE };
   for (const coordinate of options.install) {
-    extensions[coordinate] = `embedded:${coordinate}`;
+    // Mirror the app's load-time top-level rewrite: a direct install of a moved
+    // coordinate (Position) writes the move's `gh:` reference, not an embedded one.
+    const applied = applyCatalogMove(`embedded:${coordinate}`, microbitLibraryCatalogMoves);
+    assert.ok(applied.ok, `catalog move application failed for "${coordinate}"`);
+    extensions[coordinate] = applied.reference;
   }
-  const resolved = resolveProjectExtensions(extensions, { embedded: embedRecord });
+  const resolved = resolveProjectExtensions(extensions, {
+    embedded: embedRecord,
+    fetched: codalPositionPublishedFetched,
+    moves: microbitLibraryCatalogMoves,
+  });
 
   const env = createMicroBitV2Environment();
   const mounts: readonly Mount[] = [];

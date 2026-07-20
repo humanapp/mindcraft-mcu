@@ -8,6 +8,7 @@ import {
   buildMicrobitCatalogOffers,
   buildMicrobitExtensionEntries,
   type ExtensionProjectPersistence,
+  loadMicrobitLibraryCatalog,
   uninstallMicrobitExtension,
 } from "./microbit-extension-browser";
 import {
@@ -22,6 +23,7 @@ import microbitLibraryCatalogDocument from "./microbit-library-catalog.json";
 
 const CUTEBOT = "mindcraft-lang/lib-microbit-cutebot";
 const YAHBOOM = "mindcraft-lang/lib-microbit-yahboom-gamepad";
+const POSITION = "mindcraft-lang/lib-codal-position";
 
 /** Read a host-bundled embedded library's manifest version from its source directory. */
 function bundledManifestVersion(dir: string): string {
@@ -40,6 +42,8 @@ describe("microbit library catalog document", () => {
   test("every entry is a library with an embedded ref matching its coordinate and no alias", () => {
     const result = validateExtensionCatalogDocument(microbitLibraryCatalogDocument);
     assert.ok(result.ok);
+    // Position is a transitive sub-dependency of the featured chassis libraries;
+    // it is redirected by a move, never listed as its own entry.
     assert.deepEqual(result.document.entries.map((entry) => entry.coordinate).sort(), [CUTEBOT, YAHBOOM].sort());
     for (const entry of result.document.entries) {
       assert.equal(entry.kind, CATALOG_ENTRY_KIND_EXTENSION);
@@ -54,6 +58,37 @@ describe("microbit library catalog document", () => {
     const versionByCoordinate = new Map(result.document.entries.map((entry) => [entry.coordinate, entry.version]));
     assert.equal(versionByCoordinate.get(CUTEBOT), bundledManifestVersion("lib-microbit-cutebot"));
     assert.equal(versionByCoordinate.get(YAHBOOM), bundledManifestVersion("lib-microbit-yahboom-gamepad"));
+  });
+
+  test("Position graduates via a default-selector transport flip and is not listed as an entry", () => {
+    const result = validateExtensionCatalogDocument(microbitLibraryCatalogDocument);
+    assert.ok(result.ok);
+    // The move redirects the transitive dependency's embedded ref to gh: without
+    // surfacing Position as its own catalog entry.
+    assert.equal(
+      result.document.entries.find((entry) => entry.coordinate === POSITION),
+      undefined,
+      "Position is not a catalog entry"
+    );
+    const entries = result.document.moves[POSITION];
+    assert.ok(entries, "the catalog declares a move for the Position coordinate");
+    assert.equal(entries.length, 1);
+    const [move] = entries;
+    // A default-selector flip: no `from`, and the destination keeps the source coordinate.
+    assert.equal(move.from, undefined);
+    assert.match(move.ref, /^gh:mindcraft-lang\/lib-codal-position@[0-9a-f]{40}$/);
+  });
+
+  test("the startup loader throws with the stable codes when the bundled document is invalid", () => {
+    assert.throws(
+      () =>
+        loadMicrobitLibraryCatalog({
+          format: "mindcraft.catalog/1",
+          entries: [],
+          moves: { "example-org/moved": { ref: "not-a-reference" } },
+        }),
+      (thrown: unknown) => thrown instanceof Error && thrown.message.includes("CATALOG_DOCUMENT_INVALID_MOVE_REF")
+    );
   });
 });
 

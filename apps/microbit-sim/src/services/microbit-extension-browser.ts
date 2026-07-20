@@ -118,17 +118,14 @@ export function buildMicrobitExtensionEntries(
 }
 
 /**
- * The bundled library catalog offered to microbit-sim projects: the curated set
- * of published feature libraries, each pinned to an exact `gh:` reference.
+ * Validate a bundled catalog document, throwing with the stable error codes
+ * when it is malformed. Runs once at catalog module initialization; a fatal
+ * surfaces immediately on the dev server.
+ *
+ * @param document - The imported catalog JSON module value.
  */
-const microbitLibraryCatalog: ExtensionCatalogDocument = loadMicrobitLibraryCatalog();
-
-/** The curated transport-flip moves the bundled micro:bit catalog declares, keyed by coordinate. */
-export const microbitLibraryCatalogMoves = microbitLibraryCatalog.moves;
-
-/** Validate the bundled catalog document at module load, throwing when the bundled asset is malformed. */
-function loadMicrobitLibraryCatalog(): ExtensionCatalogDocument {
-  const result = validateExtensionCatalogDocument(microbitLibraryCatalogDocument);
+export function loadMicrobitLibraryCatalog(document: unknown): ExtensionCatalogDocument {
+  const result = validateExtensionCatalogDocument(document);
   if (!result.ok) {
     throw new Error(
       `Bundled micro:bit library catalog is invalid: ${result.errors.map((error) => error.code).join(", ")}`
@@ -136,6 +133,15 @@ function loadMicrobitLibraryCatalog(): ExtensionCatalogDocument {
   }
   return result.document;
 }
+
+/**
+ * The bundled library catalog offered to microbit-sim projects: the curated set
+ * of published feature libraries, each pinned to an exact `gh:` reference.
+ */
+const microbitLibraryCatalog: ExtensionCatalogDocument = loadMicrobitLibraryCatalog(microbitLibraryCatalogDocument);
+
+/** The curated catalog moves the bundled micro:bit catalog declares, keyed by source coordinate. */
+export const microbitLibraryCatalogMoves = microbitLibraryCatalog.moves;
 
 /**
  * Build the catalog offers for a microbit-sim project: one offer per bundled

@@ -174,7 +174,7 @@ their presentation.
 | suggest | The legality oracle: the valid tile set at a given insertion or replacement point |
 | propose edit | A validated editor command operation (place, replace, delete, add rule, ...); rejected proposals return the machine-readable diagnostic |
 | compile | Whole-brain compile; returns structured diagnostics |
-| simulate | Run a compiled brain against a staged scenario for N thinks; returns the trace |
+| simulate | Run a compiled brain against a staged scenario for N thinks; returns a compact summarized account of the run -- rule fires, WHEN results, action dispatches, sensed values -- bounded to tool-result scale. Raw tick traces are never tool results; verification consumes this account |
 | read trace | Structured access to rule fires, WHEN results, action dispatches, sensed values |
 
 Properties:
@@ -188,8 +188,14 @@ Properties:
   assistant-originated for display and undo grouping, but structurally identical to user edits --
   one history, one document format, nothing assistant-specific persisted in the brain document
   itself.
-- **Transport.** In-process service is the baseline. Exposure over a wire protocol (the VS Code
-  bridge precedent) is deferred, not precluded.
+- **Target-generic.** The bridge presumes no target. A target integrates by supplying its
+  runtime adapter -- how simulate runs a brain and observes its trace -- and by registering its
+  scenario input kinds; the tool surface itself never varies by target.
+- **Transport.** The bridge's API is in-process: tools execute where the editor substrate lives,
+  and that never changes. A harness may drive the tools from the same process, or from across a
+  session channel in which the target app serves tool calls (see The open/closed line). Exposing
+  the bridge itself over a wire protocol for external harnesses (the VS Code bridge precedent) is
+  deferred, not precluded.
 
 ## The open/closed line
 
@@ -208,6 +214,18 @@ be delightful anywhere is open; everything that is Mindcraft-the-product is clos
   overage; the free tier receives a monthly trickle). Institutional contexts pool the wallet
   and disable end-user purchasing. Cost control is an entitlement property of the wallet, never
   a client-side promise.
+
+Two of these facts force the hosted topology. The editor substrate -- documents, oracle, compiler,
+runtime -- lives where the editor runs and cannot leave it; prompts, personas, and model
+credentials are closed and cannot leave the service. The hosted Assistant is therefore a **split
+loop**: the service runs orchestration and holds the model conversation, and the target app
+serves the bridge tools over the product's session channel -- the service is the tool client, the
+client is the tool server. The person's controls -- pacing, stop, takeover -- mediate tool
+execution at the client, so the harness's policy is remote while every effect stays local,
+validated, and undoable. Identity, access, session establishment, and the entitlements the wallet
+rides on are specified by the authentication and access contract in `docs/specs/auth.md`: one
+authenticated trust root governs who may drive the hosted harness, which targets a session may
+claim, and what its wallet holds.
 
 Most of the loop is free: suggest, compile, simulate, and trace reads are deterministic local
 services. Tokens buy planning and narration -- a thin, expensive layer over cheap ground truth.
@@ -266,6 +284,11 @@ the truth is in the trace.
   the character's mind, and explanation reads as the creature telling you about itself.
 - Persona affects voice, framing, and UI placement only. The contract, the bridge, the lesson
   artifact, and the grounding rules are identical underneath.
+- Structurally, prompt content splits into a **kernel** and a **skin**. The kernel carries the
+  Assistant contract and safety rules and is target-invariant; a persona is a skin that fills
+  designated slots -- voice, address, framing -- and can never override the kernel. The safety
+  floor therefore does not vary by target or persona; the access contract (`docs/specs/auth.md`)
+  relies on this invariance.
 
 ## Safety and audience
 
