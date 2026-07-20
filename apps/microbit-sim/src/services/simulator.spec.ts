@@ -243,6 +243,31 @@ describe("MicrobitSimulator flash", () => {
       assert.fail("expected a failed flash state");
     }
     assert.ok(instance.flashState.errors.length > 0);
+    assert.equal(instance.flashState.brainId, "brain-1");
+    assert.equal(instance.flashedBrainId, "brain-1");
+  });
+
+  it("a failed flash keeps the association: reflash heals it and unflash clears it", () => {
+    const env = microbitEnvironment();
+    const sim = new MicrobitSimulator(env);
+    const instance = sim.getInstances()[0]!;
+
+    // A link failure (core-only env lacks the microbit actions) leaves the instance failed.
+    const coreOnly = createMindcraftEnvironment({ modules: [coreModule()] });
+    sim.flash(instance.id, { ...buttonDisplayInput(env), environment: coreOnly }, "brain-1");
+    assert.equal(instance.flashState.status, "failed");
+    assert.equal(instance.flashedBrainId, "brain-1");
+
+    // A successful rebuild re-flashes the associated instance back to loaded.
+    sim.reflash("brain-1", buttonDisplayInput(env));
+    assert.deepEqual(instance.flashState, { status: "loaded", brainId: "brain-1" });
+
+    // A failed association is cleared by unflash (the brain-deletion path).
+    sim.flash(instance.id, { ...buttonDisplayInput(env), environment: coreOnly }, "brain-1");
+    assert.equal(instance.flashState.status, "failed");
+    sim.unflash("brain-1");
+    assert.deepEqual(instance.flashState, { status: "empty" });
+    assert.equal(instance.flashedBrainId, undefined);
   });
 
   it("notifies instance-list subscribers when flash state changes", () => {
@@ -258,7 +283,7 @@ describe("MicrobitSimulator flash", () => {
     assert.equal(notifications, 1);
   });
 
-  it("reflash re-flashes only the instances loaded with the given brain", () => {
+  it("reflash re-flashes only the instances associated with the given brain", () => {
     const env = microbitEnvironment();
     const sim = new MicrobitSimulator(env);
     const a = sim.getInstances()[0]!;
@@ -283,7 +308,7 @@ describe("MicrobitSimulator flash", () => {
     assert.equal(c.flashState, cBefore);
   });
 
-  it("unflash unloads and clears only the instances loaded with the given brain", () => {
+  it("unflash unloads and clears only the instances associated with the given brain", () => {
     const env = microbitEnvironment();
     const sim = new MicrobitSimulator(env);
     const a = sim.getInstances()[0]!;

@@ -3,17 +3,24 @@ import { Check, Copy } from "lucide-react";
 import { useEffect, useId, useState, useSyncExternalStore } from "react";
 import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";
 import { clearBindingToken } from "@/services/binding-token-persistence";
+import { CompileDiagnosticsConsole } from "./CompileDiagnosticsConsole";
 
 /**
- * VS Code Bridge controls: an enable toggle, a connection-status readout, and a
- * copyable join code. The enable toggle drives the per-project `bridgeEnabled`
- * preference; an enabled bridge connects on mount and whenever the toggle
- * flips on.
+ * Developer panel: the VS Code bridge section (an enable toggle, a
+ * connection-status readout, and a copyable join code) and the build-output
+ * section (the latest workspace compile's diagnostics as console output,
+ * present only when the compile carries diagnostics). The enable toggle
+ * drives the per-project `bridgeEnabled` preference; an enabled bridge
+ * connects on mount and whenever the toggle flips on.
  */
 export function BridgePanel() {
   const store = useMicrobitSimEnvironment();
   const bridgeStatus = useSyncExternalStore(store.subscribeToBridgeStatus, store.getBridgeStatusSnapshot);
   const joinCode = useSyncExternalStore(store.subscribeToBridgeJoinCode, store.getBridgeJoinCodeSnapshot);
+  const compileDiagnostics = useSyncExternalStore(
+    store.subscribeToCompileDiagnostics,
+    store.getCompileDiagnosticsSnapshot
+  );
   const [bridgeEnabled, setBridgeEnabled] = useState(() => store.getUiPreferences().bridgeEnabled);
   const [copied, setCopied] = useState(false);
   const headingId = useId();
@@ -39,24 +46,25 @@ export function BridgePanel() {
 
   return (
     <section aria-labelledby={headingId} className="max-w-md">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id={headingId} className="text-base font-bold">
-          VS Code Bridge
-        </h2>
-        <Switch
-          checked={bridgeEnabled}
-          onCheckedChange={(checked) => {
-            setBridgeEnabled(checked);
-            store.updateUiPreferences({ bridgeEnabled: checked });
-            if (!checked) {
-              store.disconnectBridge();
-              clearBindingToken();
-            }
-          }}
-          aria-label="Toggle VS Code bridge connection"
-        />
-      </div>
+      <h2 id={headingId} className="text-base font-bold">
+        Dev Panel
+      </h2>
       <div className="mt-3 space-y-2 rounded-lg border p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-sm font-medium">VS Code Bridge</h3>
+          <Switch
+            checked={bridgeEnabled}
+            onCheckedChange={(checked) => {
+              setBridgeEnabled(checked);
+              store.updateUiPreferences({ bridgeEnabled: checked });
+              if (!checked) {
+                store.disconnectBridge();
+                clearBindingToken();
+              }
+            }}
+            aria-label="Toggle VS Code bridge connection"
+          />
+        </div>
         <output className={`text-xs font-mono ${statusColor}`}>{bridgeStatus}</output>
         {joinCode && (bridgeStatus === "connected" || bridgeStatus === "reconnecting") && (
           <div className="flex items-center gap-1.5">
@@ -80,6 +88,12 @@ export function BridgePanel() {
           </div>
         )}
       </div>
+      {compileDiagnostics.length > 0 && (
+        <div className="mt-3 space-y-2 rounded-lg border p-3">
+          <h3 className="text-sm font-medium">Build issues</h3>
+          <CompileDiagnosticsConsole diagnostics={compileDiagnostics} />
+        </div>
+      )}
     </section>
   );
 }

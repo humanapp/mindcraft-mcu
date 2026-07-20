@@ -20,6 +20,7 @@ import { isRemovableDriveMissingError } from "@/services/folder-host-mode";
 import { isWebUsbSupported, microbitFlasher } from "@/services/microbit-flasher";
 import { downloadHexFile, downloadTextFile } from "@/utils/file-download";
 import { pickFile } from "@/utils/file-upload";
+import { BrainDiagnosticsList, BrainErrorBadge, toggledBrainId } from "./BrainDiagnostics";
 import { BrainEditor } from "./BrainEditor";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { NameInputDialog } from "./NameInputDialog";
@@ -43,6 +44,12 @@ export function BrainList() {
   const [dialog, setDialog] = useState<BrainDialog>(null);
   const [editingBrainId, setEditingBrainId] = useState<string | null>(null);
   const [driveFlashBrainId, setDriveFlashBrainId] = useState<string | null>(null);
+  const [expandedDiagnostics, setExpandedDiagnostics] = useState<ReadonlySet<string>>(new Set());
+  useSyncExternalStore(store.subscribeToBrainDiagnostics, store.getBrainDiagnosticsRevision);
+
+  function toggleDiagnostics(brainId: string) {
+    setExpandedDiagnostics((previous) => toggledBrainId(previous, brainId));
+  }
   const headingId = useId();
   const webUsbSupported = isWebUsbSupported();
   const flashesViaDrive = store.flashesViaMicrobitDrive;
@@ -235,114 +242,124 @@ export function BrainList() {
       ) : (
         <div className="mt-3 overflow-hidden rounded-lg border">
           <ul className="divide-y divide-border">
-            {brains.map((brain) => (
-              <li
-                key={brain.id}
-                data-testid="brain-item"
-                data-brain-name={brain.name}
-                className="flex items-center justify-between gap-3 px-3 py-2 transition-colors hover:bg-muted/50"
-              >
-                <button
-                  type="button"
-                  aria-label={`Edit ${brain.name}`}
-                  className="min-w-0 flex-1 wrap-break-word text-left text-sm hover:underline"
-                  onClick={() => setEditingBrainId(brain.id)}
-                >
-                  {brain.name}
-                </button>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    data-testid="brain-edit"
-                    data-brain-name={brain.name}
-                    aria-label={`Edit ${brain.name}`}
-                    className="rounded px-2 py-1 text-xs font-medium text-foreground hover:bg-muted"
-                    onClick={() => setEditingBrainId(brain.id)}
-                  >
-                    Edit
-                  </button>
-                  {(flashesViaDrive || (webUsbSupported && paired)) && (
+            {brains.map((brain) => {
+              const diagnostics = store.getBrainDiagnostics(brain.id);
+              const diagnosticsExpanded = expandedDiagnostics.has(brain.id) && diagnostics.length > 0;
+              return (
+                <li key={brain.id} data-testid="brain-item" data-brain-name={brain.name} className="flex flex-col">
+                  <div className="flex items-center justify-between gap-3 px-3 py-2 transition-colors hover:bg-muted/50">
                     <button
                       type="button"
-                      data-testid="brain-flash"
-                      data-brain-name={brain.name}
-                      aria-label={`Flash ${brain.name} to the micro:bit`}
-                      aria-busy={driveFlashBrainId === brain.id}
-                      disabled={flashesViaDrive && driveFlashBrainId !== null}
-                      className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
-                      onClick={() => {
-                        if (flashesViaDrive) {
-                          void handleFlashToDrive(brain.id, brain.name);
-                        } else {
-                          void handleFlash(brain.id);
-                        }
-                      }}
+                      aria-label={`Edit ${brain.name}`}
+                      className="min-w-0 flex-1 wrap-break-word text-left text-sm hover:underline"
+                      onClick={() => setEditingBrainId(brain.id)}
                     >
-                      {driveFlashBrainId === brain.id ? "Flashing..." : "Flash"}
+                      {brain.name}
                     </button>
-                  )}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
+                    <div className="flex items-center gap-1">
+                      {diagnostics.length > 0 && (
+                        <BrainErrorBadge
+                          count={diagnostics.length}
+                          expanded={diagnosticsExpanded}
+                          onToggle={() => toggleDiagnostics(brain.id)}
+                          brainName={brain.name}
+                        />
+                      )}
                       <button
                         type="button"
-                        data-testid="brain-actions"
+                        data-testid="brain-edit"
                         data-brain-name={brain.name}
-                        className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                        aria-label={`More actions for ${brain.name}`}
+                        aria-label={`Edit ${brain.name}`}
+                        className="rounded px-2 py-1 text-xs font-medium text-foreground hover:bg-muted"
+                        onClick={() => setEditingBrainId(brain.id)}
                       >
-                        <MoreHorizontal className="h-4 w-4" />
+                        Edit
                       </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        data-testid="brain-rename"
-                        data-brain-name={brain.name}
-                        onClick={() => setDialog({ kind: "rename", id: brain.id, name: brain.name })}
-                      >
-                        Rename
-                      </DropdownMenuItem>
-                      <DropdownMenuSub>
-                        <DropdownMenuSubTrigger data-testid="brain-export" data-brain-name={brain.name}>
-                          Export
-                        </DropdownMenuSubTrigger>
-                        <DropdownMenuSubContent>
-                          <DropdownMenuItem
-                            data-testid="brain-download"
+                      {(flashesViaDrive || (webUsbSupported && paired)) && (
+                        <button
+                          type="button"
+                          data-testid="brain-flash"
+                          data-brain-name={brain.name}
+                          aria-label={`Flash ${brain.name} to the micro:bit`}
+                          aria-busy={driveFlashBrainId === brain.id}
+                          disabled={flashesViaDrive && driveFlashBrainId !== null}
+                          className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+                          onClick={() => {
+                            if (flashesViaDrive) {
+                              void handleFlashToDrive(brain.id, brain.name);
+                            } else {
+                              void handleFlash(brain.id);
+                            }
+                          }}
+                        >
+                          {driveFlashBrainId === brain.id ? "Flashing..." : "Flash"}
+                        </button>
+                      )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            data-testid="brain-actions"
                             data-brain-name={brain.name}
-                            onClick={() => handleDownload(brain.id, brain.name)}
+                            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                            aria-label={`More actions for ${brain.name}`}
                           >
-                            .hex
-                          </DropdownMenuItem>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
                           <DropdownMenuItem
-                            data-testid="brain-download-program"
+                            data-testid="brain-rename"
                             data-brain-name={brain.name}
-                            onClick={() => handleDownloadProgram(brain.id, brain.name)}
+                            onClick={() => setDialog({ kind: "rename", id: brain.id, name: brain.name })}
                           >
-                            .mcprogram
+                            Rename
                           </DropdownMenuItem>
+                          <DropdownMenuSub>
+                            <DropdownMenuSubTrigger data-testid="brain-export" data-brain-name={brain.name}>
+                              Export
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent>
+                              <DropdownMenuItem
+                                data-testid="brain-download"
+                                data-brain-name={brain.name}
+                                onClick={() => handleDownload(brain.id, brain.name)}
+                              >
+                                .hex
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                data-testid="brain-download-program"
+                                data-brain-name={brain.name}
+                                onClick={() => handleDownloadProgram(brain.id, brain.name)}
+                              >
+                                .mcprogram
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                data-testid="brain-download-source"
+                                data-brain-name={brain.name}
+                                onClick={() => handleDownloadSource(brain.id, brain.name)}
+                              >
+                                .brain
+                              </DropdownMenuItem>
+                            </DropdownMenuSubContent>
+                          </DropdownMenuSub>
+                          <DropdownMenuSeparator />
                           <DropdownMenuItem
-                            data-testid="brain-download-source"
+                            data-testid="brain-remove"
                             data-brain-name={brain.name}
-                            onClick={() => handleDownloadSource(brain.id, brain.name)}
+                            className="text-destructive focus:text-destructive data-highlighted:text-destructive"
+                            onClick={() => setDialog({ kind: "remove", id: brain.id, name: brain.name })}
                           >
-                            .brain
+                            Remove
                           </DropdownMenuItem>
-                        </DropdownMenuSubContent>
-                      </DropdownMenuSub>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        data-testid="brain-remove"
-                        data-brain-name={brain.name}
-                        className="text-destructive focus:text-destructive data-highlighted:text-destructive"
-                        onClick={() => setDialog({ kind: "remove", id: brain.id, name: brain.name })}
-                      >
-                        Remove
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </li>
-            ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                  {diagnosticsExpanded && <BrainDiagnosticsList diagnostics={diagnostics} />}
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}

@@ -23,12 +23,13 @@ export interface FlashDiagnostic {
 
 /**
  * Per-instance flash outcome: `empty` before any flash, `loaded` with the flashed brain id, or
- * `failed` with classified diagnostics.
+ * `failed` with classified diagnostics. A failed flash keeps the brain id: the instance stays
+ * associated with the brain the user selected, and a later successful rebuild re-flashes it.
  */
 export type FlashState =
   | { readonly status: "empty" }
   | { readonly status: "loaded"; readonly brainId: string }
-  | { readonly status: "failed"; readonly errors: readonly FlashDiagnostic[] };
+  | { readonly status: "failed"; readonly brainId: string; readonly errors: readonly FlashDiagnostic[] };
 
 /**
  * One simulated microbit instance: its `MicroBit` device, the WODAL runtime bound to that device and
@@ -52,9 +53,12 @@ export class SimulatorInstance {
     this.gestureInjector = new GestureInjector(this.microbit.accelerometer);
   }
 
-  /** Id of the brain currently flashed onto this instance, or undefined when none is loaded. */
+  /**
+   * Id of the brain associated with this instance -- running when the flash loaded, retained when
+   * it failed -- or undefined when no brain has been flashed.
+   */
   get flashedBrainId(): string | undefined {
-    return this.flashState.status === "loaded" ? this.flashState.brainId : undefined;
+    return this.flashState.status === "empty" ? undefined : this.flashState.brainId;
   }
 
   /** Advances this instance by elapsed simulated time. Feeds any selected gesture, then runs the loaded brain. */
@@ -143,6 +147,7 @@ export class MicrobitSimulator {
     if (!built.ok) {
       this.applyFlashState(instance, {
         status: "failed",
+        brainId,
         errors: built.errors.map((error) => ({ code: error.code, message: error.message })),
       });
       return;
@@ -152,23 +157,30 @@ export class MicrobitSimulator {
       instance,
       loaded.ok
         ? { status: "loaded", brainId }
-        : { status: "failed", errors: loaded.errors.map((error) => ({ code: error.code, message: error.message })) }
+        : {
+            status: "failed",
+            brainId,
+            errors: loaded.errors.map((error) => ({ code: error.code, message: error.message })),
+          }
     );
   }
 
-  /** Re-flashes every instance currently loaded with `brainId` using a freshly built `input`. */
+  /**
+   * Re-flashes every instance associated with `brainId` -- loaded or failed -- using a freshly
+   * built `input`. A successful rebuild returns a previously failed instance to the loaded state.
+   */
   reflash(brainId: string, input: WodalBuildInput): void {
     for (const instance of this.instances_) {
-      if (instance.flashState.status === "loaded" && instance.flashState.brainId === brainId) {
+      if (instance.flashedBrainId === brainId) {
         this.flash(instance.id, input, brainId);
       }
     }
   }
 
-  /** Unflashes every instance currently loaded with `brainId`, returning them to the empty state. */
+  /** Unflashes every instance associated with `brainId`, returning them to the empty state. */
   unflash(brainId: string): void {
     for (const instance of this.instances_) {
-      if (instance.flashState.status === "loaded" && instance.flashState.brainId === brainId) {
+      if (instance.flashedBrainId === brainId) {
         instance.runtime.unload();
         this.applyFlashState(instance, { status: "empty" });
       }

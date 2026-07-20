@@ -1,0 +1,127 @@
+{
+  "format": "mindcraft.project/2",
+  "manifest": {
+    "name": "cuterbot",
+    "version": "0.1.0",
+    "description": "",
+    "extensions": {
+      "mindcraft-lang/trg-microbit-v2": "embedded:mindcraft-lang/trg-microbit-v2",
+      "mindcraft-lang/lib-elecfreaks-cutebot": "gh:mindcraft-lang/lib-elecfreaks-cutebot@16d9d4b39ff257168e262db30bb91d87cfc2042d",
+      "mindcraft-lang/lib-yahboom-gamepad": "gh:mindcraft-lang/lib-yahboom-gamepad@4bb75c9f49b8c6f7f9d71b7493fc290cbb344610"
+    },
+    "brains": {
+      "gkIOi3pfMfDsy6yC": {
+        "version": 1,
+        "id": "uCXVkjeJRBmLybdQ",
+        "name": "robot remote",
+        "catalog": [
+          {
+            "version": 2,
+            "kind": "page",
+            "pageId": "ZOygVYKtp5pfVXG0",
+            "label": "Unnamed Page"
+          }
+        ],
+        "pages": [
+          {
+            "version": 2,
+            "pageId": "ZOygVYKtp5pfVXG0",
+            "name": "Unnamed Page",
+            "rules": [
+              {
+                "version": 1,
+                "when": [],
+                "do": [
+                  "tile.actuator->microbit-v2.radio-send",
+                  {
+                    "k": "action",
+                    "area": "sensor",
+                    "id": "cz4jLqjYRy2bAwR3",
+                    "ns": "mindcraft-lang/lib-yahboom-gamepad"
+                  }
+                ],
+                "children": []
+              },
+              {
+                "version": 1,
+                "when": [],
+                "do": [],
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      "6r44shQiaucjP4ar": {
+        "version": 1,
+        "id": "Y3HTH7tpQHhDb5DI",
+        "name": "robot drive",
+        "catalog": [
+          {
+            "version": 2,
+            "kind": "page",
+            "pageId": "mNdhCKxdpaw2ZvTj",
+            "label": "Unnamed Page"
+          }
+        ],
+        "pages": [
+          {
+            "version": 2,
+            "pageId": "mNdhCKxdpaw2ZvTj",
+            "name": "Unnamed Page",
+            "rules": [
+              {
+                "version": 1,
+                "when": [
+                  "tile.sensor->microbit-v2.radio-receive-buffer"
+                ],
+                "do": [
+                  {
+                    "k": "action",
+                    "area": "actuator",
+                    "id": "mwQw6UokYjp3HVBD",
+                    "ns": "mindcraft-lang/lib-elecfreaks-cutebot"
+                  },
+                  {
+                    "k": "action",
+                    "area": "sensor",
+                    "id": "jnQW2Oaatx2xRjLb",
+                    "ns": "mindcraft-lang/lib-yahboom-gamepad"
+                  }
+                ],
+                "children": []
+              },
+              {
+                "version": 1,
+                "when": [],
+                "do": [],
+                "children": []
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "app": {
+      "@mindcraft-lang/microbit-sim": {
+        "brainOrder": [
+          "gkIOi3pfMfDsy6yC",
+          "6r44shQiaucjP4ar"
+        ],
+        "simulator": {
+          "order": [
+            "1bc5a8a8-097c-488f-a3fa-45422f0f98a1",
+            "00897593-2fd3-4281-8e86-ff88909d570a"
+          ],
+          "flash": {
+            "1bc5a8a8-097c-488f-a3fa-45422f0f98a1": "gkIOi3pfMfDsy6yC",
+            "00897593-2fd3-4281-8e86-ff88909d570a": "6r44shQiaucjP4ar"
+          }
+        }
+      }
+    }
+  },
+  "contents": {
+    "my-actuator/my-actuator.ts": "import { Actuator } from \"mindcraft\";\nimport { heart } from \"@lib/mindcraft-lang/lib-microbit-v2\"\n\nconst icon = heart();\n\nexport default Actuator({\n  id: \"fbkHu4V3tO8EQ8Bd\",\n  name: \"my actuator\",\n  // icon: \"./my-actuator.svg\",\n  // docs: \"./my-actuator.md\",\n  onExecute(ctx, params) {\n    ctx.microbit.foo();\n  },\n});\n"
+  }
+}

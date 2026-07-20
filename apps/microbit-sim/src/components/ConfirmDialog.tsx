@@ -1,10 +1,10 @@
 import { Button } from "@mindcraft-lang/ui";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Modal } from "./Modal";
 
 interface ConfirmDialogProps {
   title: string;
-  message: string;
+  message: ReactNode;
   confirmLabel: string;
   /** Styles the confirm button as a destructive action. */
   destructive?: boolean;
@@ -38,7 +38,7 @@ export function ConfirmDialog({
 
   return (
     <Modal title={title} onClose={onClose}>
-      <p className="text-sm text-muted-foreground">{message}</p>
+      <div className="text-sm text-muted-foreground">{message}</div>
       <div className="mt-4 flex justify-end gap-2">
         <Button type="button" variant="secondary" size="sm" data-testid="confirm-cancel-button" onClick={onClose}>
           Cancel

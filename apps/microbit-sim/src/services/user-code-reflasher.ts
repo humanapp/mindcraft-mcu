@@ -5,11 +5,11 @@ export const DEFAULT_USER_CODE_REFLASH_DEBOUNCE_MS = 250;
 
 /** Collaborators the {@link UserCodeReflasher} reads and drives. */
 export interface UserCodeReflasherDeps {
-  /** Ids of the brains currently flashed onto a simulator instance. */
+  /** Ids of the brains associated with a simulator instance, whether their last flash loaded or failed. */
   flashedBrainIds(): readonly string[];
   /** The cached definition for `brainId`, or undefined when it is not loaded. */
   getBrainDef(brainId: string): IBrainDef | undefined;
-  /** Rebuilds `brainId` from its latest definition and reflashes every instance running it. */
+  /** Rebuilds `brainId` from its latest definition and reflashes every instance associated with it. */
   reflashBrain(brainId: string): void;
 }
 

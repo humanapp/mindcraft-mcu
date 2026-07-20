@@ -82,6 +82,7 @@ export function toExtensionBrowserEntry(entry: ExtensionCatalogEntry): Extension
     coordinate: entry.coordinate,
     name: entry.name,
     version: entry.version,
+    ...(entry.description !== undefined ? { description: entry.description } : {}),
     ...(entry.thumbnailUrl !== undefined ? { thumbnailUrl: entry.thumbnailUrl } : {}),
     installed: entry.installed,
     ...(entry.repoUrl !== undefined ? { repoUrl: entry.repoUrl } : {}),
@@ -113,7 +114,8 @@ export function buildMicrobitExtensionEntries(
     embedRecord,
     MICROBIT_PLATFORM_COORDINATES,
     installedContent,
-    fetchFailures
+    fetchFailures,
+    microbitLibraryCatalog
   ).map(toExtensionBrowserEntry);
 }
 
@@ -158,6 +160,11 @@ export function microbitCatalogEntryRef(coordinate: string): string {
 /** The curated catalog moves the bundled micro:bit catalog declares, keyed by source coordinate. */
 export const microbitLibraryCatalogMoves = microbitLibraryCatalog.moves;
 
+/** The bundled catalog's coordinates in document order; anchors the library browser's stable list order. */
+export const microbitCatalogCoordinateOrder: readonly string[] = microbitLibraryCatalog.entries.map(
+  (entry) => entry.coordinate
+);
+
 /**
  * Build the catalog offers for a microbit-sim project: one offer per bundled
  * catalog entry that is compatible with the project's micro:bit platform stack
@@ -173,6 +180,27 @@ export function buildMicrobitCatalogOffers(
   embedRecord: readonly EmbeddedExtension[]
 ): ExtensionCatalogOffer[] {
   return buildExtensionCatalogOffers(microbitLibraryCatalog, extensions, embedRecord, MICROBIT_LAYER_COORDINATES);
+}
+
+/**
+ * The display name of the library at `coordinate`: the installed content's
+ * manifest name when the library is in the resolved closure, the bundled
+ * catalog entry's name otherwise, and the coordinate itself as the last
+ * fallback.
+ *
+ * @param installedLibraries - The active project's installed libraries, each with its manifest display name.
+ * @param coordinate - The library's `<owner>/<repo>` coordinate.
+ */
+export function microbitLibraryDisplayName(
+  installedLibraries: readonly Pick<ExtensionCatalogEntry, "coordinate" | "name">[],
+  coordinate: string
+): string {
+  const installed = installedLibraries.find((library) => library.coordinate === coordinate);
+  if (installed !== undefined) {
+    return installed.name;
+  }
+  const catalogEntry = microbitLibraryCatalog.entries.find((entry) => entry.coordinate === coordinate);
+  return catalogEntry?.name ?? coordinate;
 }
 
 /** The surface update checks drive. */

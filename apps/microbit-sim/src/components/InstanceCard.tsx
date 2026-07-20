@@ -9,7 +9,7 @@ import { MoreHorizontal, Pencil } from "lucide-react";
 import { useState } from "react";
 import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";
 import type { BrainRecord } from "@/services/microbit-sim-environment-store";
-import type { FlashState, SimulatorInstance } from "@/services/simulator";
+import type { SimulatorInstance } from "@/services/simulator";
 import { BrainEditor } from "./BrainEditor";
 import { GesturePicker } from "./GesturePicker";
 import { MicrobitDevice } from "./MicrobitDevice";
@@ -27,7 +27,6 @@ interface InstanceCardProps {
 export function InstanceCard({ instance, label, brains }: InstanceCardProps) {
   const store = useMicrobitSimEnvironment();
   const [editingBrain, setEditingBrain] = useState(false);
-  const status = flashStatusLine(instance.flashState);
   const loaded = instance.flashState.status === "loaded";
   const assigned = instance.flashedBrainId != null;
 
@@ -58,7 +57,6 @@ export function InstanceCard({ instance, label, brains }: InstanceCardProps) {
               </option>
             ))}
           </select>
-          {status && <output className="wrap-break-word text-xs text-destructive">{status}</output>}
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <button
@@ -112,13 +110,4 @@ export function InstanceCard({ instance, label, brains }: InstanceCardProps) {
       )}
     </div>
   );
-}
-
-/** Maps a failed flash outcome to the status line shown under the brain picker. */
-function flashStatusLine(flash: FlashState): string | undefined {
-  if (flash.status !== "failed") {
-    return undefined;
-  }
-  const detail = flash.errors[0]?.message;
-  return detail ? `flash failed: ${detail}` : "flash failed";
 }

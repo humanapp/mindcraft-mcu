@@ -15,6 +15,8 @@ import {
   installMicrobitExtension,
   installMicrobitExtensionReference,
   installMicrobitReference,
+  microbitLibraryCatalog,
+  microbitLibraryDisplayName,
   toExtensionBrowserEntry,
   uninstallMicrobitExtension,
 } from "./microbit-extension-browser";
@@ -440,5 +442,24 @@ describe("installMicrobitReference -- routes by transport", () => {
     assert.ok(result.ok);
     assert.equal(result.action.ok, true);
     assert.equal(surface.patches[0]?.["example-org/position-ext"], "gh:example-org/position-ext@v0.1.0");
+  });
+});
+
+describe("microbitLibraryDisplayName", () => {
+  test("prefers the installed library's manifest name", () => {
+    const name = microbitLibraryDisplayName([{ coordinate: POSITION, name: "Position" }], POSITION);
+    assert.equal(name, "Position");
+  });
+
+  test("falls back to the bundled catalog entry's name when not installed", () => {
+    const entry = microbitLibraryCatalog.entries[0];
+    assert.ok(entry, "the bundled catalog carries at least one entry");
+    const name = microbitLibraryDisplayName([], entry.coordinate);
+    assert.equal(name, entry.name);
+  });
+
+  test("falls back to the coordinate when nothing names the library", () => {
+    const name = microbitLibraryDisplayName([], "example-org/unknown-lib");
+    assert.equal(name, "example-org/unknown-lib");
   });
 });

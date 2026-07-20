@@ -13,12 +13,15 @@ import {
 import {
   type AppBridgeState,
   AppEnvironmentHost,
+  type BrainDiagnosticEntry,
+  collectBrainErrorDiagnostics,
   createFolderCompileDiagnosticsPublisher,
   createVfsAssetUrlProvider,
   type ExtensionResolutionWarning,
   type FolderHostSession,
   type UserTileApplyResult,
   type VfsAssetUrlProvider,
+  type WorkspaceCompileDiagnostic,
 } from "@mindcraft-lang/bridge-app";
 import { BrainDef, coreModule, createMindcraftEnvironment, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
 import { createProfileNumerics } from "@mindcraft-lang/core/runtime";
@@ -585,7 +588,7 @@ export class MicrobitSimEnvironmentStore {
     this.simulator.flash(instanceId, input, brainId);
   }
 
-  /** Restarts the instance's flashed brain from a fresh build. A no-op when no brain is loaded. */
+  /** Restarts the instance's associated brain from a fresh build. A no-op when no brain is associated. */
   async resetInstance(instanceId: string): Promise<void> {
     const instance = this.simulator.getInstances().find((candidate) => candidate.id === instanceId);
     const brainId = instance?.flashedBrainId;
@@ -599,11 +602,9 @@ export class MicrobitSimEnvironmentStore {
     this.simulator.flash(instanceId, input, brainId);
   }
 
-  /** Re-flashes every instance currently running `brainId` from the brain's latest definition. */
+  /** Re-flashes every instance associated with `brainId` -- loaded or failed -- from the brain's latest definition. */
   async reflashBrain(brainId: string): Promise<void> {
-    const hasTargets = this.simulator
-      .getInstances()
-      .some((instance) => instance.flashState.status === "loaded" && instance.flashState.brainId === brainId);
+    const hasTargets = this.simulator.getInstances().some((instance) => instance.flashedBrainId === brainId);
     if (!hasTargets) {
       return;
     }
@@ -652,6 +653,38 @@ export class MicrobitSimEnvironmentStore {
   getBrains = (): readonly BrainRecord[] => {
     return this._brains;
   };
+
+  /** Subscribes to brain-diagnostics revision changes for `useSyncExternalStore`. Returns an unsubscribe function. */
+  subscribeToBrainDiagnostics = (listener: () => void): (() => void) => {
+    return this.host.subscribeToBrainDiagnostics(listener);
+  };
+
+  /** Snapshot of the current brain-diagnostics revision for `useSyncExternalStore`. */
+  getBrainDiagnosticsRevision = (): number => {
+    return this.host.getBrainDiagnosticsRevision();
+  };
+
+  /** Subscribes to workspace-compile diagnostic changes for `useSyncExternalStore`. Returns an unsubscribe function. */
+  subscribeToCompileDiagnostics = (listener: () => void): (() => void) => {
+    return this.host.subscribeToCompileDiagnostics(listener);
+  };
+
+  /** Snapshot of the latest workspace compile's diagnostics for `useSyncExternalStore`; empty when clean. */
+  getCompileDiagnosticsSnapshot = (): readonly WorkspaceCompileDiagnostic[] => {
+    return this.host.getCompileDiagnosticsSnapshot();
+  };
+
+  /**
+   * The verbatim error diagnostics of a brain's stored typecheck state.
+   * Empty when the brain is not cached or is clean.
+   */
+  getBrainDiagnostics(brainId: string): readonly BrainDiagnosticEntry[] {
+    const brain = this.host.getCachedBrain(brainId);
+    if (!brain) {
+      return [];
+    }
+    return collectBrainErrorDiagnostics(brain);
+  }
 
   // -- App settings (global) --
 
@@ -905,7 +938,7 @@ export class MicrobitSimEnvironmentStore {
     this._userCodeReflasher.cancelPending();
   }
 
-  /** The current fleet as a persistable snapshot: ordered instance ids and the brain each is flashed with. */
+  /** The current fleet as a persistable snapshot: ordered instance ids and the brain each is associated with. */
   private simulatorStateSnapshot(): MicrobitSimFleet {
     const instances = this.simulator.getInstances();
     const order = instances.map((instance) => instance.id);

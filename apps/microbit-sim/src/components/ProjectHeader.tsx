@@ -1,5 +1,6 @@
-import type { UnstableDependency } from "@mindcraft-lang/app-host";
-import type { ExtensionInstallReport } from "@mindcraft-lang/bridge-app";
+import { parseExtensionReference, type UnstableDependency } from "@mindcraft-lang/app-host";
+import type { ExtensionTransactionToasts, LibraryUninstallImpact } from "@mindcraft-lang/bridge-app";
+import { presentExtensionTransaction, runGuardedLibraryUninstall } from "@mindcraft-lang/bridge-app";
 import { useDocsSidebar } from "@mindcraft-lang/docs";
 import {
   Button,
@@ -14,6 +15,7 @@ import { Blocks, BookOpen, ChevronDown, Download, FilePlus, FolderOpen, Settings
 import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";
+import { collectMicrobitLibraryUninstallImpact } from "@/services/library-uninstall-guard";
 import { microbitEmbeddedExtensions } from "@/services/microbit-embedded-extensions";
 import {
   buildMicrobitCatalogOffers,
@@ -21,6 +23,8 @@ import {
   checkMicrobitExtensionUpdates,
   installMicrobitExtension,
   installMicrobitReference,
+  microbitCatalogCoordinateOrder,
+  microbitLibraryDisplayName,
   uninstallMicrobitExtension,
 } from "@/services/microbit-extension-browser";
 import { downloadTextFile } from "@/utils/file-download";
@@ -30,8 +34,40 @@ import { InlineRename } from "./InlineRename";
 import { NewProjectDialog } from "./NewProjectDialog";
 import { ProjectPickerDialog } from "./ProjectPickerDialog";
 import { SettingsDialog } from "./SettingsDialog";
+import { UninstallImpactMessage } from "./UninstallImpactMessage";
 
 type OpenDialog = "none" | "new" | "open" | "settings" | "extensions";
+
+/** An uninstall waiting on the in-use confirmation dialog. */
+interface PendingUninstall {
+  /** The library's display name; titles the dialog. */
+  name: string;
+  /** The computed in-use impact the dialog lists. */
+  impact: LibraryUninstallImpact;
+  /** Resolves the confirmation: true removes anyway, false cancels. */
+  resolve: (confirmed: boolean) => void;
+}
+
+function failedToast(prefix: string): ExtensionTransactionToasts["failed"] {
+  return ({ code, message }) => {
+    toast.error(`${prefix} ${code !== undefined ? `${code}: ` : ""}${message}`);
+  };
+}
+
+const installToasts: ExtensionTransactionToasts = {
+  failed: failedToast("Could not install library."),
+  confirmed: (name) => toast.success(`Installed ${name}`),
+};
+
+const uninstallToasts: ExtensionTransactionToasts = {
+  failed: failedToast("Could not remove library."),
+  confirmed: (name) => toast.success(`Removed ${name}`),
+};
+
+const refreshToasts: ExtensionTransactionToasts = {
+  failed: failedToast("Could not load libraries."),
+  confirmed: () => undefined,
+};
 
 function projectFilename(name: string): string {
   const slug = name.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-+|-+$/g, "");
@@ -46,6 +82,7 @@ export function ProjectHeader() {
   const getExtensions = useCallback(() => store.activeProjectManifest?.extensions, [store]);
   const extensions = useSyncExternalStore(store.subscribeToActiveProject, getExtensions);
   const [dialog, setDialog] = useState<OpenDialog>("none");
+  const [pendingUninstall, setPendingUninstall] = useState<PendingUninstall | null>(null);
   const [unstableExportDependencies, setUnstableExportDependencies] = useState<readonly UnstableDependency[] | null>(
     null
   );
@@ -64,34 +101,6 @@ export function ProjectHeader() {
     [extensions, store]
   );
 
-  const surfaceExtensionReport = (report: ExtensionInstallReport | undefined) => {
-    if (!report) {
-      return;
-    }
-    if (!report.committed) {
-      const detail =
-        report.refusal.kind === "fetch"
-          ? `${report.refusal.error.code}: ${report.refusal.error.message}`
-          : report.refusal.message;
-      toast.error(`Could not install library. ${detail}`);
-      return;
-    }
-    if (report.outcome.kind === "worsened") {
-      const undo = report.undo;
-      toast.warning("Installed with new problems", {
-        description: report.outcome.newProblems
-          .slice(0, 3)
-          .map((problem) => `${problem.location}: ${problem.description}`)
-          .join("\n"),
-        ...(undo ? { action: { label: "Undo", onClick: () => void undo() } } : {}),
-      });
-      return;
-    }
-    if (report.outcome.kind === "improved") {
-      toast.success(`Libraries updated; ${report.outcome.resolvedProblems.length} problem(s) resolved`);
-    }
-  };
-
   const handleInstallExtension = (coordinate: string) => {
     void (async () => {
       const result = await installMicrobitExtension(
@@ -104,7 +113,12 @@ export function ProjectHeader() {
         toast.error(`Could not install library (${result.action.code})`);
         return;
       }
-      surfaceExtensionReport(result.report);
+      presentExtensionTransaction({
+        report: result.report,
+        flavor: "install",
+        libraryName: microbitLibraryDisplayName(store.host.installedLibraries, coordinate),
+        toasts: installToasts,
+      });
     })();
   };
 
@@ -124,27 +138,59 @@ export function ProjectHeader() {
         toast.error(`Could not add library (${result.action.code})`);
         return;
       }
-      if (result.report?.committed) {
-        toast.success(`Installed ${result.reference}`);
-      }
-      surfaceExtensionReport(result.report);
+      const parsed = parseExtensionReference(result.reference);
+      const coordinate =
+        parsed === undefined
+          ? result.reference
+          : parsed.transport === "gh"
+            ? `${parsed.owner}/${parsed.repo}`
+            : parsed.coordinate;
+      presentExtensionTransaction({
+        report: result.report,
+        flavor: "install",
+        libraryName: microbitLibraryDisplayName(store.host.installedLibraries, coordinate),
+        toasts: installToasts,
+      });
     })();
   };
 
   const handleUninstallExtension = (coordinate: string) => {
     void (async () => {
-      const result = await uninstallMicrobitExtension(
+      const extensionsMap = store.activeProjectManifest?.extensions;
+      const name = microbitLibraryDisplayName(store.host.installedLibraries, coordinate);
+      const impact = collectMicrobitLibraryUninstallImpact(
         store.host,
-        store.activeProjectManifest?.extensions,
+        extensionsMap,
         coordinate,
         microbitEmbeddedExtensions,
         store.host.installedExtensionContent
       );
-      if (!result.action.ok) {
-        toast.error(`Could not remove library (${result.action.code})`);
-        return;
-      }
-      surfaceExtensionReport(result.report);
+      await runGuardedLibraryUninstall({
+        impact,
+        confirmRemoval: () =>
+          new Promise<boolean>((resolve) => {
+            setPendingUninstall({ name, impact, resolve });
+          }),
+        uninstall: async () => {
+          const result = await uninstallMicrobitExtension(
+            store.host,
+            extensionsMap,
+            coordinate,
+            microbitEmbeddedExtensions,
+            store.host.installedExtensionContent
+          );
+          if (!result.action.ok) {
+            toast.error(`Could not remove library (${result.action.code})`);
+            return;
+          }
+          presentExtensionTransaction({
+            report: result.report,
+            flavor: "uninstall",
+            libraryName: name,
+            toasts: uninstallToasts,
+          });
+        },
+      });
     })();
   };
 
@@ -172,7 +218,11 @@ export function ProjectHeader() {
           label: updates.length > 1 ? "Update all" : "Update",
           onClick: () => {
             void (async () => {
-              surfaceExtensionReport(await store.host.applyExtensionUpdates(updates));
+              presentExtensionTransaction({
+                report: await store.host.applyExtensionUpdates(updates),
+                flavor: "refresh",
+                toasts: refreshToasts,
+              });
             })();
           },
         },
@@ -186,7 +236,11 @@ export function ProjectHeader() {
 
   const handleRetryExtension = () => {
     void (async () => {
-      surfaceExtensionReport(await store.host.updateProjectExtensions(store.activeProjectManifest?.extensions ?? {}));
+      presentExtensionTransaction({
+        report: await store.host.updateProjectExtensions(store.activeProjectManifest?.extensions ?? {}),
+        flavor: "refresh",
+        toasts: refreshToasts,
+      });
     })();
   };
 
@@ -316,6 +370,19 @@ export function ProjectHeader() {
           )}
         </div>
       </div>
+      {pendingUninstall !== null && (
+        <ConfirmDialog
+          title={pendingUninstall.name}
+          message={<UninstallImpactMessage impact={pendingUninstall.impact} />}
+          confirmLabel="Remove anyway"
+          destructive
+          onConfirm={async () => pendingUninstall.resolve(true)}
+          onClose={() => {
+            pendingUninstall.resolve(false);
+            setPendingUninstall(null);
+          }}
+        />
+      )}
       {dialog === "new" && <NewProjectDialog onClose={() => setDialog("none")} />}
       {dialog === "open" && <ProjectPickerDialog onClose={() => setDialog("none")} />}
       {dialog === "settings" && <SettingsDialog onClose={() => setDialog("none")} />}
@@ -346,6 +413,7 @@ export function ProjectHeader() {
         onCheckAllUpdates={handleCheckAllUpdates}
         onInstallReference={handleInstallExtensionReference}
         catalogOffers={catalogOffers}
+        catalogCoordinates={microbitCatalogCoordinateOrder}
       />
     </header>
   );
