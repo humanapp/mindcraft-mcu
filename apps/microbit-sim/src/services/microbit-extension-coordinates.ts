@@ -46,25 +46,25 @@ export const MICROBIT_V2_TARGET_REFERENCE = "embedded:mindcraft-lang/trg-microbi
 export const CODAL_POSITION_EXT_COORDINATE = "mindcraft-lang/lib-codal-position";
 
 /**
- * Coordinate of the Cutebot chassis add-on: an installable capability extension
- * whose movement and line-sensor tiles target the micro:bit v2 layer. Opaque
- * `<owner>/<repo>` identity; the repo segment is human-readable and never parsed
- * by code.
+ * Coordinate of the Cutebot chassis library: a published (`gh:`) capability
+ * library whose movement and line-sensor tiles target the micro:bit v2 layer.
+ * Offered through the bundled catalog at a pinned `gh:` reference and fetched
+ * at install time; a bundled catalog move redirects the retired
+ * `mindcraft-lang/lib-microbit-cutebot` coordinate here. Opaque
+ * `<owner>/<repo>` identity; the repo segment is human-readable and never
+ * parsed by code.
  */
-export const CUTEBOT_EXT_COORDINATE = "mindcraft-lang/lib-microbit-cutebot";
-
-/** Manifest reference form delivering the Cutebot add-on from the app bundle. */
-export const CUTEBOT_EXT_REFERENCE = "embedded:mindcraft-lang/lib-microbit-cutebot";
+export const CUTEBOT_EXT_COORDINATE = "mindcraft-lang/lib-elecfreaks-cutebot";
 
 /**
- * Coordinate of the Yahboom gamepad add-on: an installable capability extension
- * whose stick, button, and packet-decode tiles target the micro:bit v2 layer and
- * depend on the Position add-on for their struct type.
+ * Coordinate of the Yahboom gamepad library: a published (`gh:`) capability
+ * library whose stick, button, and packet-decode tiles target the micro:bit v2
+ * layer and depend on the Position library for their struct type. Offered
+ * through the bundled catalog at a pinned `gh:` reference and fetched at
+ * install time; a bundled catalog move redirects the retired
+ * `mindcraft-lang/lib-microbit-yahboom-gamepad` coordinate here.
  */
-export const YAHBOOM_GAMEPAD_EXT_COORDINATE = "mindcraft-lang/lib-microbit-yahboom-gamepad";
-
-/** Manifest reference form delivering the Yahboom gamepad add-on from the app bundle. */
-export const YAHBOOM_GAMEPAD_EXT_REFERENCE = "embedded:mindcraft-lang/lib-microbit-yahboom-gamepad";
+export const YAHBOOM_GAMEPAD_EXT_COORDINATE = "mindcraft-lang/lib-yahboom-gamepad";
 
 /**
  * Extensions seeded into every new microbit-sim project's manifest, keyed by

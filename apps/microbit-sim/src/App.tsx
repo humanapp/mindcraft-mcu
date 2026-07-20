@@ -5,7 +5,7 @@ import { createMicrobitTileVisualResolver, microbitDataTypeIcons, microbitDataTy
 import { BrainList } from "./components/BrainList";
 import { BridgePanel } from "./components/BridgePanel";
 import { ProjectHeader } from "./components/ProjectHeader";
-import { ResolutionWarningsBanner } from "./components/ResolutionWarningsBanner";
+import { useResolutionWarningsToast } from "./components/ResolutionWarningsToast";
 import { Simulator } from "./components/Simulator";
 import { useMicrobitSimEnvironment } from "./contexts/microbit-sim-environment";
 import { createDocsTileCatalog, createMicrobitDocsRegistry } from "./docs/docs-registry";
@@ -14,6 +14,7 @@ import { createDocsTileCatalog, createMicrobitDocsRegistry } from "./docs/docs-r
 export function App() {
   const store = useMicrobitSimEnvironment();
   const chrome = store.chrome;
+  useResolutionWarningsToast();
   // Rebuild the registry when user tiles install so their doc entries stay current,
   // and the visual resolver when the VFS revision advances so tile icons re-resolve.
   const docRevision = useSyncExternalStore(store.subscribeToDocRevision, store.getDocRevisionSnapshot);
@@ -45,7 +46,6 @@ export function App() {
     >
       <div className="min-h-screen">
         <ProjectHeader />
-        <ResolutionWarningsBanner />
         <main className="p-4 sm:p-6">
           <div className="mx-auto grid w-full max-w-7xl grid-cols-1 items-start gap-8 lg:grid-cols-2">
             {/* On a single column the wrapper dissolves (display: contents), making all three

@@ -11,7 +11,11 @@ import {
 import { buildEmbeddedExtensionFromDir } from "@mindcraft-lang/bridge-app/node";
 import { createWorkspaceCompiler, type Mount, type WorkspaceSnapshot } from "@mindcraft-lang/ts-compiler";
 import { createMicroBitV2Environment } from "@mindcraft-lang/wodal/targets/microbit-v2";
-import { CODAL_POSITION_GH_REF, codalPositionPublishedFetched } from "../extension-tests/codal-position-fixture";
+import {
+  CODAL_POSITION_GH_REF,
+  publishedLibraryFetched,
+  YAHBOOM_GAMEPAD_GH_REF,
+} from "../extension-tests/published-library-fixtures";
 import {
   buildMicrobitExtensionEntries,
   MICROBIT_LAYER_COORDINATES,
@@ -22,37 +26,25 @@ import {
   CODAL_POSITION_EXT_COORDINATE,
   CORE_LIB_COORDINATE,
   CUTEBOT_EXT_COORDINATE,
-  CUTEBOT_EXT_REFERENCE,
   MICROBIT_V2_LIB_COORDINATE,
   MICROBIT_V2_LIB_REFERENCE,
+  MICROBIT_V2_TARGET_COORDINATE,
   YAHBOOM_GAMEPAD_EXT_COORDINATE,
-  YAHBOOM_GAMEPAD_EXT_REFERENCE,
 } from "./microbit-extension-coordinates";
 
 function extensionDir(relativePath: string): string {
   return fileURLToPath(new URL(relativePath, import.meta.url));
 }
 
-/** The Cutebot chassis add-on assembled from its own `mindcraft.json` `files` list through the shared loader. */
-function cutebotAddon(): EmbeddedExtension {
-  return buildEmbeddedExtensionFromDir(extensionDir("../../extensions/lib-microbit-cutebot"), CUTEBOT_EXT_COORDINATE);
-}
-
-/** The Yahboom gamepad add-on assembled from its own `mindcraft.json` `files` list through the shared loader. */
-function gamepadAddon(): EmbeddedExtension {
-  return buildEmbeddedExtensionFromDir(
-    extensionDir("../../extensions/lib-microbit-yahboom-gamepad"),
-    YAHBOOM_GAMEPAD_EXT_COORDINATE
-  );
-}
-
 /**
- * The three microbit layer libraries assembled from each extension's own
- * `mindcraft.json` `files` list through the shared loader. The layer stack is
- * core <- wodal <- microbit-v2.
+ * The runnable target and the three microbit layer libraries assembled from
+ * each extension's own `mindcraft.json` `files` list through the shared
+ * loader. The layer stack is core <- wodal <- microbit-v2; the target resolves
+ * the published libraries' `trg-` compatibility-target edge.
  */
-function microbitLayers(): EmbeddedExtension[] {
+function microbitEmbedRecord(): EmbeddedExtension[] {
   return [
+    buildEmbeddedExtensionFromDir(extensionDir("../../target-package"), MICROBIT_V2_TARGET_COORDINATE),
     buildEmbeddedExtensionFromDir(
       extensionDir("../../../../packages/wodal/targets/microbit-v2/lib"),
       MICROBIT_V2_LIB_COORDINATE
@@ -65,54 +57,57 @@ function microbitLayers(): EmbeddedExtension[] {
   ];
 }
 
-/**
- * The microbit app's embed record: the three layers plus the Cutebot and
- * Yahboom gamepad add-ons. The Position library is not bundled; it resolves
- * through the catalog move to its published gh: content served by the fixture.
- */
-function microbitEmbedRecord(): EmbeddedExtension[] {
-  return [...microbitLayers(), cutebotAddon(), gamepadAddon()];
-}
-
-/** The content sources the microbit resolver reads: the embed record plus the fixture-served Position gh: content and the catalog moves. */
+/** The content sources the microbit resolver reads: the embed record plus the fixture-served published gh: content and the catalog moves. */
 function microbitSources() {
   return {
     embedded: microbitEmbedRecord(),
-    fetched: codalPositionPublishedFetched,
+    fetched: publishedLibraryFetched,
     moves: microbitLibraryCatalogMoves,
   };
 }
 
 const microbitProject = { [MICROBIT_V2_LIB_COORDINATE]: MICROBIT_V2_LIB_REFERENCE };
 
-describe("microbit add-on extensions -- every declaration ships a stable id", () => {
-  test("no bundled add-on declares a Sensor, Actuator, or Conversion without an explicit stable id", () => {
+describe("microbit published libraries -- every declaration ships a stable id", () => {
+  test("no published library snapshot declares a Sensor, Actuator, or Conversion without an explicit stable id", () => {
+    // The published snapshots assembled as embed-record-shaped bundles, so the
+    // shared id gate walks their declarations.
+    const published = [
+      buildEmbeddedExtensionFromDir(extensionDir("../../test-fixtures/lib-elecfreaks-cutebot"), CUTEBOT_EXT_COORDINATE),
+      buildEmbeddedExtensionFromDir(
+        extensionDir("../../test-fixtures/lib-yahboom-gamepad"),
+        YAHBOOM_GAMEPAD_EXT_COORDINATE
+      ),
+    ];
     const services = createMicroBitV2Environment().brainServices;
-    const violations = findEmbeddedExtensionsMissingStableIds(microbitEmbedRecord(), services);
+    const violations = findEmbeddedExtensionsMissingStableIds(published, services);
     assert.deepEqual(violations, [], formatEmbeddedExtensionIdViolations(violations));
   });
 });
 
-describe("microbit add-on extensions -- the gamepad add-on depends on the Position add-on across layers", () => {
-  test("installing the gamepad pulls the Position add-on into the resolved closure and its tiles reference Position", () => {
+describe("microbit published libraries -- the gamepad depends on the Position library across layers", () => {
+  test("installing the gamepad pulls the Position library into the resolved closure and its tiles reference Position", () => {
     const extensions: Record<string, string> = {
       [MICROBIT_V2_LIB_COORDINATE]: MICROBIT_V2_LIB_REFERENCE,
-      [YAHBOOM_GAMEPAD_EXT_COORDINATE]: YAHBOOM_GAMEPAD_EXT_REFERENCE,
+      [YAHBOOM_GAMEPAD_EXT_COORDINATE]: YAHBOOM_GAMEPAD_GH_REF,
     };
     const resolved = resolveProjectExtensions(extensions, microbitSources());
 
-    // The gamepad's manifest edge to the Position add-on resolves transitively,
-    // even though Position targets the lower wodal layer and the gamepad targets
-    // micro:bit v2 -- the first cross-layer add-on -> add-on dependency. The
-    // gamepad's own target edge to the micro:bit v2 layer joins its dependencies
-    // alongside that extension edge.
+    // The gamepad's manifest edge to the Position library resolves
+    // transitively through its published version-form pin, even though
+    // Position targets the lower wodal layer and the gamepad targets the
+    // micro:bit v2 platform. The gamepad's own compatibility-target edge to
+    // the runnable target joins its dependencies alongside that extension edge.
     const origins = resolved.dependencyMounts.map((m) => m.namespace);
     assert.ok(origins.includes(YAHBOOM_GAMEPAD_EXT_COORDINATE), "the gamepad is in the closure");
-    assert.ok(origins.includes(CODAL_POSITION_EXT_COORDINATE), "the Position add-on is pulled in as the gamepad's dep");
+    assert.ok(
+      origins.includes(CODAL_POSITION_EXT_COORDINATE),
+      "the Position library is pulled in as the gamepad's dep"
+    );
     const gamepadMount = resolved.dependencyMounts.find((m) => m.namespace === YAHBOOM_GAMEPAD_EXT_COORDINATE)!;
     assert.deepEqual(gamepadMount.dependencies, [
       { coordinate: CODAL_POSITION_EXT_COORDINATE },
-      { coordinate: MICROBIT_V2_LIB_COORDINATE },
+      { coordinate: MICROBIT_V2_TARGET_COORDINATE },
     ]);
 
     const environment = createMicroBitV2Environment();
@@ -133,8 +128,8 @@ describe("microbit add-on extensions -- the gamepad add-on depends on the Positi
 
     // The gamepad's Position-typed inline sensor lowers into the bundle, and the
     // Position struct's accessor and variable tiles register under the Position
-    // add-on's own namespace -- proof the `@lib` struct-type reference resolves
-    // across the add-on boundary at runtime.
+    // library's own namespace -- proof the `@lib` struct-type reference resolves
+    // across the library boundary at runtime.
     const tiles = collectMetadataFromCompile(result);
     const stickPosition = tiles.find((t) => t.name === "stick position");
     assert.ok(stickPosition, "the gamepad's Position-returning sensor is registered");
@@ -155,24 +150,24 @@ describe("microbit add-on extensions -- the gamepad add-on depends on the Positi
   });
 });
 
-describe("microbit add-on extensions -- browser entries list direct dependencies only", () => {
-  test("a fresh microbit project does not list the Position add-on it does not directly reference", () => {
+describe("microbit published libraries -- browser entries list direct dependencies only", () => {
+  test("a fresh microbit project does not list the Position library it does not directly reference", () => {
     const entries = buildMicrobitExtensionEntries(microbitProject, microbitEmbedRecord());
 
-    // Position is surfaced through the catalog offers, not an entry card, until
-    // the project directly references it.
+    // Position stays a transitive sub-dependency until the project directly
+    // references it.
     assert.equal(
       entries.find((e) => e.coordinate === CODAL_POSITION_EXT_COORDINATE),
       undefined
     );
   });
 
-  test("a directly-installed Position add-on lists as an installed gh: entry", () => {
+  test("a directly-installed Position library lists as an installed gh: entry", () => {
     const project = { ...microbitProject, [CODAL_POSITION_EXT_COORDINATE]: CODAL_POSITION_GH_REF };
-    const entries = buildMicrobitExtensionEntries(project, microbitEmbedRecord(), codalPositionPublishedFetched);
+    const entries = buildMicrobitExtensionEntries(project, microbitEmbedRecord(), publishedLibraryFetched);
 
     const position = entries.find((e) => e.coordinate === CODAL_POSITION_EXT_COORDINATE);
-    assert.ok(position, "a directly-referenced add-on is an entry card");
+    assert.ok(position, "a directly-referenced library is an entry card");
     assert.equal(position.installed, true);
     assert.equal(position.name, "Position");
     assert.equal(position.repoUrl, `https://github.com/${CODAL_POSITION_EXT_COORDINATE}`);
@@ -184,7 +179,7 @@ describe("microbit add-on extensions -- browser entries list direct dependencies
   });
 });
 
-describe("microbit add-on extensions -- install materializes a usable type", () => {
+describe("microbit published libraries -- install materializes a usable type", () => {
   const HOST_PROGRAM = `import { Sensor, type Context } from "mindcraft";
 import { Position } from "@lib/mindcraft-lang/lib-codal-position";
 

@@ -21,7 +21,7 @@ export {
  * config and never enumerates an extension's files. The layer stack is
  * core <- wodal <- microbit-v2; seeding the micro:bit v2 target alone resolves
  * the target and all three layers transitively through their bundled
- * `mindcraft.json` edges. The Position add-on is an installable-on-demand entry
- * and is not seeded by default.
+ * `mindcraft.json` edges. Feature libraries are not bundled: the catalog offers
+ * them at pinned `gh:` references and they are fetched at install time.
  */
 export const microbitEmbeddedExtensions: readonly EmbeddedExtension[] = embeddedExtensionBundles;

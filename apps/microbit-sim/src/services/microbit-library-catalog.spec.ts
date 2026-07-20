@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
+import type { ExtensionCatalogMoveEntry } from "@mindcraft-lang/app-host";
 import { CATALOG_ENTRY_KIND_EXTENSION, validateExtensionCatalogDocument } from "@mindcraft-lang/app-host";
 import type { EmbeddedExtension, FetchedExtensionContentMap } from "@mindcraft-lang/bridge-app";
 import { ExtensionActionResultCode } from "@mindcraft-lang/bridge-app";
@@ -14,21 +15,25 @@ import {
 import {
   CODAL_LIB_COORDINATE,
   CORE_LIB_COORDINATE,
+  CUTEBOT_EXT_COORDINATE,
   MICROBIT_V2_LIB_COORDINATE,
   MICROBIT_V2_LIB_REFERENCE,
   MICROBIT_V2_TARGET_COORDINATE,
   MICROBIT_V2_TARGET_REFERENCE,
+  YAHBOOM_GAMEPAD_EXT_COORDINATE,
 } from "./microbit-extension-coordinates";
 import microbitLibraryCatalogDocument from "./microbit-library-catalog.json";
 
-const CUTEBOT = "mindcraft-lang/lib-microbit-cutebot";
-const YAHBOOM = "mindcraft-lang/lib-microbit-yahboom-gamepad";
 const POSITION = "mindcraft-lang/lib-codal-position";
 
-/** Read a host-bundled embedded library's manifest version from its source directory. */
-function bundledManifestVersion(dir: string): string {
-  const url = new URL(`../../extensions/${dir}/mindcraft.json`, import.meta.url);
-  return JSON.parse(readFileSync(url, "utf8")).version;
+/** The retired embedded coordinates the catalog moves migrate away from. */
+const RETIRED_CUTEBOT = "mindcraft-lang/lib-microbit-cutebot";
+const RETIRED_YAHBOOM = "mindcraft-lang/lib-microbit-yahboom-gamepad";
+
+/** Read a published library fixture's manifest from its snapshot directory. */
+function publishedManifest(dir: string): { name: string; version: string; description: string } {
+  const url = new URL(`../../test-fixtures/${dir}/mindcraft.json`, import.meta.url);
+  return JSON.parse(readFileSync(url, "utf8"));
 }
 
 describe("microbit library catalog document", () => {
@@ -39,32 +44,53 @@ describe("microbit library catalog document", () => {
     assert.equal(result.warnings.length, 0);
   });
 
-  test("every entry is a library with an embedded ref matching its coordinate and no alias", () => {
+  test("every entry is a library at a full-SHA gh: pin matching its coordinate, with no alias", () => {
     const result = validateExtensionCatalogDocument(microbitLibraryCatalogDocument);
     assert.ok(result.ok);
     // Position is a transitive sub-dependency of the featured chassis libraries;
     // it is redirected by a move, never listed as its own entry.
-    assert.deepEqual(result.document.entries.map((entry) => entry.coordinate).sort(), [CUTEBOT, YAHBOOM].sort());
+    assert.deepEqual(
+      result.document.entries.map((entry) => entry.coordinate).sort(),
+      [CUTEBOT_EXT_COORDINATE, YAHBOOM_GAMEPAD_EXT_COORDINATE].sort()
+    );
     for (const entry of result.document.entries) {
       assert.equal(entry.kind, CATALOG_ENTRY_KIND_EXTENSION);
       assert.equal("alias" in entry, false);
-      assert.equal(entry.ref, `embedded:${entry.coordinate}`);
+      assert.match(entry.ref, new RegExp(`^gh:${entry.coordinate}@[0-9a-f]{40}$`));
     }
   });
 
-  test("each embedded catalog entry version equals its host-bundled manifest version", () => {
+  test("each entry's name, version, and description equal its published manifest's", () => {
     const result = validateExtensionCatalogDocument(microbitLibraryCatalogDocument);
     assert.ok(result.ok);
-    const versionByCoordinate = new Map(result.document.entries.map((entry) => [entry.coordinate, entry.version]));
-    assert.equal(versionByCoordinate.get(CUTEBOT), bundledManifestVersion("lib-microbit-cutebot"));
-    assert.equal(versionByCoordinate.get(YAHBOOM), bundledManifestVersion("lib-microbit-yahboom-gamepad"));
+    const byCoordinate = new Map(result.document.entries.map((entry) => [entry.coordinate, entry]));
+    for (const [coordinate, dir] of [
+      [CUTEBOT_EXT_COORDINATE, "lib-elecfreaks-cutebot"],
+      [YAHBOOM_GAMEPAD_EXT_COORDINATE, "lib-yahboom-gamepad"],
+    ] as const) {
+      const entry = byCoordinate.get(coordinate);
+      assert.ok(entry, `the catalog lists ${coordinate}`);
+      const manifest = publishedManifest(dir);
+      assert.equal(entry.name, manifest.name);
+      assert.equal(entry.version, manifest.version);
+      assert.equal(entry.description, manifest.description);
+    }
+  });
+
+  test("each entry's compatibility targets are curator-authored against the stdlib layer", () => {
+    const result = validateExtensionCatalogDocument(microbitLibraryCatalogDocument);
+    assert.ok(result.ok);
+    for (const entry of result.document.entries) {
+      // Deliberately NOT the published manifests' targets (which carry an
+      // editor-cadence trg- range); the catalog is the trust authority for
+      // offer compatibility.
+      assert.deepEqual(entry.targets, { [MICROBIT_V2_LIB_COORDINATE]: { packageVersion: ">=0.2.0" } });
+    }
   });
 
   test("Position graduates via a default-selector transport flip and is not listed as an entry", () => {
     const result = validateExtensionCatalogDocument(microbitLibraryCatalogDocument);
     assert.ok(result.ok);
-    // The move redirects the transitive dependency's embedded ref to gh: without
-    // surfacing Position as its own catalog entry.
     assert.equal(
       result.document.entries.find((entry) => entry.coordinate === POSITION),
       undefined,
@@ -77,6 +103,24 @@ describe("microbit library catalog document", () => {
     // A default-selector flip: no `from`, and the destination keeps the source coordinate.
     assert.equal(move.from, undefined);
     assert.match(move.ref, /^gh:mindcraft-lang\/lib-codal-position@[0-9a-f]{40}$/);
+  });
+
+  test("each retired chassis coordinate declares a default-selector rename move onto its catalog entry's pin", () => {
+    const result = validateExtensionCatalogDocument(microbitLibraryCatalogDocument);
+    assert.ok(result.ok);
+    const refByCoordinate = new Map(result.document.entries.map((entry) => [entry.coordinate, entry.ref]));
+    for (const [retired, coordinate] of [
+      [RETIRED_CUTEBOT, CUTEBOT_EXT_COORDINATE],
+      [RETIRED_YAHBOOM, YAHBOOM_GAMEPAD_EXT_COORDINATE],
+    ] as const) {
+      const moveEntries: readonly ExtensionCatalogMoveEntry[] = result.document.moves[retired] ?? [];
+      assert.equal(moveEntries.length, 1, `the catalog declares one move for ${retired}`);
+      const [move] = moveEntries;
+      // A rename: the default selector captures every reference of the retired
+      // coordinate, and the destination is the new coordinate's entry pin.
+      assert.equal(move.from, undefined);
+      assert.equal(move.ref, refByCoordinate.get(coordinate));
+    }
   });
 
   test("the startup loader throws with the stable codes when the bundled document is invalid", () => {
@@ -100,40 +144,36 @@ describe("buildMicrobitCatalogOffers -- compatibility-filtered against the micro
       { path: "mindcraft.json", content: JSON.stringify({ name: "Micro:bit v2", version: "0.2.1" }) },
     ],
   };
-  /** A bundled add-on targeting the micro:bit v2 layer, as the real cutebot and yahboom manifests declare. */
-  function addon(coordinate: string): EmbeddedExtension {
-    return {
-      canonicalOrigin: coordinate,
-      files: [
-        { path: "index.ts", content: "export {};" },
-        {
-          path: "mindcraft.json",
-          content: JSON.stringify({
-            name: coordinate,
-            version: "0.1.2",
-            targets: { [MICROBIT_V2_LIB_COORDINATE]: { packageVersion: "^0.2.0" } },
-          }),
-        },
-      ],
-    };
-  }
-  const embedRecord: readonly EmbeddedExtension[] = [layer, addon(CUTEBOT), addon(YAHBOOM)];
+  const embedRecord: readonly EmbeddedExtension[] = [layer];
   const project = { [MICROBIT_V2_LIB_COORDINATE]: MICROBIT_V2_LIB_REFERENCE };
 
-  test("the seeded cutebot and yahboom offers are compatible with a fresh micro:bit project", () => {
+  test("the cutebot and yahboom gh: offers are compatible with a fresh micro:bit project", () => {
     const offers = buildMicrobitCatalogOffers(project, embedRecord);
-    assert.deepEqual(offers.map((offer) => offer.coordinate).sort(), [CUTEBOT, YAHBOOM].sort());
+    assert.deepEqual(
+      offers.map((offer) => offer.coordinate).sort(),
+      [CUTEBOT_EXT_COORDINATE, YAHBOOM_GAMEPAD_EXT_COORDINATE].sort()
+    );
     for (const offer of offers) {
-      assert.equal(offer.ref, `embedded:${offer.coordinate}`);
+      assert.match(offer.ref, new RegExp(`^gh:${offer.coordinate}@[0-9a-f]{40}$`));
     }
   });
 
   test("a project carrying an offer's coordinate drops that offer, leaving the not-installed one", () => {
-    const offers = buildMicrobitCatalogOffers({ ...project, [CUTEBOT]: `embedded:${CUTEBOT}` }, embedRecord);
+    const offers = buildMicrobitCatalogOffers(
+      { ...project, [CUTEBOT_EXT_COORDINATE]: `gh:${CUTEBOT_EXT_COORDINATE}@0.2.2` },
+      embedRecord
+    );
     assert.deepEqual(
       offers.map((offer) => offer.coordinate),
-      [YAHBOOM]
+      [YAHBOOM_GAMEPAD_EXT_COORDINATE]
     );
+  });
+
+  test("the retired embedded coordinates are never offered", () => {
+    const offers = buildMicrobitCatalogOffers(project, embedRecord);
+    const coordinates = offers.map((offer) => offer.coordinate);
+    assert.equal(coordinates.includes(RETIRED_CUTEBOT), false);
+    assert.equal(coordinates.includes(RETIRED_YAHBOOM), false);
   });
 });
 
@@ -213,20 +253,19 @@ describe("target/stdlib split -- browser representation of the seeded target and
     version: "0.2.1",
     extensions: { [MICROBIT_V2_LIB_COORDINATE]: MICROBIT_V2_LIB_REFERENCE },
   });
-  const cutebot = ext(CUTEBOT, {
-    version: "0.1.2",
-    targets: { [MICROBIT_V2_LIB_COORDINATE]: { packageVersion: "^0.2.0" } },
-  });
-  const yahboom = ext(YAHBOOM, {
-    version: "0.1.2",
-    targets: { [MICROBIT_V2_LIB_COORDINATE]: { packageVersion: "^0.2.0" } },
-  });
 
-  const embedRecord: readonly EmbeddedExtension[] = [target, microbitV2Lib, codalLib, coreLib, cutebot, yahboom];
-  // A fresh project seeds only the target; the user has then installed yahboom.
+  const embedRecord: readonly EmbeddedExtension[] = [target, microbitV2Lib, codalLib, coreLib];
+  const YAHBOOM_SHA = "0123456789abcdef0123456789abcdef01234567";
+  const yahboomRef = `gh:${YAHBOOM_GAMEPAD_EXT_COORDINATE}@${YAHBOOM_SHA}`;
+  /** The installed gamepad's fetched snapshot content, as the store holds it after the install transaction. */
+  const yahboomContent: FetchedExtensionContentMap = new Map([
+    [yahboomRef, new Map([["/mindcraft.json", JSON.stringify({ name: "Yahboom Gamepad", version: "0.2.0" })]])],
+  ]);
+  // A fresh project seeds only the target; the user has then installed the
+  // yahboom catalog offer at its pinned gh: reference.
   const project: Readonly<Record<string, string>> = {
     [MICROBIT_V2_TARGET_COORDINATE]: MICROBIT_V2_TARGET_REFERENCE,
-    [YAHBOOM]: `embedded:${YAHBOOM}`,
+    [YAHBOOM_GAMEPAD_EXT_COORDINATE]: yahboomRef,
   };
 
   /** A persistence double recording every extensions map applied through the host. */
@@ -247,20 +286,37 @@ describe("target/stdlib split -- browser representation of the seeded target and
     };
   }
 
-  test("the seeded target is not an entry card, and the installed library is a manageable card with Uninstall", () => {
-    const entries = buildMicrobitExtensionEntries(project, embedRecord);
+  test("the seeded target is not an entry card, and the installed gh: library is a manageable card", () => {
+    const entries = buildMicrobitExtensionEntries(project, embedRecord, yahboomContent);
     const coordinates = entries.map((entry) => entry.coordinate);
     assert.equal(coordinates.includes(MICROBIT_V2_TARGET_COORDINATE), false);
-    const yahboomEntry = entries.find((entry) => entry.coordinate === YAHBOOM);
+    const yahboomEntry = entries.find((entry) => entry.coordinate === YAHBOOM_GAMEPAD_EXT_COORDINATE);
     assert.ok(yahboomEntry);
     assert.equal(yahboomEntry.installed, true);
+    assert.equal(yahboomEntry.updatable, true);
+    assert.equal(yahboomEntry.repoUrl, `https://github.com/${YAHBOOM_GAMEPAD_EXT_COORDINATE}`);
   });
 
   test("the installed library is dropped from the catalog offers, while a not-installed library still offers", () => {
     const offers = buildMicrobitCatalogOffers(project, embedRecord);
     const coordinates = offers.map((offer) => offer.coordinate);
-    assert.equal(coordinates.includes(YAHBOOM), false);
-    assert.equal(coordinates.includes(CUTEBOT), true);
+    assert.equal(coordinates.includes(YAHBOOM_GAMEPAD_EXT_COORDINATE), false);
+    assert.equal(coordinates.includes(CUTEBOT_EXT_COORDINATE), true);
+  });
+
+  test("the installed gh: library uninstalls, persisting an extensions map without its coordinate", async () => {
+    const persistence = capturingPersistence();
+    const result = await uninstallMicrobitExtension(
+      persistence,
+      project,
+      YAHBOOM_GAMEPAD_EXT_COORDINATE,
+      embedRecord,
+      yahboomContent
+    );
+    assert.equal(result.action.ok, true);
+    assert.equal(result.action.code, ExtensionActionResultCode.UNINSTALLED);
+    assert.equal(persistence.patches.length, 1);
+    assert.equal(YAHBOOM_GAMEPAD_EXT_COORDINATE in (persistence.patches[0] ?? {}), false);
   });
 
   test("uninstalling the seeded target is refused as a locked platform coordinate", async () => {

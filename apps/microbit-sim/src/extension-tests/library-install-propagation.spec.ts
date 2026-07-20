@@ -2,13 +2,15 @@
  * Pins the install -> tile-picker/docs propagation path for the microbit-sim
  * app as the app itself wires it: a project seeded with the micro:bit v2 target
  * (which pulls the standard-library layer in transitively), driven through the
- * real project manager and the browser install action. It asserts that after
- * installing the Cutebot and Yahboom libraries, their compiled tiles surface in
- * the exact data the brain tile picker reads (the environment tile catalogs, via
- * `suggestTiles`) and in the data the docs panel reads (the docs registry built
- * from the host's user-tile metadata), and that both libraries are reported as
- * installed. This is the app path (target-seeded) that the extension-test
- * harness -- which seeds the standard-library layer directly -- does not cover.
+ * real project manager and the browser's catalog-offer install action, with the
+ * offers' published `gh:` content served by the fixture transport. It asserts
+ * that after installing the Cutebot and Yahboom libraries, their compiled tiles
+ * surface in the exact data the brain tile picker reads (the environment tile
+ * catalogs, via `suggestTiles`) and in the data the docs panel reads (the docs
+ * registry built from the host's user-tile metadata), and that both libraries
+ * are reported as installed. This is the app path (target-seeded) that the
+ * extension-test harness -- which seeds the standard-library layer directly --
+ * does not cover.
  */
 
 import assert from "node:assert/strict";
@@ -30,7 +32,11 @@ import { createProfileNumerics } from "@mindcraft-lang/core/runtime";
 import { createWodalSharedModule, getWodalDeviceProfile, WodalDeviceProfileId } from "@mindcraft-lang/wodal";
 import { buildMicrobitBrainEditorConfig } from "../brain/editor-config";
 import { createMicrobitDocsRegistry } from "../docs/docs-registry";
-import { installMicrobitExtension, microbitLibraryCatalogMoves } from "../services/microbit-extension-browser";
+import {
+  buildMicrobitCatalogOffers,
+  installMicrobitReference,
+  microbitLibraryCatalogMoves,
+} from "../services/microbit-extension-browser";
 import {
   CODAL_LIB_COORDINATE,
   CORE_LIB_COORDINATE,
@@ -40,13 +46,13 @@ import {
   microbitDefaultExtensions,
   YAHBOOM_GAMEPAD_EXT_COORDINATE,
 } from "../services/microbit-extension-coordinates";
-import { createCodalPositionFixtureTransport } from "./codal-position-fixture";
+import { createPublishedLibraryFixtureTransport } from "./published-library-fixtures";
 
 function extensionDir(relativePath: string): string {
   return fileURLToPath(new URL(relativePath, import.meta.url));
 }
 
-/** The embed record the Vite provider assembles: the target, the three layers, and the Cutebot and Yahboom add-ons; Position resolves through the catalog move to its published gh: content. */
+/** The embed record the Vite provider assembles: the target and the three layers; the feature libraries are catalog offers fetched as published gh: content. */
 function microbitEmbedRecord(): EmbeddedExtension[] {
   return [
     buildEmbeddedExtensionFromDir(extensionDir("../../target-package"), MICROBIT_V2_TARGET_COORDINATE),
@@ -58,11 +64,6 @@ function microbitEmbedRecord(): EmbeddedExtension[] {
     buildEmbeddedExtensionFromDir(
       extensionDir("../../../../external/mindcraft-lang/packages/core/lib"),
       CORE_LIB_COORDINATE
-    ),
-    buildEmbeddedExtensionFromDir(extensionDir("../../extensions/lib-microbit-cutebot"), CUTEBOT_EXT_COORDINATE),
-    buildEmbeddedExtensionFromDir(
-      extensionDir("../../extensions/lib-microbit-yahboom-gamepad"),
-      YAHBOOM_GAMEPAD_EXT_COORDINATE
     ),
   ];
 }
@@ -150,8 +151,16 @@ function makeHost(): AppEnvironmentHost {
     mounts: [],
     embeddedExtensions: microbitEmbedRecord(),
     catalogMoves: microbitLibraryCatalogMoves,
-    extensionFetchTransport: createCodalPositionFixtureTransport(),
+    extensionFetchTransport: createPublishedLibraryFixtureTransport(),
   });
+}
+
+/** The compatibility-filtered catalog offer for `coordinate`, as the browser lists it for the host's project. */
+function offerFor(host: AppEnvironmentHost, coordinate: string) {
+  const offers = buildMicrobitCatalogOffers(host.activeProjectManifest?.extensions, microbitEmbedRecord());
+  const offer = offers.find((candidate) => candidate.coordinate === coordinate);
+  assert.ok(offer, `the catalog offers ${coordinate} for this project`);
+  return offer;
 }
 
 /** The tile ids the brain tile picker offers for the given rule side, via the app's editor config and `suggestTiles`. */
@@ -190,24 +199,36 @@ describe("library install propagation (app path)", () => {
         "the cutebot drive tile is absent before install"
       );
 
-      // Install through the exact action ProjectHeader drives.
-      const cutebotOutcome = await installMicrobitExtension(
+      // Install each catalog offer through the exact action ProjectHeader
+      // drives for an offer card: installMicrobitReference with the offer's
+      // pinned gh: reference.
+      const cutebotOutcome = await installMicrobitReference(
         host,
         host.activeProjectManifest?.extensions,
-        CUTEBOT_EXT_COORDINATE,
-        microbitEmbedRecord()
+        microbitEmbedRecord(),
+        offerFor(host, CUTEBOT_EXT_COORDINATE).ref
       );
-      assert.equal(cutebotOutcome.action.ok, true, "the cutebot install action succeeds");
-      assert.equal(cutebotOutcome.report?.committed, true, "the cutebot install transaction commits");
+      assert.equal(cutebotOutcome.ok, true, "the cutebot offer input normalizes");
+      assert.ok(cutebotOutcome.ok && cutebotOutcome.action.ok, "the cutebot install action succeeds");
+      assert.equal(
+        cutebotOutcome.ok ? cutebotOutcome.report?.committed : undefined,
+        true,
+        "the cutebot install transaction commits"
+      );
 
-      const yahboomOutcome = await installMicrobitExtension(
+      const yahboomOutcome = await installMicrobitReference(
         host,
         host.activeProjectManifest?.extensions,
-        YAHBOOM_GAMEPAD_EXT_COORDINATE,
-        microbitEmbedRecord()
+        microbitEmbedRecord(),
+        offerFor(host, YAHBOOM_GAMEPAD_EXT_COORDINATE).ref
       );
-      assert.equal(yahboomOutcome.action.ok, true, "the yahboom install action succeeds");
-      assert.equal(yahboomOutcome.report?.committed, true, "the yahboom install transaction commits");
+      assert.equal(yahboomOutcome.ok, true, "the yahboom offer input normalizes");
+      assert.ok(yahboomOutcome.ok && yahboomOutcome.action.ok, "the yahboom install action succeeds");
+      assert.equal(
+        yahboomOutcome.ok ? yahboomOutcome.report?.committed : undefined,
+        true,
+        "the yahboom install transaction commits"
+      );
 
       // The picker's data source now offers the installed libraries' tiles.
       const actuatorTiles = pickerTileIds(host, RuleSide.Do);

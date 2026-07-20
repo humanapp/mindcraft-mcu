@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
-import { applyCatalogMove } from "@mindcraft-lang/app-host";
-import type { EmbeddedExtension } from "@mindcraft-lang/bridge-app";
+import { applyCatalogMove, parseExtensionReference } from "@mindcraft-lang/app-host";
+import type { EmbeddedExtension, FetchedExtensionContentMap } from "@mindcraft-lang/bridge-app";
 import { resolveProjectExtensions } from "@mindcraft-lang/bridge-app";
 import { buildEmbeddedExtensionFromDir } from "@mindcraft-lang/bridge-app/node";
 import type { CompiledActionBundle } from "@mindcraft-lang/core";
@@ -15,18 +15,16 @@ import {
   type WorkspaceSnapshot,
 } from "@mindcraft-lang/ts-compiler";
 import { createMicroBitV2Environment } from "@mindcraft-lang/wodal/targets/microbit-v2";
-import { microbitLibraryCatalogMoves } from "../services/microbit-extension-browser";
+import { microbitLibraryCatalog, microbitLibraryCatalogMoves } from "../services/microbit-extension-browser";
 import {
   CODAL_LIB_COORDINATE,
   CODAL_POSITION_EXT_COORDINATE,
   CORE_LIB_COORDINATE,
-  CUTEBOT_EXT_COORDINATE,
   MICROBIT_V2_LIB_COORDINATE,
   MICROBIT_V2_TARGET_COORDINATE,
   microbitDefaultExtensions,
-  YAHBOOM_GAMEPAD_EXT_COORDINATE,
 } from "../services/microbit-extension-coordinates";
-import { codalPositionPublishedFetched } from "./codal-position-fixture";
+import { publishedLibraryFetched } from "./published-library-fixtures";
 
 function extensionDir(relativePath: string): string {
   return fileURLToPath(new URL(relativePath, import.meta.url));
@@ -40,16 +38,15 @@ function extensionDir(relativePath: string): string {
  */
 export const POSITION_IDENTITY = qualifiedClassName(CODAL_POSITION_EXT_COORDINATE, "/index.ts", "Position");
 
-/** The Cutebot chassis add-on's coordinate; test-only tiles that reach the arbitrator compile into this namespace. */
+/** The Cutebot chassis library's coordinate; test-only tiles that reach the arbitrator compile into this namespace. */
 export { CUTEBOT_EXT_COORDINATE, YAHBOOM_GAMEPAD_EXT_COORDINATE } from "../services/microbit-extension-coordinates";
 
 /**
- * The microbit-sim embed record: the runnable target, the three platform
- * layers, and the Cutebot and Yahboom gamepad add-ons, each assembled from its
- * own `mindcraft.json` `files` list through the shared loader -- the single
- * content-assembly path the app's Vite provider also uses. The Position library
- * is not bundled; it resolves through the catalog move to its published `gh:`
- * content served by the fixture.
+ * The microbit-sim embed record: the runnable target and the three platform
+ * layers, each assembled from its own `mindcraft.json` `files` list through the
+ * shared loader -- the single content-assembly path the app's Vite provider
+ * also uses. Feature libraries are not bundled; they resolve as published `gh:`
+ * content served by the fixture snapshots.
  */
 function baseEmbedRecord(): EmbeddedExtension[] {
   return [
@@ -62,11 +59,6 @@ function baseEmbedRecord(): EmbeddedExtension[] {
     buildEmbeddedExtensionFromDir(
       extensionDir("../../../../external/mindcraft-lang/packages/core/lib"),
       CORE_LIB_COORDINATE
-    ),
-    buildEmbeddedExtensionFromDir(extensionDir("../../extensions/lib-microbit-cutebot"), CUTEBOT_EXT_COORDINATE),
-    buildEmbeddedExtensionFromDir(
-      extensionDir("../../extensions/lib-microbit-yahboom-gamepad"),
-      YAHBOOM_GAMEPAD_EXT_COORDINATE
     ),
   ];
 }
@@ -107,12 +99,47 @@ export interface ExtensionTestHarness {
   positionTypeId(): TypeId;
 }
 
+/** The reference an install of `coordinate` writes: the catalog entry's pinned `gh:` reference when one is listed, otherwise the coordinate's `embedded:` reference redirected through the catalog moves. */
+function installReferenceFor(coordinate: string): string {
+  const entry = microbitLibraryCatalog.entries.find((candidate) => candidate.coordinate === coordinate);
+  if (entry !== undefined) {
+    return entry.ref;
+  }
+  const applied = applyCatalogMove(`embedded:${coordinate}`, microbitLibraryCatalogMoves);
+  assert.ok(applied.ok, `catalog move application failed for "${coordinate}"`);
+  return applied.reference;
+}
+
+/** The published fixture content with the given test-only overlay files added to their libraries' snapshots, keyed by `gh:` reference. */
+function fetchedWithOverlays(overlays: readonly ExtensionFileOverlay[]): FetchedExtensionContentMap {
+  if (overlays.length === 0) {
+    return publishedLibraryFetched;
+  }
+  const fetched = new Map<string, ReadonlyMap<string, string>>();
+  for (const [reference, files] of publishedLibraryFetched) {
+    const parsed = parseExtensionReference(reference);
+    const coordinate = parsed?.transport === "gh" ? `${parsed.owner}/${parsed.repo}` : undefined;
+    const extra = overlays.filter((overlay) => overlay.coordinate === coordinate);
+    if (extra.length === 0) {
+      fetched.set(reference, files);
+      continue;
+    }
+    const overlaid = new Map(files);
+    for (const overlay of extra) {
+      overlaid.set(`/${overlay.path}`, overlay.content);
+    }
+    fetched.set(reference, overlaid);
+  }
+  return fetched;
+}
+
 /**
- * Compile the installed driver extensions and any test-only tiles into one
- * micro:bit v2 environment, mirroring how the app resolves and mounts embedded
- * extensions. Driver tiles come from their extension namespaces; test-only
- * scaffolding tiles are compiled either in the host workspace or, when they
- * must reach an extension's internal modules, into that extension's namespace.
+ * Compile the installed driver libraries and any test-only tiles into one
+ * micro:bit v2 environment, mirroring how the app resolves and mounts its
+ * extension content. Driver tiles come from their published library
+ * namespaces, served by the fixture snapshots; test-only scaffolding tiles are
+ * compiled either in the host workspace or, when they must reach a library's
+ * internal modules, into that library's namespace.
  */
 export function buildExtensionTestHarness(options: HarnessOptions): ExtensionTestHarness {
   const overlays = options.extensionTiles ?? [];
@@ -128,15 +155,14 @@ export function buildExtensionTestHarness(options: HarnessOptions): ExtensionTes
   // reaches the standard-library layers through target edges.
   const extensions: Record<string, string> = { ...microbitDefaultExtensions };
   for (const coordinate of options.install) {
-    // Mirror the app's load-time top-level rewrite: a direct install of a moved
-    // coordinate (Position) writes the move's `gh:` reference, not an embedded one.
-    const applied = applyCatalogMove(`embedded:${coordinate}`, microbitLibraryCatalogMoves);
-    assert.ok(applied.ok, `catalog move application failed for "${coordinate}"`);
-    extensions[coordinate] = applied.reference;
+    // Mirror the app's install actions: a catalog offer writes its entry's
+    // pinned `gh:` reference; any other coordinate writes its move-redirected
+    // reference.
+    extensions[coordinate] = installReferenceFor(coordinate);
   }
   const resolved = resolveProjectExtensions(extensions, {
     embedded: embedRecord,
-    fetched: codalPositionPublishedFetched,
+    fetched: fetchedWithOverlays(overlays),
     moves: microbitLibraryCatalogMoves,
   });
 

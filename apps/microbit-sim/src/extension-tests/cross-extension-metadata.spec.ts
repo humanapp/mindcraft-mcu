@@ -45,9 +45,10 @@ import {
   CUTEBOT_EXT_COORDINATE,
   MICROBIT_V2_LIB_COORDINATE,
   MICROBIT_V2_LIB_REFERENCE,
+  MICROBIT_V2_TARGET_COORDINATE,
   YAHBOOM_GAMEPAD_EXT_COORDINATE,
 } from "../services/microbit-extension-coordinates.js";
-import { codalPositionPublishedFetched } from "./codal-position-fixture.js";
+import { CUTEBOT_GH_REF, publishedLibraryFetched, YAHBOOM_GAMEPAD_GH_REF } from "./published-library-fixtures.js";
 
 const DECODED_LABEL = "decoded stick position";
 const STEER_LABEL = "cutebot steer";
@@ -56,9 +57,10 @@ function extensionDir(relativePath: string): string {
   return fileURLToPath(new URL(relativePath, import.meta.url));
 }
 
-/** The microbit-sim embed record: the three platform layers plus the Cutebot and gamepad add-ons; Position resolves through the catalog move to its published gh: content. */
+/** The microbit-sim embed record: the runnable target and the three platform layers; the feature libraries and Position resolve as fixture-served published gh: content. */
 function embedRecord(): EmbeddedExtension[] {
   return [
+    buildEmbeddedExtensionFromDir(extensionDir("../../target-package"), MICROBIT_V2_TARGET_COORDINATE),
     buildEmbeddedExtensionFromDir(
       extensionDir("../../../../packages/wodal/targets/microbit-v2/lib"),
       MICROBIT_V2_LIB_COORDINATE
@@ -68,26 +70,21 @@ function embedRecord(): EmbeddedExtension[] {
       extensionDir("../../../../external/mindcraft-lang/packages/core/lib"),
       CORE_LIB_COORDINATE
     ),
-    buildEmbeddedExtensionFromDir(extensionDir("../../extensions/lib-microbit-cutebot"), CUTEBOT_EXT_COORDINATE),
-    buildEmbeddedExtensionFromDir(
-      extensionDir("../../extensions/lib-microbit-yahboom-gamepad"),
-      YAHBOOM_GAMEPAD_EXT_COORDINATE
-    ),
   ];
 }
 
-/** The project extensions map both add-ons install through, alongside the seeded platform layer. */
+/** The project extensions map both libraries install through, alongside the seeded platform layer. */
 const projectExtensions: Record<string, string> = {
   [MICROBIT_V2_LIB_COORDINATE]: MICROBIT_V2_LIB_REFERENCE,
-  [YAHBOOM_GAMEPAD_EXT_COORDINATE]: `embedded:${YAHBOOM_GAMEPAD_EXT_COORDINATE}`,
-  [CUTEBOT_EXT_COORDINATE]: `embedded:${CUTEBOT_EXT_COORDINATE}`,
+  [YAHBOOM_GAMEPAD_EXT_COORDINATE]: YAHBOOM_GAMEPAD_GH_REF,
+  [CUTEBOT_EXT_COORDINATE]: CUTEBOT_GH_REF,
 };
 
-/** Compile the gamepad + Cutebot add-ons into a fresh micro:bit v2 environment via the real transitive resolver. */
+/** Compile the gamepad + Cutebot libraries into a fresh micro:bit v2 environment via the real transitive resolver. */
 function compileGamepadAndCutebot(env: MindcraftEnvironment): WorkspaceCompileResult {
   const resolved = resolveProjectExtensions(projectExtensions, {
     embedded: embedRecord(),
-    fetched: codalPositionPublishedFetched,
+    fetched: publishedLibraryFetched,
     moves: microbitLibraryCatalogMoves,
   });
   const compiler = createWorkspaceCompiler({
@@ -226,15 +223,15 @@ describe("cross-extension user-tile metadata", () => {
     applyCompiledUserTiles(env, result);
     const resolved = resolveProjectExtensions(projectExtensions, {
       embedded: embedRecord(),
-      fetched: codalPositionPublishedFetched,
+      fetched: publishedLibraryFetched,
       moves: microbitLibraryCatalogMoves,
     });
 
-    const cutebotEmbed = embedRecord().find((extension) => extension.canonicalOrigin === CUTEBOT_EXT_COORDINATE);
-    assert.ok(cutebotEmbed, "the Cutebot add-on is in the embed record");
-    const cutebotManifestFile = cutebotEmbed.files.find((file) => file.path === "mindcraft.json");
-    assert.ok(cutebotManifestFile, "the Cutebot add-on bundles a mindcraft.json");
-    const cutebotManifest = JSON.parse(cutebotManifestFile.content) as { name: string };
+    const cutebotContent = publishedLibraryFetched.get(CUTEBOT_GH_REF);
+    assert.ok(cutebotContent, "the Cutebot published snapshot is served by the fixture");
+    const cutebotManifestFile = cutebotContent.get("/mindcraft.json");
+    assert.ok(cutebotManifestFile, "the Cutebot snapshot carries a mindcraft.json");
+    const cutebotManifest = JSON.parse(cutebotManifestFile) as { name: string };
     const cutebotOrigin = resolved.origins.find((origin) => origin.origin === CUTEBOT_EXT_COORDINATE);
     assert.equal(cutebotOrigin?.name, cutebotManifest.name, "the origin display name comes from the library manifest");
 

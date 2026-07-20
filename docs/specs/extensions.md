@@ -473,6 +473,16 @@ extension's -- so bundled brains survive every change of the project's
 namespace (graduation, forks) while references into dependencies stay
 exact.
 
+An application's own project document -- its export and import form -- is
+deliberately narrower than the published repository form. It models the
+authoring fields: name, version, description, extensions, targets, brains,
+and per-application content. An import adopts only those; a manifest field
+outside that set does not survive an application's import. Repository-form
+fields -- identity, files, ambient declarations, a host-application
+bundle -- belong to the published checkout, and a project bound for
+publication acquires them through rehydration, which reconstructs the
+project directory from the document.
+
 Publishing is performed with the Mindcraft command-line tool -- against a
 repository checkout or a project directory -- or by any ordinary git
 workflow that satisfies the contract. The web editor does not publish: it

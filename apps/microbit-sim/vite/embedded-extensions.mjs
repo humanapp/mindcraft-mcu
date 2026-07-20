@@ -18,14 +18,6 @@ const registrations = [
     coordinate: "mindcraft-lang/lib-core",
     dir: path.resolve(process.cwd(), "../../external/mindcraft-lang/packages/core/lib"),
   },
-  {
-    coordinate: "mindcraft-lang/lib-microbit-cutebot",
-    dir: path.resolve(process.cwd(), "./extensions/lib-microbit-cutebot"),
-  },
-  {
-    coordinate: "mindcraft-lang/lib-microbit-yahboom-gamepad",
-    dir: path.resolve(process.cwd(), "./extensions/lib-microbit-yahboom-gamepad"),
-  },
 ];
 
 export function embeddedExtensions() {

@@ -21,10 +21,10 @@ function extensionDir(relativePath: string): string {
 
 /**
  * The microbit-sim embed record exactly as the Vite provider assembles it: the
- * thin editor/hostApp target, the three platform layers below it, and the three
- * bundled add-ons. The target manifest carries no standard-library content; it
- * declares an embedded dependency on the micro:bit v2 standard-library layer, so
- * the standard library resolves transitively through the target's closure.
+ * thin editor/hostApp target and the three platform layers below it. The target
+ * manifest carries no standard-library content; it declares an embedded
+ * dependency on the micro:bit v2 standard-library layer, so the standard
+ * library resolves transitively through the target's closure.
  */
 function microbitEmbedRecord(): EmbeddedExtension[] {
   return [
@@ -37,11 +37,6 @@ function microbitEmbedRecord(): EmbeddedExtension[] {
     buildEmbeddedExtensionFromDir(
       extensionDir("../../../../external/mindcraft-lang/packages/core/lib"),
       CORE_LIB_COORDINATE
-    ),
-    buildEmbeddedExtensionFromDir(extensionDir("../../extensions/lib-microbit-cutebot"), CUTEBOT_EXT_COORDINATE),
-    buildEmbeddedExtensionFromDir(
-      extensionDir("../../extensions/lib-microbit-yahboom-gamepad"),
-      YAHBOOM_GAMEPAD_EXT_COORDINATE
     ),
   ];
 }
@@ -73,7 +68,7 @@ describe("microbit target/stdlib split -- the target pulls the standard library 
     );
   });
 
-  test("the compatible catalog offers include the feature libs that target the standard-library layer", () => {
+  test("the compatible catalog offers include the published feature libs whose curated targets name the stdlib layer", () => {
     const offers = buildMicrobitCatalogOffers(seededProject, microbitEmbedRecord());
     const coordinates = offers.map((offer) => offer.coordinate);
     assert.ok(coordinates.includes(CUTEBOT_EXT_COORDINATE), "the Cutebot offer is compatible and listed");
@@ -81,5 +76,8 @@ describe("microbit target/stdlib split -- the target pulls the standard library 
       coordinates.includes(YAHBOOM_GAMEPAD_EXT_COORDINATE),
       "the Yahboom gamepad offer is compatible and listed"
     );
+    for (const offer of offers) {
+      assert.match(offer.ref, new RegExp(`^gh:${offer.coordinate}@[0-9a-f]{40}$`), "offers install pinned gh: refs");
+    }
   });
 });

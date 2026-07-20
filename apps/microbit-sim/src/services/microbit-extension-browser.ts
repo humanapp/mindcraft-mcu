@@ -138,7 +138,22 @@ export function loadMicrobitLibraryCatalog(document: unknown): ExtensionCatalogD
  * The bundled library catalog offered to microbit-sim projects: the curated set
  * of published feature libraries, each pinned to an exact `gh:` reference.
  */
-const microbitLibraryCatalog: ExtensionCatalogDocument = loadMicrobitLibraryCatalog(microbitLibraryCatalogDocument);
+export const microbitLibraryCatalog: ExtensionCatalogDocument =
+  loadMicrobitLibraryCatalog(microbitLibraryCatalogDocument);
+
+/**
+ * The pinned `gh:` reference the bundled catalog's entry for `coordinate`
+ * installs. Throws when the catalog lists no entry for the coordinate.
+ *
+ * @param coordinate - The entry's `<owner>/<repo>` coordinate.
+ */
+export function microbitCatalogEntryRef(coordinate: string): string {
+  const entry = microbitLibraryCatalog.entries.find((candidate) => candidate.coordinate === coordinate);
+  if (entry === undefined) {
+    throw new Error(`the bundled catalog lists no entry for "${coordinate}"`);
+  }
+  return entry.ref;
+}
 
 /** The curated catalog moves the bundled micro:bit catalog declares, keyed by source coordinate. */
 export const microbitLibraryCatalogMoves = microbitLibraryCatalog.moves;

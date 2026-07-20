@@ -1,10 +1,10 @@
 {
   "name": "Cutebot",
-  "version": "0.1.2",
-  "identity": "mindcraft-lang/lib-microbit-cutebot",
+  "version": "0.2.2",
+  "identity": "mindcraft-lang/lib-elecfreaks-cutebot",
   "description": "ELECFREAKS Cutebot chassis driver for the micro:bit (v2): a shared movement arbitrator with drive, turn, pivot, stop, and continuous steer tiles, plus the two-side line-tracking sensor.",
   "extensions": {
-    "mindcraft-lang/lib-codal-position": "embedded:mindcraft-lang/lib-codal-position"
+    "mindcraft-lang/lib-codal-position": "gh:mindcraft-lang/lib-codal-position@0.1.4"
   },
   "files": [
     "movement.ts",
@@ -32,8 +32,19 @@
     "icons/line-right.svg"
   ],
   "targets": {
-    "mindcraft-lang/lib-microbit-v2": {
-      "packageVersion": ">=0.2.0"
+    "mindcraft-lang/trg-microbit-v2": {
+      "packageVersion": "^0.9.1"
+    }
+  },
+  "app": {
+    "@mindcraft-lang/microbit-sim": {
+      "brainOrder": [],
+      "simulator": {
+        "order": [
+          "4c80fdaf-c227-4478-9d8a-f6783f3de6fc"
+        ],
+        "flash": {}
+      }
     }
   }
 }

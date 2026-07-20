@@ -1,9 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { CatalogMoveWarningCode, type ExtensionResolutionWarning } from "@mindcraft-lang/bridge-app";
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import { UnresolvedLibrariesNotice } from "../components/ResolutionWarningsBanner";
 import { unresolvedLibraryCoordinates } from "./resolution-warnings";
 
 const MOVE_FAILED_WARNING: ExtensionResolutionWarning = {
@@ -67,20 +64,5 @@ describe("unresolvedLibraryCoordinates", () => {
   test("advisory warning kinds contribute no coordinates", () => {
     assert.deepEqual(unresolvedLibraryCoordinates(ADVISORY_WARNINGS), []);
     assert.deepEqual(unresolvedLibraryCoordinates([]), []);
-  });
-});
-
-describe("UnresolvedLibrariesNotice rendering", () => {
-  test("renders the indicator naming every unresolved coordinate", () => {
-    const coordinates = [MOVE_FAILED_WARNING.origin, UNRESOLVED_TARGET_WARNING.origin];
-    const markup = renderToStaticMarkup(createElement(UnresolvedLibrariesNotice, { coordinates }));
-    assert.match(markup, /data-testid="resolution-warnings"/);
-    for (const coordinate of coordinates) {
-      assert.ok(markup.includes(coordinate), `the indicator names ${coordinate}`);
-    }
-  });
-
-  test("renders nothing when no library is unresolved", () => {
-    assert.equal(renderToStaticMarkup(createElement(UnresolvedLibrariesNotice, { coordinates: [] })), "");
   });
 });

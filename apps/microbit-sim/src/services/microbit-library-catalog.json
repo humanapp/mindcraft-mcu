@@ -3,24 +3,40 @@
   "entries": [
     {
       "kind": "library",
-      "coordinate": "mindcraft-lang/lib-microbit-cutebot",
-      "ref": "embedded:mindcraft-lang/lib-microbit-cutebot",
+      "coordinate": "mindcraft-lang/lib-elecfreaks-cutebot",
+      "ref": "gh:mindcraft-lang/lib-elecfreaks-cutebot@16d9d4b39ff257168e262db30bb91d87cfc2042d",
       "name": "Cutebot",
-      "version": "0.1.2",
-      "description": "ELECFREAKS Cutebot chassis driver for the micro:bit (v2): drive, turn, pivot, stop, and directional steer tiles, plus the two-side line-tracking sensor."
+      "version": "0.2.2",
+      "description": "ELECFREAKS Cutebot chassis driver for the micro:bit (v2): a shared movement arbitrator with drive, turn, pivot, stop, and continuous steer tiles, plus the two-side line-tracking sensor.",
+      "targets": {
+        "mindcraft-lang/lib-microbit-v2": {
+          "packageVersion": ">=0.2.0"
+        }
+      }
     },
     {
       "kind": "library",
-      "coordinate": "mindcraft-lang/lib-microbit-yahboom-gamepad",
-      "ref": "embedded:mindcraft-lang/lib-microbit-yahboom-gamepad",
+      "coordinate": "mindcraft-lang/lib-yahboom-gamepad",
+      "ref": "gh:mindcraft-lang/lib-yahboom-gamepad@4bb75c9f49b8c6f7f9d71b7493fc290cbb344610",
       "name": "Yahboom Gamepad",
-      "version": "0.1.2",
-      "description": "Yahboom GHBit gamepad driver for the micro:bit (v2): the thumb-stick direction and continuous position sensors, the colored-button sensor, the received-packet decoder, and the position-to-packet radio encoding."
+      "version": "0.2.0",
+      "description": "Yahboom GHBit gamepad driver for the micro:bit (v2): the thumb-stick direction and continuous position sensors, the colored-button sensor, the received-packet decoder, and the position-to-packet radio encoding.",
+      "targets": {
+        "mindcraft-lang/lib-microbit-v2": {
+          "packageVersion": ">=0.2.0"
+        }
+      }
     }
   ],
   "moves": {
     "mindcraft-lang/lib-codal-position": {
       "ref": "gh:mindcraft-lang/lib-codal-position@10b8d2cb4eb9954f26d9f267e0066d7274bcf228"
+    },
+    "mindcraft-lang/lib-microbit-cutebot": {
+      "ref": "gh:mindcraft-lang/lib-elecfreaks-cutebot@16d9d4b39ff257168e262db30bb91d87cfc2042d"
+    },
+    "mindcraft-lang/lib-microbit-yahboom-gamepad": {
+      "ref": "gh:mindcraft-lang/lib-yahboom-gamepad@4bb75c9f49b8c6f7f9d71b7493fc290cbb344610"
     }
   }
 }
