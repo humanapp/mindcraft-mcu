@@ -1,10 +1,4 @@
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@mindcraft-lang/ui";
+import { Popover, PopoverContent, PopoverTrigger } from "@mindcraft-lang/ui";
 import { MoreHorizontal, Pencil } from "lucide-react";
 import { useState } from "react";
 import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";
@@ -12,6 +6,7 @@ import type { BrainRecord } from "@/services/microbit-sim-environment-store";
 import type { SimulatorInstance } from "@/services/simulator";
 import { BrainEditor } from "./BrainEditor";
 import { GesturePicker } from "./GesturePicker";
+import { LightLevelSlider } from "./LightLevelSlider";
 import { MicrobitDevice } from "./MicrobitDevice";
 
 interface InstanceCardProps {
@@ -22,7 +17,9 @@ interface InstanceCardProps {
 
 /**
  * One simulator instance: a brain picker that flashes the picked brain onto the
- * device, the device itself, and a Reset / Remove actions menu.
+ * device, the device itself, and a device-inputs and actions panel behind the
+ * kebab. The panel holds the synthetic device inputs (gesture, light level) and
+ * the Reset / Remove actions.
  */
 export function InstanceCard({ instance, label, brains }: InstanceCardProps) {
   const store = useMicrobitSimEnvironment();
@@ -69,8 +66,8 @@ export function InstanceCard({ instance, label, brains }: InstanceCardProps) {
           >
             <Pencil className="h-4 w-4" />
           </button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          <Popover>
+            <PopoverTrigger asChild>
               <button
                 type="button"
                 data-testid="instance-actions"
@@ -79,29 +76,39 @@ export function InstanceCard({ instance, label, brains }: InstanceCardProps) {
               >
                 <MoreHorizontal className="h-4 w-4" />
               </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                data-testid="instance-reset"
-                disabled={!loaded}
-                onClick={() => void store.resetInstance(instance.id)}
-              >
-                Reset
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                data-testid="instance-remove"
-                className="text-destructive focus:text-destructive data-highlighted:text-destructive"
-                onClick={() => store.simulator.removeInstance(instance.id)}
-              >
-                Remove
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-56">
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs font-semibold text-muted-foreground">Inputs</p>
+                  <GesturePicker instance={instance} />
+                  <LightLevelSlider instance={instance} />
+                </div>
+                <div className="-mx-4 h-px bg-muted" />
+                <div className="flex flex-col gap-1">
+                  <button
+                    type="button"
+                    data-testid="instance-reset"
+                    disabled={!loaded}
+                    className="rounded px-2 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
+                    onClick={() => void store.resetInstance(instance.id)}
+                  >
+                    Reset
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="instance-remove"
+                    className="rounded px-2 py-1.5 text-left text-sm text-destructive hover:bg-accent hover:text-destructive"
+                    onClick={() => store.simulator.removeInstance(instance.id)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
-
-      <GesturePicker instance={instance} />
 
       <MicrobitDevice instance={instance} />
 

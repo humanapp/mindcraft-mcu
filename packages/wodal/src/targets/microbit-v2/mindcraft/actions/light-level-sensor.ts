@@ -1,0 +1,32 @@
+import {
+  CoreTypeIds,
+  type CreateHostSensorOptions,
+  type ExecutionContext,
+  mkCallDef,
+  mkNumberValue,
+  type ReadonlyList,
+  type Value,
+} from "@mindcraft-lang/core/app";
+import { getMicroBitContextDevice } from "../context";
+import { MicroBitV2HostActions } from "../tile-ids";
+
+const callDef = mkCallDef({ type: "bag", items: [] });
+
+function exec(ctx: ExecutionContext, _args: ReadonlyList<Value>): Value {
+  return mkNumberValue(getMicroBitContextDevice(ctx)?.display.getLightLevel() ?? 0);
+}
+
+/**
+ * Host sensor: the ambient light level read off the LED matrix. Each tick it
+ * polls the current level as a 0 (dark) to 255 (bright) number, which becomes
+ * the WHEN result (truthy while above 0). A bare no-arg value sensor with no
+ * per-call-site state.
+ */
+export const lightLevelSensor: CreateHostSensorOptions = {
+  ...MicroBitV2HostActions.LightLevel,
+  callDef,
+  fn: { exec },
+  isAsync: false,
+  outputType: CoreTypeIds.Number,
+  metadata: { label: "light level" },
+};

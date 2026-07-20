@@ -72,6 +72,8 @@ export enum MicroBitV2HostFuncId {
   ActuatorPlaySound = 1074,
   AudioPlaySound = 1075,
   ActuatorDisplayClear = 1076,
+  DisplayGetLightLevel = 1077,
+  SensorLightLevel = 1078,
 }
 
 /**
@@ -192,6 +194,13 @@ export const MicroBitV2HostActions = {
     key: "microbit-v2.display-clear",
     actionId: 1038,
     fnId: MicroBitV2HostFuncId.ActuatorDisplayClear,
+  },
+
+  /** Sensor: the ambient light level read off the LED matrix, 0 (dark) to 255 (bright). */
+  LightLevel: {
+    key: "microbit-v2.light-level",
+    actionId: 1039,
+    fnId: MicroBitV2HostFuncId.SensorLightLevel,
   },
 } as const satisfies Record<string, HostActionIds>;
 

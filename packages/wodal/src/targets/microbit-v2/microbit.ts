@@ -185,6 +185,15 @@ export class MicroBit {
   }
 
   /**
+   * Applies host-provided ambient light input.
+   *
+   * @param level - Light level 0 (dark) to 255 (bright); values outside the range are clamped.
+   */
+  setLightLevel(level: number): void {
+    this.display.setLightLevel(level);
+  }
+
+  /**
    * Advances runtime time and drains queued events.
    *
    * @param milliseconds - Runtime time in milliseconds.

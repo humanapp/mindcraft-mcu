@@ -53,6 +53,7 @@ import { brightnessToPort, pixelCoordToPort } from "./actions/display-pixel-conv
 import displayScrollActuator from "./actions/display-scroll";
 import displaySetPixelActuator from "./actions/display-set-pixel";
 import { gestureSensor } from "./actions/gesture-sensor";
+import { lightLevelSensor } from "./actions/light-level-sensor";
 import playSoundActuator from "./actions/play-sound";
 import {
   radioReceiveBufferSensor,
@@ -215,6 +216,11 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
         params: List.from([{ name: "text", typeId: CoreTypeIds.String }]),
         returnTypeId: CoreTypeIds.Void,
         isAsync: true,
+      },
+      {
+        name: "getLightLevel",
+        params: List.empty(),
+        returnTypeId: CoreTypeIds.Number,
       },
     ]),
   });
@@ -596,6 +602,17 @@ function registerMicroBitDisplayFunctions(api: MindcraftModuleApi): void {
         // This host function draws a single image, leased as a one-frame sequence.
         display.drawImage([clipped], durationMs, ctx.time, () => handle.resolve(VOID_VALUE));
       },
+    },
+    callDef: emptyCallDef,
+  });
+
+  api.registerFunction({
+    id: MicroBitV2HostFuncId.DisplayGetLightLevel,
+    name: "MicroBitDisplay.getLightLevel",
+    isAsync: false,
+    fn: {
+      exec: (_ctx: ExecutionContext, args: ReadonlyList<Value>) =>
+        mkNumberValue(getDisplayReceiver(args)?.getLightLevel() ?? 0),
     },
     callDef: emptyCallDef,
   });
@@ -1082,6 +1099,7 @@ function registerBrainTiles(api: MindcraftModuleApi): void {
   api.registerHostSensor(createHostSensor(buttonABSensor));
   api.registerHostSensor(createHostSensor(buttonLogoSensor));
   api.registerHostSensor(createHostSensor(gestureSensor));
+  api.registerHostSensor(createHostSensor(lightLevelSensor));
   api.registerHostSensor(createHostSensor(radioReceiveNumberSensor));
   api.registerHostSensor(createHostSensor(radioReceiveStringSensor));
   api.registerHostSensor(createHostSensor(radioReceiveBufferSensor));

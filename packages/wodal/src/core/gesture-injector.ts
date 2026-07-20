@@ -108,6 +108,13 @@ export class GestureInjector {
   private momentaryStep = 0;
   private momentaryGesture: AccelerometerGesture = AccelerometerGesture.None;
 
+  /**
+   * The currently selected gesture: the held posture while a posture stands, the
+   * playing gesture while a momentary (shake or freefall) plays, and
+   * {@link AccelerometerGesture.None} when idle or after a momentary completes.
+   */
+  private selectedGesture: AccelerometerGesture = AccelerometerGesture.None;
+
   private completionListener: ((gesture: AccelerometerGesture) => void) | undefined;
 
   /**
@@ -136,14 +143,27 @@ export class GestureInjector {
    */
   select(gesture: AccelerometerGesture): void {
     if (gesture === AccelerometerGesture.Shake) {
+      this.selectedGesture = AccelerometerGesture.Shake;
       this.startMomentary(AccelerometerGesture.Shake, shakeSequence());
       return;
     }
     if (gesture === AccelerometerGesture.Freefall) {
+      this.selectedGesture = AccelerometerGesture.Freefall;
       this.startMomentary(AccelerometerGesture.Freefall, freefallSequence());
       return;
     }
-    this.enterHold(postureSample(gesture) ?? IDLE_SAMPLE);
+    const posture = postureSample(gesture);
+    this.selectedGesture = posture ? gesture : AccelerometerGesture.None;
+    this.enterHold(posture ?? IDLE_SAMPLE);
+  }
+
+  /**
+   * Returns the currently selected gesture: the held posture for a posture, the
+   * playing gesture while a momentary (shake or freefall) plays, and
+   * {@link AccelerometerGesture.None} for None/idle or after a momentary completes.
+   */
+  currentGesture(): AccelerometerGesture {
+    return this.selectedGesture;
   }
 
   /**
@@ -204,6 +224,7 @@ export class GestureInjector {
     if (this.momentaryStep >= this.momentarySamples.length) {
       const completed = this.momentaryGesture;
       this.momentaryGesture = AccelerometerGesture.None;
+      this.selectedGesture = AccelerometerGesture.None;
       this.enterHold(IDLE_SAMPLE);
       this.feedHoldStep();
       this.completionListener?.(completed);

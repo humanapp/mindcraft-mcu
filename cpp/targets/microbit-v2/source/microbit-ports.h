@@ -171,6 +171,8 @@ public:
         uBit_.display.image.clear();
     }
 
+    int getLightLevel() override { return uBit_.display.readLightLevel(); }
+
 private:
     /** Pixels in the 5x5 matrix; the per-frame storage stride. */
     static constexpr uint32_t kPixelCount = 25;

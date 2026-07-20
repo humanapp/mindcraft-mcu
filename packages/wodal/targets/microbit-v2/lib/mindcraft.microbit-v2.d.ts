@@ -13,6 +13,7 @@ declare module "mindcraft" {
     clear(): void;
     drawImage(image: Image, duration?: number): Promise<void>;
     scrollText(text: string): Promise<void>;
+    getLightLevel(): number;
   }
   export interface SoundEmoji {
     name: string;

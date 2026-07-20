@@ -237,6 +237,11 @@ struct HostMicroBit {
         }
       }
     }
+
+    // Injectable ambient light level (0-255), resting at the sim model's default.
+    int lightLevel = 128;
+
+    int getLightLevel() override { return lightLevel; }
   };
 
   struct SettableButtons : mindcraft::ButtonInputPort {
@@ -2356,6 +2361,128 @@ TEST_CASE("the user-tile accelerometer-reads fixture byte-matches the golden obs
   CHECK(microbit.display.pixels[0][0] == 40);
   CHECK(microbit.display.pixels[0][3] == 171);
   CHECK(microbit.display.pixels[1][2] == 0);
+}
+
+TEST_CASE("the light-level-sensor fixture byte-matches the golden observable trace") {
+  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/light-level-sensor";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  TraceTap tap(writer);
+
+  // The light-level sensor is stateless and reads the display port off the
+  // device ports; the set-pixel actuator lights pixel (0,0) each firing tick.
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  ExecutionContext ctx;
+  mindcraft::ManagedHeap heap(arena);
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Mirrors SCHEDULE in wodal
+  // packages/wodal/src/targets/microbit-v2/mindcraft/light-level-sensor-trace.spec.ts:
+  // a dark tick (0, no fire) then two distinct positive levels (each fires).
+  const int schedule[3] = {0, 200, 40};
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 3; i++) {
+    microbit.display.lightLevel = schedule[i];
+    const float timeMs = lastThinkTimeMs + 16.0f;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+  // The two positive-level ticks fire, lighting pixel (0,0); the dark tick does not.
+  CHECK(microbit.display.pixels[0][0] == 255);
+}
+
+TEST_CASE("the user-tile light-level fixture byte-matches the golden observable trace") {
+  const std::string base =
+      std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-light-level";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  TraceTap tap(writer);
+
+  // The actuator reads ctx.microbit.display.getLightLevel() through the native
+  // struct field getter and the Device-API host-function body, then writes the
+  // value to a pixel; the read reaches the same display port the tile sensor does.
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  ExecutionContext ctx;
+  mindcraft::ManagedHeap heap(arena);
+  mindcraft::TypeRegistry types(image);
+  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+  surface.types = &types;
+  surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Mirrors SCHEDULE in wodal
+  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-light-level.spec.ts:
+  // two distinct levels then a hold tick (sets nothing, the reading holds 40).
+  struct Step {
+    bool set;
+    int lightLevel;
+  };
+  const Step schedule[3] = {{true, 200}, {true, 40}, {false, 0}};
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 3; i++) {
+    if (schedule[i].set) {
+      microbit.display.lightLevel = schedule[i].lightLevel;
+    }
+    const float timeMs = lastThinkTimeMs + 16.0f;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+  // The final think holds 40 at pixel (0,0).
+  CHECK(microbit.display.pixels[0][0] == 40);
 }
 
 TEST_CASE("the user-tile i2c-write fixture byte-matches the golden observable trace") {

@@ -8,6 +8,9 @@ import { MICROBIT_LED_MATRIX_SIZE } from "./constants";
  */
 const SCROLL_DISPLAY_SPACING = 1;
 
+/** Resting ambient light level (0-255) a fresh or reset display reads. */
+export const DEFAULT_LIGHT_LEVEL = 128;
+
 /** The scroll animation in progress, rendered step by step over its duration. */
 interface ScrollAnimation {
   /** Text being scrolled. */
@@ -93,6 +96,13 @@ export class MicroBitDisplay {
 
   /** The timed image draw holding the display, or undefined when none does. */
   private activeDraw: DrawLease | undefined;
+
+  /**
+   * Ambient light level read off the LED matrix, 0 (dark) to 255 (bright). An
+   * independent settable scalar, unrelated to the pixel buffer, resting at
+   * {@link DEFAULT_LIGHT_LEVEL} until a host sets it.
+   */
+  private lightLevel = DEFAULT_LIGHT_LEVEL;
 
   /**
    * Displays a single character or numeric value in the display model.
@@ -303,6 +313,7 @@ export class MicroBitDisplay {
     this.activeScroll = undefined;
     this.activeShow = undefined;
     this.activeDraw = undefined;
+    this.lightLevel = DEFAULT_LIGHT_LEVEL;
   }
 
   /**
@@ -412,6 +423,20 @@ export class MicroBitDisplay {
    */
   getPixelValue(x: number, y: number): number {
     return this.matrix.getPixelValue(x, y);
+  }
+
+  /** Reads the ambient light level, 0 (dark) to 255 (bright). */
+  getLightLevel(): number {
+    return this.lightLevel;
+  }
+
+  /**
+   * Sets the ambient light level, clamping to 0..255.
+   *
+   * @param level - Light level; values outside 0..255 are clamped.
+   */
+  setLightLevel(level: number): void {
+    this.lightLevel = Math.max(0, Math.min(255, Math.trunc(level)));
   }
 
   /**

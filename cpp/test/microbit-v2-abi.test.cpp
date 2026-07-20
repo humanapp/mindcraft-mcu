@@ -81,7 +81,9 @@ TEST_CASE("MicroBitV2HostFuncId values are wire-stable") {
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorPlaySound) == 1074);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::AudioPlaySound) == 1075);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorDisplayClear) == 1076);
-  CHECK(kMicroBitV2HostFuncIdCount == 53);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::DisplayGetLightLevel) == 1077);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::SensorLightLevel) == 1078);
+  CHECK(kMicroBitV2HostFuncIdCount == 55);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::DisplaySetPixelValue) == TARGET_FUNC_ID_BASE);
 }
 
@@ -92,7 +94,7 @@ TEST_CASE("the host-function binding table binds every declared device-API host 
   mindcraft::DevicePorts ports{};
   const auto bindings = mindcraft::makeMicroBitV2HostFuncBindings(ports);
   CHECK(bindings.size() == mindcraft::kMicroBitV2HostFuncBindingCount);
-  CHECK(mindcraft::kMicroBitV2HostFuncBindingCount == 33);
+  CHECK(mindcraft::kMicroBitV2HostFuncBindingCount == 34);
   const mindcraft::TargetHostFuncBinding* clearBinding = nullptr;
   for (const auto& binding : bindings) {
     if (binding.funcId == static_cast<uint32_t>(MicroBitV2HostFuncId::DisplayClear)) {
@@ -179,8 +181,12 @@ TEST_CASE("microbit-v2 host-action ids are wire-stable") {
   CHECK(MicroBitV2HostActions::DisplayClear.fnId ==
         static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorDisplayClear));
   CHECK(MicroBitV2HostActions::DisplayClear.fnId == 1076);
+  CHECK(MicroBitV2HostActions::LightLevel.actionId == 1039);
+  CHECK(MicroBitV2HostActions::LightLevel.fnId ==
+        static_cast<uint32_t>(MicroBitV2HostFuncId::SensorLightLevel));
+  CHECK(MicroBitV2HostActions::LightLevel.fnId == 1078);
 
-  REQUIRE(std::size(kMicroBitV2HostActions) == 15);
+  REQUIRE(std::size(kMicroBitV2HostActions) == 16);
   for (uint32_t i = 0; i < std::size(kMicroBitV2HostActions); i++) {
     CHECK(kMicroBitV2HostActions[i].actionId == TARGET_ACTION_ID_BASE + i);
   }

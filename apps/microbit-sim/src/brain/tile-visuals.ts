@@ -103,6 +103,7 @@ export const tileVisuals = new Map<string, Partial<TileVisual>>([
   [mkSensorTileId(MicroBitV2HostActions.ButtonAB.key), { iconUrl: icon("sensor-button-ab") }],
   [mkSensorTileId(MicroBitV2HostActions.ButtonLogo.key), { iconUrl: icon("sensor-button-logo") }],
   [mkSensorTileId(MicroBitV2HostActions.Gesture.key), { iconUrl: icon("sensor-gesture") }],
+  [mkSensorTileId(MicroBitV2HostActions.LightLevel.key), { iconUrl: icon("sensor-light-level") }],
   [mkSensorTileId(MicroBitV2HostActions.RadioReceiveNumber.key), { iconUrl: icon("sensor-radio-receive-number") }],
   [mkSensorTileId(MicroBitV2HostActions.RadioReceiveString.key), { iconUrl: icon("sensor-radio-receive-string") }],
   [mkSensorTileId(MicroBitV2HostActions.RadioReceiveBuffer.key), { iconUrl: icon("sensor-radio-receive-buffer") }],

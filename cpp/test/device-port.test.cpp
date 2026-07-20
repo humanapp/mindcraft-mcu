@@ -30,6 +30,10 @@ struct RecordingDisplay : mindcraft::PixelDisplayPort {
   void preempt() override {}
 
   void clear() override {}
+
+  int getLightLevel() override { return lightLevel; }
+
+  int lightLevel = 128;
 };
 
 struct FixedButtons : mindcraft::ButtonInputPort {

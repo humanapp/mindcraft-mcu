@@ -2,7 +2,7 @@
 
 export const tileContent: Record<string, string> = {
   "actuator-display-clear": `\`\`\`brain noframe do
-{ "tile": "tile.actuator->microbit-v2.display-clear" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Clear display
@@ -16,7 +16,7 @@ The clear is instant and takes over the display right away, ending a running
 text scroll or image draw.
 `,
   "actuator-display-text": `\`\`\`brain noframe do
-{ "tile": "tile.actuator->microbit-v2.display-scroll" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Display text
@@ -35,7 +35,7 @@ or \`tile:tile.modifier->microbit-v2.in-background\` to let the rule continue
 without waiting.
 `,
   "actuator-draw-image": `\`\`\`brain noframe do
-{ "tile": "tile.actuator->microbit-v2.draw-image" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Draw image
@@ -54,7 +54,7 @@ or \`tile:tile.modifier->microbit-v2.in-background\` to let the rule continue
 without waiting. A duration of 0 paints the image and continues at once.
 `,
   "actuator-play-sound": `\`\`\`brain noframe do
-{ "tile": "tile.actuator->microbit-v2.play-sound" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Play sound
@@ -72,7 +72,7 @@ once, or \`tile:tile.modifier->microbit-v2.in-background\` to let the rule
 continue without waiting.
 `,
   "actuator-radio-send": `\`\`\`brain noframe do
-{ "tile": "tile.actuator->microbit-v2.radio-send" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Radio send
@@ -88,7 +88,7 @@ must be on the same group (see
 \`tile:tile.actuator->microbit-v2.set-radio-group\`).
 `,
   "actuator-set-pixel": `\`\`\`brain noframe do
-{ "tile": "tile.actuator->microbit-v2.display-set-pixel" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Set pixel
@@ -104,7 +104,7 @@ left (default 0); \`tile:tile.parameter->microbit-v2.brightness\` is 0 (off) to
 text scroll or image draw.
 `,
   "actuator-set-radio-group": `\`\`\`brain noframe do
-{ "tile": "tile.actuator->microbit-v2.set-radio-group" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Set radio group
@@ -118,7 +118,7 @@ default group 0. Micro:bits only hear each other when their groups match, so
 set the same group on both ends, usually when the page is entered.
 `,
   "literal-image-arrow-east": `\`\`\`brain noframe do
-{ "tile": "tile.literal->struct:<Image>->arrow-east" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Arrow east
@@ -130,7 +130,7 @@ The built-in right-pointing arrow image.
 A ready-made 5x5 image for \`tile:tile.actuator->microbit-v2.draw-image\`.
 `,
   "literal-image-arrow-north": `\`\`\`brain noframe do
-{ "tile": "tile.literal->struct:<Image>->arrow-north" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Arrow north
@@ -142,7 +142,7 @@ The built-in up-pointing arrow image.
 A ready-made 5x5 image for \`tile:tile.actuator->microbit-v2.draw-image\`.
 `,
   "literal-image-arrow-south": `\`\`\`brain noframe do
-{ "tile": "tile.literal->struct:<Image>->arrow-south" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Arrow south
@@ -154,7 +154,7 @@ The built-in down-pointing arrow image.
 A ready-made 5x5 image for \`tile:tile.actuator->microbit-v2.draw-image\`.
 `,
   "literal-image-arrow-west": `\`\`\`brain noframe do
-{ "tile": "tile.literal->struct:<Image>->arrow-west" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Arrow west
@@ -166,7 +166,7 @@ The built-in left-pointing arrow image.
 A ready-made 5x5 image for \`tile:tile.actuator->microbit-v2.draw-image\`.
 `,
   "literal-image-happy": `\`\`\`brain noframe do
-{ "tile": "tile.literal->struct:<Image>->happy" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Happy
@@ -178,7 +178,7 @@ The built-in happy face image.
 A ready-made 5x5 image for \`tile:tile.actuator->microbit-v2.draw-image\`. This is also the image drawn when the draw image tile is given no image.
 `,
   "literal-image-heart": `\`\`\`brain noframe do
-{ "tile": "tile.literal->struct:<Image>->heart" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Heart
@@ -190,7 +190,7 @@ The built-in heart image.
 A ready-made 5x5 image for \`tile:tile.actuator->microbit-v2.draw-image\`.
 `,
   "literal-image-sad": `\`\`\`brain noframe do
-{ "tile": "tile.literal->struct:<Image>->sad" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Sad
@@ -202,7 +202,7 @@ The built-in sad face image.
 A ready-made 5x5 image for \`tile:tile.actuator->microbit-v2.draw-image\`.
 `,
   "literal-sound-giggle": `\`\`\`brain noframe do
-{ "tile": "tile.literal->struct:<SoundEmoji>->giggle" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Giggle
@@ -214,7 +214,7 @@ A giggling sound.
 A ready-made sound for \`tile:tile.actuator->microbit-v2.play-sound\`.
 `,
   "literal-sound-happy": `\`\`\`brain noframe do
-{ "tile": "tile.literal->struct:<SoundEmoji>->happy" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Happy
@@ -226,7 +226,7 @@ A cheerful, upbeat sound.
 A ready-made sound for \`tile:tile.actuator->microbit-v2.play-sound\`.
 `,
   "literal-sound-hello": `\`\`\`brain noframe do
-{ "tile": "tile.literal->struct:<SoundEmoji>->hello" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Hello
@@ -238,7 +238,7 @@ A short greeting sound.
 A ready-made sound for \`tile:tile.actuator->microbit-v2.play-sound\`.
 `,
   "literal-sound-mysterious": `\`\`\`brain noframe do
-{ "tile": "tile.literal->struct:<SoundEmoji>->mysterious" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Mysterious
@@ -250,7 +250,7 @@ A long, eerie sound.
 A ready-made sound for \`tile:tile.actuator->microbit-v2.play-sound\`.
 `,
   "literal-sound-sad": `\`\`\`brain noframe do
-{ "tile": "tile.literal->struct:<SoundEmoji>->sad" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Sad
@@ -262,7 +262,7 @@ A drooping, unhappy sound.
 A ready-made sound for \`tile:tile.actuator->microbit-v2.play-sound\`.
 `,
   "literal-sound-slide": `\`\`\`brain noframe do
-{ "tile": "tile.literal->struct:<SoundEmoji>->slide" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Slide
@@ -274,7 +274,7 @@ A sliding-down sound.
 A ready-made sound for \`tile:tile.actuator->microbit-v2.play-sound\`.
 `,
   "literal-sound-soaring": `\`\`\`brain noframe do
-{ "tile": "tile.literal->struct:<SoundEmoji>->soaring" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Soaring
@@ -286,7 +286,7 @@ A long rising flight of sound.
 A ready-made sound for \`tile:tile.actuator->microbit-v2.play-sound\`.
 `,
   "literal-sound-spring": `\`\`\`brain noframe do
-{ "tile": "tile.literal->struct:<SoundEmoji>->spring" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Spring
@@ -298,7 +298,7 @@ A boingy, bouncing sound.
 A ready-made sound for \`tile:tile.actuator->microbit-v2.play-sound\`.
 `,
   "literal-sound-twinkle": `\`\`\`brain noframe do
-{ "tile": "tile.literal->struct:<SoundEmoji>->twinkle" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Twinkle
@@ -310,7 +310,7 @@ A long sparkling chime.
 A ready-made sound for \`tile:tile.actuator->microbit-v2.play-sound\`.
 `,
   "literal-sound-yawn": `\`\`\`brain noframe do
-{ "tile": "tile.literal->struct:<SoundEmoji>->yawn" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Yawn
@@ -402,7 +402,7 @@ rule keeps firing on every think while the button is held, not just on the
 press.
 `,
   "modifier-immediately": `\`\`\`brain noframe do
-{ "tile": "tile.modifier->microbit-v2.immediately" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Immediately
@@ -418,7 +418,7 @@ is stopped and this one starts now. Without it, a request made while the
 display or speaker is busy is dropped.
 `,
   "modifier-in-background": `\`\`\`brain noframe do
-{ "tile": "tile.modifier->microbit-v2.in-background" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # In background
@@ -544,7 +544,7 @@ board is tilted up. It stays true for as long as the board is held in that
 position.
 `,
   "parameter-brightness": `\`\`\`brain noframe do
-{ "tile": "tile.parameter->microbit-v2.brightness" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Brightness
@@ -558,7 +558,7 @@ number from 0 (off) to 255 (full). When left off, the pixel is set to full
 brightness; use 0 to turn a pixel off.
 `,
   "parameter-duration": `\`\`\`brain noframe do
-{ "tile": "tile.parameter->microbit-v2.duration" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Duration
@@ -572,7 +572,7 @@ seconds. When left off, each image is held for 1 second; a duration of 0
 paints the image and lets the rule continue at once.
 `,
   "parameter-image": `\`\`\`brain noframe do
-{ "tile": "tile.parameter->microbit-v2.image" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Image
@@ -586,7 +586,7 @@ image such as \`tile:tile.literal->struct:<Image>->heart\` or an image variable.
 Add more than one to play them in a sequence, each held for the duration.
 `,
   "parameter-sound": `\`\`\`brain noframe do
-{ "tile": "tile.parameter->microbit-v2.sound-emoji" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Sound
@@ -600,7 +600,7 @@ sound such as \`tile:tile.literal->struct:<SoundEmoji>->happy\` or a sound
 variable.
 `,
   "parameter-text": `\`\`\`brain noframe do
-{ "tile": "tile.parameter->microbit-v2.text" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Text
@@ -614,7 +614,7 @@ When left off, the actuator shows the value the WHEN side produced, or
 "hello".
 `,
   "parameter-x": `\`\`\`brain noframe do
-{ "tile": "tile.parameter->microbit-v2.x" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # X
@@ -627,7 +627,7 @@ Gives \`tile:tile.actuator->microbit-v2.display-set-pixel\` its column, a number
 from 0 (left) to 4 (right). When left off, the column is 0.
 `,
   "parameter-y": `\`\`\`brain noframe do
-{ "tile": "tile.parameter->microbit-v2.y" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Y
@@ -717,6 +717,22 @@ selected modifier word; with no word it detects
 \`tile:tile.modifier->microbit-v2.face-up\`,
 \`tile:tile.modifier->microbit-v2.face-down\`, and
 \`tile:tile.modifier->microbit-v2.freefall\`.
+`,
+  "sensor-light-level": `\`\`\`brain noframe when
+{ "tile": "tile.sensor->microbit-v2.light-level" }
+\`\`\`
+
+# Light level
+
+The ambient light shining on the display, from 0 (dark) to 255 (bright).
+
+---
+
+Reads the light falling on the LED matrix each think and reports it as a number
+from 0 to 255. On the **WHEN** side it is true whenever the reading is above 0,
+so any light makes it fire. The reading is the tile's result, and also fills the
+\`value\` output tile for the DO side, so you can compare the brightness against a
+threshold, for example to react only when the room goes dark.
 `,
   "sensor-logo": `\`\`\`brain noframe when
 { "tile": "tile.sensor->microbit-v2.button-logo" }

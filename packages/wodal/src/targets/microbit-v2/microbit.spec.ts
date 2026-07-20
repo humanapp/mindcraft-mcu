@@ -38,6 +38,24 @@ describe("MicroBit", () => {
     assert.equal(microbit.snapshot().messageBus.queuedEventCount, 0);
   });
 
+  it("applies host light-level input through the display and resets it on clear", () => {
+    const microbit = new MicroBit();
+
+    // A fresh device rests at the default reading.
+    assert.equal(microbit.display.getLightLevel(), 128);
+
+    microbit.setLightLevel(200);
+    assert.equal(microbit.display.getLightLevel(), 200);
+
+    // Out-of-range input is clamped through the convenience setter.
+    microbit.setLightLevel(1000);
+    assert.equal(microbit.display.getLightLevel(), 255);
+
+    // Resetting the device returns the reading to the default.
+    microbit.clear();
+    assert.equal(microbit.display.getLightLevel(), 128);
+  });
+
   it("queues logo touch input events", () => {
     const microbit = new MicroBit();
     const events: WodalEvent[] = [];

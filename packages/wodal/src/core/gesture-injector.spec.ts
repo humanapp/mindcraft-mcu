@@ -142,3 +142,56 @@ describe("GestureInjector momentary gestures", () => {
     assert.deepEqual(completed, []);
   });
 });
+
+describe("GestureInjector current selection", () => {
+  it("reports None before any selection", () => {
+    const injector = new GestureInjector(new Accelerometer());
+    assert.equal(injector.currentGesture(), AccelerometerGesture.None);
+  });
+
+  for (const gesture of [AccelerometerGesture.TiltLeft, AccelerometerGesture.FaceUp]) {
+    it(`holds ${AccelerometerGesture[gesture]} across advances`, () => {
+      const injector = new GestureInjector(new Accelerometer());
+
+      injector.select(gesture);
+      assert.equal(injector.currentGesture(), gesture);
+
+      // The held posture survives feeding: the selection is what the picker reads back.
+      feedPeriods(injector, 90);
+      assert.equal(injector.currentGesture(), gesture);
+    });
+  }
+
+  it("reports None when none is selected", () => {
+    const injector = new GestureInjector(new Accelerometer());
+
+    injector.select(AccelerometerGesture.TiltRight);
+    assert.equal(injector.currentGesture(), AccelerometerGesture.TiltRight);
+
+    injector.select(AccelerometerGesture.None);
+    assert.equal(injector.currentGesture(), AccelerometerGesture.None);
+  });
+
+  it("reports a momentary gesture while it plays, then resets to None on completion", () => {
+    const injector = new GestureInjector(new Accelerometer());
+    const completed: AccelerometerGesture[] = [];
+    injector.setCompletionListener((finished) => completed.push(finished));
+
+    feedPeriods(injector, 5);
+
+    injector.select(AccelerometerGesture.Shake);
+    assert.equal(injector.currentGesture(), AccelerometerGesture.Shake);
+
+    let reportedWhilePlaying = false;
+    for (let i = 0; i < 60 && completed.length === 0; i++) {
+      injector.advance(PERIOD_MS);
+      if (injector.currentGesture() === AccelerometerGesture.Shake) {
+        reportedWhilePlaying = true;
+      }
+    }
+
+    assert.ok(reportedWhilePlaying, "expected the selection to read Shake while it played");
+    assert.deepEqual(completed, [AccelerometerGesture.Shake]);
+    assert.equal(injector.currentGesture(), AccelerometerGesture.None);
+  });
+});

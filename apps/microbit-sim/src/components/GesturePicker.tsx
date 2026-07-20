@@ -21,7 +21,8 @@ const GESTURE_OPTIONS: readonly { code: AccelerometerGesture; label: string }[] 
  * shake and freefall play once and reset the picker back to `none`.
  */
 export function GesturePicker({ instance }: { instance: SimulatorInstance }) {
-  const [selected, setSelected] = useState<AccelerometerGesture>(AccelerometerGesture.None);
+  // Seed from the injector so a remount (reopening the Popover) recovers a held posture.
+  const [selected, setSelected] = useState<AccelerometerGesture>(() => instance.gestureInjector.currentGesture());
 
   useEffect(() => {
     instance.gestureInjector.setCompletionListener(() => setSelected(AccelerometerGesture.None));

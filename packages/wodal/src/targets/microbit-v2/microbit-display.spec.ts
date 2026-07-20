@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
-import { MicroBitDisplay } from "./microbit-display";
+import { DEFAULT_LIGHT_LEVEL, MicroBitDisplay } from "./microbit-display";
 
 describe("MicroBitDisplay async scroll", () => {
   test("a scroll completes one full duration after its request time", () => {
@@ -221,6 +221,46 @@ describe("MicroBitDisplay static one-character show", () => {
     assert.equal(display.isBusy(), true);
     display.advanceScroll(10 + 1440);
     assert.ok(completed, "the new show should run on its own timeline");
+  });
+});
+
+describe("MicroBitDisplay light level", () => {
+  test("a fresh display reads the resting default", () => {
+    const display = new MicroBitDisplay();
+    assert.equal(DEFAULT_LIGHT_LEVEL, 128);
+    assert.equal(display.getLightLevel(), 128);
+  });
+
+  test("set replaces the reading and is independent of the pixel buffer", () => {
+    const display = new MicroBitDisplay();
+
+    display.setLightLevel(200);
+    assert.equal(display.getLightLevel(), 200);
+
+    // Writing pixels does not change the light reading.
+    display.setPixelValue(0, 0, 255);
+    assert.equal(display.getLightLevel(), 200);
+  });
+
+  test("set clamps to 0..255 and truncates toward zero", () => {
+    const display = new MicroBitDisplay();
+
+    display.setLightLevel(-5);
+    assert.equal(display.getLightLevel(), 0);
+
+    display.setLightLevel(1000);
+    assert.equal(display.getLightLevel(), 255);
+
+    display.setLightLevel(42.9);
+    assert.equal(display.getLightLevel(), 42);
+  });
+
+  test("reset returns the reading to the default", () => {
+    const display = new MicroBitDisplay();
+
+    display.setLightLevel(10);
+    display.reset();
+    assert.equal(display.getLightLevel(), 128);
   });
 });
 

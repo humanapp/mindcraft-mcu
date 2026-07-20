@@ -90,6 +90,12 @@ public:
    * is held.
    */
   virtual void clear() = 0;
+
+  /**
+   * Read the ambient light level off the LED matrix, 0 (dark) to 255 (bright).
+   * A polled level unrelated to the displayed pixels.
+   */
+  virtual int getLightLevel() = 0;
 };
 
 /**

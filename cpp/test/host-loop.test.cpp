@@ -68,6 +68,7 @@ struct NullDisplay : mindcraft::PixelDisplayPort {
                   mindcraft::AsyncHandle) override {}
   void preempt() override {}
   void clear() override {}
+  int getLightLevel() override { return 128; }
 };
 
 /** No-op buttons: never pressed. */

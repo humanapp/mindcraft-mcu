@@ -14,13 +14,14 @@
 #include "targets/microbit-v2/abi/host-actions/actuators/set-radio-group.h"
 #include "targets/microbit-v2/abi/host-actions/sensors/button-sensor.h"
 #include "targets/microbit-v2/abi/host-actions/sensors/gesture-sensor.h"
+#include "targets/microbit-v2/abi/host-actions/sensors/light-level-sensor.h"
 #include "targets/microbit-v2/abi/host-actions/sensors/radio-receive.h"
 
 namespace mindcraft
 {
 
 /** Number of microbit-v2 host-action bindings the slice registers. */
-inline constexpr uint32_t kMicroBitV2HostActionBindingCount = 15;
+inline constexpr uint32_t kMicroBitV2HostActionBindingCount = 16;
 
 /**
  * Builds the microbit-v2 host-action binding table over `ports`, one entry per
@@ -28,8 +29,9 @@ inline constexpr uint32_t kMicroBitV2HostActionBindingCount = 15;
  * heap); the async draw-image body uses `drawEnv` (its display port, heap, and
  * program); the async play-sound body uses `playSoundEnv` (its speaker port and
  * heap); the four button sensors use `buttonEnv` (the button port plus the
- * heap and roots backing their per-callsite state); the gesture sensor is
- * stateless and reads the accelerometer port straight off `ports`. Pass null for
+ * heap and roots backing their per-callsite state); the gesture sensor reads the
+ * accelerometer port and the light-level sensor reads the display port, both
+ * stateless and straight off `ports`. Pass null for
  * an env when the table will never dispatch its actions. `ports` and any supplied
  * env must outlive every dispatch through the table.
  */
@@ -66,6 +68,7 @@ makeMicroBitV2HostActionBindings(DevicePorts &ports,
          &radioReceivePageEntered, radioSensorEnv},
         {MicroBitV2HostActions::PlaySound.actionId, nullptr, nullptr, playSoundEnv, &execPlaySound},
         {MicroBitV2HostActions::DisplayClear.actionId, &execDisplayClearAction, nullptr, &ports},
+        {MicroBitV2HostActions::LightLevel.actionId, &execLightLevelSensor, nullptr, &ports},
     }};
 }
 

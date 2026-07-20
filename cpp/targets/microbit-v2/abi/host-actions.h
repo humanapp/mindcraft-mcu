@@ -80,6 +80,10 @@ inline constexpr HostActionIds PlaySound{
 /** Actuator: blank the 5x5 display, cancelling any held display lease. */
 inline constexpr HostActionIds DisplayClear{
     1038, static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorDisplayClear)};
+
+/** Sensor: the ambient light level read off the LED matrix, 0 (dark) to 255 (bright). */
+inline constexpr HostActionIds LightLevel{
+    1039, static_cast<uint32_t>(MicroBitV2HostFuncId::SensorLightLevel)};
 } // namespace MicroBitV2HostActions
 
 /**
@@ -102,6 +106,7 @@ inline constexpr HostActionIds kMicroBitV2HostActions[] = {
     MicroBitV2HostActions::RadioReceiveBuffer,
     MicroBitV2HostActions::PlaySound,
     MicroBitV2HostActions::DisplayClear,
+    MicroBitV2HostActions::LightLevel,
 };
 
 } // namespace mindcraft
