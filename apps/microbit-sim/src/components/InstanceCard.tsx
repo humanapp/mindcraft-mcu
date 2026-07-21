@@ -8,6 +8,7 @@ import { BrainEditor } from "./BrainEditor";
 import { GesturePicker } from "./GesturePicker";
 import { LightLevelSlider } from "./LightLevelSlider";
 import { MicrobitDevice } from "./MicrobitDevice";
+import { TemperatureSlider } from "./TemperatureSlider";
 
 interface InstanceCardProps {
   instance: SimulatorInstance;
@@ -83,6 +84,7 @@ export function InstanceCard({ instance, label, brains }: InstanceCardProps) {
                   <p className="text-xs font-semibold text-muted-foreground">Inputs</p>
                   <GesturePicker instance={instance} />
                   <LightLevelSlider instance={instance} />
+                  <TemperatureSlider instance={instance} />
                 </div>
                 <div className="-mx-4 h-px bg-muted" />
                 <div className="flex flex-col gap-1">
@@ -93,7 +95,7 @@ export function InstanceCard({ instance, label, brains }: InstanceCardProps) {
                     className="rounded px-2 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
                     onClick={() => void store.resetInstance(instance.id)}
                   >
-                    Reset
+                    Reset Device
                   </button>
                   <button
                     type="button"
@@ -101,7 +103,7 @@ export function InstanceCard({ instance, label, brains }: InstanceCardProps) {
                     className="rounded px-2 py-1.5 text-left text-sm text-destructive hover:bg-accent hover:text-destructive"
                     onClick={() => store.simulator.removeInstance(instance.id)}
                   >
-                    Remove
+                    Remove Device
                   </button>
                 </div>
               </div>

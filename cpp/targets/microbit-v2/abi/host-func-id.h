@@ -72,12 +72,14 @@ enum class MicroBitV2HostFuncId : uint32_t
     ActuatorDisplayClear = 1076,
     DisplayGetLightLevel = 1077,
     SensorLightLevel = 1078,
+    ThermometerGetTemperature = 1079,
+    SensorTemperature = 1080,
 };
 
 /**
  * Number of declared {@link MicroBitV2HostFuncId} members; ids are dense
  * from 1024.
  */
-inline constexpr uint32_t kMicroBitV2HostFuncIdCount = 55;
+inline constexpr uint32_t kMicroBitV2HostFuncIdCount = 57;
 
 } // namespace mindcraft

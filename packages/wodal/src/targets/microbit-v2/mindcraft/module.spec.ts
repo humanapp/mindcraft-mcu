@@ -65,6 +65,11 @@ test("Context.microbit exposes the native WODAL microbit device", () => {
   assert.equal(gpioValue.typeId, WODAL_MICROBIT_V2_TYPE_IDS.GPIO);
   assert.equal(gpioValue.native, microbit.gpio);
 
+  const thermometerValue = microbitDef.fieldGetter?.(microbitValue, MicroBitField.Thermometer, ctx);
+  assert.ok(isStructValue(thermometerValue));
+  assert.equal(thermometerValue.typeId, WODAL_MICROBIT_V2_TYPE_IDS.Thermometer);
+  assert.equal(thermometerValue.native, microbit.thermometer);
+
   // The audio receiver is the device's one speaker: the Device API drives the
   // same MicroBitSpeaker instance the play-sound tile drives.
   const audioValue = microbitDef.fieldGetter?.(microbitValue, MicroBitField.Audio, ctx);

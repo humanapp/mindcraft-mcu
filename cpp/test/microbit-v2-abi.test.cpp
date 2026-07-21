@@ -83,7 +83,9 @@ TEST_CASE("MicroBitV2HostFuncId values are wire-stable") {
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::ActuatorDisplayClear) == 1076);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::DisplayGetLightLevel) == 1077);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::SensorLightLevel) == 1078);
-  CHECK(kMicroBitV2HostFuncIdCount == 55);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::ThermometerGetTemperature) == 1079);
+  CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::SensorTemperature) == 1080);
+  CHECK(kMicroBitV2HostFuncIdCount == 57);
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::DisplaySetPixelValue) == TARGET_FUNC_ID_BASE);
 }
 
@@ -94,7 +96,7 @@ TEST_CASE("the host-function binding table binds every declared device-API host 
   mindcraft::DevicePorts ports{};
   const auto bindings = mindcraft::makeMicroBitV2HostFuncBindings(ports);
   CHECK(bindings.size() == mindcraft::kMicroBitV2HostFuncBindingCount);
-  CHECK(mindcraft::kMicroBitV2HostFuncBindingCount == 34);
+  CHECK(mindcraft::kMicroBitV2HostFuncBindingCount == 35);
   const mindcraft::TargetHostFuncBinding* clearBinding = nullptr;
   for (const auto& binding : bindings) {
     if (binding.funcId == static_cast<uint32_t>(MicroBitV2HostFuncId::DisplayClear)) {
@@ -120,7 +122,8 @@ TEST_CASE("MicroBitV2TypeAtomId values are wire-stable") {
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::RadioPacketList) == 1034);
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::SoundEmoji) == 1035);
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::MicroBitAudio) == 1036);
-  CHECK(kMicroBitV2TypeAtomIdCount == 13);
+  CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::MicroBitThermometer) == 1037);
+  CHECK(kMicroBitV2TypeAtomIdCount == 14);
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::MicroBitDisplay) == TARGET_TYPE_ATOM_BASE);
 }
 
@@ -185,8 +188,12 @@ TEST_CASE("microbit-v2 host-action ids are wire-stable") {
   CHECK(MicroBitV2HostActions::LightLevel.fnId ==
         static_cast<uint32_t>(MicroBitV2HostFuncId::SensorLightLevel));
   CHECK(MicroBitV2HostActions::LightLevel.fnId == 1078);
+  CHECK(MicroBitV2HostActions::Temperature.actionId == 1040);
+  CHECK(MicroBitV2HostActions::Temperature.fnId ==
+        static_cast<uint32_t>(MicroBitV2HostFuncId::SensorTemperature));
+  CHECK(MicroBitV2HostActions::Temperature.fnId == 1080);
 
-  REQUIRE(std::size(kMicroBitV2HostActions) == 16);
+  REQUIRE(std::size(kMicroBitV2HostActions) == 17);
   for (uint32_t i = 0; i < std::size(kMicroBitV2HostActions); i++) {
     CHECK(kMicroBitV2HostActions[i].actionId == TARGET_ACTION_ID_BASE + i);
   }
@@ -203,7 +210,8 @@ TEST_CASE("MicroBitField values are wire-stable") {
   CHECK(static_cast<uint8_t>(MicroBitField::Sonar) == 7);
   CHECK(static_cast<uint8_t>(MicroBitField::Radio) == 8);
   CHECK(static_cast<uint8_t>(MicroBitField::Audio) == 9);
-  CHECK(kMicroBitFieldCount == 10);
+  CHECK(static_cast<uint8_t>(MicroBitField::Thermometer) == 10);
+  CHECK(kMicroBitFieldCount == 11);
 }
 
 TEST_CASE("the Context.microbit extension id sits just above the core Context fields") {

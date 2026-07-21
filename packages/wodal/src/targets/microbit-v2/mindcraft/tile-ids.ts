@@ -74,6 +74,8 @@ export enum MicroBitV2HostFuncId {
   ActuatorDisplayClear = 1076,
   DisplayGetLightLevel = 1077,
   SensorLightLevel = 1078,
+  ThermometerGetTemperature = 1079,
+  SensorTemperature = 1080,
 }
 
 /**
@@ -96,6 +98,7 @@ export enum MicroBitV2TypeAtomId {
   RadioPacketList = 1034,
   SoundEmoji = 1035,
   MicroBitAudio = 1036,
+  MicroBitThermometer = 1037,
 }
 
 /**
@@ -201,6 +204,13 @@ export const MicroBitV2HostActions = {
     key: "microbit-v2.light-level",
     actionId: 1039,
     fnId: MicroBitV2HostFuncId.SensorLightLevel,
+  },
+
+  /** Sensor: the die temperature in whole degrees Celsius; signed. */
+  Temperature: {
+    key: "microbit-v2.temperature",
+    actionId: 1040,
+    fnId: MicroBitV2HostFuncId.SensorTemperature,
   },
 } as const satisfies Record<string, HostActionIds>;
 

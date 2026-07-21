@@ -84,6 +84,10 @@ inline constexpr HostActionIds DisplayClear{
 /** Sensor: the ambient light level read off the LED matrix, 0 (dark) to 255 (bright). */
 inline constexpr HostActionIds LightLevel{
     1039, static_cast<uint32_t>(MicroBitV2HostFuncId::SensorLightLevel)};
+
+/** Sensor: the die temperature in whole degrees Celsius; signed. */
+inline constexpr HostActionIds Temperature{
+    1040, static_cast<uint32_t>(MicroBitV2HostFuncId::SensorTemperature)};
 } // namespace MicroBitV2HostActions
 
 /**
@@ -107,6 +111,7 @@ inline constexpr HostActionIds kMicroBitV2HostActions[] = {
     MicroBitV2HostActions::PlaySound,
     MicroBitV2HostActions::DisplayClear,
     MicroBitV2HostActions::LightLevel,
+    MicroBitV2HostActions::Temperature,
 };
 
 } // namespace mindcraft

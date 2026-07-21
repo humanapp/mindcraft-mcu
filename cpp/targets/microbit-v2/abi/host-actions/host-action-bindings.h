@@ -16,12 +16,13 @@
 #include "targets/microbit-v2/abi/host-actions/sensors/gesture-sensor.h"
 #include "targets/microbit-v2/abi/host-actions/sensors/light-level-sensor.h"
 #include "targets/microbit-v2/abi/host-actions/sensors/radio-receive.h"
+#include "targets/microbit-v2/abi/host-actions/sensors/temperature-sensor.h"
 
 namespace mindcraft
 {
 
 /** Number of microbit-v2 host-action bindings the slice registers. */
-inline constexpr uint32_t kMicroBitV2HostActionBindingCount = 16;
+inline constexpr uint32_t kMicroBitV2HostActionBindingCount = 17;
 
 /**
  * Builds the microbit-v2 host-action binding table over `ports`, one entry per
@@ -69,6 +70,7 @@ makeMicroBitV2HostActionBindings(DevicePorts &ports,
         {MicroBitV2HostActions::PlaySound.actionId, nullptr, nullptr, playSoundEnv, &execPlaySound},
         {MicroBitV2HostActions::DisplayClear.actionId, &execDisplayClearAction, nullptr, &ports},
         {MicroBitV2HostActions::LightLevel.actionId, &execLightLevelSensor, nullptr, &ports},
+        {MicroBitV2HostActions::Temperature.actionId, &execTemperatureSensor, nullptr, &ports},
     }};
 }
 

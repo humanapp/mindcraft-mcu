@@ -364,6 +364,22 @@ private:
     MicroBit &uBit_;
 };
 
+/**
+ * Reads the die temperature through `MicroBitThermometer`: the current
+ * temperature in whole degrees Celsius (signed), as CODAL's `getTemperature()`
+ * reports it.
+ */
+class MicroBitThermometerInputPort : public ThermometerInputPort
+{
+public:
+    explicit MicroBitThermometerInputPort(MicroBit &uBit) : uBit_(uBit) {}
+
+    int32_t getTemperature() override { return uBit_.thermometer.getTemperature(); }
+
+private:
+    MicroBit &uBit_;
+};
+
 /** Drives the external I2C bus through CODAL's `MicroBitI2C`. */
 class MicroBitI2CPort : public I2CPort
 {

@@ -1,6 +1,7 @@
 declare module "mindcraft" {
   interface MindcraftTypeMap {
     MicroBitDisplay: MicroBitDisplay;
+    Thermometer: Thermometer;
     SoundEmoji: SoundEmoji;
     MicroBitAudio: MicroBitAudio;
     MicroBit: MicroBit;
@@ -14,6 +15,10 @@ declare module "mindcraft" {
     drawImage(image: Image, duration?: number): Promise<void>;
     scrollText(text: string): Promise<void>;
     getLightLevel(): number;
+  }
+  export interface Thermometer {
+    readonly __brand: unique symbol;
+    getTemperature(): number;
   }
   export interface SoundEmoji {
     name: string;
@@ -34,6 +39,7 @@ declare module "mindcraft" {
     readonly sonar: Sonar;
     readonly radio: Radio;
     readonly audio: MicroBitAudio;
+    readonly thermometer: Thermometer;
   }
   export interface Context {
     readonly microbit: MicroBit;

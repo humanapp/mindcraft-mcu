@@ -1,0 +1,9 @@
+mctrace 1
+profile 1
+precision f32
+tick 1 time 41800000 dt 00000000
+port display set-pixel 00000000 00000000 41b00000
+tick 2 time 42000000 dt 41800000
+port display set-pixel 00000000 00000000 437b0000
+tick 3 time 42400000 dt 41800000
+port display set-pixel 00000000 00000000 437b0000

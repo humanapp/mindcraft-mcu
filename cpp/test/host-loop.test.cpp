@@ -88,6 +88,11 @@ struct NullAccelerometer : mindcraft::AccelerometerInputPort {
   mindcraft::mc_number_t getRollRadians() override { return 0; }
 };
 
+/** No-op thermometer: rests at the sim model's default reading. */
+struct NullThermometer : mindcraft::ThermometerInputPort {
+  int32_t getTemperature() override { return 21; }
+};
+
 struct NullI2C : mindcraft::I2CPort {
   int write(uint16_t, const uint8_t*, int) override { return 0; }
   int read(uint16_t, uint8_t*, int) override { return 0; }
@@ -204,13 +209,14 @@ TEST_CASE("the host loop latches fault mode when startup fails") {
   RecordingFaultDisplay faultDisplay;
   FixedClock clock;
   NullAccelerometer accelerometer;
+  NullThermometer thermometer;
   NullI2C i2c;
   NullGpio gpio;
   NullSonar sonar;
   NullRadio radio;
   NullSpeaker speaker;
-  mindcraft::DevicePorts ports{&display, &buttons, &faultDisplay, &clock, &accelerometer,
-                               &i2c,     &gpio,    &sonar,        &radio, &speaker};
+  mindcraft::DevicePorts ports{&display, &buttons, &faultDisplay, &clock,   &accelerometer, &i2c,
+                               &gpio,    &sonar,   &radio,        &speaker, &thermometer};
 
   HostLoop hostLoop(brain, ports);
   const mindcraft::Status status = hostLoop.startup();

@@ -13,6 +13,7 @@
     "src/components/ConsoleOutputList.tsx",
     "src/components/GesturePicker.tsx",
     "src/components/LightLevelSlider.tsx",
+    "src/components/TemperatureSlider.tsx",
     "src/components/UninstallImpactMessage.tsx"
   ],
   "exclude": ["node_modules", "dist"]

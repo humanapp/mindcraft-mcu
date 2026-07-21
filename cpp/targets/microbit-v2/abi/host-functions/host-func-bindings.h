@@ -19,12 +19,13 @@
 #include "targets/microbit-v2/abi/host-functions/i2c-write.h"
 #include "targets/microbit-v2/abi/host-functions/radio.h"
 #include "targets/microbit-v2/abi/host-functions/sonar.h"
+#include "targets/microbit-v2/abi/host-functions/thermometer-read.h"
 
 namespace mindcraft
 {
 
 /** Number of microbit-v2 target host-function bindings the slice registers. */
-inline constexpr uint32_t kMicroBitV2HostFuncBindingCount = 34;
+inline constexpr uint32_t kMicroBitV2HostFuncBindingCount = 35;
 
 /**
  * Builds the microbit-v2 target host-function binding table over `ports`, one
@@ -113,6 +114,8 @@ makeMicroBitV2HostFuncBindings(DevicePorts &ports, MicroBitV2DrawImageEnv *drawE
         {static_cast<uint32_t>(MicroBitV2HostFuncId::GpioAnalogRead), &execGpioAnalogRead, &ports},
         {static_cast<uint32_t>(MicroBitV2HostFuncId::AudioPlaySound), nullptr, playSoundEnv,
          &execAudioPlaySoundHostFn},
+        {static_cast<uint32_t>(MicroBitV2HostFuncId::ThermometerGetTemperature),
+         &execThermometerGetTemperature, &ports},
     }};
 }
 

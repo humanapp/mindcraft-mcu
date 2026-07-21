@@ -79,6 +79,7 @@ int main()
     MicroBitPixelDisplayPort display(uBit);
     MicroBitButtonInputPort buttons(uBit);
     MicroBitAccelerometerInputPort accelerometer(uBit);
+    MicroBitThermometerInputPort thermometer(uBit);
     MicroBitI2CPort i2c(uBit);
     MicroBitGPIOPort gpio(uBit);
     MicroBitSonarPort sonar(uBit);
@@ -86,8 +87,8 @@ int main()
     MicroBitSpeakerPort speaker(uBit);
     MicroBitMonotonicClockPort clock;
     MicroBitFaultDisplayPort faultDisplay(uBit);
-    DevicePorts ports{&display, &buttons, &faultDisplay, &clock, &accelerometer,
-                      &i2c,     &gpio,    &sonar,        &radio, &speaker};
+    DevicePorts ports{&display, &buttons, &faultDisplay, &clock,   &accelerometer, &i2c,
+                      &gpio,    &sonar,   &radio,        &speaker, &thermometer};
 
     // Read the brain image from the reserved on-flash region.
     const Result<ByteSpan, RegionError> region = readRegionProgram(programFlashRegion());
@@ -172,9 +173,9 @@ int main()
     {
         actions[coreBindings.size() + i] = mbBindings[i];
     }
-    auto hostFuncs = makeMicroBitV2HostFuncBindings(ports, &drawEnv, &i2cWriteEnv, &i2cReadEnv,
-                                                    &radioEnv, &radioReceiveEnv, &scrollEnv,
-                                                    &playSoundEnv);
+    auto hostFuncs =
+        makeMicroBitV2HostFuncBindings(ports, &drawEnv, &i2cWriteEnv, &i2cReadEnv, &radioEnv,
+                                       &radioReceiveEnv, &scrollEnv, &playSoundEnv);
     ManagedHeap heap(arena, &image);
     TypeRegistry types(image);
     auto nativeStructs = makeMicroBitV2NativeStructBindings(types);

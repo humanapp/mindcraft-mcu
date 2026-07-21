@@ -41,6 +41,7 @@ import {
   radioNumberIsInteger,
 } from "../../../core/radio";
 import { SensorDriver } from "../../../core/sensor-driver";
+import { Thermometer } from "../../../core/thermometer";
 import { TouchButton } from "../../../core/touch-button";
 import { WODAL_SHARED_TYPE_IDS } from "../../../mindcraft/shared-type-ids";
 import { MicroBit } from "../microbit";
@@ -63,6 +64,7 @@ import {
 } from "./actions/radio-receive";
 import radioSendActuator from "./actions/radio-send";
 import setRadioGroupActuator from "./actions/set-radio-group";
+import { temperatureSensor } from "./actions/temperature-sensor";
 import { BUILT_IN_IMAGES, builtInImageStructValue } from "./built-in-images";
 import { BUILT_IN_SOUNDS, builtInSoundStructValue, SOUND_EMOJI_TYPE_ID, SoundEmojiField } from "./built-in-sounds";
 import { getMicroBitContextDevice } from "./context";
@@ -106,6 +108,9 @@ export const WODAL_MICROBIT_V2_TYPE_IDS = {
   /** Native-backed speaker audio facade for the simulated device. */
   MicroBitAudio: mkTypeId(NativeType.Struct, "MicroBitAudio"),
 
+  /** Native-backed thermometer facade for the simulated device. */
+  Thermometer: mkTypeId(NativeType.Struct, "Thermometer"),
+
   /** Value struct describing one received radio packet (drain-all element). */
   RadioPacket: mkTypeId(NativeType.Struct, "RadioPacket"),
 
@@ -145,6 +150,7 @@ export enum MicroBitField {
   Sonar = 7,
   Radio = 8,
   Audio = 9,
+  Thermometer = 10,
 }
 
 /**
@@ -162,6 +168,7 @@ export function createMicroBitV2Module(): MindcraftModule {
       registerMicroBitDisplayFunctions(api);
       registerButtonFunctions(api);
       registerAccelerometerFunctions(api);
+      registerThermometerFunctions(api);
       registerI2CFunctions(api);
       registerGPIOFunctions(api);
       registerSonarFunctions(api);
@@ -285,6 +292,13 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
       { name: "getRoll", params: List.empty(), returnTypeId: CoreTypeIds.Number },
       { name: "getGesture", params: List.empty(), returnTypeId: CoreTypeIds.Number },
     ]),
+  });
+
+  types.addStructType("Thermometer", {
+    atomId: MicroBitV2TypeAtomId.MicroBitThermometer,
+    fields: List.empty(),
+    fieldGetter: () => undefined,
+    methods: List.from([{ name: "getTemperature", params: List.empty(), returnTypeId: CoreTypeIds.Number }]),
   });
 
   types.addStructType("I2C", {
@@ -486,6 +500,11 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
       { name: "sonar", typeId: WODAL_MICROBIT_V2_TYPE_IDS.Sonar, fieldIndex: MicroBitField.Sonar },
       { name: "radio", typeId: WODAL_MICROBIT_V2_TYPE_IDS.Radio, fieldIndex: MicroBitField.Radio },
       { name: "audio", typeId: WODAL_MICROBIT_V2_TYPE_IDS.MicroBitAudio, fieldIndex: MicroBitField.Audio },
+      {
+        name: "thermometer",
+        typeId: WODAL_MICROBIT_V2_TYPE_IDS.Thermometer,
+        fieldIndex: MicroBitField.Thermometer,
+      },
     ]),
     fieldGetter: (source, fieldId) => {
       const microbit = getNativeMicroBit(source);
@@ -513,6 +532,8 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
           return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.Radio, microbit.radio);
         case MicroBitField.Audio:
           return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.MicroBitAudio, microbit.speaker);
+        case MicroBitField.Thermometer:
+          return mkNativeStructValue(WODAL_MICROBIT_V2_TYPE_IDS.Thermometer, microbit.thermometer);
         default:
           return undefined;
       }
@@ -737,6 +758,21 @@ function registerAccelerometerFunctions(api: MindcraftModuleApi): void {
       callDef: emptyCallDef,
     });
   }
+}
+
+function registerThermometerFunctions(api: MindcraftModuleApi): void {
+  const emptyCallDef = mkCallDef({ type: "bag", items: [] });
+
+  api.registerFunction({
+    id: MicroBitV2HostFuncId.ThermometerGetTemperature,
+    name: "Thermometer.getTemperature",
+    isAsync: false,
+    fn: {
+      exec: (_ctx: ExecutionContext, args: ReadonlyList<Value>) =>
+        mkNumberValue(getThermometerReceiver(args)?.getTemperature() ?? 0),
+    },
+    callDef: emptyCallDef,
+  });
 }
 
 function registerI2CFunctions(api: MindcraftModuleApi): void {
@@ -1100,6 +1136,7 @@ function registerBrainTiles(api: MindcraftModuleApi): void {
   api.registerHostSensor(createHostSensor(buttonLogoSensor));
   api.registerHostSensor(createHostSensor(gestureSensor));
   api.registerHostSensor(createHostSensor(lightLevelSensor));
+  api.registerHostSensor(createHostSensor(temperatureSensor));
   api.registerHostSensor(createHostSensor(radioReceiveNumberSensor));
   api.registerHostSensor(createHostSensor(radioReceiveStringSensor));
   api.registerHostSensor(createHostSensor(radioReceiveBufferSensor));
@@ -1193,6 +1230,14 @@ function getAccelerometerReceiver(args: ReadonlyList<Value>): Accelerometer | un
     return undefined;
   }
   return receiver.native instanceof Accelerometer ? receiver.native : undefined;
+}
+
+function getThermometerReceiver(args: ReadonlyList<Value>): Thermometer | undefined {
+  const receiver = args.get(0);
+  if (!isStructNative(receiver, WODAL_MICROBIT_V2_TYPE_IDS.Thermometer)) {
+    return undefined;
+  }
+  return receiver.native instanceof Thermometer ? receiver.native : undefined;
 }
 
 function getI2CReceiver(args: ReadonlyList<Value>): I2CBus | undefined {

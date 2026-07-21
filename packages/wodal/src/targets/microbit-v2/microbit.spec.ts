@@ -56,6 +56,24 @@ describe("MicroBit", () => {
     assert.equal(microbit.display.getLightLevel(), 128);
   });
 
+  it("applies host temperature input through the thermometer and resets it on clear", () => {
+    const microbit = new MicroBit();
+
+    // A fresh device rests at the default reading.
+    assert.equal(microbit.thermometer.getTemperature(), 21);
+
+    microbit.setTemperature(30);
+    assert.equal(microbit.thermometer.getTemperature(), 30);
+
+    // Temperature is signed and unbounded; a negative reading is preserved.
+    microbit.setTemperature(-5);
+    assert.equal(microbit.thermometer.getTemperature(), -5);
+
+    // Resetting the device returns the reading to the default.
+    microbit.clear();
+    assert.equal(microbit.thermometer.getTemperature(), 21);
+  });
+
   it("queues logo touch input events", () => {
     const microbit = new MicroBit();
     const events: WodalEvent[] = [];

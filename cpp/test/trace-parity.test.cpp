@@ -274,6 +274,15 @@ struct HostMicroBit {
     mindcraft::mc_number_t getRollRadians() override { return rollRadians; }
   };
 
+  // Injectable thermometer: serves the held die temperature (signed whole
+  // degrees Celsius), resting at the sim model's default. Mirrors the wodal
+  // Thermometer model.
+  struct SettableThermometer : mindcraft::ThermometerInputPort {
+    int32_t temperature = 21;
+
+    int32_t getTemperature() override { return temperature; }
+  };
+
   // Injectable I2C bus: records each write and serves reads from a per-address
   // response a test injects, emitting the port trace line at each transaction.
   // Holds no real hardware; mirrors the wodal I2CBus sim model.
@@ -585,6 +594,7 @@ struct HostMicroBit {
   TracingDisplay display;
   SettableButtons buttons;
   SettableAccelerometer accelerometer;
+  SettableThermometer thermometer;
   TracingI2C i2c;
   TracingGpio gpio;
   TracingSonar sonar;
@@ -593,8 +603,8 @@ struct HostMicroBit {
   NullFaultDisplay faultDisplay;
   FixedClock clock;
 
-  mindcraft::DevicePorts ports{&display, &buttons, &faultDisplay, &clock, &accelerometer,
-                               &i2c,     &gpio,    &sonar,        &radio, &speaker};
+  mindcraft::DevicePorts ports{&display, &buttons, &faultDisplay, &clock,   &accelerometer, &i2c,
+                               &gpio,    &sonar,   &radio,        &speaker, &thermometer};
 };
 
 /** Forwards the VM's host-binding events into the observable trace. */
@@ -2483,6 +2493,129 @@ TEST_CASE("the user-tile light-level fixture byte-matches the golden observable 
   CHECK(sink.text() == golden);
   // The final think holds 40 at pixel (0,0).
   CHECK(microbit.display.pixels[0][0] == 40);
+}
+
+TEST_CASE("the temperature-sensor fixture byte-matches the golden observable trace") {
+  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/temperature-sensor";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  TraceTap tap(writer);
+
+  // The temperature sensor is stateless and reads the thermometer port off the
+  // device ports; the set-pixel actuator lights pixel (0,0) each firing tick.
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  ExecutionContext ctx;
+  mindcraft::ManagedHeap heap(arena);
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Mirrors SCHEDULE in wodal
+  // packages/wodal/src/targets/microbit-v2/mindcraft/temperature-sensor-trace.spec.ts:
+  // a zero tick (no fire), a positive reading (fires), and a negative reading (fires).
+  const int32_t schedule[3] = {0, 22, -5};
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 3; i++) {
+    microbit.thermometer.temperature = schedule[i];
+    const float timeMs = lastThinkTimeMs + 16.0f;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+  // The positive and negative ticks fire, lighting pixel (0,0); the zero tick does not.
+  CHECK(microbit.display.pixels[0][0] == 255);
+}
+
+TEST_CASE("the user-tile temperature fixture byte-matches the golden observable trace") {
+  const std::string base =
+      std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-temperature";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  TraceTap tap(writer);
+
+  // The actuator reads ctx.microbit.thermometer.getTemperature() through the
+  // native struct field getter and the Device-API host-function body, then writes
+  // the value to a pixel; the read reaches the same thermometer port the tile
+  // sensor does.
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  ExecutionContext ctx;
+  mindcraft::ManagedHeap heap(arena);
+  mindcraft::TypeRegistry types(image);
+  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+  surface.types = &types;
+  surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Mirrors SCHEDULE in wodal
+  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-temperature.spec.ts:
+  // a positive reading, a negative reading, then a hold tick (sets nothing, holds -5).
+  struct Step {
+    bool set;
+    int32_t temperature;
+  };
+  const Step schedule[3] = {{true, 22}, {true, -5}, {false, 0}};
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 3; i++) {
+    if (schedule[i].set) {
+      microbit.thermometer.temperature = schedule[i].temperature;
+    }
+    const float timeMs = lastThinkTimeMs + 16.0f;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+  // The final think holds -5, which the display port narrows to uint8 251 at pixel (0,0).
+  CHECK(microbit.display.pixels[0][0] == 251);
 }
 
 TEST_CASE("the user-tile i2c-write fixture byte-matches the golden observable trace") {

@@ -180,6 +180,19 @@ public:
 };
 
 /**
+ * Die-temperature thermometer input. A polled synchronous read of the board's
+ * own temperature (on a micro:bit v2 the on-chip die sensor behind
+ * CODAL's `getTemperature()`).
+ */
+class ThermometerInputPort {
+public:
+  virtual ~ThermometerInputPort() = default;
+
+  /** The current temperature in whole degrees Celsius; signed. */
+  virtual int32_t getTemperature() = 0;
+};
+
+/**
  * External I2C bus on the board's edge connector (pins P19/P20 on a micro:bit
  * v2). The controller side of the bus a peripheral library drives.
  */
@@ -388,6 +401,7 @@ struct DevicePorts {
   SonarPort* sonar;
   RadioPort* radio;
   SpeakerPort* speaker;
+  ThermometerInputPort* thermometer;
 };
 
 } // namespace mindcraft

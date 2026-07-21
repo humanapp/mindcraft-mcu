@@ -154,6 +154,38 @@ test("light-level sensor and Device-API getter are registered and read the devic
   assert.deepEqual(sensorEntry.fn.exec(noDeviceCtx, List.empty<Value>()), mkNumberValue(0));
 });
 
+test("temperature sensor and Device-API getter are registered and read the device temperature", () => {
+  const env = createMicroBitV2Environment();
+  const tiles = env.brainServices.edit.tiles;
+
+  const sensorTile = tiles.get(mkSensorTileId(MicroBitV2HostActions.Temperature.key));
+  assert.ok(sensorTile, "temperature sensor tile should be registered");
+  assert.equal(sensorTile.kind, "sensor");
+  assert.equal(sensorTile.metadata?.label, "temperature");
+
+  // The Device-API method is registered as a sync host function.
+  const methodEntry = env.brainServices.runtime.functions.get("Thermometer.getTemperature");
+  assert.ok(methodEntry, "Thermometer.getTemperature host function should be registered");
+  assert.equal(methodEntry.isAsync, false);
+
+  const sensorEntry = getSyncFunctionEntry(env, MicroBitV2HostActions.Temperature.key);
+  assert.equal(sensorEntry.callDef.argSlots.size(), 0);
+
+  const microbit = new MicroBit();
+  const ctx = createExecutionContext(env, microbit);
+
+  // A fresh device reads the resting default.
+  assert.deepEqual(sensorEntry.fn.exec(ctx, List.empty<Value>()), mkNumberValue(21));
+
+  // A negative Celsius reading is read back signed.
+  microbit.setTemperature(-5);
+  assert.deepEqual(sensorEntry.fn.exec(ctx, List.empty<Value>()), mkNumberValue(-5));
+
+  // With no device attached the sensor reads 0.
+  const noDeviceCtx: ExecutionContext = { ...ctx, data: {} };
+  assert.deepEqual(sensorEntry.fn.exec(noDeviceCtx, List.empty<Value>()), mkNumberValue(0));
+});
+
 test("scroll actuator is async with optional text, immediately, and in-background slots and defaults the omitted text to 'hello'", () => {
   const env = createMicroBitV2Environment();
   const microbit = new MicroBit();

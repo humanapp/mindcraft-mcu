@@ -67,6 +67,12 @@ struct SettableAccelerometer : mindcraft::AccelerometerInputPort {
   mindcraft::mc_number_t getRollRadians() override { return rollRadians; }
 };
 
+struct SettableThermometer : mindcraft::ThermometerInputPort {
+  int32_t temperature = 21;
+
+  int32_t getTemperature() override { return temperature; }
+};
+
 struct RecordingFaultDisplay : mindcraft::FaultDisplayPort {
   int faceShown = 0;
   std::vector<std::string> scrolled;
@@ -198,14 +204,15 @@ TEST_CASE("a host stub can implement every device port") {
   RecordingFaultDisplay faultDisplay;
   SteppingClock clock;
   SettableAccelerometer accelerometer;
+  SettableThermometer thermometer;
   RecordingI2C i2c;
   RecordingGpio gpio;
   RecordingSonar sonar;
   RecordingRadio radio;
   RecordingSpeaker speaker;
 
-  mindcraft::DevicePorts ports{&display, &buttons, &faultDisplay, &clock, &accelerometer,
-                               &i2c,     &gpio,    &sonar,        &radio, &speaker};
+  mindcraft::DevicePorts ports{&display, &buttons, &faultDisplay, &clock,   &accelerometer, &i2c,
+                               &gpio,    &sonar,   &radio,        &speaker, &thermometer};
 
   ports.display->setPixel(2, 3, 255);
   REQUIRE(display.calls.size() == 1);
@@ -241,6 +248,11 @@ TEST_CASE("a host stub can implement every device port") {
   // Degrees derive from the radian reading, matching CODAL's conversion.
   CHECK(ports.accelerometer->getPitch() == 45);
   CHECK(ports.accelerometer->getRoll() == -30);
+
+  // The die temperature is a signed whole-degree reading.
+  CHECK(ports.thermometer->getTemperature() == 21);
+  thermometer.temperature = -5;
+  CHECK(ports.thermometer->getTemperature() == -5);
 
   const uint8_t payload[3] = {0xde, 0xad, 0xbe};
   CHECK(ports.i2c->write(0x10, payload, 3) == 0);

@@ -6,6 +6,7 @@ import { MessageBus, type MessageBusSnapshot } from "../../core/message-bus";
 import { toUint32 } from "../../core/numeric";
 import { Radio } from "../../core/radio";
 import { SensorDriver } from "../../core/sensor-driver";
+import { Thermometer } from "../../core/thermometer";
 import { Timer } from "../../core/timer";
 import { TouchButton, type TouchButtonSnapshot } from "../../core/touch-button";
 import { NRF52FlashManager, type NRF52FlashSnapshot } from "../../nrf52/nrf52-flash-manager";
@@ -79,6 +80,9 @@ export class MicroBit {
   /** Three-axis accelerometer model. */
   public readonly accelerometer = new Accelerometer();
 
+  /** Die-temperature thermometer model, read in whole degrees Celsius. */
+  public readonly thermometer = new Thermometer();
+
   /** External I2C bus on the edge connector (pins P19/P20). */
   public readonly i2c = new I2CBus();
 
@@ -142,6 +146,7 @@ export class MicroBit {
     this.buttonB.reset();
     this.logo.reset();
     this.accelerometer.reset();
+    this.thermometer.reset();
     this.i2c.reset();
     this.gpio.reset();
     this.sensorDriver.reset();
@@ -191,6 +196,15 @@ export class MicroBit {
    */
   setLightLevel(level: number): void {
     this.display.setLightLevel(level);
+  }
+
+  /**
+   * Applies host-provided die-temperature input.
+   *
+   * @param celsius - Temperature in whole degrees Celsius; signed and unbounded.
+   */
+  setTemperature(celsius: number): void {
+    this.thermometer.setTemperature(celsius);
   }
 
   /**

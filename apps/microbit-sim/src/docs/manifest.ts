@@ -64,6 +64,7 @@ const tileContentKeys: Readonly<Record<string, string>> = {
   "tile.sensor->microbit-v2.button-logo": "sensor-logo",
   "tile.sensor->microbit-v2.gesture": "sensor-gesture",
   "tile.sensor->microbit-v2.light-level": "sensor-light-level",
+  "tile.sensor->microbit-v2.temperature": "sensor-temperature",
   "tile.sensor->microbit-v2.radio-receive-number": "sensor-radio-receive-number",
   "tile.sensor->microbit-v2.radio-receive-string": "sensor-radio-receive-string",
   "tile.sensor->microbit-v2.radio-receive-buffer": "sensor-radio-receive-buffer",

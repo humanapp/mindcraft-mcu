@@ -49,9 +49,10 @@ inline Value microBitContextFieldGetter(const Value & /*source*/, uint32_t field
  * to a `TouchButton` struct, each discriminated by its field id,
  * `accelerometer` to the singleton accelerometer struct, `i2c` to the singleton
  * I2C struct, `gpio` to the singleton GPIO struct, `sonar` to the singleton
- * sonar struct, `radio` to the singleton radio struct, and `audio` to the
- * singleton audio struct; any other field reads nil. Mirrors the MicroBit
- * field getter installed by the microbit-v2 module.
+ * sonar struct, `radio` to the singleton radio struct, `audio` to the singleton
+ * audio struct, and `thermometer` to the singleton thermometer struct; any other
+ * field reads nil. Mirrors the MicroBit field getter installed by the
+ * microbit-v2 module.
  */
 inline Value microBitFieldGetter(const Value & /*source*/, uint32_t fieldId)
 {
@@ -83,6 +84,9 @@ inline Value microBitFieldGetter(const Value & /*source*/, uint32_t fieldId)
                                   kNativeStructSingleton);
     case MicroBitField::Audio:
         return Value::structValue(static_cast<uint32_t>(MicroBitV2TypeAtomId::MicroBitAudio),
+                                  kNativeStructSingleton);
+    case MicroBitField::Thermometer:
+        return Value::structValue(static_cast<uint32_t>(MicroBitV2TypeAtomId::MicroBitThermometer),
                                   kNativeStructSingleton);
     default:
         return kNilValue;
