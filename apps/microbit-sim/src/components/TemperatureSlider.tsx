@@ -32,7 +32,8 @@ export function TemperatureSlider({ instance }: { instance: SimulatorInstance })
           onChange={(event) => onChange(Number(event.target.value))}
         />
         <span data-testid="temperature-value" className="w-8 text-right tabular-nums">
-          {temperature}{units}
+          {temperature}
+          {units}
         </span>
       </span>
     </label>

@@ -3,7 +3,7 @@ import { describe, test } from "node:test";
 import { AccelerometerGesture, GestureInjector, MicroBit } from "@mindcraft-lang/wodal/targets/microbit-v2";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { SimulatorInstance } from "@/services/simulator";
+import type { SimulatorInstance } from "../services/simulator";
 import { GesturePicker } from "./GesturePicker";
 
 /** Wraps a bare `MicroBit` plus a gesture injector as the only instance shape the picker reads. */

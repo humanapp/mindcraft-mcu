@@ -25,7 +25,6 @@ interface InstanceCardProps {
 export function InstanceCard({ instance, label, brains }: InstanceCardProps) {
   const store = useMicrobitSimEnvironment();
   const [editingBrain, setEditingBrain] = useState(false);
-  const loaded = instance.flashState.status === "loaded";
   const assigned = instance.flashedBrainId != null;
 
   return (
@@ -61,7 +60,7 @@ export function InstanceCard({ instance, label, brains }: InstanceCardProps) {
             type="button"
             data-testid="instance-edit-brain"
             aria-label={`Edit brain for ${label}`}
-            disabled={!loaded}
+            disabled={!assigned}
             className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
             onClick={() => setEditingBrain(true)}
           >
@@ -91,7 +90,7 @@ export function InstanceCard({ instance, label, brains }: InstanceCardProps) {
                   <button
                     type="button"
                     data-testid="instance-reset"
-                    disabled={!loaded}
+                    disabled={!assigned}
                     className="rounded px-2 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
                     onClick={() => void store.resetInstance(instance.id)}
                   >
