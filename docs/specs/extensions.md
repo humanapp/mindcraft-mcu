@@ -318,6 +318,53 @@ filters what it offers accordingly. Every extension declares at least one
 target; an extension usable on several platforms enumerates each of them --
 there is no universal wildcard.
 
+## Creating projects from a target
+
+A new project for a platform is created from that platform's target. This
+mechanism is a planned authoring surface; its intended shape is recorded here,
+and the parts noted as open are not yet settled.
+
+Creation has two layers. A harness-derived skeleton is produced from the
+target's own manifest with no target code: a manifest naming the new project,
+starting at an initial version, declaring the chosen target in its `targets`
+section, and seeding the extensions the target names -- together with the
+generated files a project of that platform needs, namely an editor and compiler
+configuration mapping the `@lib` import prefix to the install tree, an ignore
+list for generated files, and a host-application recommendation. A target that
+needs nothing more is complete from the skeleton alone and ships no creation
+code.
+
+Beyond the skeleton, a target may provide a create entry: a self-contained
+module the harness invokes to generate project content, for a target whose
+starting project is dynamic -- a procedurally seeded starter or a generated
+example -- rather than a fixed set of files. The create entry is a pure
+function: it performs no filesystem, network, or platform access, and it
+returns a description of the project -- manifest fragments merged onto the
+skeleton and a map of project-relative files -- which the harness writes. Every
+capability it uses is provided to it: the chosen name and options, a way to ask
+the user for input that each harness renders in its own interface, and a source
+of randomness the harness seeds. Because the entry holds no ambient authority
+and returns data rather than writing it, one implementation serves every
+harness -- the command-line tool, the editor extension, and the browser
+application -- identically, and it is safe to run inside a host application's
+sandbox. A target whose starting project is fixed may instead ship a static
+template of files the skeleton composes with; template and create entry compose
+when both are present.
+
+Creating a project fetches the target on the same pinned, catalog-governed,
+cacheable rails as a dependency, so creation works offline once cached. A fresh
+project records no identity; identity is acquired at its first publish. A
+create entry is code the target ships: an end-user host application keeps it
+within the sandbox, while the developer command-line tool, following the
+package-ecosystem norm, may execute a pinned, catalog-approved entry after a
+first-use consent that names the target and its exact commit.
+
+Open, not yet settled: whether a create entry drives interactive prompting or
+receives pre-collected answers; whether creation also materializes the
+platform's library stack into the project or defers that to first open; the
+isolation the developer tool enforces around a create entry beyond pinning and
+consent; and how the create-entry contract is versioned as it evolves.
+
 ## Catalog and approved extensions
 
 A host application may consume a catalog: a curated document listing
