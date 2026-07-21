@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "vite --config vite/config.dev.mjs --force",
     "build": "vite build --config vite/config.prod.mjs",
+    "build:deps": "node ../../scripts/build-packages.js .",
     "package": "vite build --config vite/config.prod.mjs && node scripts/assemble-target-package.mjs",
     "release": "node scripts/release.mjs",
     "clean": "rm -rf dist && rm -rf node_modules/.vite",
