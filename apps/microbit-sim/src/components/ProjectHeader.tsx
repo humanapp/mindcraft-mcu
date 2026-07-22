@@ -8,10 +8,26 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   ExtensionBrowserDialog,
 } from "@mindcraft-lang/ui";
-import { Blocks, BookOpen, ChevronDown, Download, FilePlus, FolderOpen, Settings, Upload } from "lucide-react";
+import {
+  Blocks,
+  BookOpen,
+  ChevronDown,
+  Download,
+  ExternalLink,
+  FilePlus,
+  FolderOpen,
+  Globe,
+  Info,
+  Menu,
+  Settings,
+  Upload,
+} from "lucide-react";
 import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";
@@ -30,6 +46,7 @@ import {
 import { downloadTextFile } from "@/utils/file-download";
 import { pickFile } from "@/utils/file-upload";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { GithubIcon } from "./GithubIcon";
 import { InlineRename } from "./InlineRename";
 import { NewProjectDialog } from "./NewProjectDialog";
 import { ProjectPickerDialog } from "./ProjectPickerDialog";
@@ -86,7 +103,7 @@ export function ProjectHeader() {
   const [unstableExportDependencies, setUnstableExportDependencies] = useState<readonly UnstableDependency[] | null>(
     null
   );
-  const { toggle: toggleDocs, isOpen: isDocsOpen } = useDocsSidebar();
+  const { toggle: toggleDocs, isOpen: isDocsOpen, open: openDocs, navigateToEntry } = useDocsSidebar();
 
   const catalogOffers = useMemo(() => buildMicrobitCatalogOffers(extensions, microbitEmbeddedExtensions), [extensions]);
 
@@ -355,19 +372,64 @@ export function ProjectHeader() {
           >
             <BookOpen />
           </Button>
-          {chrome.showSettings && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              data-testid="settings-button"
-              aria-label="Settings"
-              title="Settings"
-              onClick={() => setDialog("settings")}
-            >
-              <Settings />
-            </Button>
-          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="outline" size="sm" data-testid="app-menu-button" aria-label="Menu">
+                <Menu />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {chrome.showSettings && (
+                <>
+                  <DropdownMenuItem data-testid="settings-button" onClick={() => setDialog("settings")}>
+                    <Settings />
+                    Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
+              <DropdownMenuItem
+                data-testid="about-button"
+                onClick={() => {
+                  openDocs();
+                  navigateToEntry("concepts", "about");
+                }}
+              >
+                <Info />
+                About
+              </DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <ExternalLink />
+                  Learn more
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem asChild>
+                    <a
+                      data-testid="homepage-link"
+                      href="https://mindcraft-lang.org"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Globe />
+                      Mindcraft Homepage
+                    </a>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <a
+                      data-testid="github-link"
+                      href="https://github.com/humanapp/mindcraft-lang"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <GithubIcon />
+                      Mindcraft Github
+                    </a>
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
       {pendingUninstall !== null && (
