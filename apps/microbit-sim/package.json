@@ -11,14 +11,17 @@
     "build": "vite build --config vite/config.prod.mjs",
     "build:deps": "node ../../scripts/build-packages.js .",
     "package": "vite build --config vite/config.prod.mjs && node scripts/assemble-target-package.mjs",
-    "release": "node scripts/release.mjs",
+    "release-target": "node scripts/release-target.mjs",
     "clean": "rm -rf dist && rm -rf node_modules/.vite",
     "vendor:firmware": "node scripts/vendor-firmware.mjs",
     "generate:docs": "node scripts/build-docs.mjs",
     "check:only": "biome check ./src",
     "check": "biome check ./src --write",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.spec.json",
-    "test": "tsx --tsconfig tsconfig.spec.json --test $(find src -name '*.spec.ts')"
+    "test": "tsx --tsconfig tsconfig.spec.json --test $(find src -name '*.spec.ts')",
+    "release:patch": "node ../../scripts/release.js patch --skip-deps",
+    "release:minor": "node ../../scripts/release.js minor --skip-deps",
+    "release:major": "node ../../scripts/release.js major --skip-deps"
   },
   "dependencies": {
     "@microbit/microbit-connection": "^0.1.0",
