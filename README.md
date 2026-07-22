@@ -19,6 +19,11 @@ here as a git submodule under `external/`. The TypeScript reference VM is the
 executable specification; the native VM and the web runtime both mirror its
 observable bytecode semantics byte-for-byte.
 
+## Demo
+
+- [micro:bit Simulator](https://microbit.mindcraft-lang.org) -- build and test
+  brains in the browser, then flash the same brain to a physical micro:bit over WebUSB.
+
 ## Two VMs, one contract
 
 Every conforming Mindcraft VM decodes the same bytecode to the same semantics.
