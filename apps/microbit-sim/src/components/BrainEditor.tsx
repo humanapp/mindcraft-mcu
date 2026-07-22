@@ -17,10 +17,18 @@ export function BrainEditor({ brainId, onClose }: BrainEditorProps) {
   // and when the VFS revision advances so tile icons re-resolve against the new asset generation.
   const docRevision = useSyncExternalStore(store.subscribeToDocRevision, store.getDocRevisionSnapshot);
   const vfsRevision = useSyncExternalStore(store.subscribeToVfsRevision, store.getVfsRevisionSnapshot);
+  // Rebuild the config (and thus the isBrokenTile predicate identity) after each
+  // workspace compile so broken-tile badges appear/disappear as tiles change
+  // their compile status while the editor is open.
+  const compileDiagnostics = useSyncExternalStore(
+    store.subscribeToCompileDiagnostics,
+    store.getCompileDiagnosticsSnapshot
+  );
   const { openDocsForTile, isOpen: isDocsOpen, toggle: toggleDocs, close: closeDocs } = useDocsSidebar();
   const config = useMemo(() => {
     void docRevision;
     void vfsRevision;
+    void compileDiagnostics;
     return buildMicrobitBrainEditorConfig(
       store.env,
       (url) => store.resolveVfsAssetUrl(url),
@@ -28,9 +36,10 @@ export function BrainEditor({ brainId, onClose }: BrainEditorProps) {
       openDocsForTile,
       { isOpen: isDocsOpen, toggle: toggleDocs, close: closeDocs },
       store.host.installedLibraries,
-      store.printTransport
+      store.printTransport,
+      (tile) => store.host.getTileCompileDiagnostics(tile.action.key) !== undefined
     );
-  }, [store, docRevision, vfsRevision, openDocsForTile, isDocsOpen, toggleDocs, closeDocs]);
+  }, [store, docRevision, vfsRevision, compileDiagnostics, openDocsForTile, isDocsOpen, toggleDocs, closeDocs]);
   const [srcBrainDef, setSrcBrainDef] = useState<BrainDef | undefined>(undefined);
   const [isOpen, setIsOpen] = useState(false);
 

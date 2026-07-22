@@ -15,6 +15,7 @@ import {
   AppEnvironmentHost,
   type BrainDiagnosticEntry,
   collectBrainErrorDiagnostics,
+  collectBrainTileCompileDiagnostics,
   createFolderCompileDiagnosticsPublisher,
   createVfsAssetUrlProvider,
   type ExtensionResolutionWarning,
@@ -686,15 +687,20 @@ export class MicrobitSimEnvironmentStore {
   };
 
   /**
-   * The verbatim error diagnostics of a brain's stored typecheck state.
-   * Empty when the brain is not cached or is clean.
+   * The verbatim error diagnostics a brain surfaces: the stored per-rule
+   * typecheck errors, followed by the compile diagnostics of any broken user
+   * tile the brain uses (deduplicated per distinct tile key). Empty when the
+   * brain is not cached or is clean.
    */
   getBrainDiagnostics(brainId: string): readonly BrainDiagnosticEntry[] {
     const brain = this.host.getCachedBrain(brainId);
     if (!brain) {
       return [];
     }
-    return collectBrainErrorDiagnostics(brain);
+    return [
+      ...collectBrainErrorDiagnostics(brain),
+      ...collectBrainTileCompileDiagnostics(brain, (key) => this.host.getTileCompileDiagnostics(key)),
+    ];
   }
 
   // -- App settings (global) --

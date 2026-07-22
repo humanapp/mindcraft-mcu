@@ -80,7 +80,9 @@ export const microbitDataTypeNames: ReadonlyMap<string, string> = new Map([
  * with no mapped or intrinsic icon resolves to the bundled `question_mark.svg`
  * missing-tile fallback. Host tiles registered by the microbit-v2 module
  * appear automatically through `tileCatalogs`. Compiler-minted `/vfs/<path>`
- * tile icons resolve to loadable URLs through `resolveVfsAssetUrl`.
+ * tile icons resolve to loadable URLs through `resolveVfsAssetUrl`. When
+ * `isBrokenTile` is supplied, the editor badges each instance of a user tile
+ * whose definition failed to compile.
  */
 export function buildMicrobitBrainEditorConfig(
   env: MindcraftEnvironment,
@@ -89,7 +91,8 @@ export function buildMicrobitBrainEditorConfig(
   onTileHelp?: BrainEditorConfig["onTileHelp"],
   docsIntegration?: BrainEditorConfig["docsIntegration"],
   libraries?: BrainEditorConfig["libraries"],
-  printTransport?: BrainEditorConfig["printTransport"]
+  printTransport?: BrainEditorConfig["printTransport"],
+  isBrokenTile?: BrainEditorConfig["isBrokenTile"]
 ): BrainEditorConfig {
   return {
     projectNamespace,
@@ -97,6 +100,7 @@ export function buildMicrobitBrainEditorConfig(
     docsIntegration,
     libraries,
     printTransport,
+    isBrokenTile,
     dataTypeIcons: microbitDataTypeIcons,
     dataTypeNames: microbitDataTypeNames,
     customLiteralTypes: [],
