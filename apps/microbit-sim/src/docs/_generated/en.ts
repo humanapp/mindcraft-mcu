@@ -872,3 +872,80 @@ show something on the display.
 \`tile:tile.actuator->microbit-v2.display-scroll\`
 `,
 };
+
+export const conceptContent: Record<string, string> = {
+  about: `# Mindcraft micro:bit Simulator
+
+A browser-based simulator for the BBC micro:bit -- program its brain with tiles, watch it run in the simulator, then flash the same program onto a real board.
+
+Each brain is built from tiles -- visual blocks that read sensors, react to events, and drive the display, speaker, and radio. Edit a brain and the simulator reflects your changes immediately.
+
+## What does a brain look like?
+
+A brain is a list of rules. Each rule has a **WHEN** side (conditions) and a **DO** side (actions). Here is a rule that shows a heart when button A is pressed:
+
+\`\`\`brain
+{
+  "ruleJsons": [
+    {
+      "version": 1,
+      "when": [
+        "tile.sensor->microbit-v2.button-a",
+        "tile.modifier->microbit-v2.pressed"
+      ],
+      "do": [
+        "tile.actuator->microbit-v2.draw-image",
+        "tile.literal->struct:<Image>->heart"
+      ],
+      "children": []
+    }
+  ],
+  "catalog": []
+}
+\`\`\`
+
+Rules are evaluated top-to-bottom. Place more specific rules above more general ones so they take priority.
+
+## Getting started
+
+1. **Add a brain.** Use the **+** button in the brain list to create one.
+2. **Edit a brain.** Click **Edit Brain** to open the Brain Editor, add tiles to build rules, then close the editor to apply your changes.
+3. **Watch it run.** The simulator panel runs the brain live as you edit it.
+4. **Flash a real board.** Connect a micro:bit over WebUSB, or download a \`.hex\` file, to run the same program on hardware.
+
+## Tips
+
+- Use the docs panel (the book icon) to learn about individual tiles and rule patterns.
+- Write custom tiles in TypeScript over the VS Code Bridge -- see **Connect VS Code** in this panel.
+`,
+  vscode: `# Authoring Tiles in VS Code
+
+Write custom brain tiles in TypeScript using **VS Code for the Web**. The Mindcraft extension connects your editor to the micro:bit simulator so new sensors and actuators appear as tiles in the Brain Editor as you code.
+
+## Setup
+
+### 1. Install the extension
+
+1. Open [vscode.dev](https://vscode.dev)
+2. Switch to the Extensions panel
+3. Search for **mindcraft** and install it
+
+### 2. Start the bridge
+
+1. In the Dev Panel, turn on the **VS Code Bridge** toggle
+2. Once it connects, copy the **join code** to your clipboard
+
+### 3. Connect
+
+1. Back in vscode.dev, open the Command Palette (\`Ctrl+Shift+P\` / \`Cmd+Shift+P\`)
+2. Run \`Mindcraft: Connect\`
+3. Paste the **join code** and press Enter
+
+TypeScript files will now sync between the editor and the simulator. Edits hot-reload immediately -- save a file and the updated tile is ready to use.
+
+## Tips
+
+- Use \`Create New Sensor\` or \`Create New Actuator\` to scaffold an empty tile.
+- Once paired, the connection persists and reconnects automatically. A new join code is only needed if either side is manually disconnected.
+`,
+};

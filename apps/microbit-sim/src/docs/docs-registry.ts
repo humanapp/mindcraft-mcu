@@ -4,8 +4,11 @@ import { mkActionTileId } from "@mindcraft-lang/core/app";
 import type { ITileCatalog } from "@mindcraft-lang/core/brain";
 import type { DocsRegistry, DocsTileEntry } from "@mindcraft-lang/docs";
 import { buildDocsRegistry } from "@mindcraft-lang/docs";
-import { patternContent } from "./_generated/en";
+import { conceptContent, patternContent } from "./_generated/en";
 import {
+  conceptOrder,
+  conceptTags,
+  conceptTitles,
   patternDocs,
   tileCategoryOverrides,
   tileDocContent,
@@ -65,10 +68,10 @@ function buildHostTileDocEntries(catalog: ITileCatalog, isDocumented: (tileId: s
 
 /**
  * Builds the docs registry for the micro:bit simulator: the core docs, the
- * app's pattern pages, entries derived from the environment's visible host
- * catalog tiles, and entries for the project's compiled user tiles. Host
- * tiles without markdown content yet register with empty content and render
- * the sidebar's no-documentation fallback.
+ * app's pattern and concept pages, entries derived from the environment's
+ * visible host catalog tiles, and entries for the project's compiled user
+ * tiles. Host tiles without markdown content yet register with empty content
+ * and render the sidebar's no-documentation fallback.
  */
 export function createMicrobitDocsRegistry(
   env: MindcraftEnvironment,
@@ -76,6 +79,17 @@ export function createMicrobitDocsRegistry(
 ): DocsRegistry {
   const registry = buildDocsRegistry({
     appPatterns: { meta: patternDocs, content: patternContent },
+  });
+  const orderedConcepts = conceptOrder
+    .filter((id) => id in conceptContent)
+    .concat(Object.keys(conceptContent).filter((id) => !conceptOrder.includes(id)));
+  registry.register({
+    concepts: orderedConcepts.map((id) => ({
+      id,
+      title: conceptTitles[id] ?? id,
+      tags: conceptTags[id] ?? [],
+      content: conceptContent[id],
+    })),
   });
   const hostTileEntries = buildHostTileDocEntries(env.brainServices.edit.tiles, (tileId) => registry.tiles.has(tileId));
   if (hostTileEntries.length > 0) {

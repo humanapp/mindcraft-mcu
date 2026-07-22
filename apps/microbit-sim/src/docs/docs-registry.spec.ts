@@ -6,9 +6,10 @@ import { fileURLToPath } from "node:url";
 import { BrainTileModifierDef, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
 import type { IBrainTileDef } from "@mindcraft-lang/core/brain";
 import { createMicroBitV2Environment } from "@mindcraft-lang/wodal/targets/microbit-v2";
-import { patternContent, tileContent } from "./_generated/en";
+import { conceptContent, patternContent, tileContent } from "./_generated/en";
 import { createMicrobitDocsRegistry } from "./docs-registry";
 import {
+  conceptOrder,
   patternDocs,
   tileCategoryOverrides,
   tileDocContent,
@@ -125,6 +126,21 @@ describe("microbit-sim docs registry", () => {
       readContentDir("patterns"),
       "run `npm run generate:docs` after editing content/en/patterns"
     );
+    assert.deepEqual(
+      conceptContent,
+      readContentDir("concepts"),
+      "run `npm run generate:docs` after editing content/en/concepts"
+    );
+  });
+
+  test("every concept in conceptOrder registers under the concepts category", () => {
+    const env = createMicroBitV2Environment();
+    const registry = createMicrobitDocsRegistry(env, []);
+    for (const id of conceptOrder) {
+      const entry = registry.concepts.get(id);
+      assert.ok(entry, `concept '${id}' should register`);
+      assert.equal(entry.id, id);
+    }
   });
 
   test("every pattern doc entry registers with non-empty content", () => {

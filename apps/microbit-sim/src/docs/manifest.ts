@@ -54,6 +54,24 @@ export const patternDocs: readonly AppPatternDocMeta[] = [
 ];
 
 /**
+ * Title for each concept doc page, keyed by id (a filename stem under
+ * content/en/concepts/).
+ */
+export const conceptTitles: Readonly<Record<string, string>> = {
+  vscode: "Connect VS Code",
+  about: "About this App",
+};
+
+/** Search tags for each concept doc page, keyed by id. */
+export const conceptTags: Readonly<Record<string, string[]>> = {
+  vscode: ["vscode", "bridge", "typescript"],
+  about: [],
+};
+
+/** Sidebar display order for concept doc pages, by id. */
+export const conceptOrder: readonly string[] = ["vscode", "about"];
+
+/**
  * Content key (a filename stem under content/en/tiles/) for each documented
  * host tile, keyed by tile id.
  */

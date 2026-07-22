@@ -1,5 +1,6 @@
+import { useDocsSidebar } from "@mindcraft-lang/docs";
 import { Switch } from "@mindcraft-lang/ui";
-import { Check, Copy } from "lucide-react";
+import { Check, CircleHelp, Copy } from "lucide-react";
 import { useEffect, useId, useState, useSyncExternalStore } from "react";
 import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";
 import { clearBindingToken } from "@/services/binding-token-persistence";
@@ -7,11 +8,12 @@ import { CompileDiagnosticsConsole } from "./CompileDiagnosticsConsole";
 
 /**
  * Developer panel: the VS Code bridge section (an enable toggle, a
- * connection-status readout, and a copyable join code) and the build-output
- * section (the latest workspace compile's diagnostics as console output,
- * present only when the compile carries diagnostics). The enable toggle
- * drives the per-project `bridgeEnabled` preference; an enabled bridge
- * connects on mount and whenever the toggle flips on.
+ * connection-status readout, a copyable join code, and help affordances that
+ * open the docs sidebar to the "Connect VS Code" concept page) and the
+ * build-output section (the latest workspace compile's diagnostics as
+ * console output, present only when the compile carries diagnostics). The
+ * enable toggle drives the per-project `bridgeEnabled` preference; an
+ * enabled bridge connects on mount and whenever the toggle flips on.
  */
 export function BridgePanel() {
   const store = useMicrobitSimEnvironment();
@@ -24,6 +26,12 @@ export function BridgePanel() {
   const [bridgeEnabled, setBridgeEnabled] = useState(() => store.getUiPreferences().bridgeEnabled);
   const [copied, setCopied] = useState(false);
   const headingId = useId();
+  const { open: openDocs, navigateToEntry } = useDocsSidebar();
+
+  const showVsCodeHelp = () => {
+    openDocs();
+    navigateToEntry("concepts", "vscode");
+  };
 
   useEffect(() => {
     return store.onProjectLoaded(() => {
@@ -51,7 +59,17 @@ export function BridgePanel() {
       </h2>
       <div className="mt-3 space-y-2 rounded-lg border p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-sm font-medium">VS Code Bridge</h3>
+          <div className="flex items-center gap-0.5">
+            <h3 className="text-sm font-medium">VS Code Bridge</h3>
+            <button
+              type="button"
+              className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+              aria-label="VS Code Bridge Help"
+              onClick={showVsCodeHelp}
+            >
+              <CircleHelp className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          </div>
           <Switch
             checked={bridgeEnabled}
             onCheckedChange={(checked) => {
@@ -65,7 +83,7 @@ export function BridgePanel() {
             aria-label="Toggle VS Code bridge connection"
           />
         </div>
-        <output className={`text-xs font-mono ${statusColor}`}>{bridgeStatus}</output>
+        <output className={`block text-xs font-mono ${statusColor}`}>{bridgeStatus}</output>
         {joinCode && (bridgeStatus === "connected" || bridgeStatus === "reconnecting") && (
           <div className="flex items-center gap-1.5">
             <span className="truncate font-mono text-xs text-foreground">{joinCode}</span>
@@ -87,6 +105,13 @@ export function BridgePanel() {
             </button>
           </div>
         )}
+        <button
+          type="button"
+          className="text-left text-xs text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
+          onClick={showVsCodeHelp}
+        >
+          How to connect VS Code
+        </button>
       </div>
       {compileDiagnostics.length > 0 && (
         <div className="mt-3 space-y-2 rounded-lg border p-3">
