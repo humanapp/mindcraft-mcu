@@ -46,9 +46,9 @@ current session. This is an absolute rule.
 
 ## Package Manager
 
-- This repo uses npm. Do not use pnpm or yarn, and do not add their lockfiles,
-  a `packageManager` field, or `pnpm`/`yarn` invocations. The only root lockfile
-  is `package-lock.json`.
+- This repo uses npm exclusively; the only root lockfile is `package-lock.json`.
+  Keep pnpm and yarn out entirely -- no alternate lockfiles, no `packageManager`
+  field, no `pnpm`/`yarn` invocations.
 - This is intentionally NOT an npm workspaces monorepo, and must not become one.
   There is no root `workspaces` field. Each package and app runs its own
   `npm install` into its own `node_modules`; cross-package links use `file:`
@@ -74,8 +74,8 @@ current session. This is an absolute rule.
 - Complete functions fully. If a complete implementation cannot be inferred
   from context, suggest the minimal correct skeleton rather than a placeholder
   body.
-- Never use inline `import()` type expressions in `.ts` or `.tsx` files. Use a
-  top-level `import type` statement instead.
+- Write type-only imports as a top-level `import type` statement in `.ts` and
+  `.tsx` files; do not use inline `import()` type expressions.
 
 ## Minimalism (No Over-Build)
 
