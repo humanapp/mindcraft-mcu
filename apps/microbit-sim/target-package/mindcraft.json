@@ -1,6 +1,6 @@
 {
   "name": "micro:bit v2",
-  "version": "0.9.0",
+  "version": "0.9.2",
   "identity": "mindcraft-lang/trg-microbit-v2",
   "description": "Program the BBC micro:bit (v2) with Mindcraft.",
   "targets": {
@@ -11,9 +11,11 @@
   "hostApp": {
     "path": "app",
     "files": [
+      "app/assets/brain/icons/actuator-display-clear.svg",
       "app/assets/brain/icons/actuator-display-set-pixel.svg",
       "app/assets/brain/icons/actuator-display-text.svg",
       "app/assets/brain/icons/actuator-draw-image.svg",
+      "app/assets/brain/icons/actuator-play-sound.svg",
       "app/assets/brain/icons/actuator-radio-send.svg",
       "app/assets/brain/icons/actuator-set-radio-group.svg",
       "app/assets/brain/icons/actuator-switch-page.svg",
@@ -39,6 +41,7 @@
       "app/assets/brain/icons/lit-factory-text.svg",
       "app/assets/brain/icons/literal-false.svg",
       "app/assets/brain/icons/literal-nil.svg",
+      "app/assets/brain/icons/literal-sound.svg",
       "app/assets/brain/icons/literal-true.svg",
       "app/assets/brain/icons/minus.svg",
       "app/assets/brain/icons/modifier-click.svg",
@@ -74,6 +77,7 @@
       "app/assets/brain/icons/parameter-brightness.svg",
       "app/assets/brain/icons/parameter-duration.svg",
       "app/assets/brain/icons/parameter-image.svg",
+      "app/assets/brain/icons/parameter-sound.svg",
       "app/assets/brain/icons/parameter-text.svg",
       "app/assets/brain/icons/parameter-x.svg",
       "app/assets/brain/icons/parameter-y.svg",
@@ -84,11 +88,13 @@
       "app/assets/brain/icons/sensor-button-b.svg",
       "app/assets/brain/icons/sensor-button-logo.svg",
       "app/assets/brain/icons/sensor-gesture.svg",
+      "app/assets/brain/icons/sensor-light-level.svg",
       "app/assets/brain/icons/sensor-on-page-entered.svg",
       "app/assets/brain/icons/sensor-radio-receive-buffer.svg",
       "app/assets/brain/icons/sensor-radio-receive-number.svg",
       "app/assets/brain/icons/sensor-radio-receive-string.svg",
       "app/assets/brain/icons/sensor-random.svg",
+      "app/assets/brain/icons/sensor-temperature.svg",
       "app/assets/brain/icons/sensor-timeout.svg",
       "app/assets/brain/icons/text.svg",
       "app/assets/brain/icons/ts-logo-128.svg",
@@ -96,10 +102,11 @@
       "app/assets/brain/icons/var-factory-number.svg",
       "app/assets/brain/icons/var-factory-text.svg",
       "app/assets/fonts/latinmodern-math.woff2",
-      "app/assets/index-AqqN1dS8.js",
-      "app/assets/index-Du4d4IDm.css",
+      "app/assets/index-KmUVX6sS.css",
+      "app/assets/index-v5VULqQm.js",
       "app/index.html",
       "app/microbit-v2.svg"
     ]
-  }
+  },
+  "buildVersion": "0.9.2"
 }
