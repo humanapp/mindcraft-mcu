@@ -89,13 +89,16 @@ display, tracking the device / `PixelDisplayPort` shape rather than the tile sem
 | `setPixelValue(x, y, brightness)` | void | instantaneous per-pixel write (sync; **not gated by the display lease**) |
 | `getPixelValue(x, y)` | number | per-pixel read (sync) |
 | `clear()` | void | **cancels any active display lease** (preempts an in-flight scroll/draw, resolving its awaiting rule) **and zeros all LEDs** (sync; emits `port display clear`) |
-| `drawImage(image, duration?)` | `Promise<void>` | the awaited (op 41) draw actuator - see Member: draw image (duration in seconds, default 1 s, `0` = fire-and-forget; same lease as the `draw image` tile) |
+| `drawImage(image, options?)` | `Promise<void>` | the awaited (op 41) draw actuator - see Member: draw image (same lease as the `draw image` tile). `options` is a `DrawImageOptions` bag `{ duration?, immediately?, inBackground? }`: `duration` in seconds (default 1 s, `0` = fire-and-forget with no lease); `immediately` preempts the current display lease at dispatch; `inBackground` keeps the draw's lease but resolves the call at dispatch (distinct from `duration` `0`, which takes no lease) |
+| `scrollText(text, options?)` | `Promise<void>` | the awaited (op 41) scroll actuator - scrolls `text` across the display over its computed duration (same lease as the `display text` tile). `options` is a `ScrollTextOptions` bag `{ immediately?, inBackground? }`: `immediately` preempts the current display lease at dispatch; `inBackground` keeps the scroll's lease but resolves the call at dispatch |
 
-- **`scroll` is tile-only** today (a temporal actuator, the `display text` tile); expose an
-  awaited `display.scroll()` here only if a TS-user-code consumer wants it (no consumer today).
-- **`in background` is a tile modifier** today; a background-with-lease form on the Device-API
-  `drawImage` is deferred to a TS-user-code consumer. (The Device API's existing `0` duration is its
-  fire-and-forget, but takes no lease; the tile modifier keeps the lease and skips only the await.)
+- The temporal Device-API actuators (`drawImage`, `scrollText`) take an optional per-method
+  options bag (`DrawImageOptions` / `ScrollTextOptions`) carrying `immediately?` and
+  `inBackground?` (and, for `DrawImageOptions`, `duration?`), realizing the same two lease
+  behaviors as the tile modifiers (see Arbitration): `immediately` preempts the held lease at
+  dispatch, and `inBackground` keeps the operation's lease but resolves the call at dispatch so
+  the caller continues without awaiting it. For `drawImage`, `inBackground` (lease kept, await
+  skipped) is distinct from `duration` `0` (no lease at all).
 - The Device-API host-fn ids + the `Image` / draw-image ids are in the micro:bit-v2 target section.
 
 ## Arbitration: the display lease

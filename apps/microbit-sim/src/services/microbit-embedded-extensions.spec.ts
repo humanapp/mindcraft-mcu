@@ -106,7 +106,7 @@ export default Actuator({
     const microbit: MicroBit = ctx.microbit;
     const buttonA: Button = microbit.buttonA;
     const pixels: Buffer = heartIcon.pixels;
-    await ctx.microbit.display.drawImage(heartIcon, 0);
+    await ctx.microbit.display.drawImage(heartIcon, { duration: 0 });
     void buttonA;
     void pixels;
   },

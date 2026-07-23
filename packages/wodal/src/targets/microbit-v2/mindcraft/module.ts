@@ -9,6 +9,8 @@ import {
   type ExecutionContext,
   extractNumberValue,
   extractStringValue,
+  isBooleanValue,
+  isStructValue,
   List,
   type MindcraftModule,
   type MindcraftModuleApi,
@@ -111,6 +113,15 @@ export const WODAL_MICROBIT_V2_TYPE_IDS = {
   /** Native-backed thermometer facade for the simulated device. */
   Thermometer: mkTypeId(NativeType.Struct, "Thermometer"),
 
+  /** Options struct for `MicroBitAudio.playSound`: the two optional lease flags. */
+  PlaySoundOptions: mkTypeId(NativeType.Struct, "PlaySoundOptions"),
+
+  /** Options struct for `MicroBitDisplay.drawImage`: the optional hold duration and two lease flags. */
+  DrawImageOptions: mkTypeId(NativeType.Struct, "DrawImageOptions"),
+
+  /** Options struct for `MicroBitDisplay.scrollText`: the two optional lease flags. */
+  ScrollTextOptions: mkTypeId(NativeType.Struct, "ScrollTextOptions"),
+
   /** Value struct describing one received radio packet (drain-all element). */
   RadioPacket: mkTypeId(NativeType.Struct, "RadioPacket"),
 
@@ -154,10 +165,40 @@ export enum MicroBitField {
 }
 
 /**
+ * Field ids of the `PlaySoundOptions` and `ScrollTextOptions` option structs,
+ * whose two optional lease flags share this layout in declaration order.
+ */
+enum LeaseOptionsField {
+  Immediately = 0,
+  InBackground = 1,
+}
+
+/**
+ * Field ids of the `DrawImageOptions` option struct in declaration order: the
+ * optional hold duration ahead of the two lease flags.
+ */
+enum DrawImageOptionsField {
+  Duration = 0,
+  Immediately = 1,
+  InBackground = 2,
+}
+
+/**
  * Field id of the `microbit` field this profile adds to the core `Context`
  * struct. Core owns Context ids 0-5; device extensions start at 6.
  */
 export const CONTEXT_MICROBIT_FIELD_ID = 6;
+
+/** The value at `fieldIndex` of an options struct arg, or nil when the arg is absent or not a struct. */
+function optionField(options: Value | undefined, fieldIndex: number): Value {
+  return isStructValue(options) && options.v !== undefined ? (options.v.get(fieldIndex) ?? NIL_VALUE) : NIL_VALUE;
+}
+
+/** True when the boolean field at `fieldIndex` of an options struct arg is present and true. */
+function optionFlag(options: Value | undefined, fieldIndex: number): boolean {
+  const field = optionField(options, fieldIndex);
+  return isBooleanValue(field) && field.v;
+}
 
 /** Creates the Mindcraft module for the WODAL profile. */
 export function createMicroBitV2Module(): MindcraftModule {
@@ -213,14 +254,17 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
         name: "drawImage",
         params: List.from([
           { name: "image", typeId: WODAL_SHARED_TYPE_IDS.Image },
-          { name: "duration", typeId: CoreTypeIds.Number, optional: true },
+          { name: "options", typeId: WODAL_MICROBIT_V2_TYPE_IDS.DrawImageOptions, optional: true },
         ]),
         returnTypeId: CoreTypeIds.Void,
         isAsync: true,
       },
       {
         name: "scrollText",
-        params: List.from([{ name: "text", typeId: CoreTypeIds.String }]),
+        params: List.from([
+          { name: "text", typeId: CoreTypeIds.String },
+          { name: "options", typeId: WODAL_MICROBIT_V2_TYPE_IDS.ScrollTextOptions, optional: true },
+        ]),
         returnTypeId: CoreTypeIds.Void,
         isAsync: true,
       },
@@ -408,6 +452,41 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
     fields: List.from([{ name: "name", typeId: CoreTypeIds.String, fieldIndex: SoundEmojiField.Name }]),
   });
 
+  types.addStructType("PlaySoundOptions", {
+    atomId: MicroBitV2TypeAtomId.PlaySoundOptions,
+    fields: List.from([
+      { name: "immediately", typeId: CoreTypeIds.Boolean, fieldIndex: LeaseOptionsField.Immediately, optional: true },
+      { name: "inBackground", typeId: CoreTypeIds.Boolean, fieldIndex: LeaseOptionsField.InBackground, optional: true },
+    ]),
+  });
+
+  types.addStructType("DrawImageOptions", {
+    atomId: MicroBitV2TypeAtomId.DrawImageOptions,
+    fields: List.from([
+      { name: "duration", typeId: CoreTypeIds.Number, fieldIndex: DrawImageOptionsField.Duration, optional: true },
+      {
+        name: "immediately",
+        typeId: CoreTypeIds.Boolean,
+        fieldIndex: DrawImageOptionsField.Immediately,
+        optional: true,
+      },
+      {
+        name: "inBackground",
+        typeId: CoreTypeIds.Boolean,
+        fieldIndex: DrawImageOptionsField.InBackground,
+        optional: true,
+      },
+    ]),
+  });
+
+  types.addStructType("ScrollTextOptions", {
+    atomId: MicroBitV2TypeAtomId.ScrollTextOptions,
+    fields: List.from([
+      { name: "immediately", typeId: CoreTypeIds.Boolean, fieldIndex: LeaseOptionsField.Immediately, optional: true },
+      { name: "inBackground", typeId: CoreTypeIds.Boolean, fieldIndex: LeaseOptionsField.InBackground, optional: true },
+    ]),
+  });
+
   types.addStructType("Radio", {
     atomId: MicroBitV2TypeAtomId.Radio,
     fields: List.empty(),
@@ -476,7 +555,10 @@ function registerMicroBitTypes(api: MindcraftModuleApi): void {
     methods: List.from([
       {
         name: "playSound",
-        params: List.from([{ name: "sound", typeId: CoreTypeIds.String }]),
+        params: List.from([
+          { name: "sound", typeId: CoreTypeIds.String },
+          { name: "options", typeId: WODAL_MICROBIT_V2_TYPE_IDS.PlaySoundOptions, optional: true },
+        ]),
         returnTypeId: CoreTypeIds.Void,
         isAsync: true,
       },
@@ -612,9 +694,15 @@ function registerMicroBitDisplayFunctions(api: MindcraftModuleApi): void {
           handle.resolve(VOID_VALUE);
           return;
         }
+        const options = args.get(2);
+        // The `immediately` flag preempts the current display lease at dispatch,
+        // so the draw runs at once even when the display is busy.
+        if (optionFlag(options, DrawImageOptionsField.Immediately)) {
+          display.preempt();
+        }
         const imageArg = args.get(1);
         const clipped = (imageArg !== undefined ? clipImage(imageArg) : undefined) ?? DEFAULT_IMAGE;
-        const durationSeconds = extractNumberValue(args.get(2));
+        const durationSeconds = extractNumberValue(optionField(options, DrawImageOptionsField.Duration));
         // Convert the seconds argument to whole ms at f32 precision, matching the device.
         const durationMs =
           durationSeconds === undefined
@@ -622,6 +710,12 @@ function registerMicroBitDisplayFunctions(api: MindcraftModuleApi): void {
             : toNonNegativeInteger(Math.fround(durationSeconds * 1000));
         // This host function draws a single image, leased as a one-frame sequence.
         display.drawImage([clipped], durationMs, ctx.time, () => handle.resolve(VOID_VALUE));
+        // The `inBackground` flag keeps the draw's tick-time lease but resolves the
+        // handle now, releasing the caller so it does not park on the hold. It is
+        // distinct from a zero duration, which takes no lease at all.
+        if (optionFlag(options, DrawImageOptionsField.InBackground)) {
+          handle.resolve(VOID_VALUE);
+        }
       },
     },
     callDef: emptyCallDef,
@@ -649,9 +743,20 @@ function registerMicroBitDisplayFunctions(api: MindcraftModuleApi): void {
           handle.resolve(VOID_VALUE);
           return;
         }
+        const options = args.get(2);
+        // The `immediately` flag preempts the current display lease at dispatch,
+        // so the show runs at once even when the display is busy.
+        if (optionFlag(options, LeaseOptionsField.Immediately)) {
+          display.preempt();
+        }
         const text = extractStringValue(args.get(1)) ?? "";
         const durationMs = scrollDurationMs(text.length, SCROLL_DEFAULT_DELAY_MS);
         display.scrollText(text, durationMs, ctx.time, () => handle.resolve(VOID_VALUE));
+        // The `inBackground` flag keeps the show's tick-time lease but resolves the
+        // handle now, releasing the caller so it does not park on the animation.
+        if (optionFlag(options, LeaseOptionsField.InBackground)) {
+          handle.resolve(VOID_VALUE);
+        }
       },
     },
     callDef: emptyCallDef,
@@ -1104,7 +1209,18 @@ function registerAudioFunctions(api: MindcraftModuleApi): void {
         // A non-string or absent argument reads as an empty name, which the
         // speaker treats as a name outside the built-in set: a silent no-op.
         const name = extractStringValue(args.get(1)) ?? "";
+        const options = args.get(2);
+        // The `immediately` flag preempts the current speaker lease at dispatch,
+        // before the new play is examined, so an unknown name still preempts.
+        if (optionFlag(options, LeaseOptionsField.Immediately)) {
+          speaker.preempt();
+        }
         speaker.playSoundEmoji(name, ctx.time, () => handle.resolve(VOID_VALUE));
+        // The `inBackground` flag keeps the play's tick-time lease but resolves
+        // the handle now, releasing the caller so it does not park on playback.
+        if (optionFlag(options, LeaseOptionsField.InBackground)) {
+          handle.resolve(VOID_VALUE);
+        }
       },
     },
     callDef: emptyCallDef,

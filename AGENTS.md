@@ -12,14 +12,23 @@ For the working temperament and decision style to apply on ambiguous work
 (small-step workflow, ownership boundaries, handoff posture), read
 `.github/instructions/agent-posture.instructions.md`.
 
-## Git Staging
+## Git Is Read-Only
 
-The Git staging area is read-only for Codex, Copilot, Claude, or other agent.
+Git is a read-only tool for Codex, Copilot, Claude, and any other agent,
+including subagents spawned for a task. Use it freely to inspect and to query
+history: `status`, `log`, `diff`, `show`, `blame`, `reflog`, `rev-parse`,
+`for-each-ref`, `branch --list`, and the like. `git rm` and `git mv` are also
+allowed, as ordinary file operations while editing the repo.
 
-The agent must never run `git add`, unstage files, or otherwise mutate the Git
-index unless explicitly instructed by the user in that specific turn.
+Everything that changes repository state -- the working tree, the index, the
+stash, or any commit, branch, tag, or ref -- is the user's to run. Do it only
+when the user asks for that specific write in that turn.
 
-The agent must not emit staging directives.
+Two commands read as harmless but are writes: `git checkout -- <file>` and
+`git restore <file>` discard uncommitted work. Treat them as writes.
+
+To undo or fix a file, edit or regenerate it directly, and leave changes you did
+not make as they stand.
 
 ## Never Kill Processes You Do Not Own
 

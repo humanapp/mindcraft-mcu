@@ -3,6 +3,9 @@ declare module "mindcraft" {
     MicroBitDisplay: MicroBitDisplay;
     Thermometer: Thermometer;
     SoundEmoji: SoundEmoji;
+    PlaySoundOptions: PlaySoundOptions;
+    DrawImageOptions: DrawImageOptions;
+    ScrollTextOptions: ScrollTextOptions;
     MicroBitAudio: MicroBitAudio;
     MicroBit: MicroBit;
   }
@@ -12,8 +15,8 @@ declare module "mindcraft" {
     setPixelValue(x: number, y: number, brightness: number): void;
     getPixelValue(x: number, y: number): number;
     clear(): void;
-    drawImage(image: Image, duration?: number): Promise<void>;
-    scrollText(text: string): Promise<void>;
+    drawImage(image: Image, options?: DrawImageOptions): Promise<void>;
+    scrollText(text: string, options?: ScrollTextOptions): Promise<void>;
     getLightLevel(): number;
   }
   export interface Thermometer {
@@ -23,9 +26,22 @@ declare module "mindcraft" {
   export interface SoundEmoji {
     name: string;
   }
+  export interface PlaySoundOptions {
+    immediately?: boolean;
+    inBackground?: boolean;
+  }
+  export interface DrawImageOptions {
+    duration?: number;
+    immediately?: boolean;
+    inBackground?: boolean;
+  }
+  export interface ScrollTextOptions {
+    immediately?: boolean;
+    inBackground?: boolean;
+  }
   export interface MicroBitAudio {
     readonly __brand: unique symbol;
-    playSound(sound: string): Promise<void>;
+    playSound(sound: string, options?: PlaySoundOptions): Promise<void>;
   }
   export interface MicroBit {
     readonly __brand: unique symbol;

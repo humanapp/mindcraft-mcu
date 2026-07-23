@@ -93,7 +93,7 @@ export default Actuator({
         0, 0, 0, 0, 0,
       ]),
     };
-    await ctx.microbit.display.drawImage(image, 0.25);
+    await ctx.microbit.display.drawImage(image, { duration: 0.25 });
     ctx.microbit.display.setPixelValue(4, 4, 255);
   },
 });

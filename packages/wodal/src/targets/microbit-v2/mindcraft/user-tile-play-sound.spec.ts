@@ -33,7 +33,7 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { CoreHostActions, type MindcraftEnvironment, mkSensorTileId } from "@mindcraft-lang/core/app";
 import type { IBrainTileDef } from "@mindcraft-lang/core/brain";
-import { BrainDef, type BrainRuleDef } from "@mindcraft-lang/core/brain/model";
+import { BrainDef, type BrainPageDef, type BrainRuleDef } from "@mindcraft-lang/core/brain/model";
 import {
   BrainRuntime,
   type LinkedBrainProgram,
@@ -63,18 +63,41 @@ const ON_PAGE_ENTERED = CoreHostActions.OnPageEntered.actionId;
  */
 const TICK_ADVANCE_MS = 500;
 
+/** The two optional lease flags of a `playSound` call, defaulting false. */
+interface PlaySoundFlags {
+  /** Preempt the current speaker lease at dispatch and play now. */
+  readonly immediately?: boolean;
+
+  /** Resolve the call at dispatch so the caller continues without awaiting playback. */
+  readonly inBackground?: boolean;
+}
+
+/** A `ctx.microbit.audio.playSound(...)` call, adding the options struct only when a flag is set. */
+function playSoundCall(sound: string, flags: PlaySoundFlags): string {
+  const entries: string[] = [];
+  if (flags.immediately) {
+    entries.push("immediately: true");
+  }
+  if (flags.inBackground) {
+    entries.push("inBackground: true");
+  }
+  const options = entries.length > 0 ? `, { ${entries.join(", ")} }` : "";
+  return `ctx.microbit.audio.playSound(${JSON.stringify(sound)}${options})`;
+}
+
 /**
- * Source of an async actuator that awaits `playSound(sound)` and, when
- * `marker` is set, lights pixel (4,4) once the await resolves.
+ * Source of an async actuator that awaits `playSound(sound)` with the given
+ * lease flags and, when `marker` is set, lights pixel (4,4) once the await
+ * resolves.
  */
-function actuatorSource(name: string, sound: string, marker: boolean): string {
+function actuatorSource(name: string, sound: string, marker: boolean, flags: PlaySoundFlags = {}): string {
   const markerLine = marker ? "\n    ctx.microbit.display.setPixelValue(4, 4, 255);" : "";
   return `import { Actuator, type Context } from "mindcraft";
 
 export default Actuator({
   name: "${name}",
   async onExecute(ctx: Context): Promise<void> {
-    await ctx.microbit.audio.playSound(${JSON.stringify(sound)});${markerLine}
+    await ${playSoundCall(sound, flags)};${markerLine}
   },
 });
 `;
@@ -112,14 +135,17 @@ function hostServicesOf(environment: MindcraftEnvironment): Omit<PlatformService
 
 /**
  * Compiles the given actuator sources, installs them, and builds a single-page
- * brain: the root rule fires on page entry (the core `on page entered` sensor)
- * and runs the first actuator; each further actuator runs in a child rule
- * nested under the previous one, firing when its parent's do completes.
+ * brain whose rules each fire on page entry (the core `on page entered`
+ * sensor) and run one actuator. With `structure: "chain"` (the default) each
+ * further actuator runs in a child rule nested under the previous one, firing
+ * when its parent's do completes; with `structure: "siblings"` each runs in its
+ * own root rule, so all dispatch the same round and compete for the lease.
  */
 function buildImage(
   environment: MindcraftEnvironment,
   files: ReadonlyMap<string, string>,
-  actuatorNames: readonly string[]
+  actuatorNames: readonly string[],
+  structure: "chain" | "siblings" = "chain"
 ): WodalProgramImage<LinkedBrainProgram> {
   const project = new UserTileProject({
     projectNamespace: TEST_PROJECT_NAMESPACE,
@@ -141,11 +167,17 @@ function buildImage(
   assert.ok(onPageEntered, "on page entered sensor tile should be registered");
 
   const brainDef = BrainDef.emptyBrainDef(environment.brainServices, "user-tile play-sound brain");
-  let rule = brainDef.pages().get(0)!.children().get(0)! as BrainRuleDef;
+  const page = brainDef.pages().get(0)! as BrainPageDef;
+  let rule = page.children().get(0)! as BrainRuleDef;
   rule.when().appendTile(onPageEntered);
   for (let i = 0; i < actuatorNames.length; i++) {
     if (i > 0) {
-      rule = rule.appendNewRule();
+      rule = structure === "siblings" ? (page.appendNewRule() as BrainRuleDef) : rule.appendNewRule();
+      // A sibling root fires on page entry like the first; a chained child
+      // fires when its parent's do completes, so it carries no when tile.
+      if (structure === "siblings") {
+        rule.when().appendTile(onPageEntered);
+      }
     }
     rule.do().appendTile(findActuatorTile(bundle.tiles, actuatorNames[i]!));
   }
@@ -292,6 +324,20 @@ function tickOfLine(trace: string, predicate: (line: string) => boolean): number
   return -1;
 }
 
+/** The 1-based tick index of the last line matching `predicate`, or -1. */
+function lastTickOfLine(trace: string, predicate: (line: string) => boolean): number {
+  let currentTick = 0;
+  let found = -1;
+  for (const line of trace.split("\n")) {
+    if (line.startsWith("tick ")) {
+      currentTick = Number.parseInt(line.split(" ")[1]!, 16);
+    } else if (predicate(line)) {
+      found = currentTick;
+    }
+  }
+  return found;
+}
+
 /**
  * Pins the `.mcprogram` / `.mcprogram.bin` / `.ticks.trace` golden triple for
  * a play-sound fixture: the JSON freezes the brain's generated page id, the
@@ -302,7 +348,8 @@ function runPlaySoundFixture(
   name: string,
   files: ReadonlyMap<string, string>,
   actuatorNames: readonly string[],
-  tickCount: number
+  tickCount: number,
+  structure: "chain" | "siblings" = "chain"
 ): string {
   const jsonPath = fileURLToPath(new URL(`./__fixtures__/${name}.mcprogram`, import.meta.url));
   const binPath = fileURLToPath(new URL(`./__fixtures__/${name}.mcprogram.bin`, import.meta.url));
@@ -310,7 +357,7 @@ function runPlaySoundFixture(
 
   if (!existsSync(jsonPath)) {
     const environment = createMicroBitV2Environment();
-    const image = buildImage(environment, files, actuatorNames);
+    const image = buildImage(environment, files, actuatorNames, structure);
     writeFileSync(
       jsonPath,
       serializeWodalProgramImageJson({ ...image, program: linkedBrainProgramToJson(image.program) })
@@ -412,4 +459,66 @@ test("a chained rule per built-in awaits each play, pinning every nominal durati
     tickOfLine(trace, (l) => l.startsWith("port display set-pixel ")),
     markerTick
   );
+});
+
+test("a user-tile playSound with immediately preempts the holder, whose rule resumes", () => {
+  // Two root rules fire the same round: the first awaits `twinkle` and takes
+  // the lease; the second plays `happy` with `immediately`, which preempts the
+  // holder at dispatch. Both plays cross the port on the dispatch tick; the
+  // preempted holder resumes well before its own sound's nominal completion.
+  const [happyStep] = chainSchedule(["happy"]);
+  const markerTick = happyStep!.settleTick + 1;
+  const trace = runPlaySoundFixture(
+    "user-tile-play-sound-preempt",
+    new Map([
+      ["user-play-hold.ts", actuatorSource("user-play-hold", "twinkle", true)],
+      ["user-play-preempt.ts", actuatorSource("user-play-preempt", "happy", true, { immediately: true })],
+    ]),
+    ["user-play-hold", "user-play-preempt"],
+    markerTick,
+    "siblings"
+  );
+  const lines = trace.split("\n");
+  assert.equal(lines.filter((line) => line === 'port speaker play "twinkle"').length, 1);
+  assert.equal(lines.filter((line) => line === 'port speaker play "happy"').length, 1);
+  // Both plays cross the port on the shared dispatch tick.
+  assert.equal(
+    lastTickOfLine(trace, (l) => l.startsWith("port speaker play ")),
+    happyStep!.portTick
+  );
+  // Both rules resume: the preempted holder well before `twinkle` would settle
+  // naturally, the preemptor after `happy`'s own nominal duration.
+  assert.equal(lines.filter((line) => line.startsWith("port display set-pixel ")).length, 2);
+  const [twinkleStep] = chainSchedule(["twinkle"]);
+  const twinkleNaturalResume = twinkleStep!.settleTick + 1;
+  const firstPixelTick = tickOfLine(trace, (l) => l.startsWith("port display set-pixel "));
+  assert.ok(firstPixelTick > 0 && firstPixelTick < twinkleNaturalResume);
+  assert.equal(
+    lastTickOfLine(trace, (l) => l.startsWith("port display set-pixel ")),
+    markerTick
+  );
+});
+
+test("a user-tile playSound in background keeps its lease while the issuing rule continues", () => {
+  // `inBackground` resolves the await at dispatch, so the marker lands on the
+  // dispatch tick while `twinkle` keeps its speaker lease for many more thinks.
+  const tickCount = 4;
+  const trace = runPlaySoundFixture(
+    "user-tile-play-sound-background",
+    new Map([
+      ["user-play-background.ts", actuatorSource("user-play-background", "twinkle", true, { inBackground: true })],
+    ]),
+    ["user-play-background"],
+    tickCount
+  );
+  const lines = trace.split("\n");
+  assert.equal(lines.filter((line) => line === 'port speaker play "twinkle"').length, 1);
+  assert.equal(lines.filter((line) => line.startsWith("port display set-pixel ")).length, 1);
+  const pixelTick = tickOfLine(trace, (l) => l.startsWith("port display set-pixel "));
+  // The marker lands the same round the play dispatched, far below the tick
+  // `twinkle` would settle on if the rule had awaited its full duration.
+  const [twinkleStep] = chainSchedule(["twinkle"]);
+  assert.equal(pixelTick, twinkleStep!.portTick);
+  assert.ok(pixelTick < twinkleStep!.settleTick + 1);
+  assert.ok(tickCount > pixelTick + 1, "the background play holds the lease past the issuing rule's think");
 });

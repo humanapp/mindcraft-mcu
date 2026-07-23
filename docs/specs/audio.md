@@ -49,10 +49,14 @@ The audio family is delivered on the three standard surfaces:
   sound. A **`create a sound`** factory tile opens the sound-effect editor and produces a
   `Sound` value.
 - **Device API.** `ctx.microbit.audio` (registry: `microbit-context.md`) has an awaited
-  **`playSound(sound)`** method taking a built-in sound name (a name outside the target's
-  built-in set is a silent no-op that resolves at once); the `Sound` type is visible to TS
-  user code. Busy-speaker behavior is reject-by-default; the modifiers are a tile-surface
-  affordance.
+  **`playSound(sound, options?)`** method taking a built-in sound name (a name outside the
+  target's built-in set is a silent no-op that resolves at once) plus an optional
+  **`PlaySoundOptions`** bag -- `{ immediately?, inBackground? }` -- selecting the same lease
+  behaviors as the tile modifiers: `immediately` preempts the speaker lease at dispatch (the
+  current sound stops and its awaiting rule resolves), and `inBackground` resolves the call at
+  dispatch so the caller continues without awaiting playback. Both flags default false and the
+  bag is optional, so a bare `playSound(sound)` is awaited and reject-by-default -- a play
+  requested while the speaker is busy is dropped. The `Sound` type is visible to TS user code.
 - **Simulator - the sound-effect editor.** A **custom literal factory** bound to the `Sound`
   type - a simplified, friendlier sfxr: the controls are the `Sound` fields (waveform, base
   frequency, duration, volume, a frequency sweep, a vibrato, and a volume envelope / fade in-out),

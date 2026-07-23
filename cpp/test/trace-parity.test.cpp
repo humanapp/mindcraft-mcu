@@ -24,6 +24,7 @@
 #include "targets/microbit-v2/abi/host-actions/host-action-bindings.h"
 #include "targets/microbit-v2/abi/host-functions/host-func-bindings.h"
 #include "targets/microbit-v2/abi/native-struct-bindings.h"
+#include "targets/microbit-v2/abi/registered-structs.h"
 #include "targets/microbit-v2/abi/sound-emoji.h"
 #include "targets/microbit-v2/abi/type-atom-id.h"
 
@@ -3929,7 +3930,7 @@ void checkUserTileDrawFixture(const std::string& name, int tickCount, float tick
   mindcraft::TypeRegistry types(image);
   auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
-  auto registeredStructs = mindcraft::makeSharedRegisteredStructSlotCounts();
+  auto registeredStructs = mindcraft::makeMicroBitV2RegisteredStructSlotCounts();
   types.setRegisteredStructSlotCounts({registeredStructs.data(), registeredStructs.size()});
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
@@ -4006,7 +4007,7 @@ void checkUserTilePlaySoundFixture(const std::string& name, int tickCount, float
   mindcraft::TypeRegistry types(image);
   auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
-  auto registeredStructs = mindcraft::makeSharedRegisteredStructSlotCounts();
+  auto registeredStructs = mindcraft::makeMicroBitV2RegisteredStructSlotCounts();
   types.setRegisteredStructSlotCounts({registeredStructs.data(), registeredStructs.size()});
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
@@ -4553,6 +4554,26 @@ TEST_CASE("the user-tile-scroll-glyph fixture byte-matches the golden observable
   checkUserTileDrawFixture("user-tile-scroll-glyph", 4, 1100.0f);
 }
 
+TEST_CASE(
+    "the user-tile-display-draw-preempts-scroll fixture byte-matches the golden observable trace") {
+  checkUserTileDrawFixture("user-tile-display-draw-preempts-scroll", 6, 500.0f);
+}
+
+TEST_CASE(
+    "the user-tile-display-scroll-preempts-draw fixture byte-matches the golden observable trace") {
+  checkUserTileDrawFixture("user-tile-display-scroll-preempts-draw", 6, 500.0f);
+}
+
+TEST_CASE(
+    "the user-tile-display-draw-background fixture byte-matches the golden observable trace") {
+  checkUserTileDrawFixture("user-tile-display-draw-background", 4, 500.0f);
+}
+
+TEST_CASE(
+    "the user-tile-display-scroll-background fixture byte-matches the golden observable trace") {
+  checkUserTileDrawFixture("user-tile-display-scroll-background", 4, 500.0f);
+}
+
 TEST_CASE("the user-tile-play-sound fixture byte-matches the golden observable trace") {
   checkUserTilePlaySoundFixture("user-tile-play-sound", 5, 500.0f);
 }
@@ -4563,6 +4584,14 @@ TEST_CASE("the user-tile-play-sound-unknown fixture byte-matches the golden obse
 
 TEST_CASE("the user-tile-play-sound-all fixture byte-matches the golden observable trace") {
   checkUserTilePlaySoundFixture("user-tile-play-sound-all", 86, 500.0f);
+}
+
+TEST_CASE("the user-tile-play-sound-preempt fixture byte-matches the golden observable trace") {
+  checkUserTilePlaySoundFixture("user-tile-play-sound-preempt", 5, 500.0f);
+}
+
+TEST_CASE("the user-tile-play-sound-background fixture byte-matches the golden observable trace") {
+  checkUserTilePlaySoundFixture("user-tile-play-sound-background", 4, 500.0f);
 }
 
 TEST_CASE("the display-clear-tile fixture byte-matches the golden observable trace") {

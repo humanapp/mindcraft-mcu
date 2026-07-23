@@ -1,0 +1,11 @@
+mctrace 1
+profile 1
+precision f32
+tick 1 time 43fa0000 dt 00000000
+action 4 site 0 args 0 result bool 1
+tick 2 time 447a0000 dt 43fa0000
+port display scroll "hello"
+port display set-pixel 40800000 40800000 437f0000
+tick 3 time 44bb8000 dt 43fa0000
+tick 4 time 44fa0000 dt 43fa0000
+action 4 site 0 args 0 result bool 0

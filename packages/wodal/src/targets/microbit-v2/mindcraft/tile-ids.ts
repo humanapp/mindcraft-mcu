@@ -99,6 +99,9 @@ export enum MicroBitV2TypeAtomId {
   SoundEmoji = 1035,
   MicroBitAudio = 1036,
   MicroBitThermometer = 1037,
+  PlaySoundOptions = 1038,
+  DrawImageOptions = 1039,
+  ScrollTextOptions = 1040,
 }
 
 /**

@@ -23,6 +23,7 @@
 #include "targets/microbit-v2/abi/host-actions/host-action-bindings.h"
 #include "targets/microbit-v2/abi/host-functions/host-func-bindings.h"
 #include "targets/microbit-v2/abi/native-struct-bindings.h"
+#include "targets/microbit-v2/abi/registered-structs.h"
 #include "targets/microbit-v2/abi/type-atom-id.h"
 
 #include "microbit-ports.h"
@@ -180,7 +181,7 @@ int main()
     TypeRegistry types(image);
     auto nativeStructs = makeMicroBitV2NativeStructBindings(types);
     types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
-    auto registeredStructs = makeSharedRegisteredStructSlotCounts();
+    auto registeredStructs = makeMicroBitV2RegisteredStructSlotCounts();
     types.setRegisteredStructSlotCounts({registeredStructs.data(), registeredStructs.size()});
     ExecutionContext ctx;
     RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, nullptr, &heap};

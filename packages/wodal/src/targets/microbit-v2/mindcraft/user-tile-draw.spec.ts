@@ -55,7 +55,7 @@ const ON_PAGE_ENTERED = CoreHostActions.OnPageEntered.actionId;
 /** Milliseconds advanced per scheduled think. */
 const TICK_ADVANCE_MS = 100;
 
-/** Hold of the timed fixture, in seconds, passed as the `drawImage` duration argument. */
+/** Hold of the timed fixture, in seconds, passed as the `drawImage` `duration` option. */
 const HOLD_SECONDS = 0.25;
 
 /** Trace hex of the drawn 5x5 image (top row lit, the rest dark), row-major brightness bytes. */
@@ -87,7 +87,7 @@ export default Actuator({
         0, 0, 0, 0, 0,
       ]),
     };
-    await ctx.microbit.display.drawImage(image, ${durationLiteral});
+    await ctx.microbit.display.drawImage(image, { duration: ${durationLiteral} });
     ctx.microbit.display.setPixelValue(4, 4, 255);
   },
 });
@@ -109,7 +109,7 @@ const heartIcon = heart();
 export default Actuator({
   name: "${name}",
   async onExecute(ctx: Context): Promise<void> {
-    await ctx.microbit.display.drawImage(heartIcon, 0);
+    await ctx.microbit.display.drawImage(heartIcon, { duration: 0 });
   },
 });
 `;
@@ -406,8 +406,8 @@ const dot = image(\`
 export default Actuator({
   name: "user-draw-image-builder",
   async onExecute(ctx: Context): Promise<void> {
-    await ctx.microbit.display.drawImage(dot, 0);
-    await ctx.microbit.display.drawImage(heart(), 0);
+    await ctx.microbit.display.drawImage(dot, { duration: 0 });
+    await ctx.microbit.display.drawImage(heart(), { duration: 0 });
   },
 });
 `;
@@ -424,7 +424,7 @@ export default Actuator({
   }
 });
 
-test("drawImage's duration argument is optional: omitting it typechecks and compiles", () => {
+test("drawImage's options argument is optional: omitting it typechecks and compiles", () => {
   const environment = createMicroBitV2Environment();
   const project = new UserTileProject({
     projectNamespace: TEST_PROJECT_NAMESPACE,

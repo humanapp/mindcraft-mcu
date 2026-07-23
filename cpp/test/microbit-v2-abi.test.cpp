@@ -123,7 +123,10 @@ TEST_CASE("MicroBitV2TypeAtomId values are wire-stable") {
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::SoundEmoji) == 1035);
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::MicroBitAudio) == 1036);
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::MicroBitThermometer) == 1037);
-  CHECK(kMicroBitV2TypeAtomIdCount == 14);
+  CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::PlaySoundOptions) == 1038);
+  CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::DrawImageOptions) == 1039);
+  CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::ScrollTextOptions) == 1040);
+  CHECK(kMicroBitV2TypeAtomIdCount == 17);
   CHECK(static_cast<uint32_t>(MicroBitV2TypeAtomId::MicroBitDisplay) == TARGET_TYPE_ATOM_BASE);
 }
 
