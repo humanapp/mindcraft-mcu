@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+import { loadAnalytics } from "./analytics";
 import { MicrobitSimEnvironmentProvider } from "./contexts/microbit-sim-environment";
 import { DocsPage } from "./DocsPage";
 import { MicrobitSimEnvironmentStore } from "./services/microbit-sim-environment-store";
@@ -12,6 +13,8 @@ import "./globals.css";
 window.addEventListener("unhandledrejection", (event) => {
   console.error("Unhandled promise rejection", event.reason);
 });
+
+loadAnalytics();
 
 const root = document.getElementById("root");
 if (!root) {
