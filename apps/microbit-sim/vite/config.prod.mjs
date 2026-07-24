@@ -5,9 +5,14 @@ import { uiPlugin } from "../../../external/mindcraft-lang/packages/ui/src/vite-
 import { embeddedExtensions } from "./embedded-extensions.mjs";
 
 export default defineConfig({
-  // Relative base: the built app must load both from a server root and from a
-  // non-root path (VS Code webview resource hosting).
-  base: "./",
+  // Absolute base for the standalone web build (`npm run build`), matching
+  // apps/sim: it deploys to the S3 bucket root at microbit.mindcraft-lang.org,
+  // where a relative base breaks a hard-loaded deep route -- its assets resolve
+  // against the route path, so a load of /docs/x/y requests /docs/x/assets/...
+  // and misses. The portable target-package build (`npm run package`) overrides
+  // this with `--base=./` for the VS Code webview, which hosts the app from a
+  // non-root resource path.
+  base: "/",
   plugins: [react(), uiPlugin(), embeddedExtensions()],
   resolve: {
     alias: {
