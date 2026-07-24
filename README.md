@@ -10,8 +10,8 @@ repository takes those brains off the screen and onto hardware: it hosts a
 native C++ implementation of the Mindcraft bytecode VM that runs on the
 micro:bit v2, a web-based device runtime and simulator for authoring and testing
 brains in the browser, and the micro:bit platform surface (display, buttons,
-accelerometer, radio, GPIO, I2C, and robot chassis drivers) exposed to brains as
-sensors and actuators.
+accelerometer, audio, radio, GPIO, I2C, light and temperature sensors, and robot
+chassis drivers) exposed to brains as sensors and actuators.
 
 The Mindcraft language, compiler, and reference VM live in the upstream
 [mindcraft-lang](https://github.com/humanapp/mindcraft-lang) repository, included
@@ -21,7 +21,7 @@ observable bytecode semantics byte-for-byte.
 
 ## Demo
 
-- [micro:bit Simulator](https://microbit.mindcraft-lang.org) -- build and test
+- [Code a BBC micro:bit](https://microbit.mindcraft-lang.org) -- build and test
   brains in the browser, then flash the same brain to a physical micro:bit over WebUSB.
 
 ## Two VMs, one contract
@@ -49,7 +49,7 @@ host functions, actuators, and device adapters -- never through opcode subsets.
 
 | App | Description |
 |-----|-------------|
-| [micro:bit Simulator](apps/microbit-sim/) | Author, run, and debug Mindcraft brains against a simulated micro:bit in the browser. Flash brains to a physical micro:bit over WebUSB, drive synthetic device inputs (gestures, light level, temperature), and inspect per-brain diagnostics. |
+| [micro:bit Editor](apps/microbit-sim/) | Author, run, and debug Mindcraft brains against a simulated micro:bit in the browser. Flash brains to a physical micro:bit over WebUSB, drive synthetic device inputs (gestures, light level, temperature), and inspect per-brain diagnostics. |
 
 ## Native tree
 
@@ -86,9 +86,9 @@ tests on your workstation.
 ## Documentation
 
 Feature specifications live under [docs/specs/](docs/specs/) -- one normative
-document per capability (display, radio, accelerometer, GPIO, I2C, movement, and
-more). These specs are the contract; the reference VM, native VM, and WODAL are
-all held to them.
+document per capability (display, audio, radio, accelerometer, GPIO, I2C,
+movement, and more). These specs are the contract; the reference VM, native VM,
+and WODAL are all held to them.
 
 ## Contributing
 
