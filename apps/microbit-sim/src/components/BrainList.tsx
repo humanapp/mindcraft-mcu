@@ -20,7 +20,13 @@ import { isRemovableDriveMissingError } from "@/services/folder-host-mode";
 import { isWebUsbSupported, microbitFlasher } from "@/services/microbit-flasher";
 import { downloadHexFile, downloadTextFile } from "@/utils/file-download";
 import { pickFile } from "@/utils/file-upload";
-import { BrainDiagnosticsList, BrainErrorBadge, toggledBrainId } from "./BrainDiagnostics";
+import {
+  BrainDiagnosticsList,
+  BrainErrorBadge,
+  BrainRuntimeFaultBadge,
+  BrainRuntimeFaultsList,
+  toggledBrainId,
+} from "./BrainDiagnostics";
 import { BrainEditor } from "./BrainEditor";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { NameInputDialog } from "./NameInputDialog";
@@ -46,6 +52,10 @@ export function BrainList() {
   const [driveFlashBrainId, setDriveFlashBrainId] = useState<string | null>(null);
   const [expandedDiagnostics, setExpandedDiagnostics] = useState<ReadonlySet<string>>(new Set());
   useSyncExternalStore(store.subscribeToBrainDiagnostics, store.getBrainDiagnosticsRevision);
+  // Flash-state changes (a failed build/link/load) light the compile badge; runtime faults
+  // populate the panel's distinct fault section. Both re-render the list.
+  useSyncExternalStore(store.simulator.subscribeToInstances, store.simulator.getInstances);
+  useSyncExternalStore(store.subscribeToRuntimeFaults, store.getRuntimeFaultsRevision);
 
   function toggleDiagnostics(brainId: string) {
     setExpandedDiagnostics((previous) => toggledBrainId(previous, brainId));
@@ -244,7 +254,9 @@ export function BrainList() {
           <ul className="divide-y divide-border">
             {brains.map((brain) => {
               const diagnostics = store.getBrainDiagnostics(brain.id);
-              const diagnosticsExpanded = expandedDiagnostics.has(brain.id) && diagnostics.length > 0;
+              const runtimeFaults = store.getBrainRuntimeFaults(brain.id);
+              const diagnosticsExpanded =
+                expandedDiagnostics.has(brain.id) && (diagnostics.length > 0 || runtimeFaults.length > 0);
               return (
                 <li key={brain.id} data-testid="brain-item" data-brain-name={brain.name} className="flex flex-col">
                   <div className="flex items-center justify-between gap-3 px-3 py-2 transition-colors hover:bg-muted/50">
@@ -260,6 +272,14 @@ export function BrainList() {
                       {diagnostics.length > 0 && (
                         <BrainErrorBadge
                           count={diagnostics.length}
+                          expanded={diagnosticsExpanded}
+                          onToggle={() => toggleDiagnostics(brain.id)}
+                          brainName={brain.name}
+                        />
+                      )}
+                      {runtimeFaults.length > 0 && (
+                        <BrainRuntimeFaultBadge
+                          count={runtimeFaults.length}
                           expanded={diagnosticsExpanded}
                           onToggle={() => toggleDiagnostics(brain.id)}
                           brainName={brain.name}
@@ -356,7 +376,12 @@ export function BrainList() {
                       </DropdownMenu>
                     </div>
                   </div>
-                  {diagnosticsExpanded && <BrainDiagnosticsList diagnostics={diagnostics} />}
+                  {diagnosticsExpanded && (
+                    <>
+                      {diagnostics.length > 0 && <BrainDiagnosticsList diagnostics={diagnostics} />}
+                      {runtimeFaults.length > 0 && <BrainRuntimeFaultsList faults={runtimeFaults} />}
+                    </>
+                  )}
                 </li>
               );
             })}

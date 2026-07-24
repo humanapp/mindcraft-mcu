@@ -1,4 +1,5 @@
 import type { MindcraftEnvironment } from "@mindcraft-lang/core/app";
+import type { ErrorValue } from "@mindcraft-lang/core/runtime";
 import { buildWodalProgramImage, type WodalBuildInput } from "@mindcraft-lang/wodal";
 import {
   GestureInjector,
@@ -19,6 +20,25 @@ interface BufferedSend {
 export interface FlashDiagnostic {
   readonly code: string;
   readonly message: string;
+}
+
+/**
+ * A VM fiber fault raised while a loaded brain was running, tagged with the
+ * instance and the brain it was flashed from so it can be routed to that
+ * brain's diagnostics. The `err` carries the VM's own error code and message.
+ */
+export interface InstanceFiberFault {
+  /** Id of the instance whose runtime raised the fault. */
+  readonly instanceId: string;
+
+  /** Brain the faulting instance was flashed from, or undefined when none is associated. */
+  readonly brainId: string | undefined;
+
+  /** Id of the fiber that faulted. */
+  readonly fiberId: number;
+
+  /** The VM error value, carrying the fault code and message verbatim. */
+  readonly err: ErrorValue;
 }
 
 /**
@@ -46,10 +66,21 @@ export class SimulatorInstance {
   /** Current flash state; `empty` until a program is flashed. */
   flashState: FlashState = { status: "empty" };
 
-  constructor(id: string, environment: MindcraftEnvironment) {
+  constructor(id: string, environment: MindcraftEnvironment, onFiberFault?: (fault: InstanceFiberFault) => void) {
     this.id = id;
     this.microbit = new MicroBit();
-    this.runtime = new WodalMicroBitRuntime({ environment, microbit: this.microbit });
+    this.runtime = new WodalMicroBitRuntime({
+      environment,
+      microbit: this.microbit,
+      ...(onFiberFault
+        ? {
+            vmEvents: {
+              onFiberFault: ({ fiberId, err }) =>
+                onFiberFault({ instanceId: this.id, brainId: this.flashedBrainId, fiberId, err }),
+            },
+          }
+        : {}),
+    });
     this.gestureInjector = new GestureInjector(this.microbit.accelerometer);
   }
 
@@ -86,6 +117,7 @@ export class MicrobitSimulator {
   private instances_: readonly SimulatorInstance[] = [];
   private readonly instanceListeners = new Set<() => void>();
   private readonly frameListeners = new Set<() => void>();
+  private readonly fiberFaultListeners = new Set<(fault: InstanceFiberFault) => void>();
   private frame_ = 0;
   private rafHandle: number | undefined;
   private lastFrameMs: number | undefined;
@@ -102,7 +134,7 @@ export class MicrobitSimulator {
 
   /** Creates an instance, registers it into the medium, and returns it. */
   addInstance(): SimulatorInstance {
-    const instance = new SimulatorInstance(crypto.randomUUID(), this.environment);
+    const instance = this.createInstance(crypto.randomUUID());
     this.registerInstance(instance);
     this.instances_ = [...this.instances_, instance];
     this.notifyInstances();
@@ -128,7 +160,7 @@ export class MicrobitSimulator {
       this.medium.unregister(instance.id);
     }
     const next = ids.map((id) => {
-      const instance = new SimulatorInstance(id, this.environment);
+      const instance = this.createInstance(id);
       this.registerInstance(instance);
       return instance;
     });
@@ -145,6 +177,9 @@ export class MicrobitSimulator {
     }
     const built = buildWodalProgramImage(input);
     if (!built.ok) {
+      // A failed build must not leave the previous program running: unload the
+      // runtime so the device visibly goes dark.
+      instance.runtime.unload();
       this.applyFlashState(instance, {
         status: "failed",
         brainId,
@@ -153,16 +188,16 @@ export class MicrobitSimulator {
       return;
     }
     const loaded = instance.runtime.loadWodalProgramImage(built.image);
-    this.applyFlashState(
-      instance,
-      loaded.ok
-        ? { status: "loaded", brainId }
-        : {
-            status: "failed",
-            brainId,
-            errors: loaded.errors.map((error) => ({ code: error.code, message: error.message })),
-          }
-    );
+    if (loaded.ok) {
+      this.applyFlashState(instance, { status: "loaded", brainId });
+      return;
+    }
+    instance.runtime.unload();
+    this.applyFlashState(instance, {
+      status: "failed",
+      brainId,
+      errors: loaded.errors.map((error) => ({ code: error.code, message: error.message })),
+    });
   }
 
   /**
@@ -175,6 +210,30 @@ export class MicrobitSimulator {
         this.flash(instance.id, input, brainId);
       }
     }
+  }
+
+  /**
+   * The distinct build/link/load failures currently held by instances associated with `brainId`,
+   * verbatim. Deduplicated by code and message so several failed instances of the same brain
+   * contribute each distinct failure once. Empty when no associated instance is in a failed state.
+   */
+  flashDiagnosticsForBrain(brainId: string): readonly FlashDiagnostic[] {
+    const seen = new Set<string>();
+    const out: FlashDiagnostic[] = [];
+    for (const instance of this.instances_) {
+      if (instance.flashState.status !== "failed" || instance.flashState.brainId !== brainId) {
+        continue;
+      }
+      for (const error of instance.flashState.errors) {
+        const key = `${error.code}::${error.message}`;
+        if (seen.has(key)) {
+          continue;
+        }
+        seen.add(key);
+        out.push(error);
+      }
+    }
+    return out;
   }
 
   /** Unflashes every instance associated with `brainId`, returning them to the empty state. */
@@ -252,6 +311,25 @@ export class MicrobitSimulator {
   getFrame = (): number => {
     return this.frame_;
   };
+
+  /** Subscribes to VM fiber faults raised by any instance's runtime. Returns an unsubscribe function. */
+  subscribeToFiberFaults(listener: (fault: InstanceFiberFault) => void): () => void {
+    this.fiberFaultListeners.add(listener);
+    return () => {
+      this.fiberFaultListeners.delete(listener);
+    };
+  }
+
+  /** Creates an instance wired to route its runtime's fiber faults to this simulator's fault listeners. */
+  private createInstance(id: string): SimulatorInstance {
+    return new SimulatorInstance(id, this.environment, (fault) => this.emitFiberFault(fault));
+  }
+
+  private emitFiberFault(fault: InstanceFiberFault): void {
+    for (const listener of this.fiberFaultListeners) {
+      listener(fault);
+    }
+  }
 
   /**
    * Registers an instance's radio endpoint into the medium and routes its sends

@@ -6,6 +6,13 @@ import { DocsPage } from "./DocsPage";
 import { MicrobitSimEnvironmentStore } from "./services/microbit-sim-environment-store";
 import "./globals.css";
 
+// Backstop for otherwise-silent floated promise rejections (e.g. an async build
+// or flash path that throws off the awaited chain). The per-brain diagnostic
+// channels are the primary surface; this ensures nothing fails invisibly.
+window.addEventListener("unhandledrejection", (event) => {
+  console.error("Unhandled promise rejection", event.reason);
+});
+
 const root = document.getElementById("root");
 if (!root) {
   throw new Error("Root element not found");

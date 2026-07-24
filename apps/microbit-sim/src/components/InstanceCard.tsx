@@ -1,6 +1,6 @@
 import { Popover, PopoverContent, PopoverTrigger } from "@mindcraft-lang/ui";
 import { MoreHorizontal, Pencil } from "lucide-react";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";
 import type { BrainRecord } from "@/services/microbit-sim-environment-store";
 import type { SimulatorInstance } from "@/services/simulator";
@@ -17,6 +17,18 @@ interface InstanceCardProps {
 }
 
 /**
+ * The state-dependent class for the brain selector: red destructive tokens when
+ * the assigned brain has errors, the plain foreground token when a clean brain
+ * is assigned, and the amber warning tokens when no brain is assigned yet.
+ */
+export function brainSelectStateClass(assigned: boolean, hasErrors: boolean): string {
+  if (!assigned) {
+    return "border-warning text-warning";
+  }
+  return hasErrors ? "border-destructive text-destructive" : "text-foreground";
+}
+
+/**
  * One simulator instance: a brain picker that flashes the picked brain onto the
  * device, the device itself, and a device-inputs and actions panel behind the
  * kebab. The panel holds the synthetic device inputs (gesture, light level) and
@@ -25,7 +37,11 @@ interface InstanceCardProps {
 export function InstanceCard({ instance, label, brains }: InstanceCardProps) {
   const store = useMicrobitSimEnvironment();
   const [editingBrain, setEditingBrain] = useState(false);
+  // Re-render when a brain's diagnostics change (a broken tile fixed, a build failing)
+  // so the selector's error color tracks the same signal as the brain-list badge.
+  useSyncExternalStore(store.subscribeToBrainDiagnostics, store.getBrainDiagnosticsRevision);
   const assigned = instance.flashedBrainId != null;
+  const hasErrors = instance.flashedBrainId != null && store.brainHasErrors(instance.flashedBrainId);
 
   return (
     // Card width hugs the device row: two 36px button columns + the 112px display + two 8px gaps,
@@ -37,7 +53,7 @@ export function InstanceCard({ instance, label, brains }: InstanceCardProps) {
             data-testid="instance-brain-select"
             aria-label={`Brain for ${label}`}
             disabled={brains.length === 0}
-            className={`w-full rounded border bg-background px-2 py-1 text-sm disabled:opacity-50 ${assigned ? "text-foreground" : "border-warning text-warning"}`}
+            className={`w-full rounded border bg-background px-2 py-1 text-sm disabled:opacity-50 ${brainSelectStateClass(assigned, hasErrors)}`}
             value={instance.flashedBrainId ?? ""}
             onChange={(event) => {
               if (event.target.value) {

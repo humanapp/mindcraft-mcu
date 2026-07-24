@@ -60,6 +60,29 @@ test("buildWodalProgramImage returns BRAIN_LINK_FAILED when an action cannot be 
   assert.equal(result.errors[0]!.cause, undefined);
 });
 
+test("buildWodalProgramImage returns BRAIN_LINK_FAILED (verbatim) when linkBrain throws, without rethrowing", () => {
+  const env = createMicroBitV2Environment();
+  const brainDef = buildButtonDisplayBrainDef(env);
+  const cause = new Error("linker exploded");
+  // A linking environment whose linkBrain throws.
+  const throwingEnv = {
+    linkBrain() {
+      throw cause;
+    },
+  } as unknown as MindcraftEnvironment;
+  const deviceProfile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
+
+  const result = buildWodalProgramImage({ brainDef, environment: throwingEnv, deviceProfile });
+
+  if (result.ok) {
+    assert.fail("expected a failed build");
+  }
+  assert.equal(result.errors.length, 1);
+  assert.equal(result.errors[0]!.code, WodalBuildDiagnosticCode.BRAIN_LINK_FAILED);
+  assert.equal(result.errors[0]!.message, "linker exploded");
+  assert.equal(result.errors[0]!.cause, cause);
+});
+
 test("buildWodalProgramImage returns PROGRAM_IMAGE_CREATION_FAILED when image creation throws", () => {
   const env = createMicroBitV2Environment();
   const brainDef = buildButtonDisplayBrainDef(env);

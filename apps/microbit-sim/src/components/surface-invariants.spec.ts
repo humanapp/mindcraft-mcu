@@ -8,9 +8,11 @@ function componentSource(name: string): string {
 }
 
 /**
- * Identifiers of brain-diagnostic state. Device surfaces render device state
- * only and the toast path carries no diagnostics, so none of these may appear
- * in those components.
+ * Identifiers of brain-diagnostic DETAILS. Device surfaces may reflect a brain's
+ * error STATUS -- a plain boolean such as `store.brainHasErrors(id)`, which names
+ * none of these -- but must not reach into the diagnostic details these
+ * identifiers expose. The toast path likewise carries no diagnostics. So none of
+ * these may appear in those components.
  */
 const BRAIN_DIAGNOSTIC_IDENTIFIERS = [
   /flashState\.errors/,

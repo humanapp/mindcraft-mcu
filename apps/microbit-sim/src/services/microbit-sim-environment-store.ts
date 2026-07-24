@@ -37,6 +37,7 @@ import {
 } from "@mindcraft-lang/wodal";
 import { name as appName } from "../../package.json";
 import { loadBindingToken, saveBindingToken } from "./binding-token-persistence";
+import { flashDiagnosticToEntry, runtimeFaultToEntry } from "./brain-diagnostic-entries";
 import { type AppChrome, appChromeForMode, connectMicrobitFolderSession, isFolderHostMode } from "./folder-host-mode";
 import { microbitDefaultExtensions, microbitEmbeddedExtensions } from "./microbit-embedded-extensions";
 import { microbitLibraryCatalogMoves } from "./microbit-extension-browser";
@@ -47,7 +48,7 @@ import {
   SIMULATOR_STATE_KEY,
   translateMicrobitSimAppChunk,
 } from "./project-io";
-import { MicrobitSimulator } from "./simulator";
+import { type InstanceFiberFault, MicrobitSimulator } from "./simulator";
 import { SpeakerAudio } from "./speaker-audio";
 import { UserCodeReflasher } from "./user-code-reflasher";
 
@@ -212,6 +213,14 @@ export class MicrobitSimEnvironmentStore {
   private readonly _brainsListeners = new Set<() => void>();
   private readonly _activeProjectListeners = new Set<() => void>();
 
+  /** Bounded per-brain buffer of the latest VM fiber faults, newest last. Keyed by brain id. */
+  private readonly _runtimeFaults = new Map<string, readonly BrainDiagnosticEntry[]>();
+  private _runtimeFaultsRevision = 0;
+  private readonly _runtimeFaultsListeners = new Set<() => void>();
+
+  /** Maximum faults retained per brain in {@link _runtimeFaults}; older faults are dropped. */
+  private static readonly RUNTIME_FAULT_CAP = 20;
+
   private _appSettings: AppSettings = loadAppSettings();
   private readonly _appSettingsListeners = new Set<AppSettingsListener>();
 
@@ -261,6 +270,10 @@ export class MicrobitSimEnvironmentStore {
     this.simulator.subscribeToInstances(() => {
       void this.persistSimulatorState();
       this._speakerAudio.retain(new Set(this.simulator.getInstances().map((instance) => instance.id)));
+    });
+    // Route each instance's VM fiber faults into the faulting brain's runtime-fault buffer.
+    this.simulator.subscribeToFiberFaults((fault) => {
+      this.recordRuntimeFault(fault);
     });
     // Feed each device's speaker snapshot to the audio renderer every frame.
     this.simulator.subscribeToFrame(() => {
@@ -521,7 +534,7 @@ export class MicrobitSimEnvironmentStore {
     return id;
   }
 
-  /** Removes a brain and its stored definition, unflashing any instance running it. */
+  /** Removes a brain and its stored definition, unflashing any instance running it and dropping its runtime faults. */
   async removeBrain(id: string): Promise<void> {
     await this.host.removeBrain(id);
     this._brainIds = this._brainIds.filter((brainId) => brainId !== id);
@@ -529,6 +542,12 @@ export class MicrobitSimEnvironmentStore {
     this.rebuildBrains();
     this.notifyBrainsChanged();
     this.simulator.unflash(id);
+    if (this._runtimeFaults.delete(id)) {
+      this._runtimeFaultsRevision++;
+      for (const listener of this._runtimeFaultsListeners) {
+        listener();
+      }
+    }
   }
 
   /** Renames a brain by updating its definition. */
@@ -688,9 +707,12 @@ export class MicrobitSimEnvironmentStore {
 
   /**
    * The verbatim error diagnostics a brain surfaces: the stored per-rule
-   * typecheck errors, followed by the compile diagnostics of any broken user
-   * tile the brain uses (deduplicated per distinct tile key). Empty when the
-   * brain is not cached or is clean.
+   * typecheck errors, the compile diagnostics of any broken user tile the brain
+   * uses (deduplicated per distinct tile key), and the latest build/link/load
+   * failure of any instance flashed from the brain. These are the persistent
+   * compile/flash problems that drive the brain-list badge. Empty when the brain
+   * is not cached or is clean. Transient runtime faults are not included here;
+   * see {@link getBrainRuntimeFaults}.
    */
   getBrainDiagnostics(brainId: string): readonly BrainDiagnosticEntry[] {
     const brain = this.host.getCachedBrain(brainId);
@@ -700,7 +722,59 @@ export class MicrobitSimEnvironmentStore {
     return [
       ...collectBrainErrorDiagnostics(brain),
       ...collectBrainTileCompileDiagnostics(brain, (key) => this.host.getTileCompileDiagnostics(key)),
+      ...this.simulator.flashDiagnosticsForBrain(brainId).map(flashDiagnosticToEntry),
     ];
+  }
+
+  /**
+   * Whether the brain currently surfaces any error diagnostic, i.e. whether
+   * {@link getBrainDiagnostics} is non-empty. A status boolean for surfaces that
+   * reflect a brain's error state without exposing the error details. Transient
+   * runtime faults are not counted; see {@link getBrainRuntimeFaults}.
+   */
+  brainHasErrors(brainId: string): boolean {
+    return this.getBrainDiagnostics(brainId).length > 0;
+  }
+
+  /**
+   * The bounded buffer of recent VM fiber faults raised by instances flashed
+   * from this brain, newest last, verbatim. These are transient runtime events
+   * shown only in the expanded brain panel; they do not affect the compile
+   * badge. Empty when the brain has no recorded faults.
+   */
+  getBrainRuntimeFaults(brainId: string): readonly BrainDiagnosticEntry[] {
+    return this._runtimeFaults.get(brainId) ?? [];
+  }
+
+  /** Subscribes to runtime-fault buffer changes for `useSyncExternalStore`. Returns an unsubscribe function. */
+  subscribeToRuntimeFaults = (listener: () => void): (() => void) => {
+    this._runtimeFaultsListeners.add(listener);
+    return () => {
+      this._runtimeFaultsListeners.delete(listener);
+    };
+  };
+
+  /** Snapshot of the current runtime-fault revision for `useSyncExternalStore`; bumped on each recorded fault. */
+  getRuntimeFaultsRevision = (): number => {
+    return this._runtimeFaultsRevision;
+  };
+
+  /** Appends a fiber fault to its brain's bounded buffer and notifies subscribers. Faults with no brain are dropped. */
+  private recordRuntimeFault(fault: InstanceFiberFault): void {
+    if (!fault.brainId) {
+      return;
+    }
+    const existing = this._runtimeFaults.get(fault.brainId) ?? [];
+    const next = [...existing, runtimeFaultToEntry(fault)];
+    const capped =
+      next.length > MicrobitSimEnvironmentStore.RUNTIME_FAULT_CAP
+        ? next.slice(next.length - MicrobitSimEnvironmentStore.RUNTIME_FAULT_CAP)
+        : next;
+    this._runtimeFaults.set(fault.brainId, capped);
+    this._runtimeFaultsRevision++;
+    for (const listener of this._runtimeFaultsListeners) {
+      listener();
+    }
   }
 
   // -- App settings (global) --

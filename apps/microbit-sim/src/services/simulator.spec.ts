@@ -12,6 +12,7 @@ import {
   mkNumberValue,
   mkSensorTileId,
 } from "@mindcraft-lang/core/app";
+import { ErrorCode, type LinkedBrainProgramJson, linkedBrainProgramFromJson, Op } from "@mindcraft-lang/core/runtime";
 import {
   buildWodalProgramImage,
   getWodalDeviceProfile,
@@ -23,7 +24,49 @@ import {
   MicroBitV2HostActions,
   WodalMicroBitV2ModifierId,
 } from "@mindcraft-lang/wodal/targets/microbit-v2";
-import { MicrobitSimulator } from "./simulator";
+import { type InstanceFiberFault, MicrobitSimulator } from "./simulator";
+
+/**
+ * Hand-authors a minimal program image whose single root rule throws an
+ * uncaught error carrying `message`, so loading it and ticking raises a VM
+ * fiber fault with that verbatim message.
+ */
+function buildFaultingImage(message: string) {
+  const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
+  const json: LinkedBrainProgramJson = {
+    program: {
+      version: 1,
+      functions: [
+        {
+          code: [{ op: Op.PUSH_CONST_VAL, a: 0 }, { op: Op.THROW }],
+          numParams: 0,
+          numLocals: 0,
+        },
+      ],
+      constantPools: {
+        numbers: [],
+        strings: [],
+        values: [{ t: "err", e: { code: ErrorCode.ScriptError, message } }],
+      },
+      types: [],
+      variableNames: [],
+      entryPoint: 0,
+      actions: [],
+      ruleFuncIds: [0],
+      ruleAncestors: [],
+    },
+    pages: [
+      {
+        pageIndex: 0,
+        pageId: "faulting-page",
+        pageName: "Faulting",
+        rootRuleFuncIds: [0],
+        actionCallSites: [],
+      },
+    ],
+  };
+  return profile.createProgramImage(linkedBrainProgramFromJson(json));
+}
 
 function microbitEnvironment(): MindcraftEnvironment {
   return createMicroBitV2Environment();
@@ -270,6 +313,78 @@ describe("MicrobitSimulator flash", () => {
     assert.equal(instance.flashedBrainId, undefined);
   });
 
+  it("a failed reflash unloads the previously loaded program and blanks the device", () => {
+    const env = microbitEnvironment();
+    const sim = new MicrobitSimulator(env);
+    const instance = sim.getInstances()[0]!;
+
+    // Load a good program and light a pixel so a running program is observable.
+    sim.flash(instance.id, buttonDisplayInput(env), "brain-1");
+    instance.tick(16);
+    instance.microbit.setButtonPressed("A", true);
+    instance.tick(32);
+    assert.equal(instance.microbit.display.getPixelValue(0, 0), 255);
+
+    // Reflashing with a broken build (core-only env lacks the microbit actions) fails.
+    const coreOnly = createMindcraftEnvironment({ modules: [coreModule()] });
+    sim.reflash("brain-1", { ...buttonDisplayInput(env), environment: coreOnly });
+
+    // The runtime is unloaded: device reset (display cleared, time back to zero), tick now a no-op.
+    assert.equal(instance.flashState.status, "failed");
+    assert.equal(instance.microbit.display.getPixelValue(0, 0), 0);
+    assert.equal(instance.snapshot().time, 0);
+    instance.tick(16);
+    assert.equal(instance.snapshot().time, 0);
+  });
+
+  it("surfaces a failed flash's diagnostics under its brain, verbatim and deduplicated", () => {
+    const env = microbitEnvironment();
+    const sim = new MicrobitSimulator(env);
+    const instance = sim.getInstances()[0]!;
+
+    const coreOnly = createMindcraftEnvironment({ modules: [coreModule()] });
+    sim.flash(instance.id, { ...buttonDisplayInput(env), environment: coreOnly }, "brain-1");
+
+    const failed = instance.flashState;
+    if (failed.status !== "failed") {
+      assert.fail("expected a failed flash state");
+    }
+    // The brain-keyed diagnostics are exactly the failed flash's errors, verbatim.
+    assert.deepEqual(sim.flashDiagnosticsForBrain("brain-1"), failed.errors);
+    assert.ok(failed.errors.length > 0);
+    // A brain with no failed instance surfaces nothing.
+    assert.deepEqual(sim.flashDiagnosticsForBrain("brain-2"), []);
+  });
+
+  it("a thrown link error fails the flash and unloads, surfacing the thrown message verbatim", () => {
+    const env = microbitEnvironment();
+    const sim = new MicrobitSimulator(env);
+    const instance = sim.getInstances()[0]!;
+
+    // Load a good program first so there is a running program to unload.
+    sim.flash(instance.id, buttonDisplayInput(env), "brain-1");
+    instance.tick(16);
+    instance.microbit.setButtonPressed("A", true);
+    instance.tick(32);
+    assert.equal(instance.microbit.display.getPixelValue(0, 0), 255);
+
+    // An environment whose linkBrain throws must not float an unhandled rejection.
+    const throwingEnv = {
+      linkBrain() {
+        throw new Error("linker exploded");
+      },
+    } as unknown as MindcraftEnvironment;
+    assert.doesNotThrow(() => {
+      sim.reflash("brain-1", { ...buttonDisplayInput(env), environment: throwingEnv });
+    });
+
+    assert.equal(instance.flashState.status, "failed");
+    assert.equal(instance.microbit.display.getPixelValue(0, 0), 0);
+    const diags = sim.flashDiagnosticsForBrain("brain-1");
+    assert.equal(diags.length, 1);
+    assert.equal(diags[0]!.message, "linker exploded");
+  });
+
   it("notifies instance-list subscribers when flash state changes", () => {
     const env = microbitEnvironment();
     const sim = new MicrobitSimulator(env);
@@ -334,6 +449,46 @@ describe("MicrobitSimulator flash", () => {
     assert.equal(a.snapshot().time, 0);
     // b (brain-2) untouched.
     assert.equal(b.flashState, bBefore);
+  });
+});
+
+describe("MicrobitSimulator fiber faults", () => {
+  it("routes a runtime fiber fault to subscribers tagged with the flashed brain id and verbatim message", () => {
+    const env = microbitEnvironment();
+    const sim = new MicrobitSimulator(env);
+    const instance = sim.getInstances()[0]!;
+
+    const faults: InstanceFiberFault[] = [];
+    sim.subscribeToFiberFaults((fault) => faults.push(fault));
+
+    // Associate the instance with a brain, then run a program that faults at runtime.
+    instance.flashState = { status: "loaded", brainId: "brain-1" };
+    instance.runtime.loadWodalProgramImage(buildFaultingImage("boom"));
+    sim.tick(1);
+
+    assert.ok(faults.length >= 1);
+    assert.equal(faults[0]!.instanceId, instance.id);
+    assert.equal(faults[0]!.brainId, "brain-1");
+    assert.equal(faults[0]!.err.message, "boom");
+  });
+
+  it("stops delivering faults after unsubscribe", () => {
+    const env = microbitEnvironment();
+    const sim = new MicrobitSimulator(env);
+    const instance = sim.getInstances()[0]!;
+
+    let count = 0;
+    const unsubscribe = sim.subscribeToFiberFaults(() => {
+      count++;
+    });
+    instance.runtime.loadWodalProgramImage(buildFaultingImage("boom"));
+    sim.tick(1);
+    const afterFirst = count;
+    assert.ok(afterFirst >= 1);
+
+    unsubscribe();
+    sim.tick(1);
+    assert.equal(count, afterFirst);
   });
 });
 

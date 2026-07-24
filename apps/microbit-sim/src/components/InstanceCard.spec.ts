@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { brainSelectStateClass } from "./InstanceCard";
 
 /**
  * Reads the InstanceCard source. The card renders its recovery controls behind a
@@ -50,5 +51,44 @@ describe("InstanceCard recovery controls gate on brain assignment", () => {
   test("remove stays ungated: a device can be removed in any flash state", () => {
     const block = buttonBlock(source, "instance-remove");
     assert.doesNotMatch(block, /disabled=/, "remove must not carry a disabled gate");
+  });
+});
+
+describe("the brain selector colors by the assigned brain's error status", () => {
+  test("an assigned brain with errors carries the red destructive tokens", () => {
+    const className = brainSelectStateClass(true, true);
+    assert.match(className, /border-destructive/);
+    assert.match(className, /text-destructive/);
+    assert.doesNotMatch(className, /warning/);
+  });
+
+  test("an assigned, clean brain uses the plain foreground token, neither destructive nor warning", () => {
+    const className = brainSelectStateClass(true, false);
+    assert.match(className, /text-foreground/);
+    assert.doesNotMatch(className, /destructive/);
+    assert.doesNotMatch(className, /warning/);
+  });
+
+  test("an unassigned selector keeps the amber warning tokens and is never destructive", () => {
+    const className = brainSelectStateClass(false, false);
+    assert.match(className, /border-warning/);
+    assert.match(className, /text-warning/);
+    assert.doesNotMatch(className, /destructive/);
+  });
+});
+
+describe("the brain selector reflects only error status and updates live", () => {
+  const source = instanceCardSource();
+
+  test("the card reads the brainHasErrors status boolean, not any diagnostic detail", () => {
+    assert.match(source, /store\.brainHasErrors\(/, "the selector's red must derive from the brainHasErrors boolean");
+  });
+
+  test("the card subscribes to the brain-diagnostics revision so the color re-renders on change", () => {
+    assert.match(
+      source,
+      /useSyncExternalStore\(\s*store\.subscribeToBrainDiagnostics,\s*store\.getBrainDiagnosticsRevision\s*\)/,
+      "InstanceCard must subscribe to the brain-diagnostics revision, mirroring the brain-list badge"
+    );
   });
 });

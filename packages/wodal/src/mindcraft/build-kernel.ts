@@ -76,7 +76,21 @@ export type WodalBuildResult =
  * @param input - Selected brain definition, caller-owned environment, and resolved device profile.
  */
 export function buildWodalProgramImage(input: WodalBuildInput): WodalBuildResult {
-  const built = input.environment.linkBrain(input.brainDef);
+  let built: ReturnType<MindcraftEnvironment["linkBrain"]>;
+  try {
+    built = input.environment.linkBrain(input.brainDef);
+  } catch (cause) {
+    return {
+      ok: false,
+      errors: [
+        {
+          code: WodalBuildDiagnosticCode.BRAIN_LINK_FAILED,
+          message: cause instanceof Error ? cause.message : String(cause),
+          cause,
+        },
+      ],
+    };
+  }
   if (!built.program) {
     const message = built.diagnostics
       .toArray()
