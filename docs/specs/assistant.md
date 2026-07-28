@@ -36,7 +36,7 @@ checked against ground truth.
 
 ## The Assistant contract
 
-Five principles bind every Assistant feature on every target. They are the product's trust
+Six principles bind every Assistant feature on every target. They are the product's trust
 guarantees, peers of the compiler trust contract.
 
 1. **Legality.** The Assistant only produces edits the editor itself would allow. Tile placements
@@ -58,6 +58,20 @@ guarantees, peers of the compiler trust contract.
    state it holds, and claims no motive its rules do not encode. A Mindcraft character is
    auditable by construction -- its entire psychology is inspectable, simulable state the user
    authored. This is a child-safety property, not a styling rule.
+6. **Project memory only.** The Assistant remembers the project, not the person. Its knowledge
+   across sessions is the brain, the command history, the traces, and the catalog -- artifacts
+   the user can inspect -- never a private store of what a child said. Any future continuity
+   feature must live in inspectable project state, subject to the same glass-box rule as
+   everything else. There is no hidden memory of the user.
+
+The principles differ in how they bind. Legality, same operations, and attribution are
+**bridge-enforced**: the bridge rejects violations mechanically, and no harness -- however
+misbehaved -- can breach them. Verification, grounded character, project memory, and the
+audience and comedy postures are **harness-honored**: policies of the harness that drives the
+bridge. Presence-is-optional binds the target rather than any harness: the editor is complete
+with no harness at all. The open bridge admits any harness (see The open/closed line); **"the
+Mindcraft Assistant" names a harness that honors the full contract**, and only a conforming
+harness may carry the name. The brand certifies the contract; the bridge enforces what it can.
 
 ## The authoring loop
 
@@ -72,15 +86,21 @@ A request flows: intent -> plan -> incremental edits -> verify -> demonstrate.
 - **Incremental edits.** The Assistant applies the plan as a sequence of small editor operations --
   add a rule, place a WHEN sensor, place a comparison, place a DO action -- each narrated in concept
   language (the WHEN result, the light level, the drive action), never in internal identifiers.
-- **Verify.** After each coherent step and at the end, the Assistant compiles and simulates. A
-  failed expectation sends it back to the plan, visibly: revision is part of the shown process, not
-  hidden.
+- **Verify.** After each coherent step and at the end, the Assistant compiles and simulates, at a
+  fidelity the target affords (see Scenario demonstrations). A failed expectation sends it back to
+  the plan, visibly: revision is part of the shown process, not hidden.
 - **Demonstrate.** The Assistant stages a scenario (see Scenario demonstrations) and shows the
   behavior meeting the intent.
 
-## The edit stream is the lesson
+The Assistant plans from the document, not from a picture of it. At every step it replans
+from the brain's actual current state -- including states produced by the person taking over
+mid-stream, editing, and handing back. It holds no privileged model of the document that a
+person's edits can invalidate. Divergence is input, not error, in authoring exactly as in
+guided mode.
 
-The narrated edit sequence is a first-class artifact -- the **lesson** -- not a transient chat
+## The walkthrough
+
+The narrated edit sequence is a first-class artifact -- the **walkthrough** -- not a transient chat
 transcript (session-scoped in its baseline form). Its defining property: teaching and doing are the
 same artifact at different playback speeds.
 
@@ -93,10 +113,12 @@ the learner's actual path. The substrate makes this possible and nothing else do
 suggestion service always knows the true valid next steps, the command history always shows
 what the learner actually did, and the simulator always knows whether the current brain
 satisfies the goal. A learner's divergence is therefore input, not error -- wander off the path
-and the lesson reroutes, like navigation recalculating, rather than failing. Lesson content is
+and the walkthrough reroutes, like navigation recalculating, rather than failing. Lesson content is
 authored as **goals and checkpoints** ("the robot ends up hiding from moving objects, touching
-sensing, comparison, and motion"), never as scripts; the Assistant generates each learner's
-individual path through them. This is teaching at scale and curriculum authoring at scale in
+sensing, comparison, and motion"), never as scripts. A **lesson** is authored curriculum --
+goals and checkpoints; a **walkthrough** is what the Assistant performs. The Assistant generates
+each learner's individual walkthrough through a lesson. This is teaching at scale and
+curriculum authoring at scale in
 one mechanism: static step-by-step tutorials are tedious to write and cannot follow an
 explorer, while goals compose and endure. Presentation is free to vary -- steps posed as
 actions, as questions with small choice sets drawn from the real offering, or as
@@ -104,7 +126,7 @@ demonstrations -- and a wrong pick earns a grounded explanation of what the chos
 does. Question design, concept sequencing, and what a lesson *is* when it can reroute are
 curriculum craft, owned downstream of this contract.
 
-The lesson deliberately mirrors the experience of reading an agent's verbalized reasoning: the value
+The walkthrough deliberately mirrors the experience of reading an agent's verbalized reasoning: the value
 is that the process is there to read, not that the user is forced through it. Skip is always
 available; the design goal is to make watching genuinely interesting, not to gate the result.
 
@@ -142,7 +164,8 @@ want a light-sensing antenna?" -- a sculpt step -- "now we can write the rule." 
 body design; body design expands the behavior surface. Sculpting assistance itself (proposing and
 applying part/parameter edits) follows the same contract as code assistance: the Assistant
 manipulates the same part model the user's tools do, through validated operations, incrementally
-and narratedly.
+and narratedly. Sculpting assistance waits on a morphology-bearing target (see Deferred
+surface); this section specifies the contract it will follow.
 
 On targets without morphology (a fixed device), this section is inert; the capability mechanism
 still gates tiles (e.g. by attached peripherals) and the Assistant reasons about it the same way
@@ -153,13 +176,24 @@ still gates tiles (e.g. by attached peripherals) and the Assistant reasons about
 When the Assistant claims a behavior works, it shows it: it stages a scenario through the target's
 deterministic injectable-input mechanism (the same paths the conformance harness scripts -- sensor
 values, radio packets, world state), runs the simulation, and presents the outcome. The scenario
-travels with the lesson for the session and can be rerun on demand -- by the user, or by a future
+travels with the walkthrough for the session and can be rerun on demand -- by the user, or by a future
 teacher-facing surface -- to check that later edits still satisfy it. Standing, automatically
 re-verified acceptance checks are deliberately out of scope: demonstrations are moments in a
 conversation, not a CI system.
 
 Scenario staging uses a shared core description format over the injectable-input mechanisms, with
 per-target extensions -- the same pattern as every other contract in the platform.
+
+Verification fidelity is target-shaped, and claims scope to it. The brain's whole contract with
+any world is its sensor and action surface, so simulation reaches to the sensor horizon, never
+the world engine. Every target affords sensor-level staging -- scripted percepts against the
+brain runtime alone, verifying which rules fire and what they dispatch. A target may afford a
+headless model of its world dynamics, closing the loop from action back to sensed consequence.
+The live world itself is the demonstration stage of highest fidelity. The Assistant's claims
+never exceed the fidelity of the run that backs them: "the rule fires when food appears" is a
+sensor-level claim; "it finds the food" requires a world. Staging derives a rule's preconditions
+from its WHEN and may inject intermediate state directly -- demonstrations skip the waiting; they
+never fake the observation.
 
 ## The Assistant bridge
 
@@ -175,7 +209,7 @@ their presentation.
 | propose edit | A validated editor command operation (place, replace, delete, add rule, ...); rejected proposals return the machine-readable diagnostic |
 | compile | Whole-brain compile; returns structured diagnostics |
 | simulate | Run a compiled brain against a staged scenario for N thinks; returns a compact summarized account of the run -- rule fires, WHEN results, action dispatches, sensed values -- bounded to tool-result scale. Raw tick traces are never tool results; verification consumes this account |
-| read trace | Structured access to rule fires, WHEN results, action dispatches, sensed values |
+| read trace | Query-shaped access to the live runtime's recorded execution history -- the run the person actually observed: rule fires, WHEN results, action dispatches, sensed values. Bounded to tool-result scale, like simulate's account; never a raw tick dump |
 
 Properties:
 
@@ -188,6 +222,10 @@ Properties:
   assistant-originated for display and undo grouping, but structurally identical to user edits --
   one history, one document format, nothing assistant-specific persisted in the brain document
   itself.
+- **Provenance.** `simulate` stages hypotheticals and reports what a staged run would do;
+  `read trace` queries what the live runtime actually did. Explanation cites the observed run
+  and never substitutes a staged reconstruction for it; verification cites simulation. Both
+  return bounded accounts.
 - **Target-generic.** The bridge presumes no target. A target integrates by supplying its
   runtime adapter -- how simulate runs a brain and observes its trace -- and by registering its
   scenario input kinds; the tool surface itself never varies by target.
@@ -225,12 +263,12 @@ execution at the client, so the harness's policy is remote while every effect st
 validated, and undoable. Identity, access, session establishment, and the entitlements the wallet
 rides on are specified by the authentication and access contract in `docs/specs/auth.md`: one
 authenticated trust root governs who may drive the hosted harness, which targets a session may
-claim, and what its wallet holds.
+claim, and what its wallet holds. The split loop's failure mode is benign by construction: if
+the session drops mid-stream, same-operations guarantees the brain rests in a real, valid,
+undoable editor state. Crash-safety falls out of principle 3 for free.
 
 Most of the loop is free: suggest, compile, simulate, and trace reads are deterministic local
 services. Tokens buy planning and narration -- a thin, expensive layer over cheap ground truth.
-Harnesses should tier accordingly (a large model for planning and narration; a small or local
-model, or plain search, for constrained pick-among-offered steps).
 
 ## Authoring new tiles
 
@@ -261,7 +299,8 @@ from metadata, so authoring surfaces treat "describe what this senses or does" a
 first-class field. And because the platform has ground truth, descriptions are checkable -- a
 tile whose description disagrees with its simulated behavior can be flagged. Description lint
 against reality is a capability unique to this platform; the bridge's metadata contract
-preserves it.
+preserves it. Because descriptions are model input, they are also an injection surface; the
+content-is-data rule in Safety and audience governs them.
 
 ## Failure is comedy
 
@@ -282,8 +321,8 @@ the truth is in the trace.
 - **Tutor** (device-simulator targets): a neutral, teaching-forward voice in an editor panel.
 - **The creature itself** (creature targets): first-person, in-character; the brain being edited is
   the character's mind, and explanation reads as the creature telling you about itself.
-- Persona affects voice, framing, and UI placement only. The contract, the bridge, the lesson
-  artifact, and the grounding rules are identical underneath.
+- Persona affects voice, framing, and UI placement only. The contract, the bridge, the
+  walkthrough artifact, and the grounding rules are identical underneath.
 - Structurally, prompt content splits into a **kernel** and a **skin**. The kernel carries the
   Assistant contract and safety rules and is target-invariant; a persona is a skin that fills
   designated slots -- voice, address, framing -- and can never override the kernel. The safety
@@ -292,12 +331,22 @@ the truth is in the trace.
 
 ## Safety and audience
 
+- **Content is data, never instruction.** Everything entering model context from the project
+  or catalog -- tile descriptions, rule and page names, library metadata, remixed content, user
+  strings -- is input to reason about, never instructions to follow. Nothing in content can
+  override the kernel (see Personas). Metadata from non-first-party sources (community
+  libraries, remixed creatures) is untrusted by default, and featured-library vetting reviews
+  descriptions as part of its check.
 - Grounded claims only, per the contract: behavior claims cite simulations; explanations cite
   traces; catalog claims cite metadata. The Assistant does not speculate about the platform.
 - Audience-appropriate by target: creature and classroom targets constrain register and content for
   children; the persona layer owns tone, the bridge owns truth.
-- Where model inference runs (hosted, local, school-managed) is a per-target product decision; the
-  bridge contract is transport- and locality-neutral by design.
+- The **bridge** is transport- and locality-neutral by design: tools execute where the editor
+  substrate lives, whoever drives them. The **hosted Assistant** is split-loop by construction
+  (see The open/closed line), because prompts and credentials never leave the service. Anyone
+  requiring different inference locality -- local models, institution-managed endpoints --
+  reaches it through the open bridge with their own harness; the hosted harness is not offered
+  as a self-hosted or tenant-integrated product.
 
 ## Deferred surface
 
@@ -310,6 +359,6 @@ Design intent with no current consumer, named to bound the surface rather than t
 - **Multi-brain reasoning** (the Assistant reasoning about several brains interacting, e.g. a
   gamepad sender and a chassis receiver) extends read/simulate to multiple documents; single-brain
   scope is the baseline.
-- **Lesson persistence and replay** -- the live narrated stream is session-scoped. Saving
-  lessons as documents and replaying them against a brain that has since diverged is a real
+- **Walkthrough persistence and replay** -- the live narrated stream is session-scoped. Saving
+  walkthroughs as documents and replaying them against a brain that has since diverged is a real
   rebase problem; it waits until watching behavior shows anyone wants more than Skip.
