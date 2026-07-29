@@ -105,6 +105,7 @@ export function buildMicrobitBrainEditorConfig(
     dataTypeNames: microbitDataTypeNames,
     customLiteralTypes: [],
     brainServices: env.brainServices,
+    localizer: env.appServices.localizer,
     tileCatalogs: env.tileCatalogs(),
     resolveTileVisual: createMicrobitTileVisualResolver(resolveVfsAssetUrl),
   };

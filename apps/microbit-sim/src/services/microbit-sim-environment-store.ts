@@ -25,6 +25,7 @@ import {
   type WorkspaceCompileDiagnostic,
 } from "@mindcraft-lang/bridge-app";
 import { BrainDef, coreModule, createMindcraftEnvironment, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
+import { createDefaultLocalizer } from "@mindcraft-lang/core/localization";
 import { createProfileNumerics } from "@mindcraft-lang/core/runtime";
 import { isCompilerControlledPath, type Mount } from "@mindcraft-lang/ts-compiler";
 import type { PrintTransport } from "@mindcraft-lang/ui";
@@ -314,6 +315,7 @@ export class MicrobitSimEnvironmentStore {
       }),
       modules: [coreModule(), createWodalSharedModule(), activeProfile.createMindcraftModule()],
       numerics: createProfileNumerics(activeProfile.numberPrecision),
+      localizer: createDefaultLocalizer(),
       mounts: microbitMounts,
       embeddedExtensions: microbitEmbeddedExtensions,
       extensionFetchTransport: createJsDelivrExtensionTransport(),

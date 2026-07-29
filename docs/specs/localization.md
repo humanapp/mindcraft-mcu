@@ -67,10 +67,14 @@ The template language is a minimal, explicitly bounded subset of ICU MessageForm
   catalog build, not with core.
 - **Select:** `{side, select, when {...} do {...} other {...}}` for enumerated variants.
 
-Nothing else from ICU (no dates, ordinals, nested formats, skeletons). Dates and number
-formatting beyond plain digits are out of scope until a real surface needs them; the one
-current `toLocaleString()` call site is treated as host-side formatting, not part of this
-system.
+Nothing else from ICU (no dates, ordinals, nested formats, skeletons). A literal brace,
+`#`, or backslash is written with a backslash escape (`\{`, `\}`, `\#`, `\\`); brace
+doubling is not an escape, because a doubled close brace is ambiguous where a branch body
+ends directly before a placeholder close. Template parsing is total -- malformed spans
+render verbatim and are reported as issues -- and the catalog build is where malformed
+templates fail loud. Dates and number formatting beyond plain digits are out of scope
+until a real surface needs them; the one current `toLocaleString()` call site is treated
+as host-side formatting, not part of this system.
 
 ### List glue
 
