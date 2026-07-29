@@ -135,14 +135,14 @@ generalized) in the plan under `generated-docs/`.
 - The shared Mindcraft packages (`packages/core`, `packages/ts-compiler`,
   `packages/bridge-app`, `packages/app-host`, `packages/ui`) have two
   first-class, co-equal product consumers: `apps/microbit-sim` (this repo) and
-  `external/mindcraft-lang/apps/sim`, the game/sim app, which hosts live
+  `external/mindcraft-lang/apps/ecosim`, the game/sim app, which hosts live
   capability tiles (`[it]`/`see`/`bump`) on its own platform, unrelated to
   wodal/microbit. A change to a shared package or shared model is not done
   until both apps are swept and gated (typecheck + biome + test each); this is
   the one standing reason to run suites in the reference checkout. Design
   shared features for both consumers from the start: a default, assumption, or
   example tied to microbit-sim's platform (wodal/microbit-v2) must state how it
-  also serves apps/sim's distinct platform.
+  also serves apps/ecosim's distinct platform.
 - WODAL and the MCU VM must respect the Mindcraft host calling convention and
   the single-entry VM rule: external callbacks enqueue only; the host loop
   drains, resolves handles, schedules, and executes.

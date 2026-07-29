@@ -139,7 +139,7 @@ Shared Mindcraft packages own:
 - Compiler/runtime contracts that apply across Mindcraft targets.
 
 Shared Mindcraft packages have two first-class, co-equal consumers:
-`apps/microbit-sim` and `external/mindcraft-lang/apps/sim`. The binding rule
+`apps/microbit-sim` and `external/mindcraft-lang/apps/ecosim`. The binding rule
 (sweep and gate both apps, design for both platforms) is stated once, in
 "Repo-Specific Scope" in `AGENTS.md`.
 
