@@ -41,14 +41,19 @@ are **the target's to define**, not this layer's:
 
 The cross-target layer therefore treats pixel values as **opaque integers** and reads the
 display dimensions from the target. The seam exists so a different display - for example a
-larger, palette-based Arcade screen (a small jump from micro:bit) - can be added as a new target
-without changing the family model or the `Image` type. Only the micro:bit-v2 interpretation is
-specified and built here; no other interpretation is implemented until such a target is scoped.
+larger, palette-based Arcade screen (a small jump from micro:bit) - can be added without changing
+the family model or the `Image` type. The Arcade screen is that second consumer, realized as an
+**attached peripheral display on the same micro:bit-v2 target** (`docs/specs/arcade-shield.md`):
+it reuses the `Image` type and the editor descriptor seam with a palette-index interpretation.
+Only the micro:bit-v2 grayscale interpretation is specified in this file.
 
 ## The display as a shared resource
 
-- One display per device: a pixel grid of target-provided dimensions, with target-interpreted
-  pixel values (see Target parameterization).
+- Each display is a single shared pixel grid of target-provided dimensions, with
+  target-interpreted pixel values (see Target parameterization). A device may present more than
+  one display: the onboard matrix and an attached shield screen (`docs/specs/arcade-shield.md`)
+  are **distinct displays** - each has its own draw surface and its own arbitration; a lease on
+  one never gates the other.
 - The display holds whatever was last drawn; a draw persists until the next draw overwrites it.
   There is no implicit clear.
 - Draw functions come in two stances:
@@ -499,8 +504,10 @@ silently omitted).
    the stdlib `image()` calls) is accepted as-is and not tracked; a future asset-library concept
    (images, sound effects packaged separately) would subsume it but is not scheduled.
 2. **How far to formalize the target seam now**: the dimensions + interpretation seam is settled,
-   but the minimal interface a target exposes (e.g. width/height accessors, a narrow-pixel hook)
-   is specified only as much as micro:bit needs until a second display target is scoped.
+   and the arcade shield (`docs/specs/arcade-shield.md`) is its second consumer - as a second
+   display on the same device rather than a new target. The minimal interface a *new target's*
+   display exposes (e.g. width/height accessors, a narrow-pixel hook) remains specified only as
+   much as its consumers need.
 3. **Transparency - design open.** Not important for micro:bit; intentionally not decided.
    The representation (separate mask vs some other encoding) and the overlay/transparent draw mode
    are an open dialog (see Image literals and transparency); today `.` maps to brightness 0 and draws
