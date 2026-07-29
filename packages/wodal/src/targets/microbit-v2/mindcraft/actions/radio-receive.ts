@@ -97,7 +97,7 @@ function makeReceiveSensor(
     isAsync: false,
     outputType,
     outputs,
-    metadata: { label },
+    metadata: { label, language: { frame: "event" } },
     capabilities,
   } satisfies CreateHostSensorOptions;
 }

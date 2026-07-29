@@ -171,7 +171,7 @@ function makeButtonSensor(ids: HostActionIds, label: string, readLevel: ButtonLe
     fn: { onPageEntered: clearCallSiteState, exec },
     isAsync: false,
     outputType: CoreTypeIds.Boolean,
-    metadata: { label },
+    metadata: { label, language: { frame: "event" } },
   } satisfies CreateHostSensorOptions;
 }
 

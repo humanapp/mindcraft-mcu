@@ -82,5 +82,5 @@ export const gestureSensor: CreateHostSensorOptions = {
   fn: { exec },
   isAsync: false,
   outputType: CoreTypeIds.Boolean,
-  metadata: { label: "gesture" },
+  metadata: { label: "gesture", language: { frame: "event" } },
 };

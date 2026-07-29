@@ -3,6 +3,8 @@ import { existsSync } from "node:fs";
 import { describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import type { IBrainTileDef } from "@mindcraft-lang/core/brain";
+import { tileSentenceWord } from "@mindcraft-lang/core/brain/language-service";
+import { createDefaultLocalizer } from "@mindcraft-lang/core/localization";
 import { createMicroBitV2Environment } from "@mindcraft-lang/wodal/targets/microbit-v2";
 import { buildMicrobitBrainEditorConfig, createMicrobitTileVisualResolver } from "./editor-config";
 import { tileVisuals } from "./tile-visuals";
@@ -13,6 +15,9 @@ import { tileVisuals } from "./tile-visuals";
  * than from the tile id.
  */
 const DATA_LABELED_KINDS = new Set<string>(["literal", "variable", "accessor", "output", "page"]);
+
+/** Separates a tile id's namespace from its local name; a word carrying it came from the id. */
+const kTileIdSeparator = "->";
 
 /**
  * Every catalog tile of the shipped microbit-v2 environment that the tile
@@ -41,20 +46,29 @@ function iconFilePath(iconUrl: string): string {
 }
 
 describe("microbit-sim tile visuals", () => {
-  test("every visible catalog tile resolves an explicit label instead of the id-derived fallback", () => {
-    const resolveTileVisual = createMicrobitTileVisualResolver((url) => url);
+  test("every visible catalog tile resolves the word its own metadata authors", () => {
+    const localizer = createDefaultLocalizer();
     const offenders: string[] = [];
     for (const tileDef of visibleCatalogTiles()) {
       if (DATA_LABELED_KINDS.has(tileDef.kind)) {
         continue;
       }
-      const appLabel = resolveTileVisual(tileDef)?.label;
-      const intrinsicLabel = tileDef.metadata?.label;
-      if (!appLabel && !intrinsicLabel) {
+      const authored = tileDef.metadata?.language?.form || tileDef.metadata?.label;
+      if (!authored) {
         offenders.push(tileDef.tileId);
+        continue;
       }
+      assert.equal(tileSentenceWord(tileDef, localizer), authored, tileDef.tileId);
     }
-    assert.deepEqual(offenders, [], `tiles without an explicit label: ${offenders.join(", ")}`);
+    assert.deepEqual(offenders, [], `tiles without an authored word: ${offenders.join(", ")}`);
+  });
+
+  test("no visible catalog tile reads as a namespaced fragment of its tile id", () => {
+    const localizer = createDefaultLocalizer();
+    const leaking = visibleCatalogTiles()
+      .filter((tileDef) => tileSentenceWord(tileDef, localizer).includes(kTileIdSeparator))
+      .map((tileDef) => tileDef.tileId);
+    assert.deepEqual(leaking, [], `tiles reading as a tile-id fragment: ${leaking.join(", ")}`);
   });
 
   test("every visible catalog tile resolves an icon instead of the missing-tile fallback", () => {

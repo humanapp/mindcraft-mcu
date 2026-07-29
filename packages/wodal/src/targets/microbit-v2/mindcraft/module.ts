@@ -1285,7 +1285,7 @@ function registerBuiltInImageTiles(api: MindcraftModuleApi): void {
       new BrainTileLiteralDef(
         WODAL_SHARED_TYPE_IDS.Image,
         builtInImageStructValue(def),
-        { valueLabel: def.name, persist: false, metadata: { label: def.label } },
+        { valueLabel: def.name, persist: false, metadata: { label: def.label, language: { form: def.label } } },
         api.brainServices
       )
     );
@@ -1306,7 +1306,7 @@ function registerBuiltInSoundTiles(api: MindcraftModuleApi): void {
       new BrainTileLiteralDef(
         SOUND_EMOJI_TYPE_ID,
         builtInSoundStructValue(def),
-        { valueLabel: def.name, persist: false, metadata: { label: def.label } },
+        { valueLabel: def.name, persist: false, metadata: { label: def.label, language: { form: def.label } } },
         api.brainServices
       )
     );

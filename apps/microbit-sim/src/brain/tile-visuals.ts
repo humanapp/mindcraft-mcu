@@ -36,39 +36,37 @@ function icon(name: string): string {
 
 /**
  * Display visuals for the tiles microbit-sim ships, keyed by tile id. Every
- * entry carries the tile's icon URL; entries for core tiles whose catalog
- * metadata has no label also carry the display label. Tiles with intrinsic
- * labels (host tiles registered by the microbit-v2 module, built-in literals)
- * have icon-only entries.
+ * entry carries the tile's icon URL. An entry sets a label only where the app
+ * presents the tile under a different word than its catalog metadata authors.
  */
 // biome-ignore format: uniform one-liner-per-entry style
 export const tileVisuals = new Map<string, Partial<TileVisual>>([
   // Operators
-  [mkOperatorTileId(CoreOpId.And), { label: "AND", iconUrl: icon("and") }],
-  [mkOperatorTileId(CoreOpId.Or), { label: "OR", iconUrl: icon("or") }],
-  [mkOperatorTileId(CoreOpId.Not), { label: "NOT", iconUrl: icon("not") }],
-  [mkOperatorTileId(CoreOpId.Add), { label: "plus", iconUrl: icon("plus") }],
-  [mkOperatorTileId(CoreOpId.Subtract), { label: "minus", iconUrl: icon("minus") }],
-  [mkOperatorTileId(CoreOpId.Multiply), { label: "multiplied by", iconUrl: icon("multiply") }],
-  [mkOperatorTileId(CoreOpId.Divide), { label: "divided by", iconUrl: icon("divide") }],
-  [mkOperatorTileId(CoreOpId.Negate), { label: "negative", iconUrl: icon("negative") }],
-  [mkOperatorTileId(CoreOpId.EqualTo), { label: "equal to", iconUrl: icon("equals") }],
-  [mkOperatorTileId(CoreOpId.NotEqualTo), { label: "not equal to", iconUrl: icon("not_equal") }],
-  [mkOperatorTileId(CoreOpId.LessThan), { label: "less than", iconUrl: icon("less_than") }],
-  [mkOperatorTileId(CoreOpId.LessThanOrEqualTo), { label: "less than or equal to", iconUrl: icon("less_than_or_equal_to") }],
-  [mkOperatorTileId(CoreOpId.GreaterThan), { label: "greater than", iconUrl: icon("greater_than") }],
-  [mkOperatorTileId(CoreOpId.GreaterThanOrEqualTo), { label: "greater than or equal to", iconUrl: icon("greater_than_or_equal_to") }],
-  [mkOperatorTileId(CoreOpId.Assign), { label: "gets", iconUrl: icon("assign") }],
+  [mkOperatorTileId(CoreOpId.And), { iconUrl: icon("and") }],
+  [mkOperatorTileId(CoreOpId.Or), { iconUrl: icon("or") }],
+  [mkOperatorTileId(CoreOpId.Not), { iconUrl: icon("not") }],
+  [mkOperatorTileId(CoreOpId.Add), { iconUrl: icon("plus") }],
+  [mkOperatorTileId(CoreOpId.Subtract), { iconUrl: icon("minus") }],
+  [mkOperatorTileId(CoreOpId.Multiply), { iconUrl: icon("multiply") }],
+  [mkOperatorTileId(CoreOpId.Divide), { iconUrl: icon("divide") }],
+  [mkOperatorTileId(CoreOpId.Negate), { iconUrl: icon("negative") }],
+  [mkOperatorTileId(CoreOpId.EqualTo), { iconUrl: icon("equals") }],
+  [mkOperatorTileId(CoreOpId.NotEqualTo), { iconUrl: icon("not_equal") }],
+  [mkOperatorTileId(CoreOpId.LessThan), { iconUrl: icon("less_than") }],
+  [mkOperatorTileId(CoreOpId.LessThanOrEqualTo), { iconUrl: icon("less_than_or_equal_to") }],
+  [mkOperatorTileId(CoreOpId.GreaterThan), { iconUrl: icon("greater_than") }],
+  [mkOperatorTileId(CoreOpId.GreaterThanOrEqualTo), { iconUrl: icon("greater_than_or_equal_to") }],
+  [mkOperatorTileId(CoreOpId.Assign), { iconUrl: icon("assign") }],
   // Control Flow
-  [mkControlFlowTileId(CoreControlFlowId.OpenParen), { label: "(", iconUrl: icon("open-paren") }],
-  [mkControlFlowTileId(CoreControlFlowId.CloseParen), { label: ")", iconUrl: icon("close-paren") }],
+  [mkControlFlowTileId(CoreControlFlowId.OpenParen), { iconUrl: icon("open-paren") }],
+  [mkControlFlowTileId(CoreControlFlowId.CloseParen), { iconUrl: icon("close-paren") }],
   // Variable Factories
   [mkVariableFactoryTileId(CoreVariableFactoryId.Boolean), { label: "create a boolean variable", iconUrl: icon("var-factory-boolean") }],
   [mkVariableFactoryTileId(CoreVariableFactoryId.Number), { label: "create a number variable", iconUrl: icon("var-factory-number") }],
   [mkVariableFactoryTileId(CoreVariableFactoryId.String), { label: "create a text variable", iconUrl: icon("var-factory-text") }],
   // Literal Factories
-  [mkLiteralFactoryTileId(CoreLiteralFactoryId.Number), { label: "create a number tile", iconUrl: icon("lit-factory-number") }],
-  [mkLiteralFactoryTileId(CoreLiteralFactoryId.String), { label: "create a text tile", iconUrl: icon("lit-factory-text") }],
+  [mkLiteralFactoryTileId(CoreLiteralFactoryId.Number), { iconUrl: icon("lit-factory-number") }],
+  [mkLiteralFactoryTileId(CoreLiteralFactoryId.String), { iconUrl: icon("lit-factory-text") }],
   // Core literals
   [mkLiteralTileId(CoreTypeIds.Boolean, "true"), { iconUrl: icon("literal-true") }],
   [mkLiteralTileId(CoreTypeIds.Boolean, "false"), { iconUrl: icon("literal-false") }],
@@ -93,11 +91,11 @@ export const tileVisuals = new Map<string, Partial<TileVisual>>([
   [mkLiteralTileId(SOUND_EMOJI_TYPE_ID, "twinkle"), { iconUrl: icon("literal-sound") }],
   [mkLiteralTileId(SOUND_EMOJI_TYPE_ID, "yawn"), { iconUrl: icon("literal-sound") }],
   // Sensors
-  [mkSensorTileId(CoreHostActions.Random.key), { label: "random number", iconUrl: icon("sensor-random") }],
-  [mkSensorTileId(CoreHostActions.OnPageEntered.key), { label: "on page entered", iconUrl: icon("sensor-on-page-entered") }],
-  [mkSensorTileId(CoreHostActions.Timeout.key), { label: "timeout", iconUrl: icon("sensor-timeout") }],
-  [mkSensorTileId(CoreHostActions.CurrentPage.key), { label: "current page", iconUrl: icon("page") }],
-  [mkSensorTileId(CoreHostActions.PreviousPage.key), { label: "previous page", iconUrl: icon("page2") }],
+  [mkSensorTileId(CoreHostActions.Random.key), { iconUrl: icon("sensor-random") }],
+  [mkSensorTileId(CoreHostActions.OnPageEntered.key), { iconUrl: icon("sensor-on-page-entered") }],
+  [mkSensorTileId(CoreHostActions.Timeout.key), { iconUrl: icon("sensor-timeout") }],
+  [mkSensorTileId(CoreHostActions.CurrentPage.key), { iconUrl: icon("page") }],
+  [mkSensorTileId(CoreHostActions.PreviousPage.key), { iconUrl: icon("page2") }],
   [mkSensorTileId(MicroBitV2HostActions.ButtonA.key), { iconUrl: icon("sensor-button-a") }],
   [mkSensorTileId(MicroBitV2HostActions.ButtonB.key), { iconUrl: icon("sensor-button-b") }],
   [mkSensorTileId(MicroBitV2HostActions.ButtonAB.key), { iconUrl: icon("sensor-button-ab") }],
@@ -109,7 +107,7 @@ export const tileVisuals = new Map<string, Partial<TileVisual>>([
   [mkSensorTileId(MicroBitV2HostActions.RadioReceiveString.key), { iconUrl: icon("sensor-radio-receive-string") }],
   [mkSensorTileId(MicroBitV2HostActions.RadioReceiveBuffer.key), { iconUrl: icon("sensor-radio-receive-buffer") }],
   // Actuators
-  [mkActuatorTileId(CoreHostActions.SwitchPage.key), { label: "switch page", iconUrl: icon("actuator-switch-page") }],
+  [mkActuatorTileId(CoreHostActions.SwitchPage.key), { iconUrl: icon("actuator-switch-page") }],
   [mkActuatorTileId(MicroBitV2HostActions.RadioSend.key), { iconUrl: icon("actuator-radio-send") }],
   [mkActuatorTileId(MicroBitV2HostActions.SetRadioGroup.key), { iconUrl: icon("actuator-set-radio-group") }],
   [mkActuatorTileId(MicroBitV2HostActions.DisplaySetPixel.key), { iconUrl: icon("actuator-display-set-pixel") }],
