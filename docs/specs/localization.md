@@ -85,8 +85,15 @@ interface Localizer {
   locale(): string;
   tr(source: string, params?: Record<string, LocalizedValue>, context?: string): string;
   list(items: readonly string[], kind: "and" | "or"): string;
+  compare(a: string, b: string): number;
+  foldForSearch(s: string): string;
 }
 ```
+
+`compare` orders DISPLAY strings (sorted library names, sorted doc entries) by the
+locale's collation; it is never applied to machine keys, ids, or anything whose order
+reaches a compiled or persisted artifact -- those keep ordinal comparison so build
+outputs stay deterministic across locales.
 
 `LocalizedValue` is a string or number; strings passed as parameters are inserted as-is
 (vocabulary localization of parameters happens before the call -- see Diagnostics).
@@ -162,6 +169,19 @@ The diagnostic-code disciplines are unchanged: codes are append-only, machine-re
 first, and the template registry gives the extraction tooling a complete inventory of
 every diagnostic message in one place per family.
 
+The code+params shape applies to EVERY diagnostic-carrying family, not only the two
+compilers: wodal's build diagnostics, the service-api document-validation diagnostics,
+the app-host library-operation results, and the simulator's flash/fault entries all
+carry code + params, and every downstream carrier (the bridge, app diagnostic lists,
+toasts) preserves the structure rather than pre-composing prose. A carrier that joins
+several messages into one string, or splices a code into a sentence by hand, defeats
+display-time rendering and is out of contract.
+
+**Command descriptions** follow the same posture: an undoable command exposes its
+user-facing description as a source string plus named parameters (including plural
+counts), and the undo/redo UI renders it through the localizer. Command objects never
+carry pre-baked display prose.
+
 ## Documentation
 
 The docs subsystem already separates a locale-independent manifest (tile id, tags,
@@ -184,29 +204,49 @@ TypeScript module per locale. Localization completes that shape:
 Doc markdown is authored per language as whole files -- no in-file string splicing. A
 translated page is a real document a native speaker can write naturally.
 
+**Library-authored tile docs are a separate channel.** A library ships one markdown
+document per tile (`docs: "./docs/x.md"` in its tile config), compiled into the tile's
+metadata and keyed by tile id -- no content key and no locale dimension. Localizing that
+channel belongs to the library system's authoring surface (alongside library-shipped
+catalogs, names, and descriptions); until it exists, the docs viewer shows the one
+authored document for every locale. The docs registry composes app, core, and library
+sources, so a per-locale library channel slots in without reshaping the registry.
+
 ## Surfaces and their integration
 
-- **packages/ui (editor chrome, ~100 strings):** all literals route through the provider
-  hook (`tr`). Dialog titles, buttons, placeholders, menu items, tooltips. The ui
-  package also ships the locale-selection component and the provider owns locale
-  switching, so every app reuses one implementation.
-- **apps/microbit-sim and apps/sim (~110 strings):** same pattern via each app's
-  provider; each app owns its catalog entries. Locale persists in the app's own
-  settings store through a small settings adapter (get/set of the locale code) the app
-  injects via the provider config; the ui-shipped selector reads and writes through it.
-- **vscode-extension / bridge (~40 strings):** split where VS Code splits. Static
-  contributions in `package.json` (command titles, settings descriptions, menus) can
-  only be localized through VS Code's native `package.nls.<locale>.json` bundles, so a
-  build step generates those bundles from the shared catalogs. Everything dynamic
-  (tree items, status bar, prompts, and the diagnostics pass-through, which carries
+- **packages/ui (editor chrome):** all literals route through the provider hook (`tr`) --
+  dialog titles, buttons, placeholders, menu items, tooltips, the candidate strip's
+  headings and live-region status lines, and the library-browser UI (whose user-facing
+  vocabulary is "library/libraries"; code identity stays "extension"). The ui package
+  also ships the locale-selection component and the provider owns locale switching, so
+  every app reuses one implementation.
+- **packages/docs (docs viewer):** the docs sidebar/page/print components and their
+  strings (counts, headings, aria labels) localize like editor chrome. The docs provider
+  is its own injection seam and receives the localizer alongside the registry.
+- **apps/microbit-sim and apps/ecosim:** same pattern via each app's provider; each app
+  owns its catalog entries, including its flash/fault/library toasts and dialogs. Locale
+  persists in the app's own settings store through a small settings adapter (get/set of
+  the locale code) the app injects via the provider config; the ui-shipped selector
+  reads and writes through it.
+- **vscode-extension / bridge:** split where VS Code splits. Static contributions in
+  `package.json` (command titles, settings descriptions, menus) can only be localized
+  through VS Code's native `package.nls.<locale>.json` bundles, so a build step
+  generates those bundles from the shared catalogs. Everything dynamic (tree items,
+  status bar, prompts, CodeLens titles, and the diagnostics pass-through, which carries
   code + params like every other display surface) renders at runtime through the shared
   localizer with the catalogs bundled into the extension. The extension's locale
-  follows VS Code's display language, matching what a VS Code user expects of an
-  extension even when it differs from the paired app's locale.
+  follows VS Code's display language. VS Code icon tokens (`$(warning)` and kin) embed
+  in templates verbatim and must survive translation and pseudo-localization unaltered.
 - **Compilers:** template registries + structured params as above. The ts-compiler's
   learner-facing config diagnostics are included; its internal/tooling output is not.
-- **wodal / VMs / cpp:** no user-visible strings (verified); explicitly out of scope.
-  Trace output and fault codes are developer/machine surfaces and stay English.
+- **app-host and service-api:** their diagnostic/result messages reach users through app
+  toasts and dialogs; they join the code+params contract with their own template
+  registries.
+- **wodal:** its build diagnostics are user-visible and join the code+params contract.
+  Its runtime/device layer, trace output, and fault codes are developer/machine surfaces
+  and stay English.
+- **cli:** developer-facing output; deliberately out of scope.
+- **VMs / cpp:** no user-visible strings; out of scope.
 
 ## Tooling
 
@@ -232,8 +272,10 @@ translated page is a real document a native speaker can write naturally.
   scroll text).
 - Machine translation and translation-management integrations.
 - Locale-aware number/date formatting beyond plural rules.
-- Extension-shipped catalogs (composes with the extension system's design when it lands;
-  the catalog-lookup composition point is the only accommodation made here).
+- Library-shipped translations -- a library's tile docs, its catalog name/description,
+  and any library-authored labels. The library system's authoring surface owns that
+  hook; this design only requires that catalog lookup composes (additional catalogs can
+  join the lookup) and that the docs registry tolerates a per-locale library channel.
 
 Ordinal formatting (`selectordinal`) is excluded with the rest of the ICU surface; no
 current string renders ordinal prose, and diagnostics that reference positions name the
