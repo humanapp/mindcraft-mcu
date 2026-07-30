@@ -119,7 +119,12 @@ recompile pipeline as the host project's own. The manifest keeps its real
 references and never records links; unlinking restores ordinary
 resolution. A link may satisfy a declared reference that is not yet
 fetchable, serving co-development of a dependency that has not yet
-published its first version.
+published its first version. A catalog move applies before a link: the
+link is matched against the coordinate the move resolves to, so a link
+never pins a coordinate the catalog has migrated away from. A coordinate
+that cannot be linked unambiguously is not linked -- it resolves
+ordinarily and the condition is surfaced, never settled by choosing among
+the candidates.
 
 A host application's add-by-reference affordance accepts generous input: a
 repository URL in any common form, a bare `<owner>/<repo>` coordinate, or a

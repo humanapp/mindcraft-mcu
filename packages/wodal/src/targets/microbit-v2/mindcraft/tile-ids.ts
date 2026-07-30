@@ -218,8 +218,11 @@ export const MicroBitV2HostActions = {
 } as const satisfies Record<string, HostActionIds>;
 
 /**
- * Modifier tile ids selecting which derived button event a button sensor
- * reports. At most one is present on a tile; absent selects `click`.
+ * Modifier tile ids: the optional words a tile carries to select a variant of
+ * its behavior. A button sensor takes at most one button-event modifier, and an
+ * absent one selects `pressed`; a gesture sensor takes at most one gesture
+ * modifier, and an absent one selects `shake`; the display and speaker
+ * actuators take the lease modifiers.
  */
 export const WodalMicroBitV2ModifierId = {
   /** Report the released-to-pressed edge. */

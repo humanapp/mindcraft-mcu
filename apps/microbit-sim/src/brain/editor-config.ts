@@ -1,7 +1,8 @@
 import { assertUnreachable } from "@mindcraft-lang/core";
 import { CoreTypeIds, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
 import type { BrainTileKind, IBrainTileDef } from "@mindcraft-lang/core/brain";
-import type { BrainEditorConfig, TileVisual } from "@mindcraft-lang/ui";
+import type { BrainEditorConfig, TileColorDef, TileVisual } from "@mindcraft-lang/ui";
+import { adjustColor, saturateColor } from "@mindcraft-lang/ui";
 import { ICON_BASE, tileVisuals } from "./tile-visuals";
 
 /** The default icon URL a tile of the given kind falls back to, or undefined when the kind has no kind-specific default. */
@@ -28,17 +29,31 @@ function defaultKindIconUrl(kind: BrainTileKind): string | undefined {
   }
 }
 
+/** How far the micro:bit chrome colors are muted for tile surfaces. */
+const kTileMute = -0.2;
+const kTileAdjust = -0.1;
+
+/**
+ * WHEN/DO tile color pair, the micro:bit chrome cyan and green muted by
+ * {@link kTileMute}. Every tile takes this same pair, so a tile's side -- not
+ * its category -- drives its color.
+ */
+const tileSideColors: TileColorDef = {
+  when: adjustColor(saturateColor("#3adcfe", kTileMute), kTileAdjust),
+  do: adjustColor(saturateColor("#3affa3", kTileMute), kTileAdjust),
+};
+
 /**
  * Returns a tile-visual resolver that supplies the app's mapped visuals for
  * core tiles (see `tileVisuals`), gives page tiles the shared page icon when
- * they carry none of their own, and rewrites compiler-minted `/vfs/<path>`
- * tile icon URLs to loadable URLs via `resolveVfsAssetUrl`. Tiles with no
- * map entry, page icon, or VFS icon URL resolve to undefined and keep their
- * intrinsic visuals.
+ * they carry none of their own, rewrites compiler-minted `/vfs/<path>` tile
+ * icon URLs to loadable URLs via `resolveVfsAssetUrl`, and applies the
+ * {@link tileSideColors} WHEN/DO color pair to every tile. Intrinsic visuals a
+ * tile carries in its metadata flow through unchanged.
  */
 export function createMicrobitTileVisualResolver(
   resolveVfsAssetUrl: (url: string) => string
-): (tileDef: IBrainTileDef) => TileVisual | undefined {
+): (tileDef: IBrainTileDef) => TileVisual {
   return (tileDef) => {
     const mapped = tileVisuals.get(tileDef.tileId);
     const intrinsic = tileDef.metadata as TileVisual | undefined;
@@ -46,14 +61,12 @@ export function createMicrobitTileVisualResolver(
     const resolvedIconUrl = intrinsicIconUrl ? resolveVfsAssetUrl(intrinsicIconUrl) : undefined;
     const rewrittenIconUrl = resolvedIconUrl !== intrinsicIconUrl ? resolvedIconUrl : undefined;
     const defaultIconUrl = !mapped?.iconUrl && !intrinsicIconUrl ? defaultKindIconUrl(tileDef.kind) : undefined;
-    if (!mapped && rewrittenIconUrl === undefined && defaultIconUrl === undefined) {
-      return undefined;
-    }
     const visual: Partial<TileVisual> = {
       ...(intrinsic ?? {}),
       ...(mapped ?? {}),
       ...(rewrittenIconUrl !== undefined ? { iconUrl: rewrittenIconUrl } : {}),
       ...(defaultIconUrl !== undefined ? { iconUrl: defaultIconUrl } : {}),
+      colorDef: tileSideColors,
     };
     return visual as TileVisual;
   };
