@@ -8,6 +8,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "vite --config vite/config.dev.mjs --force",
+    "prebuild": "npm run install:packages --prefix ../../external/mindcraft-lang && npm run install:packages --prefix ../.. && npm run build:deps",
     "build": "vite build --config vite/config.prod.mjs",
     "build:deps": "node ../../scripts/build-packages.js .",
     "package": "vite build --config vite/config.prod.mjs --base=./ && node scripts/assemble-target-package.mjs",

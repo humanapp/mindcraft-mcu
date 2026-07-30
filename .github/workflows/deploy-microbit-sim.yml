@@ -29,23 +29,14 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install external mindcraft-lang packages
-        working-directory: external/mindcraft-lang
-        run: npm run install:packages
-
-      - name: Install local packages
-        run: npm run install:packages
-
-      - name: Build packages
-        working-directory: apps/microbit-sim
-        run: npm run build:deps
-
       - name: Install microbit-sim dependencies
         working-directory: apps/microbit-sim
         run: |
           rm -f package-lock.json
           npm install
 
+      # `npm run build` runs the prebuild step first: it installs the external
+      # and local package dependencies and builds them (build:deps) before Vite.
       - name: Build microbit-sim
         working-directory: apps/microbit-sim
         run: npm run build
