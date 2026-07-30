@@ -213,14 +213,14 @@ describe("microbit-v2 actuator readings", () => {
     const displayText = () => actuator(MicroBitV2HostActions.DisplayScroll.key);
 
     assert.equal(reading([], [displayText()]), "Always, display text.");
-    assert.equal(reading([], [displayText(), text("hi")]), "Always, display text hi.");
+    assert.equal(reading([], [displayText(), text("hi")]), 'Always, display text "hi".');
     assert.equal(
       reading([], [displayText(), text("hi"), modifier(Mod.Immediately)]),
-      "Always, display text hi immediately."
+      'Always, display text "hi" immediately.'
     );
     assert.equal(
       reading([], [displayText(), text("hi"), modifier(Mod.InBackground)]),
-      "Always, display text hi in background."
+      'Always, display text "hi" in background.'
     );
   });
 
@@ -311,7 +311,7 @@ describe("microbit-v2 paragraph readings", () => {
           do: [clear()],
         },
       ]),
-      "When button A pressed, display text A. When gesture shake, play sound giggle. When light level is greater than 200, clear display."
+      'When button A pressed, display text "A". When gesture shake, play sound giggle. When light level is greater than 200, clear display.'
     );
   });
 
@@ -320,14 +320,14 @@ describe("microbit-v2 paragraph readings", () => {
       paragraph([
         { when: [buttonA()], do: [displayText(), text("A")], children: [{ when: [gesture()], do: [clear()] }] },
       ]),
-      "When button A pressed, display text A, and if gesture shake, clear display."
+      'When button A pressed, display text "A", and if gesture shake, clear display.'
     );
   });
 
   test("an always-headed parent carries its child's continuation", () => {
     assert.equal(
       paragraph([{ do: [displayText(), text("hi")], children: [{ when: [buttonA()], do: [clear()] }] }]),
-      "Always, display text hi, and if button A pressed, clear display."
+      'Always, display text "hi", and if button A pressed, clear display.'
     );
   });
 
@@ -366,7 +366,7 @@ describe("microbit-v2 paragraph readings", () => {
 
     assert.equal(
       breadth,
-      "When button A pressed, display text A, and if gesture shake, play sound giggle, and if temperature is greater than 30, clear display."
+      'When button A pressed, display text "A", and if gesture shake, play sound giggle, and if temperature is greater than 30, clear display.'
     );
     assert.equal(depth, breadth);
   });
