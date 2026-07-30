@@ -30,7 +30,7 @@ function defaultKindIconUrl(kind: BrainTileKind): string | undefined {
 }
 
 /** How far the micro:bit chrome colors are muted for tile surfaces. */
-const kTileMute = -0.2;
+const kTileMute = -0.1;
 const kTileAdjust = -0.1;
 
 /**
@@ -39,7 +39,7 @@ const kTileAdjust = -0.1;
  * its category -- drives its color.
  */
 const tileSideColors: TileColorDef = {
-  when: adjustColor(saturateColor("#3adcfe", kTileMute), kTileAdjust),
+  when: adjustColor(saturateColor("#0adcff", kTileMute), kTileAdjust),
   do: adjustColor(saturateColor("#3affa3", kTileMute), kTileAdjust),
 };
 
