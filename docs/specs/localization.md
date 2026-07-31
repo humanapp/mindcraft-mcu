@@ -138,6 +138,14 @@ character pool doubles, and matching what the user sees is the expectation anywa
 localizer supplies a `foldForSearch` normalization (case plus diacritic folding, applied
 to query and candidate alike) so `uber` finds `über`; the bag matcher adopts it.
 
+Folding belongs to SEARCH, never to IDENTITY. A comparison that decides whether two
+names denote the SAME thing -- a typed variable name against the variables that already
+exist, a key, an id -- is a key comparison, and folding it would merge distinct names:
+under `foldForSearch`, a newly typed `cafe` would silently become the existing `café`.
+This is the same exemption `compare` carries for machine keys, stated for folding
+because the two functions are reached from adjacent code. A surface that both searches
+and identifies applies the fold to the first and not the second.
+
 Locale-natural synonyms have a home in DOCS search without a dedicated mechanism: the
 docs manifest's per-tile tag lists localize per language, and a locale's tag set may
 deliberately diverge from the English one to add the terms native speakers actually
