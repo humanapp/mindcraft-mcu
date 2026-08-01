@@ -45,8 +45,8 @@
 /*
  * Dark developer-tool theme in the micro:bit brand family. Working surfaces
  * are neutral near-blacks; identity comes from the green pill primaries, the
- * bold category accents on chart/category roles, and the blue->green->teal
- * strip at the top of the header. The app is dark-only.
+ * teal focus ring, and the blue->green->teal strip at the top of the header.
+ * The app is dark-only.
  */
 @theme {
   --color-background: #191919;
@@ -74,11 +74,6 @@
   --color-border: #3a3a3a;
   --color-input: #303030;
   --color-ring: #7bcdc2;
-  --color-chart-1: #00a000;
-  --color-chart-2: #6c4bc1;
-  --color-chart-3: #cd0365;
-  --color-chart-4: #7bcdc2;
-  --color-chart-5: #f7b500;
   /* Header bar -- app-local; the brand near-black behind the signature strip. */
   --color-header: #111111;
   /* Brain editor canvas: neutral near-blacks recessed below the editor frame
