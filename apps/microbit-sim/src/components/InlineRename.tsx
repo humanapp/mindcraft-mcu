@@ -60,7 +60,7 @@ export function InlineRename({ value, ariaLabel, onRename }: InlineRenameProps) 
         ref={inputRef}
         data-testid="inline-rename-input"
         aria-label={ariaLabel}
-        className="w-44 rounded border border-input bg-background px-2 py-0.5 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="w-44 rounded border border-input bg-background px-2 py-0.5 text-sm text-foreground"
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={(event) => {
