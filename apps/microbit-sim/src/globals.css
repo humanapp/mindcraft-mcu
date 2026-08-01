@@ -92,9 +92,7 @@
   --color-brain-tile-border: #eef1f5;
   --color-brain-armed: #eef1f5;
   /* Editor accent, on the desk and as the ink read on top of it: the brand cyan
-     the signature strip opens on, at the weight each role is read on the desk.
-     The accent is sunk well below the weight a tile is filled in, so it reads
-     as the editor's own chrome rather than as a third tile color. */
+     the signature strip opens on, at the weight each role is read on the desk. */
   --color-brain-accent: oklch(52% 0.135 220);
   --color-brain-accent-ink: oklch(87% 0.07 220);
   --color-brain-on-accent: #fff;
