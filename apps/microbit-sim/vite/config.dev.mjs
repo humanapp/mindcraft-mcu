@@ -16,7 +16,12 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    exclude: ["@mindcraft-lang/core", "@mindcraft-lang/ui"],
+    // @mindcraft-lang/ui is not listed here: it is aliased to source, so it is
+    // never prebundled anyway, and excluding it stops the dep scanner from
+    // walking into it. Its Radix imports would then be discovered only on the
+    // first page request, mid-load, and the modules served before that pass
+    // finishes get a second React instance.
+    exclude: ["@mindcraft-lang/core"],
   },
   server: {
     fs: {
