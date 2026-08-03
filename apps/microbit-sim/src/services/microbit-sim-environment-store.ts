@@ -987,7 +987,9 @@ export class MicrobitSimEnvironmentStore {
     const orderedSet = new Set(ordered);
     this._brainIds = [...ordered, ...cached.filter((id) => !orderedSet.has(id))];
     const changed = this._brainIds.length !== indexed.length || this._brainIds.some((id, i) => id !== indexed[i]);
-    if (changed) {
+    // An unreadable brain record leaves the cache empty, so the reconciled order
+    // omits every stored brain; persisting it would drop the saved order.
+    if (changed && !this.host.brainRecordFailure) {
       await this.persistBrainIndex();
     }
     this.rebuildBrains();
