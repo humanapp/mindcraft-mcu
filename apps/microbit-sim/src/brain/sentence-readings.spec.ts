@@ -29,7 +29,7 @@ import { BrainDef, type BrainPageDef, type BrainRuleDef } from "@mindcraft-lang/
 import { BrainTileLiteralDef } from "@mindcraft-lang/core/brain/tiles";
 import type { Localizer } from "@mindcraft-lang/core/localization";
 import { createDefaultLocalizer } from "@mindcraft-lang/core/localization";
-import { CoreOpId, CoreTypeIds } from "@mindcraft-lang/core/runtime";
+import { CoreHostActions, CoreOpId, CoreTypeIds } from "@mindcraft-lang/core/runtime";
 import { composePivotReading, composeSentenceReading } from "@mindcraft-lang/ui/brain-editor/sentence-composer";
 import {
   createMicroBitV2Environment,
@@ -150,60 +150,60 @@ function composing(
 
 describe("microbit-v2 sensor readings", () => {
   test("a button sensor alone reads the press its bare word names", () => {
-    assert.equal(reading([sensor(MicroBitV2HostActions.ButtonA.key)]), "When button A pressed.");
-    assert.equal(reading([sensor(MicroBitV2HostActions.ButtonB.key)]), "When button B pressed.");
-    assert.equal(reading([sensor(MicroBitV2HostActions.ButtonAB.key)]), "When button A+B pressed.");
-    assert.equal(reading([sensor(MicroBitV2HostActions.ButtonLogo.key)]), "When logo pressed.");
+    assert.equal(reading([sensor(MicroBitV2HostActions.ButtonA.key)]), "When button A pressed,");
+    assert.equal(reading([sensor(MicroBitV2HostActions.ButtonB.key)]), "When button B pressed,");
+    assert.equal(reading([sensor(MicroBitV2HostActions.ButtonAB.key)]), "When button A+B pressed,");
+    assert.equal(reading([sensor(MicroBitV2HostActions.ButtonLogo.key)]), "When logo pressed,");
   });
 
   test("a button sensor reads the event its modifier selects", () => {
     const buttonA = () => sensor(MicroBitV2HostActions.ButtonA.key);
 
-    assert.equal(reading([buttonA(), modifier(Mod.Pressed)]), "When button A pressed.");
-    assert.equal(reading([buttonA(), modifier(Mod.Released)]), "When button A released.");
-    assert.equal(reading([buttonA(), modifier(Mod.Click)]), "When button A click.");
-    assert.equal(reading([buttonA(), modifier(Mod.DoubleClick)]), "When button A double click.");
-    assert.equal(reading([buttonA(), modifier(Mod.LongClick)]), "When button A long click.");
-    assert.equal(reading([buttonA(), modifier(Mod.Held)]), "When button A held.");
+    assert.equal(reading([buttonA(), modifier(Mod.Pressed)]), "When button A pressed,");
+    assert.equal(reading([buttonA(), modifier(Mod.Released)]), "When button A released,");
+    assert.equal(reading([buttonA(), modifier(Mod.Click)]), "When button A click,");
+    assert.equal(reading([buttonA(), modifier(Mod.DoubleClick)]), "When button A double click,");
+    assert.equal(reading([buttonA(), modifier(Mod.LongClick)]), "When button A long click,");
+    assert.equal(reading([buttonA(), modifier(Mod.Held)]), "When button A held,");
   });
 
   test("the gesture sensor alone reads the shake its bare word names", () => {
-    assert.equal(reading([sensor(MicroBitV2HostActions.Gesture.key)]), "When gesture shake.");
+    assert.equal(reading([sensor(MicroBitV2HostActions.Gesture.key)]), "When gesture shake,");
   });
 
   test("the gesture sensor reads the gesture its modifier selects", () => {
     const gesture = () => sensor(MicroBitV2HostActions.Gesture.key);
 
-    assert.equal(reading([gesture(), modifier(Mod.Shake)]), "When gesture shake.");
-    assert.equal(reading([gesture(), modifier(Mod.TiltUp)]), "When gesture tilt up.");
-    assert.equal(reading([gesture(), modifier(Mod.TiltDown)]), "When gesture tilt down.");
-    assert.equal(reading([gesture(), modifier(Mod.TiltLeft)]), "When gesture tilt left.");
-    assert.equal(reading([gesture(), modifier(Mod.TiltRight)]), "When gesture tilt right.");
-    assert.equal(reading([gesture(), modifier(Mod.FaceUp)]), "When gesture face up.");
-    assert.equal(reading([gesture(), modifier(Mod.FaceDown)]), "When gesture face down.");
-    assert.equal(reading([gesture(), modifier(Mod.Freefall)]), "When gesture freefall.");
+    assert.equal(reading([gesture(), modifier(Mod.Shake)]), "When gesture shake,");
+    assert.equal(reading([gesture(), modifier(Mod.TiltUp)]), "When gesture tilt up,");
+    assert.equal(reading([gesture(), modifier(Mod.TiltDown)]), "When gesture tilt down,");
+    assert.equal(reading([gesture(), modifier(Mod.TiltLeft)]), "When gesture tilt left,");
+    assert.equal(reading([gesture(), modifier(Mod.TiltRight)]), "When gesture tilt right,");
+    assert.equal(reading([gesture(), modifier(Mod.FaceUp)]), "When gesture face up,");
+    assert.equal(reading([gesture(), modifier(Mod.FaceDown)]), "When gesture face down,");
+    assert.equal(reading([gesture(), modifier(Mod.Freefall)]), "When gesture freefall,");
   });
 
   test("a value sensor alone reads with no subject", () => {
-    assert.equal(reading([sensor(MicroBitV2HostActions.LightLevel.key)]), "When light level.");
-    assert.equal(reading([sensor(MicroBitV2HostActions.Temperature.key)]), "When temperature.");
+    assert.equal(reading([sensor(MicroBitV2HostActions.LightLevel.key)]), "When light level,");
+    assert.equal(reading([sensor(MicroBitV2HostActions.Temperature.key)]), "When temperature,");
   });
 
   test("a value sensor inside a comparison reads with no subject", () => {
     assert.equal(
       reading([sensor(MicroBitV2HostActions.LightLevel.key), operator(CoreOpId.GreaterThan), number(200)]),
-      "When light level is greater than 200."
+      "When light level is greater than 200,"
     );
     assert.equal(
       reading([sensor(MicroBitV2HostActions.Temperature.key), operator(CoreOpId.LessThan), number(10)]),
-      "When temperature is less than 10."
+      "When temperature is less than 10,"
     );
   });
 
   test("a radio-receive sensor alone reads through its event frame", () => {
-    assert.equal(reading([sensor(MicroBitV2HostActions.RadioReceiveNumber.key)]), "When radio receive number.");
-    assert.equal(reading([sensor(MicroBitV2HostActions.RadioReceiveString.key)]), "When radio receive string.");
-    assert.equal(reading([sensor(MicroBitV2HostActions.RadioReceiveBuffer.key)]), "When radio receive buffer.");
+    assert.equal(reading([sensor(MicroBitV2HostActions.RadioReceiveNumber.key)]), "When radio receive number,");
+    assert.equal(reading([sensor(MicroBitV2HostActions.RadioReceiveString.key)]), "When radio receive string,");
+    assert.equal(reading([sensor(MicroBitV2HostActions.RadioReceiveBuffer.key)]), "When radio receive buffer,");
   });
 });
 
@@ -370,6 +370,13 @@ describe("microbit-v2 paragraph readings", () => {
       'When button A pressed, display text "A", and if gesture shake, play sound giggle, and if temperature is greater than 30, clear display.'
     );
     assert.equal(depth, breadth);
+  });
+
+  test("a parent with no action of its own is completed by its child's clause", () => {
+    assert.equal(
+      paragraph([{ when: [sensor(CoreHostActions.Otherwise.key)], children: [{ when: [buttonA()], do: [clear()] }] }]),
+      "Otherwise, when button A pressed, clear display."
+    );
   });
 
   test("a radio sender and receiver read as two sentences", () => {
