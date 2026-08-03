@@ -11,7 +11,7 @@ import {
 } from "@mindcraft-lang/ui";
 import { buildWodalProgramImage } from "@mindcraft-lang/wodal";
 import { MoreHorizontal, Plus, Usb } from "lucide-react";
-import { useId, useState, useSyncExternalStore } from "react";
+import { useId, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";
 import { microbitFirmwareHex, microbitFirmwareMetadata } from "@/services/firmware-asset";
@@ -50,6 +50,11 @@ export function BrainList() {
   const [dialog, setDialog] = useState<BrainDialog>(null);
   const [editingBrainId, setEditingBrainId] = useState<string | null>(null);
   const [driveFlashBrainId, setDriveFlashBrainId] = useState<string | null>(null);
+  // Each listed brain's Edit button, so the add flow can put the keyboard on the
+  // new brain's row before opening the editor over it.
+  const editButtons = useRef(new Map<string, HTMLButtonElement>());
+  // The brain the add dialog just created, read once the dialog has closed.
+  const brainToOpenAfterNaming = useRef<string | null>(null);
   const [expandedDiagnostics, setExpandedDiagnostics] = useState<ReadonlySet<string>>(new Set());
   useSyncExternalStore(store.subscribeToBrainDiagnostics, store.getBrainDiagnosticsRevision);
   // Flash-state changes (a failed build/link/load) light the compile badge; runtime faults
@@ -59,6 +64,26 @@ export function BrainList() {
 
   function toggleDiagnostics(brainId: string) {
     setExpandedDiagnostics((previous) => toggledBrainId(previous, brainId));
+  }
+
+  /**
+   * Opens the editor on the brain the add dialog just named, having first put the
+   * keyboard on that brain's Edit button so closing the editor lands there. Does
+   * nothing when the dialog closed without creating a brain, leaving its own
+   * focus restoration to stand.
+   */
+  function openNamedBrain(event: Event) {
+    const brainId = brainToOpenAfterNaming.current;
+    brainToOpenAfterNaming.current = null;
+    if (brainId === null) {
+      return;
+    }
+    const editButton = editButtons.current.get(brainId);
+    if (editButton) {
+      event.preventDefault();
+      editButton.focus();
+    }
+    setEditingBrainId(brainId);
   }
   const headingId = useId();
   const webUsbSupported = isWebUsbSupported();
@@ -287,6 +312,13 @@ export function BrainList() {
                       )}
                       <button
                         type="button"
+                        ref={(element) => {
+                          if (element) {
+                            editButtons.current.set(brain.id, element);
+                          } else {
+                            editButtons.current.delete(brain.id);
+                          }
+                        }}
                         data-testid="brain-edit"
                         data-brain-name={brain.name}
                         aria-label={`Edit ${brain.name}`}
@@ -393,8 +425,11 @@ export function BrainList() {
         <NameInputDialog
           title="Add brain"
           submitLabel="Add"
-          onSubmit={(name) => store.addBrain(name)}
+          onSubmit={async (name) => {
+            brainToOpenAfterNaming.current = await store.addBrain(name);
+          }}
           onClose={() => setDialog(null)}
+          onCloseAutoFocus={openNamedBrain}
         />
       )}
       {dialog?.kind === "rename" && (

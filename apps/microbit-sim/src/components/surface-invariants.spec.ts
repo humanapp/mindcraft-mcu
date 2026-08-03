@@ -107,3 +107,14 @@ describe("the header menu exposes a Learn more submenu with external links", () 
     );
   });
 });
+
+describe("the brain editor cannot undo a brain's creation", () => {
+  test("BrainEditor.tsx reaches the store only to load and to save", () => {
+    const source = componentSource("BrainEditor.tsx");
+
+    assert.ok(source.includes("store.getBrain("), "expected the editor to load the brain it edits");
+    assert.ok(source.includes("store.saveBrain("), "expected the editor to save on submit");
+
+    assert.doesNotMatch(source, /removeBrain/);
+  });
+});

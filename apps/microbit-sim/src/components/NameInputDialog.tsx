@@ -8,10 +8,24 @@ interface NameInputDialogProps {
   initialValue?: string;
   onSubmit: (name: string) => Promise<unknown>;
   onClose: () => void;
+  /**
+   * Runs once the dialog has closed and is handing the keyboard back, whether it
+   * submitted or was cancelled. Call `event.preventDefault()` and focus an
+   * element to take the keyboard over; leaving the event alone returns it to
+   * whatever held it when the dialog opened.
+   */
+  onCloseAutoFocus?: (event: Event) => void;
 }
 
 /** Modal that captures a single name and submits the trimmed value. */
-export function NameInputDialog({ title, submitLabel, initialValue = "", onSubmit, onClose }: NameInputDialogProps) {
+export function NameInputDialog({
+  title,
+  submitLabel,
+  initialValue = "",
+  onSubmit,
+  onClose,
+  onCloseAutoFocus,
+}: NameInputDialogProps) {
   const [name, setName] = useState(initialValue);
   const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -37,7 +51,7 @@ export function NameInputDialog({ title, submitLabel, initialValue = "", onSubmi
   }
 
   return (
-    <Modal title={title} onClose={onClose}>
+    <Modal title={title} onClose={onClose} onCloseAutoFocus={onCloseAutoFocus}>
       <input
         ref={inputRef}
         data-testid="name-input"
