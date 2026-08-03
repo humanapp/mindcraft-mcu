@@ -1286,7 +1286,18 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       return RunResult::waiting();
     }
 
-    case Op::WHEN_START:
+    case Op::WHEN_START: {
+      // The WHEN section leaves exactly one value for the gate at its end. The
+      // rule's firing record reads Evaluating from here until that gate writes
+      // the outcome.
+      if (surface.context != nullptr) {
+        surface.context->setRuleFiringState(resolveFrameRuleFuncId(program, frame),
+                                            RuleFiringState::Evaluating);
+      }
+      frame.pc++;
+      break;
+    }
+
     case Op::DO_START:
     case Op::DO_END: {
       // Pure section markers: advance the pc, no other effect.
@@ -1306,11 +1317,16 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       // drops the capture without disturbing the truthiness gate. Every rule
       // captures, regardless of the gate below.
       const Value value = state.stack[state.stackDepth - 1];
-      ruleVarSet(surface.context, surface.heap, surface.roots,
-                 resolveFrameRuleFuncId(program, frame), Value::number(kWhenResultRuleVarKey),
-                 value);
+      const uint32_t ruleFuncId = resolveFrameRuleFuncId(program, frame);
+      ruleVarSet(surface.context, surface.heap, surface.roots, ruleFuncId,
+                 Value::number(kWhenResultRuleVarKey), value);
       state.stackDepth--;
-      frame.pc = isTruthy(value, program, surface.heap) ? frame.pc + 1 : addRel(frame.pc, ins.a);
+      const bool fired = isTruthy(value, program, surface.heap);
+      if (surface.context != nullptr) {
+        surface.context->setRuleFiringState(ruleFuncId, fired ? RuleFiringState::DidFire
+                                                              : RuleFiringState::DidNotFire);
+      }
+      frame.pc = fired ? frame.pc + 1 : addRel(frame.pc, ins.a);
       break;
     }
 
@@ -1322,11 +1338,16 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
         return fault(ErrorCode::StackUnderflow);
       }
       const Value value = state.stack[state.stackDepth - 1];
-      ruleVarSet(surface.context, surface.heap, surface.roots,
-                 resolveFrameRuleFuncId(program, frame), Value::number(kWhenResultRuleVarKey),
-                 value);
+      const uint32_t ruleFuncId = resolveFrameRuleFuncId(program, frame);
+      ruleVarSet(surface.context, surface.heap, surface.roots, ruleFuncId,
+                 Value::number(kWhenResultRuleVarKey), value);
       state.stackDepth--;
-      frame.pc = value.isNil() ? addRel(frame.pc, ins.a) : frame.pc + 1;
+      const bool fired = !value.isNil();
+      if (surface.context != nullptr) {
+        surface.context->setRuleFiringState(ruleFuncId, fired ? RuleFiringState::DidFire
+                                                              : RuleFiringState::DidNotFire);
+      }
+      frame.pc = fired ? frame.pc + 1 : addRel(frame.pc, ins.a);
       break;
     }
 

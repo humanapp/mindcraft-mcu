@@ -45,13 +45,14 @@ inline constexpr HostActionIds Timeout{5, static_cast<uint32_t>(CoreFuncId::Sens
 inline constexpr HostActionIds CurrentPage{6, static_cast<uint32_t>(CoreFuncId::SensorCurrentPage)};
 inline constexpr HostActionIds PreviousPage{7,
                                             static_cast<uint32_t>(CoreFuncId::SensorPreviousPage)};
+inline constexpr HostActionIds Otherwise{8, static_cast<uint32_t>(CoreFuncId::SensorOtherwise)};
 } // namespace CoreHostActions
 
 /** All core host-action records, in action-id order; ids are dense from 0. */
 inline constexpr HostActionIds kCoreHostActions[] = {
     CoreHostActions::SwitchPage,  CoreHostActions::RestartPage,   CoreHostActions::Yield,
     CoreHostActions::Random,      CoreHostActions::OnPageEntered, CoreHostActions::Timeout,
-    CoreHostActions::CurrentPage, CoreHostActions::PreviousPage,
+    CoreHostActions::CurrentPage, CoreHostActions::PreviousPage,  CoreHostActions::Otherwise,
 };
 
 } // namespace mindcraft

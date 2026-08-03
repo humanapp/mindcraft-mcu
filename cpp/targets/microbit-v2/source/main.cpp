@@ -194,6 +194,7 @@ int main()
     coreEnv.rng = &rng;
     coreEnv.heap = &heap;
     coreEnv.roots = &scheduler;
+    coreEnv.program = &image;
     scrollEnv.heap = &heap;
     drawEnv.heap = &heap;
     playSoundEnv.heap = &heap;

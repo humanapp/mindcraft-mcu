@@ -21,6 +21,7 @@ import {
   paragraphText,
   projectPageParagraph,
   projectRuleSentence,
+  segmentDisplayText,
   sentenceText,
   whenTriggerWord,
 } from "@mindcraft-lang/core/brain/language-service";
@@ -93,7 +94,7 @@ function rule(whenTiles: readonly IBrainTileDef[], doTiles: readonly IBrainTileD
 
 /** The settled sentence of a rule holding the tiles of each side. */
 function reading(whenTiles: readonly IBrainTileDef[], doTiles: readonly IBrainTileDef[] = []): string {
-  return sentenceText(projectRuleSentence(rule(whenTiles, doTiles), localizer));
+  return sentenceText(projectRuleSentence(rule(whenTiles, doTiles), localizer), localizer);
 }
 
 /** One rule of a page fixture: the tiles of each side, plus any child rules. */
@@ -130,7 +131,7 @@ function page(specs: readonly RuleSpec[]): IBrainPageDef {
 
 /** The paragraph of a page holding the rule tree `specs` describes. */
 function paragraph(specs: readonly RuleSpec[]): string {
-  return paragraphText(projectPageParagraph(page(specs), localizer));
+  return paragraphText(projectPageParagraph(page(specs), localizer), localizer);
 }
 
 /** The line a rule shows mid-composition, with the pivot comma when `pivoted`. */
@@ -142,7 +143,7 @@ function composing(
   const settled = projectRuleSentence(rule(whenTiles, doTiles), localizer).toArray();
   const composed = composeSentenceReading(settled);
   const segments = pivoted ? [...composed, ...composePivotReading(composed, whenTriggerWord(localizer))] : composed;
-  return segments.map((segment) => segment.text).join("");
+  return segments.map((segment) => segmentDisplayText(segment, localizer)).join("");
 }
 
 // -- sensors ------------------------------------------------------------------

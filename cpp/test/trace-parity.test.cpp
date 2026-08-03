@@ -3805,6 +3805,7 @@ void checkDrawFixture(const std::string& name, int tickCount, float tickMs) {
   coreEnv.rng = &rng;
   coreEnv.heap = &heap;
   coreEnv.roots = &scheduler;
+  coreEnv.program = &image;
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
@@ -3869,6 +3870,7 @@ void checkPlaySoundFixture(const std::string& name, int tickCount, float tickMs)
   coreEnv.rng = &rng;
   coreEnv.heap = &heap;
   coreEnv.roots = &scheduler;
+  coreEnv.program = &image;
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
@@ -3944,6 +3946,7 @@ void checkUserTileDrawFixture(const std::string& name, int tickCount, float tick
   coreEnv.rng = &rng;
   coreEnv.heap = &heap;
   coreEnv.roots = &scheduler;
+  coreEnv.program = &image;
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
@@ -4021,6 +4024,7 @@ void checkUserTilePlaySoundFixture(const std::string& name, int tickCount, float
   coreEnv.rng = &rng;
   coreEnv.heap = &heap;
   coreEnv.roots = &scheduler;
+  coreEnv.program = &image;
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
@@ -4080,6 +4084,7 @@ TEST_CASE("the timer-brain fixture byte-matches the golden observable trace") {
   coreEnv.rng = &rng;
   coreEnv.heap = &heap;
   coreEnv.roots = &scheduler;
+  coreEnv.program = &image;
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
@@ -4137,6 +4142,7 @@ TEST_CASE("the timeout-bounce fixture byte-matches the golden observable trace")
   coreEnv.rng = &rng;
   coreEnv.heap = &heap;
   coreEnv.roots = &scheduler;
+  coreEnv.program = &image;
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
@@ -4194,6 +4200,7 @@ TEST_CASE("a multi-rule page switching mid-round runs fault-free") {
   coreEnv.rng = &rng;
   coreEnv.heap = &heap;
   coreEnv.roots = &scheduler;
+  coreEnv.program = &image;
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
@@ -4250,6 +4257,7 @@ TEST_CASE("the restart-interrupt fixture byte-matches the golden observable trac
   coreEnv.rng = &rng;
   coreEnv.heap = &heap;
   coreEnv.roots = &scheduler;
+  coreEnv.program = &image;
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
@@ -4310,6 +4318,7 @@ TEST_CASE("the core-host-actions fixture byte-matches the golden observable trac
   coreEnv.rng = &rng;
   coreEnv.heap = &heap;
   coreEnv.roots = &scheduler;
+  coreEnv.program = &image;
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
@@ -4372,6 +4381,7 @@ TEST_CASE("the display-scroll fixture byte-matches the golden observable trace")
   coreEnv.rng = &rng;
   coreEnv.heap = &heap;
   coreEnv.roots = &scheduler;
+  coreEnv.program = &image;
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
@@ -4440,6 +4450,7 @@ static void checkScrollWhenResultFixture(const std::string& name) {
   coreEnv.rng = &rng;
   coreEnv.heap = &heap;
   coreEnv.roots = &scheduler;
+  coreEnv.program = &image;
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
@@ -4642,6 +4653,7 @@ TEST_CASE("the display-scroll-drop fixture byte-matches the golden observable tr
   coreEnv.rng = &rng;
   coreEnv.heap = &heap;
   coreEnv.roots = &scheduler;
+  coreEnv.program = &image;
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
@@ -4703,6 +4715,7 @@ TEST_CASE("the display-scroll-background fixture byte-matches the golden observa
   coreEnv.rng = &rng;
   coreEnv.heap = &heap;
   coreEnv.roots = &scheduler;
+  coreEnv.program = &image;
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
@@ -4764,6 +4777,7 @@ TEST_CASE("the async-action fixture byte-matches the golden observable trace") {
   coreEnv.rng = &rng;
   coreEnv.heap = &heap;
   coreEnv.roots = &scheduler;
+  coreEnv.program = &image;
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
@@ -4922,6 +4936,7 @@ TEST_CASE("the async-parent-sequencing fixture byte-matches the golden observabl
   coreEnv.rng = &rng;
   coreEnv.heap = &heap;
   coreEnv.roots = &scheduler;
+  coreEnv.program = &image;
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
@@ -4983,6 +4998,7 @@ TEST_CASE("the async-handle-backpressure fixture byte-matches the golden observa
   coreEnv.rng = &rng;
   coreEnv.heap = &heap;
   coreEnv.roots = &scheduler;
+  coreEnv.program = &image;
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
@@ -5094,6 +5110,7 @@ TEST_CASE("the sync-cascade-depth-first fixture byte-matches the golden observab
   coreEnv.rng = &rng;
   coreEnv.heap = &heap;
   coreEnv.roots = &scheduler;
+  coreEnv.program = &image;
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
@@ -5153,6 +5170,7 @@ TEST_CASE("the mixed-sync-async-child fixture byte-matches the golden observable
   coreEnv.rng = &rng;
   coreEnv.heap = &heap;
   coreEnv.roots = &scheduler;
+  coreEnv.program = &image;
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
@@ -5212,6 +5230,7 @@ TEST_CASE("the pixel-conversion fixture byte-matches the golden observable trace
   coreEnv.rng = &rng;
   coreEnv.heap = &heap;
   coreEnv.roots = &scheduler;
+  coreEnv.program = &image;
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
@@ -5268,6 +5287,7 @@ TEST_CASE("the opcode-coverage fixture byte-matches the golden observable trace"
   coreEnv.rng = &rng;
   coreEnv.heap = &heap;
   coreEnv.roots = &scheduler;
+  coreEnv.program = &image;
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
@@ -5326,6 +5346,7 @@ TEST_CASE("the managed-string-scroll fixture byte-matches the golden observable 
   coreEnv.rng = &rng;
   coreEnv.heap = &heap;
   coreEnv.roots = &scheduler;
+  coreEnv.program = &image;
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
@@ -5401,4 +5422,158 @@ TEST_CASE("a heap collection during a System think skips native receiver values"
   // later fiber growth.
   CHECK(arena.bytesRemaining() > 4096);
   CHECK(microbit.i2c.writes.size() == 500);
+}
+
+namespace {
+
+/** One scheduled think of an `otherwise` fixture: button levels, injected packets, then the
+ * advance. */
+struct OtherwiseStep {
+  /** Simulated milliseconds to advance before the think. */
+  float advanceMs;
+  /** Button A level: 1 down, 0 up, -1 unchanged. */
+  int a;
+  /** Button B level: 1 down, 0 up, -1 unchanged. */
+  int b;
+  /** Packets delivered into the receive ring before the think. */
+  std::vector<RadioInject> inject;
+};
+
+/**
+ * Loads an `otherwise` fixture binary, replays its schedule through the host
+ * loop, and byte-compares the rendered trace against the committed golden. The
+ * brains reach the core sensor table (the `otherwise` sensor and the page-switch
+ * actuator) plus the microbit buttons, radio, display scroll, and set-pixel.
+ * Mirrors the schedules of wodal
+ * packages/wodal/src/targets/microbit-v2/mindcraft/otherwise-trace.spec.ts.
+ */
+void runOtherwiseParity(const std::string& name, const std::vector<OtherwiseStep>& schedule) {
+  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/" + name;
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  microbit.radio.writer = &writer;
+  TraceTap tap(writer);
+
+  mindcraft::ManagedHeap heap(arena, &image);
+  writer.setHeap(&heap);
+  mindcraft::CoreHostActionEnv coreEnv;
+  mindcraft::VmRng rng;
+  mindcraft::MicroBitV2DisplayScrollEnv scrollEnv{&microbit.display, &heap};
+  mindcraft::MicroBitV2ButtonSensorEnv buttonEnv{&microbit.buttons, &heap, nullptr};
+  mindcraft::MicroBitV2RadioSensorEnv radioSensorEnv{&microbit.radio, &heap, nullptr};
+  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(
+      microbit.ports, &scrollEnv, &buttonEnv, nullptr, nullptr, &radioSensorEnv);
+  auto actions = combineActionTable(coreBindings, mbBindings);
+  ExecutionContext ctx;
+  RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
+  surface.rng = &rng;
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  buttonEnv.roots = &scheduler;
+  radioSensorEnv.roots = &scheduler;
+  BrainRuntime brain(image, scheduler, surface);
+  coreEnv.brain = &brain;
+  coreEnv.rng = &rng;
+  coreEnv.heap = &heap;
+  coreEnv.roots = &scheduler;
+  coreEnv.program = &image;
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  float lastThinkTimeMs = 0;
+  for (size_t i = 0; i < schedule.size(); i++) {
+    const OtherwiseStep& step = schedule[i];
+    if (step.a >= 0) {
+      microbit.buttons.pressed[0] = step.a == 1;
+    }
+    if (step.b >= 0) {
+      microbit.buttons.pressed[1] = step.b == 1;
+    }
+    for (const RadioInject& packet : step.inject) {
+      microbit.radio.deliver(packet.type, packet.value, packet.text, packet.bytes);
+    }
+    const float timeMs = lastThinkTimeMs + step.advanceMs;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    microbit.display.advanceScroll(timeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+}
+
+} // namespace
+
+TEST_CASE("the otherwise-pair fixture byte-matches the golden observable trace") {
+  runOtherwiseParity(
+      "otherwise-pair",
+      {{16, -1, -1, {}}, {16, 1, -1, {}}, {16, -1, -1, {}}, {16, 0, -1, {}}, {16, -1, -1, {}}});
+}
+
+TEST_CASE("the otherwise-presence-gated fixture byte-matches the golden observable trace") {
+  runOtherwiseParity("otherwise-presence-gated", {{16, -1, -1, {}},
+                                                  {16, -1, -1, {radioNumber(0)}},
+                                                  {16, -1, -1, {}},
+                                                  {16, -1, -1, {radioNumber(9)}}});
+}
+
+TEST_CASE("the otherwise-alternating-run fixture byte-matches the golden observable trace") {
+  runOtherwiseParity("otherwise-alternating-run",
+                     {{16, -1, -1, {}}, {16, 1, -1, {}}, {16, 0, -1, {}}});
+}
+
+TEST_CASE("the otherwise-after-empty-when fixture byte-matches the golden observable trace") {
+  runOtherwiseParity("otherwise-after-empty-when",
+                     {{16, -1, -1, {}}, {16, -1, -1, {}}, {16, -1, -1, {}}});
+}
+
+TEST_CASE("the otherwise-in-expression fixture byte-matches the golden observable trace") {
+  runOtherwiseParity(
+      "otherwise-in-expression",
+      {{16, -1, -1, {}}, {16, -1, 1, {}}, {16, 1, -1, {}}, {16, 0, -1, {}}, {16, -1, 0, {}}});
+}
+
+TEST_CASE("the otherwise-ladder fixture byte-matches the golden observable trace") {
+  runOtherwiseParity("otherwise-ladder", {{16, -1, -1, {}},
+                                          {16, 1, -1, {}},
+                                          {16, 0, 1, {}},
+                                          {16, -1, 0, {radioNumber(0)}},
+                                          {16, -1, -1, {}}});
+}
+
+TEST_CASE("the otherwise-page-reentry fixture byte-matches the golden observable trace") {
+  runOtherwiseParity("otherwise-page-reentry", {{16, -1, -1, {}},
+                                                {16, -1, 1, {}},
+                                                {16, -1, 0, {}},
+                                                {16, -1, -1, {}},
+                                                {16, 1, -1, {}},
+                                                {16, 0, -1, {}}});
+}
+
+TEST_CASE("the otherwise-parked-subject fixture byte-matches the golden observable trace") {
+  std::vector<OtherwiseStep> schedule;
+  for (int i = 0; i < 10; i++) {
+    const int a = i == 1 ? 1 : (i == 4 ? 0 : -1);
+    schedule.push_back(OtherwiseStep{1100, a, -1, {}});
+  }
+  runOtherwiseParity("otherwise-parked-subject", schedule);
 }

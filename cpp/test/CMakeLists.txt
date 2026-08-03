@@ -29,6 +29,7 @@ add_executable(mindcraft-tests
   numeric.test.cpp
   observable-trace.test.cpp
   on-flash-region.test.cpp
+  otherwise-sensor.test.cpp
   pinned-numerics-parity.test.cpp
   pool.test.cpp
   program-dump.test.cpp
@@ -37,6 +38,7 @@ add_executable(mindcraft-tests
   radio-wire.test.cpp
   region-arena.test.cpp
   result.test.cpp
+  rule-firing-record.test.cpp
   span.test.cpp
   trace-parity.test.cpp
   value.test.cpp

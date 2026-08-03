@@ -19,8 +19,9 @@ TEST_CASE("CoreFuncId extremes and count are wire-stable") {
   CHECK(static_cast<uint32_t>(CoreFuncId::OpNotEqualToEnum) == 103);
   CHECK(static_cast<uint32_t>(CoreFuncId::ConvEnumToString) == 104);
   CHECK(static_cast<uint32_t>(CoreFuncId::ConvEnumToNumber) == 105);
-  CHECK(kCoreFuncIdCount == 106);
-  CHECK(static_cast<uint32_t>(CoreFuncId::ConvEnumToNumber) == kCoreFuncIdCount - 1);
+  CHECK(static_cast<uint32_t>(CoreFuncId::SensorOtherwise) == 106);
+  CHECK(kCoreFuncIdCount == 107);
+  CHECK(static_cast<uint32_t>(CoreFuncId::SensorOtherwise) == kCoreFuncIdCount - 1);
   CHECK(kCoreFuncIdCount <= TARGET_FUNC_ID_BASE);
 }
 

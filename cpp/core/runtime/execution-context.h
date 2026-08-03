@@ -15,6 +15,20 @@ namespace mindcraft {
 inline constexpr uint32_t kNoCallSiteId = 0xffffffffu;
 
 /**
+ * Outcome of a rule's most recent WHEN evaluation, recorded by the VM at the
+ * WHEN boundary opcodes. Mirrors `RuleFiringState` in
+ * external/mindcraft-lang/packages/core/src/runtime/rule-services.ts.
+ */
+enum class RuleFiringState : uint8_t {
+  /** The rule's most recent completed WHEN evaluation passed its gate. */
+  DidFire = 0,
+  /** The rule's most recent completed WHEN evaluation failed its gate. */
+  DidNotFire = 1,
+  /** The rule began its WHEN check and has not yet reached a gate. */
+  Evaluating = 2,
+};
+
+/**
  * Brain-wide runtime state one execution observes: the think-loop time
  * stamps, the bound call site of an in-flight host dispatch, per-callsite
  * host state, and the brain variable slots. Mirrors the runtime-state surface
@@ -111,15 +125,26 @@ struct ExecutionContext {
   Span<const RuleAncestor> ruleAncestors{};
 
   /**
+   * Per-rule firing records indexed by rule funcId: the outcome of each rule's
+   * most recent WHEN evaluation. Sized and initialized to
+   * {@link RuleFiringState::DidFire} by {@link bindSlots}; empty until then, in
+   * which case every read returns `DidFire` and every write is dropped.
+   * Runtime-internal: the records are not serialized and not traced.
+   */
+  Span<RuleFiringState> ruleFiring{};
+
+  /**
    * Allocates the slot tables from `arena`: `variableCount` brain-variable
    * slots (initialized to nil), `callSiteCount` per-callsite host-state slots
    * (initially absent), the `callSiteCount` by `callSiteSlotStride` bytecode
-   * callsite-var pad (initialized to nil) plus its allocation flags, and
-   * `systemCount` brain-global System store slots (initialized to nil).
-   * Returns false when the arena cannot back them, leaving the tables empty.
+   * callsite-var pad (initialized to nil) plus its allocation flags,
+   * `systemCount` brain-global System store slots (initialized to nil), and
+   * `ruleFiringCount` per-rule firing records (initialized to
+   * {@link RuleFiringState::DidFire}). Returns false when the arena cannot back
+   * them, leaving the tables empty.
    */
   bool bindSlots(RegionArena& arena, uint32_t variableCount, uint32_t callSiteCount,
-                 uint32_t slotStride = 0, uint32_t systemCount = 0) {
+                 uint32_t slotStride = 0, uint32_t systemCount = 0, uint32_t ruleFiringCount = 0) {
     Value* vars = arena.allocate<Value>(variableCount);
     Value* states = arena.allocate<Value>(callSiteCount);
     bool* present = arena.allocate<bool>(callSiteCount);
@@ -127,9 +152,11 @@ struct ExecutionContext {
     Value* slots = arena.allocate<Value>(slotTotal);
     bool* allocated = arena.allocate<bool>(callSiteCount);
     Value* sysSlots = arena.allocate<Value>(systemCount);
+    RuleFiringState* firing = arena.allocate<RuleFiringState>(ruleFiringCount);
     if ((variableCount > 0 && vars == nullptr) ||
         (callSiteCount > 0 && (states == nullptr || present == nullptr || allocated == nullptr)) ||
-        (slotTotal > 0 && slots == nullptr) || (systemCount > 0 && sysSlots == nullptr)) {
+        (slotTotal > 0 && slots == nullptr) || (systemCount > 0 && sysSlots == nullptr) ||
+        (ruleFiringCount > 0 && firing == nullptr)) {
       return false;
     }
     for (uint32_t i = 0; i < variableCount; i++) {
@@ -141,6 +168,9 @@ struct ExecutionContext {
     for (uint32_t i = 0; i < systemCount; i++) {
       sysSlots[i] = kNilValue;
     }
+    for (uint32_t i = 0; i < ruleFiringCount; i++) {
+      firing[i] = RuleFiringState::DidFire;
+    }
     variables = {vars, variableCount};
     callSiteStates = {states, callSiteCount};
     callSiteStatePresent = {present, callSiteCount};
@@ -148,7 +178,32 @@ struct ExecutionContext {
     callSiteSlotStride = slotStride;
     callSiteAllocated = {allocated, callSiteCount};
     systemStore = {sysSlots, systemCount};
+    ruleFiring = {firing, ruleFiringCount};
     return true;
+  }
+
+  /**
+   * The outcome of `ruleFuncId`'s most recent completed WHEN evaluation.
+   * Returns {@link RuleFiringState::DidFire} when no rule is in scope, the
+   * records are unbound, or `ruleFuncId` is past the record table -- a rule that
+   * never wrote a record reads as fired.
+   */
+  RuleFiringState ruleFiringState(uint32_t ruleFuncId) const {
+    if (ruleFuncId == kNoFuncId || ruleFuncId >= ruleFiring.size()) {
+      return RuleFiringState::DidFire;
+    }
+    return ruleFiring[ruleFuncId];
+  }
+
+  /**
+   * Records `state` for `ruleFuncId`. A no-op when no rule is in scope, the
+   * records are unbound, or `ruleFuncId` is past the record table.
+   */
+  void setRuleFiringState(uint32_t ruleFuncId, RuleFiringState state) {
+    if (ruleFuncId == kNoFuncId || ruleFuncId >= ruleFiring.size()) {
+      return;
+    }
+    ruleFiring[ruleFuncId] = state;
   }
 
   /**

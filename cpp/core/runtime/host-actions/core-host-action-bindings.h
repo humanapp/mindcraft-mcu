@@ -11,6 +11,7 @@
 #include "core/runtime/host-actions/core-host-action-env.h"
 #include "core/runtime/host-actions/sensors/current-page.h"
 #include "core/runtime/host-actions/sensors/on-page-entered.h"
+#include "core/runtime/host-actions/sensors/otherwise.h"
 #include "core/runtime/host-actions/sensors/previous-page.h"
 #include "core/runtime/host-actions/sensors/random.h"
 #include "core/runtime/host-actions/sensors/timeout.h"
@@ -18,7 +19,7 @@
 namespace mindcraft {
 
 /** Number of core host-action bindings the table holds. */
-inline constexpr uint32_t kCoreHostActionBindingCount = 8;
+inline constexpr uint32_t kCoreHostActionBindingCount = 9;
 
 /**
  * Builds the core host-action binding table over `env`, one entry per core
@@ -38,6 +39,7 @@ makeCoreHostActionBindings(CoreHostActionEnv& env) {
       {CoreHostActions::Timeout.actionId, &execTimeout, &timeoutPageEntered, &env},
       {CoreHostActions::CurrentPage.actionId, &execCurrentPage, nullptr, &env},
       {CoreHostActions::PreviousPage.actionId, &execPreviousPage, nullptr, &env},
+      {CoreHostActions::Otherwise.actionId, &execOtherwise, nullptr, &env},
   }};
 }
 

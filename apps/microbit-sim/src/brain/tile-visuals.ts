@@ -96,6 +96,7 @@ export const tileVisuals = new Map<string, Partial<TileVisual>>([
   [mkSensorTileId(CoreHostActions.Timeout.key), { iconUrl: icon("sensor-timeout") }],
   [mkSensorTileId(CoreHostActions.CurrentPage.key), { iconUrl: icon("page") }],
   [mkSensorTileId(CoreHostActions.PreviousPage.key), { iconUrl: icon("page2") }],
+  [mkSensorTileId(CoreHostActions.Otherwise.key), { iconUrl: icon("sensor-otherwise") }],
   [mkSensorTileId(MicroBitV2HostActions.ButtonA.key), { iconUrl: icon("sensor-button-a") }],
   [mkSensorTileId(MicroBitV2HostActions.ButtonB.key), { iconUrl: icon("sensor-button-b") }],
   [mkSensorTileId(MicroBitV2HostActions.ButtonAB.key), { iconUrl: icon("sensor-button-ab") }],

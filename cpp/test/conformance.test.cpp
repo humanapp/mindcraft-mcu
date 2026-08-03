@@ -172,6 +172,7 @@ CoreFuncDispatch coreFuncDispatch(CoreFuncId id) {
   case CoreFuncId::SensorTimeout:
   case CoreFuncId::SensorCurrentPage:
   case CoreFuncId::SensorPreviousPage:
+  case CoreFuncId::SensorOtherwise:
   case CoreFuncId::ActuatorSwitchPage:
   case CoreFuncId::ActuatorRestartPage:
   case CoreFuncId::ActuatorYield:

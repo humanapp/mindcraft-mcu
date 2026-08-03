@@ -126,9 +126,10 @@ enum class CoreFuncId : uint32_t {
   OpNotEqualToEnum = 103,
   ConvEnumToString = 104,
   ConvEnumToNumber = 105,
+  SensorOtherwise = 106,
 };
 
 /** Number of declared {@link CoreFuncId} members; ids are dense from 0. */
-inline constexpr uint32_t kCoreFuncIdCount = 106;
+inline constexpr uint32_t kCoreFuncIdCount = 107;
 
 } // namespace mindcraft
