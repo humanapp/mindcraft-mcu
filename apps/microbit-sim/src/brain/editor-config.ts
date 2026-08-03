@@ -101,7 +101,7 @@ export function buildMicrobitBrainEditorConfig(
   env: MindcraftEnvironment,
   resolveVfsAssetUrl: (url: string) => string,
   projectNamespace: string | undefined,
-  onTileHelp?: BrainEditorConfig["onTileHelp"],
+  onTileDocs?: BrainEditorConfig["onTileDocs"],
   docsIntegration?: BrainEditorConfig["docsIntegration"],
   libraries?: BrainEditorConfig["libraries"],
   printTransport?: BrainEditorConfig["printTransport"],
@@ -109,7 +109,7 @@ export function buildMicrobitBrainEditorConfig(
 ): BrainEditorConfig {
   return {
     projectNamespace,
-    onTileHelp,
+    onTileDocs,
     docsIntegration,
     libraries,
     printTransport,

@@ -147,9 +147,114 @@ The category rules are compile-time validations, and the picker agrees with the 
   required-WHEN-result consumer whose result availability the filter removes (`invert`).
 - The picker offers a filter tile only where the compiler accepts it, and the
   suggestion-compiler consistency oracle covers the category in both directions.
-- **Degraded documents:** a rule containing an unresolvable (missing-placeholder) filter
-  tile does not fire. A filter silently dropping out of a chain would change firing
-  semantics, so degradation is fail-safe rather than pass-through.
+- **Degraded documents:** degradation is fail-safe for this category only. A rule
+  containing an unresolvable (missing-placeholder) or unparseable filter tile is
+  rejected with an error-severity diagnostic -- surfaced like every rule diagnostic --
+  and does not fire; a filter silently dropping out of a chain would change firing
+  semantics, so the category never degrades pass-through. Other tile kinds keep the
+  platform's degrade-and-run placeholder semantics. Filter identity is part of the tile
+  id, so a placeholder remains recognizable as a former filter; that is what scopes the
+  escalation to the category. A WHEN side left without a compilable signal never
+  evaluates: the rule compiles to not fire, not to a partial evaluation.
+
+## Sentence composition
+
+Filters are first-class in both of the editor's projections: the tile row and the
+sentence. The sentence system's invariants bind the category's wording and rendering.
+
+### Word and span
+
+- **Each filter is one word segment** in the sentence, carrying its tile's span. Its
+  `language.form` is simultaneously the sentence word, the candidate-chip label, and the
+  typed handle -- one string. A form may contain spaces ("just once" is one segment) but a
+  filter never owns two segments.
+- A filter's arguments are their own tiles and their own words, following the filter's
+  word in tile order. A duration-bearing form therefore **ends where the duration
+  begins**: the form is the leading phrase and the duration literal is the next word
+  ("held for" + "1s" reads "held for 1s"). Wordings that would place the duration inside
+  the phrase are not expressible and are not used.
+- Word order always equals tile order within the side; the caret and change-highlight
+  layers depend on it.
+
+### Rendering (the WHEN clause with filters)
+
+- The WHEN projection **splits structurally at the first filter tile**: the sensor call
+  renders through its frame template exactly as an unfiltered rule does, and the filter
+  chain renders after it as suffix words -- each filter's form plus its argument words --
+  joined by the sentence-filter glue entry: "When I see a carnivore just once, walk."
+  This applies identically to the child-rule (subordinate-clause) projection.
+- **The comma invariant.** In the sentence, a comma marks a clause boundary and nothing
+  else: the trigger/action pivot and the subordinate-clause connective. The typed comma
+  is the composer's pivot gesture, and every rendered comma must keep that one meaning.
+  Filter glue is intra-clause: in English it is a space, and no locale's sentence-filter
+  glue entry may introduce a comma. Filter forms are worded to read as adverbial
+  phrases so space-joining scans.
+- **Negation reads inside the clause, not as a suffix.** `invert` carries a `negates`
+  marker in its language metadata. When an invert-class filter is the FIRST tile of the
+  chain, template selection uses the frame's negated variant, and the `{negation}` slot
+  is filled by the filter's own word -- so the tile keeps its word segment and its span:
+  "When I do not see a carnivore, walk." An invert-class filter NOT at the head of the
+  chain falls back to the suffix reading (negating the whole base clause there would
+  misread the semantics -- the `latch invert` "until" idiom); plain-but-faithful beats
+  clever-but-wrong.
+- Built-in forms ship in the tiles' registration metadata. Starting wordings, with final
+  wording owned by the readability sweep under the idiom-over-polish posture:
+
+  | filter | form (sentence word) |
+  | - | - |
+  | `invert` | "not" (routed into the negated frame at chain head; suffix word otherwise) |
+  | `once` | "just once" |
+  | `toggle` | "on and off" |
+  | `latch` | "and stay" |
+  | `sustained` | "held for" (+ duration word) |
+  | `linger` | "kept for" (+ duration word) |
+  | `cooldown` | "at most every" (+ duration word) |
+
+- Form rules: no leading articles, and the distinguishing word starts a word of the form
+  (so typing it reaches the candidate by prefix or word-prefix match).
+- A timing filter whose duration is not yet placed reads with its bare completion
+  (`language.bare`, e.g. "held for a moment"), the same mechanism argument-taking
+  sensors use.
+
+### Input (composing a filtered rule)
+
+- The candidate strip is oracle-driven, so filters are offered exactly where the
+  compiler accepts them: after a complete signal on the WHEN side, at append, insert,
+  and replace positions, including mid-chain. Filters group under their own "Filters"
+  heading, ordered after Sensors.
+- A filter is typed by its form and committed like any word (Enter takes the top
+  candidate; Space takes an exact or unique-prefix match); tapping the chip is the same
+  commit. Chains compose by typing successive filter words. Durations are typed as
+  formatted numbers ("1s", "500ms"), minting the literal that reads back as typed.
+- While filters are offerable the composition stays on the WHEN side; the comma pivots
+  to DO as usual, and the period settles the sentence. Both gate on the completed rule
+  parsing cleanly, so a complete filter chain parses with zero diagnostics.
+
+### Selection and editing
+
+- Each filter word is a caret element; the gap before it inserts, tapping the word arms
+  replace (the strip opens filtered to that position's valid tiles), and
+  backspace/delete remove the tile through the normal command path. Chained filters are
+  individually selectable and replaceable; nothing special-cases repeats.
+- Diagnostics do not render in the sentence; they surface on the tile row as badges. A
+  missing (unresolvable) filter reads by its fallback label in the sentence while the
+  rule, per Enforcement, does not fire.
+
+### Localization
+
+Filter forms localize under the tile-label context like every tile word; the
+sentence-filter glue and any negated-variant selection reuse the existing sentence
+template entries. No filter-specific localization machinery exists.
+
+Negation localizes at two levels. The head-of-chain reading is a whole per-locale
+negated template with a movable `{negation}` slot, so each language places (or
+circumfixes) its negation freely -- glue may carry a fixed part (French "ne" in glue,
+"pas" in the slot), and a language whose negation is morphological renders the negated
+template periphrastically. The non-head suffix reading is a program marker in every
+locale, not grammatical negation; a locale for which the trailing marker would mislead
+(not merely read stiffly) resolves it through a projection-side reading for that
+position, the same seam that separates typed handles from rendered readings elsewhere.
+The per-locale readability pass is the final arbiter of both readings.
 
 ## Relationship to per-sensor edge/level modifiers
 
@@ -204,6 +309,9 @@ feeding the picker and the docs panel exactly as they do for sensors and actuato
 - Declaration, extraction, ambient typing, and diagnostics follow the same conventions as
   the other user-code tile configs, including a precise diagnostic for any config the
   surface cannot support.
+- `language?: TileLanguageConfig` (the `form`/`frame`/`bare` group the other configs
+  carry) is part of the surface, wired explicitly into the extractor with the same
+  per-member diagnostics -- a user-defined filter names its own sentence word.
 
 ## Deferred
 
