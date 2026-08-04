@@ -1,4 +1,4 @@
-import { Button } from "@mindcraft-lang/ui";
+import { Button, Input } from "@mindcraft-lang/ui";
 import { useEffect, useRef, useState } from "react";
 import { Modal } from "./Modal";
 
@@ -52,11 +52,11 @@ export function NameInputDialog({
 
   return (
     <Modal title={title} onClose={onClose} onCloseAutoFocus={onCloseAutoFocus}>
-      <input
+      <Input
         ref={inputRef}
         data-testid="name-input"
         aria-label="Name"
-        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+        className="h-auto bg-background text-foreground"
         placeholder="Name"
         value={name}
         onChange={(event) => setName(event.target.value)}

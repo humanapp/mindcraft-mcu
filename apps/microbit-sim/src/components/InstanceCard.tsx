@@ -6,6 +6,7 @@ import type { BrainRecord } from "@/services/microbit-sim-environment-store";
 import type { SimulatorInstance } from "@/services/simulator";
 import { BrainEditor } from "./BrainEditor";
 import { GesturePicker } from "./GesturePicker";
+import { kIconTriggerClasses } from "./icon-trigger";
 import { LightLevelSlider } from "./LightLevelSlider";
 import { MicrobitDevice } from "./MicrobitDevice";
 import { TemperatureSlider } from "./TemperatureSlider";
@@ -77,7 +78,7 @@ export function InstanceCard({ instance, label, brains }: InstanceCardProps) {
             data-testid="instance-edit-brain"
             aria-label={`Edit brain for ${label}`}
             disabled={!assigned}
-            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+            className={`${kIconTriggerClasses} disabled:pointer-events-none disabled:opacity-50`}
             onClick={() => setEditingBrain(true)}
           >
             <Pencil className="h-4 w-4" />
@@ -87,7 +88,7 @@ export function InstanceCard({ instance, label, brains }: InstanceCardProps) {
               <button
                 type="button"
                 data-testid="instance-actions"
-                className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                className={kIconTriggerClasses}
                 aria-label={`More actions for ${label}`}
               >
                 <MoreHorizontal className="h-4 w-4" />

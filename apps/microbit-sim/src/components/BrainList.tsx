@@ -29,6 +29,7 @@ import {
 } from "./BrainDiagnostics";
 import { BrainEditor } from "./BrainEditor";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { kIconTriggerClasses } from "./icon-trigger";
 import { NameInputDialog } from "./NameInputDialog";
 
 type BrainDialog =
@@ -260,7 +261,7 @@ export function BrainList() {
               <button
                 type="button"
                 data-testid="brain-list-actions"
-                className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                className={kIconTriggerClasses}
                 aria-label="More brain actions"
               >
                 <MoreHorizontal className="h-4 w-4" />
@@ -382,7 +383,7 @@ export function BrainList() {
                             type="button"
                             data-testid="brain-actions"
                             data-brain-name={brain.name}
-                            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                            className={kIconTriggerClasses}
                             aria-label={`More actions for ${brain.name}`}
                           >
                             <MoreHorizontal className="h-4 w-4" />
