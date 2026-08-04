@@ -24,7 +24,13 @@ export function BrainEditor({ brainId, onClose }: BrainEditorProps) {
     store.subscribeToCompileDiagnostics,
     store.getCompileDiagnosticsSnapshot
   );
-  const { openDocsForTile, isOpen: isDocsOpen, toggle: toggleDocs, close: closeDocs } = useDocsSidebar();
+  const {
+    openDocsForTile,
+    isOpen: isDocsOpen,
+    toggle: toggleDocs,
+    close: closeDocs,
+    reportEditorMode,
+  } = useDocsSidebar();
   const config = useMemo(() => {
     void docRevision;
     void vfsRevision;
@@ -34,12 +40,22 @@ export function BrainEditor({ brainId, onClose }: BrainEditorProps) {
       (url) => store.resolveVfsAssetUrl(url),
       store.activeProjectManifest?.id,
       openDocsForTile,
-      { isOpen: isDocsOpen, toggle: toggleDocs, close: closeDocs },
+      { isOpen: isDocsOpen, toggle: toggleDocs, close: closeDocs, reportMode: reportEditorMode },
       store.host.installedLibraries,
       store.printTransport,
       (tile) => store.host.getTileCompileDiagnostics(tile.action.key) !== undefined
     );
-  }, [store, docRevision, vfsRevision, compileDiagnostics, openDocsForTile, isDocsOpen, toggleDocs, closeDocs]);
+  }, [
+    store,
+    docRevision,
+    vfsRevision,
+    compileDiagnostics,
+    openDocsForTile,
+    isDocsOpen,
+    toggleDocs,
+    closeDocs,
+    reportEditorMode,
+  ]);
   const [srcBrainDef, setSrcBrainDef] = useState<BrainDef | undefined>(undefined);
   const [isOpen, setIsOpen] = useState(false);
 

@@ -24,7 +24,13 @@ import {
   type VfsAssetUrlProvider,
   type WorkspaceCompileDiagnostic,
 } from "@mindcraft-lang/bridge-app";
-import { BrainDef, coreModule, createMindcraftEnvironment, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
+import {
+  BrainDef,
+  coreModule,
+  createMindcraftEnvironment,
+  logger,
+  type MindcraftEnvironment,
+} from "@mindcraft-lang/core/app";
 import { createDefaultLocalizer } from "@mindcraft-lang/core/localization";
 import { createProfileNumerics } from "@mindcraft-lang/core/runtime";
 import { isCompilerControlledPath, type Mount } from "@mindcraft-lang/ts-compiler";
@@ -968,15 +974,32 @@ export class MicrobitSimEnvironmentStore {
     for (const id of changed) {
       await this.reflashBrain(id);
     }
-    const raw = await this.host.projectManager.loadAppData(SIMULATOR_STATE_KEY);
+    const raw = await this.readAppData(SIMULATOR_STATE_KEY);
     const stored = parseSimulatorState(raw);
     if (stored && JSON.stringify(stored) !== JSON.stringify(this.simulatorStateSnapshot())) {
       await this.reloadSimulatorState();
     }
   }
 
+  /**
+   * Read one of the active project's app-data records. Returns undefined when
+   * the record is absent and when the store could not serve it, so a store
+   * that cannot be read restores the same state an empty store does. The
+   * failure the host recorded for the load is what withholds the writes.
+   *
+   * @param key - App-data key to read.
+   */
+  private async readAppData(key: string): Promise<string | undefined> {
+    try {
+      return await this.host.projectManager.loadAppData(key);
+    } catch (error) {
+      logger.warn(`Failed to read project app data "${key}":`, error);
+      return undefined;
+    }
+  }
+
   private async reloadBrains(): Promise<void> {
-    const raw = await this.host.projectManager.loadAppData(BRAINS_INDEX_KEY);
+    const raw = await this.readAppData(BRAINS_INDEX_KEY);
     const indexed = parseBrainIndex(raw);
     // Reconcile against the host cache (the source of truth for which brains exist): keep the index
     // order for brains that exist, drop dangling ids, and append cached brains the index omits (e.g. an
@@ -989,7 +1012,7 @@ export class MicrobitSimEnvironmentStore {
     const changed = this._brainIds.length !== indexed.length || this._brainIds.some((id, i) => id !== indexed[i]);
     // An unreadable brain record leaves the cache empty, so the reconciled order
     // omits every stored brain; persisting it would drop the saved order.
-    if (changed && !this.host.brainRecordFailure) {
+    if (changed && !this.host.projectRecordFailure) {
       await this.persistBrainIndex();
     }
     this.rebuildBrains();
@@ -1011,7 +1034,7 @@ export class MicrobitSimEnvironmentStore {
    * malformed state restores a single empty instance.
    */
   private async reloadSimulatorState(): Promise<void> {
-    const raw = await this.host.projectManager.loadAppData(SIMULATOR_STATE_KEY);
+    const raw = await this.readAppData(SIMULATOR_STATE_KEY);
     const state = parseSimulatorState(raw);
     this._restoringFleet = true;
     try {
@@ -1057,9 +1080,14 @@ export class MicrobitSimEnvironmentStore {
     return { order, flash };
   }
 
-  /** Persists the current fleet as durable project state. */
+  /**
+   * Persists the current fleet as durable project state. Persists nothing
+   * while a restore is in flight, and nothing while the load hit a stored
+   * record the store could not serve: the fleet then holds one fresh instance
+   * and would replace the saved one.
+   */
   private async persistSimulatorState(): Promise<void> {
-    if (this._restoringFleet) {
+    if (this._restoringFleet || this.host.projectRecordFailure) {
       return;
     }
     await this.host.projectManager.saveAppData(SIMULATOR_STATE_KEY, JSON.stringify(this.simulatorStateSnapshot()));

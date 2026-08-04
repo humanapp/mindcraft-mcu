@@ -88,10 +88,11 @@ export function BrainList() {
   const headingId = useId();
   const webUsbSupported = isWebUsbSupported();
   const flashesViaDrive = store.flashesViaMicrobitDrive;
-  // Set when the project's stored brains could not be read. The list is then
-  // empty because the store could not serve them, and every brain write refuses,
-  // so the add and import controls are withheld.
-  const brainRecordFailure = store.host.brainRecordFailure;
+  // Set when one of the project's stored records -- the saved brains or the
+  // installed-library snapshots -- could not be read. The list is then empty
+  // because the store could not serve the project, and every brain write
+  // refuses, so the add and import controls are withheld.
+  const projectRecordFailure = store.host.projectRecordFailure;
 
   /** Loads and builds a brain's program image, toasting on failure. */
   async function buildImageForBrain(brainId: string) {
@@ -248,7 +249,7 @@ export function BrainList() {
             type="button"
             size="sm"
             data-testid="add-brain-button"
-            disabled={brainRecordFailure !== undefined}
+            disabled={projectRecordFailure !== undefined}
             onClick={() => setDialog({ kind: "add" })}
           >
             <Plus />
@@ -268,7 +269,7 @@ export function BrainList() {
             <DropdownMenuContent align="end">
               <DropdownMenuItem
                 data-testid="brain-import"
-                disabled={brainRecordFailure !== undefined}
+                disabled={projectRecordFailure !== undefined}
                 onClick={() => void handleImportBrain()}
               >
                 Import .brain
@@ -278,17 +279,18 @@ export function BrainList() {
         </div>
       </div>
 
-      {brainRecordFailure ? (
+      {projectRecordFailure ? (
         <div
           role="alert"
           data-testid="brain-record-failure"
           className="mt-3 space-y-1 rounded-lg border border-destructive/40 bg-panel p-3"
         >
           <p className="text-sm font-medium text-destructive">
-            Your saved brains could not be read, so they are hidden and cannot be changed. Reload the page to try again.
+            Your saved project data could not be read, so your brains are hidden and cannot be changed. Reload the page
+            to try again.
           </p>
           <p className="font-mono text-xs wrap-break-word text-muted-foreground">
-            {brainRecordFailure.code}: {brainRecordFailure.message}
+            {projectRecordFailure.code}: {projectRecordFailure.message}
           </p>
         </div>
       ) : brains.length === 0 ? (
