@@ -45,9 +45,13 @@ export function InstanceCard({ instance, label, brains }: InstanceCardProps) {
   const hasErrors = instance.flashedBrainId != null && store.brainHasErrors(instance.flashedBrainId);
 
   return (
-    // Card width hugs the device row: two 36px button columns + the 112px display + two 8px gaps,
-    // plus the card's own padding and border.
-    <div data-testid="instance-card" className="flex w-58.5 max-w-full flex-col gap-3 rounded-lg border p-4">
+    // Card width hugs the device row: two button columns + the 112px display + two 8px gaps, plus
+    // the card's own padding and border. The buttons are 36px wide on a fine pointer and 44px under
+    // the shared coarse-pointer floor, so the card carries a width for each.
+    <div
+      data-testid="instance-card"
+      className="flex w-58.5 max-w-full flex-col gap-3 rounded-lg border p-4 pointer-coarse:w-62.5"
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <select
