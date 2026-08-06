@@ -43,6 +43,10 @@ export {
   type WodalMicroBitRuntimeOptions,
 } from "./mindcraft/runtime";
 export {
+  MICROBIT_V2_TILE_DOCS,
+  type MicroBitV2TileDocEntry,
+} from "./mindcraft/tile-docs";
+export {
   MicroBitV2HostActions,
   WodalMicroBitV2ModifierId,
   WodalMicroBitV2ParameterId,

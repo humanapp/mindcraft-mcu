@@ -1,5 +1,6 @@
 import type { MindcraftEnvironment } from "@mindcraft-lang/core/app";
 import {
+  type BrainEvents,
   BrainRuntime,
   type LinkedBrainProgram,
   type LinkedBrainProgramJson,
@@ -7,6 +8,7 @@ import {
   type PlatformServices,
   type VmEvents,
 } from "@mindcraft-lang/core/runtime";
+import type { EventEmitterConsumer } from "@mindcraft-lang/core/util";
 import { toNonNegativeInteger } from "../../../core/numeric";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
 import type { WodalProgramImage } from "../../../mindcraft/program-image";
@@ -162,6 +164,16 @@ export class WodalMicroBitRuntime {
   /** Returns the current simulated device snapshot. */
   snapshot(): MicroBitSnapshot {
     return this.microbit.snapshot();
+  }
+
+  /**
+   * Returns the event stream of the loaded brain, for observing page
+   * activations and rule gate decisions, or `undefined` when no program is
+   * loaded. Each load installs a fresh brain with its own stream, so read it
+   * again after every load.
+   */
+  brainEvents(): EventEmitterConsumer<BrainEvents> | undefined {
+    return this.loadedBrain?.events();
   }
 
   /** Stops the current program and resets the device to a fresh power-on state. A no-op when none is loaded. */

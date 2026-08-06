@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 
 // ---------------------------------------------------------------------------
-// build-docs.mjs -- Reads .md files under src/docs/content/{locale}/tiles/,
-// src/docs/content/{locale}/patterns/, and src/docs/content/{locale}/concepts/
-// and generates a TypeScript module per locale at
-// src/docs/_generated/{locale}.ts, exporting:
+// build-docs.mjs -- Reads .md files under src/docs/content/{locale}/patterns/
+// and src/docs/content/{locale}/concepts/, plus the host tile pages the wodal
+// package ships under targets/microbit-v2/docs/{locale}/tiles/, and generates
+// a TypeScript module per locale at src/docs/_generated/{locale}.ts,
+// exporting:
 //
 //   tileContent: Record<string, string> -- keyed by filename stem
 //   patternContent: Record<string, string> -- keyed by filename stem
@@ -21,6 +22,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CONTENT_DIR = path.join(ROOT, "src", "docs", "content");
+const TILE_CONTENT_DIR = path.resolve(ROOT, "..", "..", "packages", "wodal", "targets", "microbit-v2", "docs");
 const OUT_DIR = path.join(ROOT, "src", "docs", "_generated");
 
 /** Read all .md files from a directory and return { stem: content } pairs. */
@@ -66,7 +68,7 @@ const locales = fs
   .sort();
 
 for (const locale of locales) {
-  const tilesMap = readMdFiles(path.join(CONTENT_DIR, locale, "tiles"));
+  const tilesMap = readMdFiles(path.join(TILE_CONTENT_DIR, locale, "tiles"));
   const patternsMap = readMdFiles(path.join(CONTENT_DIR, locale, "patterns"));
   const conceptsMap = readMdFiles(path.join(CONTENT_DIR, locale, "concepts"));
   const outFile = path.join(OUT_DIR, `${locale}.ts`);

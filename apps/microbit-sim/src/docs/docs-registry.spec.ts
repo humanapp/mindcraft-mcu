@@ -17,6 +17,9 @@ import {
   undocumentedTileIds,
 } from "./manifest";
 
+/** Directory holding the English host tile documentation, relative to this module. */
+const TILE_CONTENT_DIR = "../../../../packages/wodal/targets/microbit-v2/docs/en/tiles/";
+
 /**
  * Tile kinds with no docs entry of their own. Output tiles expose fields of a
  * sensor's result and are documented by that sensor's page.
@@ -105,30 +108,31 @@ describe("microbit-sim docs registry", () => {
   });
 
   test("the generated content module matches the markdown files on disk", () => {
-    const readContentDir = (subdir: string): Record<string, string> => {
-      const contentDir = fileURLToPath(new URL(`./content/en/${subdir}`, import.meta.url));
+    const readMarkdownDir = (dir: string): Record<string, string> => {
       const fromDisk: Record<string, string> = {};
-      for (const file of fs.readdirSync(contentDir).sort()) {
+      for (const file of fs.readdirSync(dir).sort()) {
         if (!file.endsWith(".md")) {
           continue;
         }
-        fromDisk[file.slice(0, -3)] = fs.readFileSync(path.join(contentDir, file), "utf-8");
+        fromDisk[file.slice(0, -3)] = fs.readFileSync(path.join(dir, file), "utf-8");
       }
       return fromDisk;
     };
+    const readAppContentDir = (subdir: string): Record<string, string> =>
+      readMarkdownDir(fileURLToPath(new URL(`./content/en/${subdir}`, import.meta.url)));
     assert.deepEqual(
       tileContent,
-      readContentDir("tiles"),
-      "run `npm run generate:docs` after editing content/en/tiles"
+      readMarkdownDir(fileURLToPath(new URL(TILE_CONTENT_DIR, import.meta.url))),
+      "run `npm run generate:docs` after editing the wodal microbit-v2 tile docs"
     );
     assert.deepEqual(
       patternContent,
-      readContentDir("patterns"),
+      readAppContentDir("patterns"),
       "run `npm run generate:docs` after editing content/en/patterns"
     );
     assert.deepEqual(
       conceptContent,
-      readContentDir("concepts"),
+      readAppContentDir("concepts"),
       "run `npm run generate:docs` after editing content/en/concepts"
     );
   });
