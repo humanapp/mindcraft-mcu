@@ -6,7 +6,7 @@
     "rootDir": ".",
     "types": ["node"]
   },
-  "include": ["src/targets/microbit-v2/rehearsal/package-name.d.ts", "src/**/*.spec.ts"],
+  "include": ["src/targets/microbit-v2/rehearsal/target-identity.d.ts", "src/**/*.spec.ts"],
   "exclude": ["node_modules", "dist"],
   "references": [{ "path": "../../external/mindcraft-lang/packages/core/tsconfig.esm.json" }]
 }

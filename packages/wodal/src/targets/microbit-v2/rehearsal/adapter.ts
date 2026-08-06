@@ -7,8 +7,8 @@ import { createWodalSharedModule } from "../../../mindcraft/shared-module";
 import { microBitV2TileDocs } from "./tile-docs";
 import { createDeviceWorld, PERCEPT_KINDS } from "./world";
 
-/** Package the adapter reports itself built from: injected at build time, empty in a source run. */
-const PACKAGE_NAME = typeof TARGET_PACKAGE_NAME === "string" ? TARGET_PACKAGE_NAME : "";
+/** Target identity the adapter reports: injected at build time, empty in a source run. */
+const IDENTITY = typeof TARGET_IDENTITY === "string" ? TARGET_IDENTITY : "";
 
 /** The device profile this adapter authors for and rehearses against. */
 const PROFILE = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
@@ -47,7 +47,7 @@ const driver: WorldDriver = {
  */
 export function createTargetAdapter(): TargetAdapter {
   return createRehearsalAdapter({
-    packageName: PACKAGE_NAME,
+    targetIdentity: IDENTITY,
     manifest: MANIFEST,
     tileDocs: microBitV2TileDocs,
     driver,

@@ -50,6 +50,11 @@
       "browser": "./dist/targets/microbit-v2/index.js",
       "import": "./dist/targets/microbit-v2/index.js"
     },
+    "./targets/microbit-v2/rehearsal": {
+      "types": "./dist/targets/microbit-v2/rehearsal/adapter.d.ts",
+      "import": "./dist/targets/microbit-v2/rehearsal/adapter.js"
+    },
+    "./package.json": "./package.json",
     "./lib/mindcraft.codal.d.ts": {
       "default": "./lib/mindcraft.codal.d.ts"
     },
@@ -75,11 +80,9 @@
   "scripts": {
     "build:deps": "npm run build:node --prefix ../../external/mindcraft-lang/packages/core && npm run build:esm --prefix ../../external/mindcraft-lang/packages/core && npm run build:prod --prefix ../../external/mindcraft-lang/packages/ts-compiler && npm run build:prod --prefix ../../external/mindcraft-lang/packages/service-api && npm run build:prod --prefix ../../external/mindcraft-lang/packages/assistant-bridge",
     "prebuild": "npm run build:deps",
-    "build": "tsc -p tsconfig.json && npm run build:cli && npm run build:rehearsal-adapter",
+    "build": "tsc -p tsconfig.json && npm run build:cli",
     "build:cli": "esbuild src/cli/wodal.ts --bundle --platform=node --format=esm --outfile=dist/cli/wodal.js",
-    "build:rehearsal-adapter": "esbuild src/targets/microbit-v2/rehearsal/adapter.ts --bundle --platform=node --format=esm --define:TARGET_PACKAGE_NAME=$(node -p \"JSON.stringify(require('./package.json').name)\") --outfile=dist/targets/microbit-v2/rehearsal/adapter.js",
-    "postbuild:rehearsal-adapter": "node scripts/smoke-rehearsal-adapter.mjs dist/targets/microbit-v2/rehearsal/adapter.js",
-    "build:prod": "tsc --build tsconfig.prod.json && npm run build:cli && npm run build:rehearsal-adapter",
+    "build:prod": "tsc --build tsconfig.prod.json && npm run build:cli",
     "clean": "tsc --build tsconfig.json --clean",
     "pregenerate:ambient": "npm run build:deps",
     "generate:ambient": "tsx --tsconfig scripts/tsconfig.json scripts/generate-ambient.ts",
