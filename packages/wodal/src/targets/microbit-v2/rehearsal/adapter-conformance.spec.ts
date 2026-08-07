@@ -94,6 +94,7 @@ describe("the device adapter against the bridge's conformance suite", () => {
 
     assert.deepEqual(adapter.inputKinds(), PERCEPT_KINDS);
     assert.equal(adapter.subjects().length, 1);
+    for (const kind of PERCEPT_KINDS) assert.ok(kind.description.length > 0, kind.name);
   });
 
   test("refuses a scenario scripting a percept kind it does not register", async () => {
@@ -109,7 +110,7 @@ describe("the device adapter against the bridge's conformance suite", () => {
         error instanceof ScenarioRejection &&
         error.code === ScenarioRejectionCode.UnknownInputKind &&
         error.named.length === 1 &&
-        error.offered.join(",") === PERCEPT_KINDS.join(",")
+        error.offered.join(",") === PERCEPT_KINDS.map((kind) => kind.name).join(",")
     );
   });
 
