@@ -32,7 +32,6 @@ import {
   type LinkedBrainProgram,
   linkedBrainProgramToJson,
   Op,
-  type VmEvents,
 } from "@mindcraft-lang/core/runtime";
 import {
   type AmbientFile,
@@ -47,7 +46,7 @@ import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../..
 import { parseWodalProgramImageBytes, wodalProgramBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Environment } from "./environment";
-import { ObservableTraceWriter } from "./observable-trace";
+import { ObservableTraceWriter, observableTraceVmEvents } from "./observable-trace";
 import { WodalMicroBitRuntime } from "./runtime";
 
 const JSON_PATH = fileURLToPath(new URL("./__fixtures__/assignment-conversion.mcprogram", import.meta.url));
@@ -286,7 +285,7 @@ function runTrace(bin: Uint8Array): { trace: string; microbit: MicroBit } {
     return deviceWrite(pin, value);
   };
 
-  const vmEvents: VmEvents = { onFiberFault: (payload) => writer.fiberFault(payload.fiberId, payload.err.code) };
+  const vmEvents = observableTraceVmEvents(writer);
   const runtime = new WodalMicroBitRuntime({ environment, microbit, vmEvents });
   assert.deepEqual(runtime.loadWodalProgramImage(profile.createProgramImage(decoded.program)), { ok: true });
 

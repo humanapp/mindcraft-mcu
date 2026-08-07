@@ -43,7 +43,6 @@ import {
   linkedBrainProgramToJson,
   Op,
   type PlatformServices,
-  type VmEvents,
 } from "@mindcraft-lang/core/runtime";
 import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
@@ -55,7 +54,7 @@ import {
 } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Environment } from "./environment";
-import { ObservableTraceWriter } from "./observable-trace";
+import { ObservableTraceWriter, observableTraceVmEvents } from "./observable-trace";
 import { MicroBitV2HostActions } from "./tile-ids";
 
 const SWITCH_PAGE = CoreHostActions.SwitchPage.actionId;
@@ -331,15 +330,8 @@ function hostServicesOf(environment: MindcraftEnvironment): Omit<PlatformService
   return { runtime, shared, app };
 }
 
-/**
- * Runs `bin` over `tickCount` 600ms thinks with the trace taps installed for
- * `tappedActionIds`, returning the rendered trace plus the device.
- */
-function runTrace(
-  bin: Uint8Array,
-  tappedActionIds: readonly number[],
-  tickCount: number
-): { trace: string; microbit: MicroBit } {
+/** Runs `bin` over `tickCount` 600ms thinks, returning the rendered trace plus the device. */
+function runTrace(bin: Uint8Array, tickCount: number): { trace: string; microbit: MicroBit } {
   const environment = createMicroBitV2Environment();
   const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
   const decoded = parseWodalProgramImageBytes(
@@ -352,21 +344,6 @@ function runTrace(
     precision: profile.numberPrecision,
   });
 
-  const actions = environment.brainServices.runtime.actions;
-  for (const actionId of tappedActionIds) {
-    const action = actions.getById(actionId);
-    assert.ok(action !== undefined && action.binding === "host");
-    const exec = action.execSync;
-    assert.ok(exec !== undefined);
-    action.execSync = (ctx, args) => {
-      const result = exec(ctx, args);
-      const callSiteId = ctx.currentCallSiteId;
-      assert.ok(callSiteId !== undefined);
-      writer.hostActionCall(actionId, callSiteId, args, result);
-      return result;
-    };
-  }
-
   const microbit = new MicroBit();
   const deviceSetPixelValue = microbit.display.setPixelValue.bind(microbit.display);
   microbit.display.setPixelValue = (x, y, brightness) => {
@@ -374,9 +351,7 @@ function runTrace(
     deviceSetPixelValue(x, y, brightness);
   };
 
-  const vmEvents: VmEvents = {
-    onFiberFault: (payload) => writer.fiberFault(payload.fiberId, payload.err.code),
-  };
+  const vmEvents = observableTraceVmEvents(writer);
 
   const linked = decoded.program;
   const brain = new BrainRuntime(
@@ -412,9 +387,8 @@ test("the committed timer-brain binary and observable trace golden are byte-stab
   ensureJsonGolden(TIMER_JSON_PATH, buildTimerBrainDef);
   const bin = pinnedBinary(TIMER_JSON_PATH, TIMER_BIN_PATH);
 
-  const tapped = [TIMEOUT, SWITCH_PAGE, ON_PAGE_ENTERED, DISPLAY_SET_PIXEL];
-  const first = runTrace(bin, tapped, 4);
-  const second = runTrace(bin, tapped, 4);
+  const first = runTrace(bin, 4);
+  const second = runTrace(bin, 4);
   assert.equal(second.trace, first.trace, "two fresh runs must render byte-identical traces");
 
   const lines = first.trace.split("\n");
@@ -437,9 +411,8 @@ test("a timeout on a page entered via switch re-arms and fires (pages bounce)", 
   ensureJsonGolden(TIMEOUT_BOUNCE_JSON_PATH, buildBounceBrainDef);
   const bin = pinnedBinary(TIMEOUT_BOUNCE_JSON_PATH, TIMEOUT_BOUNCE_BIN_PATH);
 
-  const tapped = [TIMEOUT, SWITCH_PAGE];
-  const first = runTrace(bin, tapped, 10);
-  const second = runTrace(bin, tapped, 10);
+  const first = runTrace(bin, 10);
+  const second = runTrace(bin, 10);
   assert.equal(second.trace, first.trace, "two fresh runs must render byte-identical traces");
 
   const lines = first.trace.split("\n");
@@ -478,9 +451,8 @@ test("the committed core-host-actions coverage probe binary and observable trace
     "core-host-actions.mcprogram.bin is not byte-stable"
   );
 
-  const tapped = [CURRENT_PAGE, PREVIOUS_PAGE, YIELD, ON_PAGE_ENTERED, SWITCH_PAGE, RESTART_PAGE];
-  const first = runTrace(bin, tapped, 3);
-  const second = runTrace(bin, tapped, 3);
+  const first = runTrace(bin, 3);
+  const second = runTrace(bin, 3);
   assert.equal(second.trace, first.trace, "two fresh runs must render byte-identical traces");
 
   const lines = first.trace.split("\n");
@@ -521,9 +493,8 @@ test("the committed restart-interrupt binary and observable trace golden are byt
     "restart-interrupt.mcprogram.bin is not byte-stable"
   );
 
-  const tapped = [ON_PAGE_ENTERED, SWITCH_PAGE, DISPLAY_SET_PIXEL];
-  const first = runTrace(bin, tapped, 3);
-  const second = runTrace(bin, tapped, 3);
+  const first = runTrace(bin, 3);
+  const second = runTrace(bin, 3);
   assert.equal(second.trace, first.trace, "two fresh runs must render byte-identical traces");
 
   const lines = first.trace.split("\n");

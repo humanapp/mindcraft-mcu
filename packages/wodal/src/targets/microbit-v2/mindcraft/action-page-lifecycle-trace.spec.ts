@@ -29,13 +29,12 @@ import {
   linkedBrainProgramFromJson,
   Op,
   type PlatformServices,
-  type VmEvents,
 } from "@mindcraft-lang/core/runtime";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
 import { parseWodalProgramImageBytes, serializeWodalProgramImageBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Environment } from "./environment";
-import { ObservableTraceWriter } from "./observable-trace";
+import { ObservableTraceWriter, observableTraceVmEvents } from "./observable-trace";
 import { MicroBitV2HostActions } from "./tile-ids";
 
 const BIN_PATH = fileURLToPath(new URL("./__fixtures__/action-page-lifecycle.mcprogram.bin", import.meta.url));
@@ -179,7 +178,7 @@ function hostServicesOf(environment: MindcraftEnvironment): Omit<PlatformService
 
 /**
  * Runs the committed binary over a fixed tick schedule with two page changes
- * and the trace taps installed. The page is switched to page 1 before tick 3
+ * and the trace observers installed. The page is switched to page 1 before tick 3
  * and back to page 0 before tick 4.
  */
 function runActionPageLifecycleTrace(bin: Uint8Array): string {
@@ -195,18 +194,6 @@ function runActionPageLifecycleTrace(bin: Uint8Array): string {
     precision: profile.numberPrecision,
   });
 
-  const action = environment.brainServices.runtime.actions.getById(DISPLAY_SET_PIXEL);
-  assert.ok(action !== undefined && action.binding === "host");
-  const exec = action.execSync;
-  assert.ok(exec !== undefined);
-  action.execSync = (ctx, args) => {
-    const result = exec(ctx, args);
-    const callSiteId = ctx.currentCallSiteId;
-    assert.ok(callSiteId !== undefined);
-    writer.hostActionCall(DISPLAY_SET_PIXEL, callSiteId, args, result);
-    return result;
-  };
-
   const microbit = new MicroBit();
   const deviceSetPixelValue = microbit.display.setPixelValue.bind(microbit.display);
   microbit.display.setPixelValue = (x, y, brightness) => {
@@ -214,9 +201,7 @@ function runActionPageLifecycleTrace(bin: Uint8Array): string {
     deviceSetPixelValue(x, y, brightness);
   };
 
-  const vmEvents: VmEvents = {
-    onFiberFault: (payload) => writer.fiberFault(payload.fiberId, payload.err.code),
-  };
+  const vmEvents = observableTraceVmEvents(writer);
 
   const linked = decoded.program;
   const brain = new BrainRuntime(

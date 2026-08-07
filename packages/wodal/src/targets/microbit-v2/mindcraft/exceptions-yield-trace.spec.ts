@@ -20,17 +20,12 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import {
-  type LinkedBrainProgramJson,
-  linkedBrainProgramFromJson,
-  Op,
-  type VmEvents,
-} from "@mindcraft-lang/core/runtime";
+import { type LinkedBrainProgramJson, linkedBrainProgramFromJson, Op } from "@mindcraft-lang/core/runtime";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
 import { parseWodalProgramImageBytes, serializeWodalProgramImageBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Environment } from "./environment";
-import { ObservableTraceWriter } from "./observable-trace";
+import { ObservableTraceWriter, observableTraceVmEvents } from "./observable-trace";
 import { WodalMicroBitRuntime } from "./runtime";
 import { MicroBitV2HostActions } from "./tile-ids";
 
@@ -133,7 +128,7 @@ function serializeExceptionsYieldBrainBytes(): Uint8Array {
   return serializeWodalProgramImageBytes(image, environment.brainServices.runtime.types);
 }
 
-/** Runs the committed binary over a fixed tick schedule with the trace taps installed. */
+/** Runs the committed binary over a fixed tick schedule with the trace observers installed. */
 function runExceptionsYieldTrace(bin: Uint8Array): { trace: string; microbit: MicroBit } {
   const environment = createMicroBitV2Environment();
   const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
@@ -147,18 +142,6 @@ function runExceptionsYieldTrace(bin: Uint8Array): { trace: string; microbit: Mi
     precision: profile.numberPrecision,
   });
 
-  const action = environment.brainServices.runtime.actions.getById(DISPLAY_SET_PIXEL);
-  assert.ok(action !== undefined && action.binding === "host");
-  const exec = action.execSync;
-  assert.ok(exec !== undefined);
-  action.execSync = (ctx, args) => {
-    const result = exec(ctx, args);
-    const callSiteId = ctx.currentCallSiteId;
-    assert.ok(callSiteId !== undefined);
-    writer.hostActionCall(DISPLAY_SET_PIXEL, callSiteId, args, result);
-    return result;
-  };
-
   const microbit = new MicroBit();
   const deviceSetPixelValue = microbit.display.setPixelValue.bind(microbit.display);
   microbit.display.setPixelValue = (x, y, brightness) => {
@@ -166,9 +149,7 @@ function runExceptionsYieldTrace(bin: Uint8Array): { trace: string; microbit: Mi
     deviceSetPixelValue(x, y, brightness);
   };
 
-  const vmEvents: VmEvents = {
-    onFiberFault: (payload) => writer.fiberFault(payload.fiberId, payload.err.code),
-  };
+  const vmEvents = observableTraceVmEvents(writer);
   const runtime = new WodalMicroBitRuntime({ environment, microbit, vmEvents });
   assert.deepEqual(runtime.loadWodalProgramImage(profile.createProgramImage(decoded.program)), { ok: true });
 

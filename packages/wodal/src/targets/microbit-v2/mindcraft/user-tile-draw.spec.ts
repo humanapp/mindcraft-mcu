@@ -32,7 +32,6 @@ import {
   type LinkedBrainProgram,
   linkedBrainProgramToJson,
   type PlatformServices,
-  type VmEvents,
 } from "@mindcraft-lang/core/runtime";
 import {
   type AmbientFile,
@@ -48,9 +47,7 @@ import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../..
 import { parseWodalProgramImageBytes, wodalProgramBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Environment } from "./environment";
-import { ObservableTraceWriter } from "./observable-trace";
-
-const ON_PAGE_ENTERED = CoreHostActions.OnPageEntered.actionId;
+import { ObservableTraceWriter, observableTraceVmEvents } from "./observable-trace";
 
 /** Milliseconds advanced per scheduled think. */
 const TICK_ADVANCE_MS = 100;
@@ -228,7 +225,7 @@ function ensureJsonGolden(jsonPath: string, actuatorName: string, source: string
 
 /**
  * Runs the committed binary over `tickCount` thinks at {@link TICK_ADVANCE_MS}
- * each with the trace taps installed: the on-page-entered host sensor (its async
+ * each with the trace observers installed: the on-page-entered host sensor (its async
  * actuator draws and writes through host functions, which carry no host-action
  * dispatch line) plus the display draw / set-pixel ports. The draw port line is
  * emitted only when the display is free, and the display poll runs after each
@@ -244,19 +241,6 @@ function runTrace(bin: Uint8Array, tickCount: number): { trace: string; microbit
   );
   const writer = new ObservableTraceWriter({ profileId: profile.numericProfileId, precision: profile.numberPrecision });
 
-  const actions = environment.brainServices.runtime.actions;
-  const onPageEntered = actions.getById(ON_PAGE_ENTERED);
-  assert.ok(onPageEntered !== undefined && onPageEntered.binding === "host");
-  const onPageEnteredExec = onPageEntered.execSync;
-  assert.ok(onPageEnteredExec !== undefined);
-  onPageEntered.execSync = (ctx, args) => {
-    const result = onPageEnteredExec(ctx, args);
-    const callSiteId = ctx.currentCallSiteId;
-    assert.ok(callSiteId !== undefined);
-    writer.hostActionCall(ON_PAGE_ENTERED, callSiteId, args, result);
-    return result;
-  };
-
   const microbit = new MicroBit();
   const devicePaintFrame = microbit.display.paintFrame.bind(microbit.display);
   microbit.display.paintFrame = (image) => {
@@ -269,7 +253,7 @@ function runTrace(bin: Uint8Array, tickCount: number): { trace: string; microbit
     deviceSetPixelValue(x, y, brightness);
   };
 
-  const vmEvents: VmEvents = { onFiberFault: (payload) => writer.fiberFault(payload.fiberId, payload.err.code) };
+  const vmEvents = observableTraceVmEvents(writer);
 
   const linked = decoded.program;
   const brain = new BrainRuntime(

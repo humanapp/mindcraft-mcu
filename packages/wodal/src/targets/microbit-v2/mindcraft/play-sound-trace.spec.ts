@@ -38,7 +38,7 @@ import {
   mkSensorTileId,
 } from "@mindcraft-lang/core/app";
 import { BrainDef, type BrainPageDef, type BrainRuleDef } from "@mindcraft-lang/core/brain/model";
-import { type LinkedBrainProgram, linkedBrainProgramToJson, type VmEvents } from "@mindcraft-lang/core/runtime";
+import { type LinkedBrainProgram, linkedBrainProgramToJson } from "@mindcraft-lang/core/runtime";
 import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
 import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../../mindcraft/program-image";
@@ -46,7 +46,7 @@ import { parseWodalProgramImageBytes, wodalProgramBytes } from "../../../mindcra
 import { MicroBit } from "../microbit";
 import { BUILT_IN_SOUNDS, type BuiltInSoundDef, builtInSoundTileId, findBuiltInSound } from "./built-in-sounds";
 import { createMicroBitV2Environment } from "./environment";
-import { ObservableTraceWriter } from "./observable-trace";
+import { ObservableTraceWriter, observableTraceVmEvents } from "./observable-trace";
 import { WodalMicroBitRuntime } from "./runtime";
 import { MicroBitV2HostActions, WodalMicroBitV2ModifierId } from "./tile-ids";
 
@@ -146,7 +146,7 @@ function buildImage(
 
 /**
  * Runs the committed binary over `tickCount` thinks at {@link TICK_ADVANCE_MS}
- * each with the trace taps installed: the on-page-entered and set-pixel sync
+ * each with the trace observers installed: the on-page-entered and set-pixel sync
  * actions, the async play-sound action, the speaker port (a play the busy
  * speaker drops, or an unknown name, crosses no port and emits no line), and
  * fiber faults. The runtime tick settles the speaker lease after each think,
@@ -165,31 +165,6 @@ function runTrace(bin: Uint8Array, tickCount: number): string {
     precision: profile.numberPrecision,
   });
 
-  const playAction = environment.brainServices.runtime.actions.getById(PLAY_SOUND);
-  assert.ok(playAction !== undefined && playAction.binding === "host");
-  const execAsync = playAction.execAsync;
-  assert.ok(execAsync !== undefined);
-  playAction.execAsync = (ctx, args, handle) => {
-    const callSiteId = ctx.currentCallSiteId;
-    assert.ok(callSiteId !== undefined);
-    execAsync(ctx, args, handle);
-    writer.hostActionCallAsync(PLAY_SOUND, callSiteId, args);
-  };
-
-  for (const actionId of [CoreHostActions.OnPageEntered.actionId, MicroBitV2HostActions.DisplaySetPixel.actionId]) {
-    const syncAction = environment.brainServices.runtime.actions.getById(actionId);
-    assert.ok(syncAction !== undefined && syncAction.binding === "host");
-    const syncExec = syncAction.execSync;
-    assert.ok(syncExec !== undefined);
-    syncAction.execSync = (ctx, args) => {
-      const result = syncExec(ctx, args);
-      const callSiteId = ctx.currentCallSiteId;
-      assert.ok(callSiteId !== undefined);
-      writer.hostActionCall(actionId, callSiteId, args, result);
-      return result;
-    };
-  }
-
   const microbit = new MicroBit();
   const devicePlaySoundEmoji = microbit.speaker.playSoundEmoji.bind(microbit.speaker);
   microbit.speaker.playSoundEmoji = (name, requestTime, onComplete) => {
@@ -205,9 +180,7 @@ function runTrace(bin: Uint8Array, tickCount: number): string {
     deviceSetPixelValue(x, y, brightness);
   };
 
-  const vmEvents: VmEvents = {
-    onFiberFault: (payload) => writer.fiberFault(payload.fiberId, payload.err.code),
-  };
+  const vmEvents = observableTraceVmEvents(writer);
   const runtime = new WodalMicroBitRuntime({ environment, microbit, vmEvents });
   assert.deepEqual(runtime.loadWodalProgramImage(profile.createProgramImage(decoded.program)), { ok: true });
 

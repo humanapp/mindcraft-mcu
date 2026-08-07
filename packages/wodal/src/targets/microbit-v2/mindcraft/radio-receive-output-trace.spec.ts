@@ -29,7 +29,7 @@ import {
   mkSensorTileId,
 } from "@mindcraft-lang/core/app";
 import { BrainDef } from "@mindcraft-lang/core/brain/model";
-import { type LinkedBrainProgram, linkedBrainProgramToJson, type VmEvents } from "@mindcraft-lang/core/runtime";
+import { type LinkedBrainProgram, linkedBrainProgramToJson } from "@mindcraft-lang/core/runtime";
 import {
   type IncomingRadioPacket,
   RadioPacketType,
@@ -42,7 +42,7 @@ import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../..
 import { parseWodalProgramImageBytes, wodalProgramBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Environment } from "./environment";
-import { ObservableTraceWriter } from "./observable-trace";
+import { ObservableTraceWriter, observableTraceVmEvents } from "./observable-trace";
 import { WodalMicroBitRuntime } from "./runtime";
 import { MicroBitV2HostActions } from "./tile-ids";
 
@@ -241,7 +241,7 @@ function binFromCommittedJson(jsonPath: string): Uint8Array {
   return wodalProgramBytes(new Uint8Array(readFileSync(jsonPath)));
 }
 
-/** Runs a fixture binary over its injected-packet schedule with the trace taps installed. */
+/** Runs a fixture binary over its injected-packet schedule with the trace observers installed. */
 function runFixtureTrace(fixture: OutputFixture, bin: Uint8Array): { trace: string; sends: RadioSendRecord[] } {
   const environment = createMicroBitV2Environment();
   const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
@@ -255,21 +255,6 @@ function runFixtureTrace(fixture: OutputFixture, bin: Uint8Array): { trace: stri
     precision: profile.numberPrecision,
   });
 
-  const actions = environment.brainServices.runtime.actions;
-  for (const actionId of [fixture.sensor.actionId, MicroBitV2HostActions.RadioSend.actionId]) {
-    const action = actions.getById(actionId);
-    assert.ok(action !== undefined && action.binding === "host");
-    const exec = action.execSync;
-    assert.ok(exec !== undefined);
-    action.execSync = (ctx, args) => {
-      const result = exec(ctx, args);
-      const callSiteId = ctx.currentCallSiteId;
-      assert.ok(callSiteId !== undefined);
-      writer.hostActionCall(actionId, callSiteId, args, result);
-      return result;
-    };
-  }
-
   const microbit = new MicroBit();
   const sends: RadioSendRecord[] = [];
   const deviceSend = microbit.radio.send.bind(microbit.radio);
@@ -279,9 +264,7 @@ function runFixtureTrace(fixture: OutputFixture, bin: Uint8Array): { trace: stri
     return deviceSend(record);
   };
 
-  const vmEvents: VmEvents = {
-    onFiberFault: (payload) => writer.fiberFault(payload.fiberId, payload.err.code),
-  };
+  const vmEvents = observableTraceVmEvents(writer);
   const runtime = new WodalMicroBitRuntime({ environment, microbit, vmEvents });
   assert.deepEqual(runtime.loadWodalProgramImage(profile.createProgramImage(decoded.program)), { ok: true });
 

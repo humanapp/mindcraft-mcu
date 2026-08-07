@@ -40,7 +40,6 @@ import {
   type LinkedBrainProgram,
   linkedBrainProgramToJson,
   type PlatformServices,
-  type VmEvents,
 } from "@mindcraft-lang/core/runtime";
 import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
@@ -48,11 +47,8 @@ import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../..
 import { parseWodalProgramImageBytes, wodalProgramBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Environment } from "./environment";
-import { ObservableTraceWriter } from "./observable-trace";
+import { ObservableTraceWriter, observableTraceVmEvents } from "./observable-trace";
 import { MicroBitV2HostActions, WodalMicroBitV2ParameterId } from "./tile-ids";
-
-const DISPLAY_SCROLL = MicroBitV2HostActions.DisplayScroll.actionId;
-const DISPLAY_SET_PIXEL = MicroBitV2HostActions.DisplaySetPixel.actionId;
 
 const BASE = "async-handle-backpressure";
 const JSON_PATH = fileURLToPath(new URL(`./__fixtures__/${BASE}.mcprogram`, import.meta.url));
@@ -142,31 +138,6 @@ function runTrace(bin: Uint8Array, tickCount: number): string {
     precision: profile.numberPrecision,
   });
 
-  const scrollAction = environment.brainServices.runtime.actions.getById(DISPLAY_SCROLL);
-  assert.ok(scrollAction !== undefined && scrollAction.binding === "host");
-  const execAsync = scrollAction.execAsync;
-  assert.ok(execAsync !== undefined);
-  scrollAction.execAsync = (ctx, args, handle) => {
-    const callSiteId = ctx.currentCallSiteId;
-    assert.ok(callSiteId !== undefined);
-    execAsync(ctx, args, handle);
-    writer.hostActionCallAsync(DISPLAY_SCROLL, callSiteId, args);
-  };
-
-  for (const actionId of [CoreHostActions.OnPageEntered.actionId, DISPLAY_SET_PIXEL]) {
-    const syncAction = environment.brainServices.runtime.actions.getById(actionId);
-    assert.ok(syncAction !== undefined && syncAction.binding === "host");
-    const syncExec = syncAction.execSync;
-    assert.ok(syncExec !== undefined);
-    syncAction.execSync = (ctx, args) => {
-      const result = syncExec(ctx, args);
-      const callSiteId = ctx.currentCallSiteId;
-      assert.ok(callSiteId !== undefined);
-      writer.hostActionCall(actionId, callSiteId, args, result);
-      return result;
-    };
-  }
-
   const microbit = new MicroBit();
   const deviceScrollText = microbit.display.scrollText.bind(microbit.display);
   microbit.display.scrollText = (text, durationMs, requestTime, onComplete) => {
@@ -181,9 +152,7 @@ function runTrace(bin: Uint8Array, tickCount: number): string {
     deviceSetPixelValue(x, y, brightness);
   };
 
-  const vmEvents: VmEvents = {
-    onFiberFault: (payload) => writer.fiberFault(payload.fiberId, payload.err.code),
-  };
+  const vmEvents = observableTraceVmEvents(writer);
   const brain = new BrainRuntime(
     decoded.program.program,
     decoded.program.pages,

@@ -16,14 +16,14 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { type MindcraftEnvironment, mkActuatorTileId, mkSensorTileId } from "@mindcraft-lang/core/app";
 import { BrainDef } from "@mindcraft-lang/core/brain/model";
-import { type LinkedBrainProgram, linkedBrainProgramToJson, type VmEvents } from "@mindcraft-lang/core/runtime";
+import { type LinkedBrainProgram, linkedBrainProgramToJson } from "@mindcraft-lang/core/runtime";
 import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
 import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../../mindcraft/program-image";
 import { parseWodalProgramImageBytes, wodalProgramBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Environment } from "./environment";
-import { ObservableTraceWriter } from "./observable-trace";
+import { ObservableTraceWriter, observableTraceVmEvents } from "./observable-trace";
 import { WodalMicroBitRuntime } from "./runtime";
 import { MicroBitV2HostActions } from "./tile-ids";
 
@@ -82,7 +82,7 @@ function ensureJsonGolden(): void {
   );
 }
 
-/** Runs the committed binary over the schedule with the observable-trace taps installed. */
+/** Runs the committed binary over the schedule with the observable-trace observers installed. */
 function runFixtureTrace(bin: Uint8Array): { trace: string; microbit: MicroBit } {
   const environment = createMicroBitV2Environment();
   const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
@@ -96,21 +96,6 @@ function runFixtureTrace(bin: Uint8Array): { trace: string; microbit: MicroBit }
     precision: profile.numberPrecision,
   });
 
-  const actions = environment.brainServices.runtime.actions;
-  for (const { actionId } of [MicroBitV2HostActions.LightLevel, MicroBitV2HostActions.DisplaySetPixel]) {
-    const action = actions.getById(actionId);
-    assert.ok(action !== undefined && action.binding === "host");
-    const exec = action.execSync;
-    assert.ok(exec !== undefined);
-    action.execSync = (ctx, args) => {
-      const result = exec(ctx, args);
-      const callSiteId = ctx.currentCallSiteId;
-      assert.ok(callSiteId !== undefined);
-      writer.hostActionCall(actionId, callSiteId, args, result);
-      return result;
-    };
-  }
-
   const microbit = new MicroBit();
   const deviceSetPixelValue = microbit.display.setPixelValue.bind(microbit.display);
   microbit.display.setPixelValue = (x, y, brightness) => {
@@ -118,9 +103,7 @@ function runFixtureTrace(bin: Uint8Array): { trace: string; microbit: MicroBit }
     deviceSetPixelValue(x, y, brightness);
   };
 
-  const vmEvents: VmEvents = {
-    onFiberFault: (payload) => writer.fiberFault(payload.fiberId, payload.err.code),
-  };
+  const vmEvents = observableTraceVmEvents(writer);
   const runtime = new WodalMicroBitRuntime({ environment, microbit, vmEvents });
   assert.deepEqual(runtime.loadWodalProgramImage(profile.createProgramImage(decoded.program)), { ok: true });
 

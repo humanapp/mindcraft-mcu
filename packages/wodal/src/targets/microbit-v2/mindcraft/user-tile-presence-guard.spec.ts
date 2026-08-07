@@ -27,7 +27,6 @@ import {
   mkActuatorTileId,
   mkBufferValueFromHex,
   mkNumberValue,
-  type VmEvents,
 } from "@mindcraft-lang/core/runtime";
 import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@mindcraft-lang/ts-compiler";
 import { TEST_PROJECT_NAMESPACE } from "@mindcraft-lang/ts-compiler/testing";
@@ -37,7 +36,7 @@ import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../..
 import { parseWodalProgramImageBytes, wodalProgramBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Environment } from "./environment";
-import { ObservableTraceWriter } from "./observable-trace";
+import { ObservableTraceWriter, observableTraceVmEvents } from "./observable-trace";
 import { WodalMicroBitRuntime } from "./runtime";
 import { MicroBitV2HostActions } from "./tile-ids";
 
@@ -182,7 +181,7 @@ function ensureJsonGolden(): void {
   );
 }
 
-/** Runs the committed binary over the schedule with the radio-send taps installed. */
+/** Runs the committed binary over the schedule with the trace observers and radio-send tap installed. */
 function runTrace(bin: Uint8Array): { trace: string; sentValues: number[] } {
   const environment = createMicroBitV2Environment();
   const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
@@ -193,19 +192,6 @@ function runTrace(bin: Uint8Array): { trace: string; sentValues: number[] } {
   );
   const writer = new ObservableTraceWriter({ profileId: profile.numericProfileId, precision: profile.numberPrecision });
 
-  const actions = environment.brainServices.runtime.actions;
-  const action = actions.getById(MicroBitV2HostActions.RadioSend.actionId);
-  assert.ok(action !== undefined && action.binding === "host");
-  const exec = action.execSync;
-  assert.ok(exec !== undefined);
-  action.execSync = (ctx, args) => {
-    const result = exec(ctx, args);
-    const callSiteId = ctx.currentCallSiteId;
-    assert.ok(callSiteId !== undefined);
-    writer.hostActionCall(MicroBitV2HostActions.RadioSend.actionId, callSiteId, args, result);
-    return result;
-  };
-
   const microbit = new MicroBit();
   const sentValues: number[] = [];
   const deviceSend = microbit.radio.send.bind(microbit.radio);
@@ -215,7 +201,7 @@ function runTrace(bin: Uint8Array): { trace: string; sentValues: number[] } {
     return deviceSend(record);
   };
 
-  const vmEvents: VmEvents = { onFiberFault: (payload) => writer.fiberFault(payload.fiberId, payload.err.code) };
+  const vmEvents = observableTraceVmEvents(writer);
   const runtime = new WodalMicroBitRuntime({ environment, microbit, vmEvents });
   assert.deepEqual(runtime.loadWodalProgramImage(profile.createProgramImage(decoded.program)), { ok: true });
 

@@ -26,13 +26,12 @@ import {
   linkedBrainProgramFromJson,
   Op,
   type PlatformServices,
-  type VmEvents,
 } from "@mindcraft-lang/core/runtime";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
 import { parseWodalProgramImageBytes, serializeWodalProgramImageBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Environment } from "./environment";
-import { ObservableTraceWriter } from "./observable-trace";
+import { ObservableTraceWriter, observableTraceVmEvents } from "./observable-trace";
 import { MicroBitV2HostActions } from "./tile-ids";
 
 const SET_PIXEL = MicroBitV2HostActions.DisplaySetPixel.actionId;
@@ -166,7 +165,7 @@ function hostServicesOf(environment: MindcraftEnvironment): Omit<PlatformService
   return { runtime, shared, app };
 }
 
-/** Runs `bin` for one 600ms think, tapping the set-pixel action and device port. */
+/** Runs `bin` for one 600ms think with the trace observers and the set-pixel port tap installed. */
 function runTrace(bin: Uint8Array): { trace: string; microbit: MicroBit } {
   const environment = createMicroBitV2Environment();
   const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
@@ -180,19 +179,6 @@ function runTrace(bin: Uint8Array): { trace: string; microbit: MicroBit } {
     precision: profile.numberPrecision,
   });
 
-  const actions = environment.brainServices.runtime.actions;
-  const action = actions.getById(SET_PIXEL);
-  assert.ok(action !== undefined && action.binding === "host");
-  const exec = action.execSync;
-  assert.ok(exec !== undefined);
-  action.execSync = (ctx, args) => {
-    const result = exec(ctx, args);
-    const callSiteId = ctx.currentCallSiteId;
-    assert.ok(callSiteId !== undefined);
-    writer.hostActionCall(SET_PIXEL, callSiteId, args, result);
-    return result;
-  };
-
   const microbit = new MicroBit();
   const deviceSetPixelValue = microbit.display.setPixelValue.bind(microbit.display);
   microbit.display.setPixelValue = (x, y, brightness) => {
@@ -200,9 +186,7 @@ function runTrace(bin: Uint8Array): { trace: string; microbit: MicroBit } {
     deviceSetPixelValue(x, y, brightness);
   };
 
-  const vmEvents: VmEvents = {
-    onFiberFault: (payload) => writer.fiberFault(payload.fiberId, payload.err.code),
-  };
+  const vmEvents = observableTraceVmEvents(writer);
 
   const linked = decoded.program;
   const brain = new BrainRuntime(

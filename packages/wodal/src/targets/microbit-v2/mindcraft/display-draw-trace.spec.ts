@@ -48,7 +48,6 @@ import {
   NativeType,
   Op,
   type PlatformServices,
-  type VmEvents,
 } from "@mindcraft-lang/core/runtime";
 import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
@@ -57,7 +56,7 @@ import { WODAL_SHARED_TYPE_IDS, WodalSharedTypeAtomId } from "../../../mindcraft
 import { MicroBit } from "../microbit";
 import { builtInImageHex, builtInImageTileId, getBuiltInImage } from "./built-in-images";
 import { createMicroBitV2Environment } from "./environment";
-import { ObservableTraceWriter } from "./observable-trace";
+import { ObservableTraceWriter, observableTraceVmEvents } from "./observable-trace";
 import { MicroBitV2HostActions, WodalMicroBitV2ParameterId } from "./tile-ids";
 
 const ON_PAGE_ENTERED = CoreHostActions.OnPageEntered.actionId;
@@ -116,7 +115,7 @@ function hostServicesOf(environment: MindcraftEnvironment): Omit<PlatformService
 
 /**
  * Runs `bin` over `tickCount` thinks at {@link TICK_ADVANCE_MS} each with the
- * trace taps installed: the on-page-entered and set-pixel sync actions, the
+ * trace observers installed: the on-page-entered and set-pixel sync actions, the
  * async draw-image action, and the display draw / set-pixel ports. A draw port
  * line is emitted for each frame the display paints -- one at dispatch and one
  * per sequence advance -- and a dropped draw paints nothing, mirroring the C++
@@ -140,32 +139,6 @@ function runDrawTrace(
     precision: profile.numberPrecision,
   });
 
-  const actions = environment.brainServices.runtime.actions;
-  for (const actionId of [ON_PAGE_ENTERED, DISPLAY_SET_PIXEL]) {
-    const action = actions.getById(actionId);
-    assert.ok(action !== undefined && action.binding === "host");
-    const exec = action.execSync;
-    assert.ok(exec !== undefined);
-    action.execSync = (ctx, args) => {
-      const result = exec(ctx, args);
-      const callSiteId = ctx.currentCallSiteId;
-      assert.ok(callSiteId !== undefined);
-      writer.hostActionCall(actionId, callSiteId, args, result);
-      return result;
-    };
-  }
-
-  const drawAction = actions.getById(DRAW_IMAGE);
-  assert.ok(drawAction !== undefined && drawAction.binding === "host");
-  const execAsync = drawAction.execAsync;
-  assert.ok(execAsync !== undefined);
-  drawAction.execAsync = (ctx, args, handle) => {
-    const callSiteId = ctx.currentCallSiteId;
-    assert.ok(callSiteId !== undefined);
-    execAsync(ctx, args, handle);
-    writer.hostActionCallAsync(DRAW_IMAGE, callSiteId, args);
-  };
-
   const microbit = new MicroBit();
   const devicePaintFrame = microbit.display.paintFrame.bind(microbit.display);
   microbit.display.paintFrame = (image) => {
@@ -178,9 +151,7 @@ function runDrawTrace(
     deviceSetPixelValue(x, y, brightness);
   };
 
-  const vmEvents: VmEvents = {
-    onFiberFault: (payload) => writer.fiberFault(payload.fiberId, payload.err.code),
-  };
+  const vmEvents = observableTraceVmEvents(writer);
 
   const linked = decoded.program;
   const brain = new BrainRuntime(

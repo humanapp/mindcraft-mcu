@@ -30,7 +30,6 @@ import {
   type LinkedBrainProgram,
   linkedBrainProgramToJson,
   type PlatformServices,
-  type VmEvents,
 } from "@mindcraft-lang/core/runtime";
 import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@mindcraft-lang/ts-compiler";
 import { TEST_PROJECT_NAMESPACE } from "@mindcraft-lang/ts-compiler/testing";
@@ -40,9 +39,7 @@ import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../..
 import { parseWodalProgramImageBytes, wodalProgramBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Environment } from "./environment";
-import { ObservableTraceWriter } from "./observable-trace";
-
-const ON_PAGE_ENTERED = CoreHostActions.OnPageEntered.actionId;
+import { ObservableTraceWriter, observableTraceVmEvents } from "./observable-trace";
 
 /** Milliseconds advanced per scheduled think. */
 const TICK_ADVANCE_MS = 100;
@@ -206,7 +203,7 @@ function ensureJsonGolden(jsonPath: string, actuators: readonly ActuatorSpec[]):
 
 /**
  * Runs the committed binary over `tickCount` thinks at {@link TICK_ADVANCE_MS}
- * each with the trace taps installed: the on-page-entered host sensor plus the
+ * each with the trace observers installed: the on-page-entered host sensor plus the
  * display draw / set-pixel / clear ports (the actuators' `drawImage`,
  * `setPixelValue`, and `clear` are host functions, which carry no host-action
  * dispatch line). The display poll runs after each think so a timed draw's hold
@@ -221,19 +218,6 @@ function runTrace(bin: Uint8Array, tickCount: number): { trace: string; microbit
     environment.brainServices.runtime.types
   );
   const writer = new ObservableTraceWriter({ profileId: profile.numericProfileId, precision: profile.numberPrecision });
-
-  const actions = environment.brainServices.runtime.actions;
-  const onPageEntered = actions.getById(ON_PAGE_ENTERED);
-  assert.ok(onPageEntered !== undefined && onPageEntered.binding === "host");
-  const onPageEnteredExec = onPageEntered.execSync;
-  assert.ok(onPageEnteredExec !== undefined);
-  onPageEntered.execSync = (ctx, args) => {
-    const result = onPageEnteredExec(ctx, args);
-    const callSiteId = ctx.currentCallSiteId;
-    assert.ok(callSiteId !== undefined);
-    writer.hostActionCall(ON_PAGE_ENTERED, callSiteId, args, result);
-    return result;
-  };
 
   const microbit = new MicroBit();
   const devicePaintFrame = microbit.display.paintFrame.bind(microbit.display);
@@ -252,7 +236,7 @@ function runTrace(bin: Uint8Array, tickCount: number): { trace: string; microbit
     deviceClear();
   };
 
-  const vmEvents: VmEvents = { onFiberFault: (payload) => writer.fiberFault(payload.fiberId, payload.err.code) };
+  const vmEvents = observableTraceVmEvents(writer);
 
   const linked = decoded.program;
   const brain = new BrainRuntime(

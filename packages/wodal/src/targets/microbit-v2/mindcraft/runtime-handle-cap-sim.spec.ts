@@ -30,7 +30,7 @@ import { createMicroBitV2Environment } from "./environment";
 import { WodalMicroBitRuntime } from "./runtime";
 import { MicroBitV2HostActions, WodalMicroBitV2ParameterId } from "./tile-ids";
 
-const DISPLAY_SCROLL = MicroBitV2HostActions.DisplayScroll.actionId;
+const DISPLAY_SCROLL_KEY = MicroBitV2HostActions.DisplayScroll.key;
 const TICK_ADVANCE_MS = 1100;
 const TICK_COUNT = 12;
 
@@ -90,14 +90,6 @@ function runWaves(childCount: number): { waves: number[]; faulted: boolean } {
 
   let faulted = false;
   const perTick: number[] = [];
-  const scrollAction = environment.brainServices.runtime.actions.getById(DISPLAY_SCROLL);
-  assert.ok(scrollAction !== undefined && scrollAction.binding === "host");
-  const execAsync = scrollAction.execAsync;
-  assert.ok(execAsync !== undefined);
-  scrollAction.execAsync = (ctx, args, handle) => {
-    perTick[perTick.length - 1]!++;
-    execAsync(ctx, args, handle);
-  };
 
   const microbit = new MicroBit();
   const runtime = new WodalMicroBitRuntime({
@@ -106,6 +98,11 @@ function runWaves(childCount: number): { waves: number[]; faulted: boolean } {
     vmEvents: {
       onFiberFault: () => {
         faulted = true;
+      },
+      onHostActionDispatch: (payload) => {
+        if (payload.descriptor.key === DISPLAY_SCROLL_KEY) {
+          perTick[perTick.length - 1]!++;
+        }
       },
     },
   });

@@ -143,7 +143,7 @@
  */
 
 import { NativeType, type ReadonlyList, type Value } from "@mindcraft-lang/core/app";
-import { bufferToHex, type NumberPrecision } from "@mindcraft-lang/core/runtime";
+import { bufferToHex, type NumberPrecision, type VmEvents } from "@mindcraft-lang/core/runtime";
 import { RADIO_RAW_PACKET_TYPE, RadioPacketType, type RadioSendRecord } from "../../../core/radio";
 
 /** Current observable trace format version. */
@@ -490,6 +490,29 @@ export class ObservableTraceWriter {
   private line(text: string): void {
     this.out += `${text}\n`;
   }
+}
+
+/**
+ * Builds the runtime event hooks that record a run's host-action dispatches and
+ * fiber faults into `writer`. Pass the result as the `vmEvents` of the
+ * `WodalMicroBitRuntime` or `BrainRuntime` under trace. Tap the device ports
+ * separately to record the run's `port` lines.
+ *
+ * @param writer - Trace writer the observed events are appended to.
+ */
+export function observableTraceVmEvents(writer: ObservableTraceWriter): VmEvents {
+  return {
+    onFiberFault: (payload) => {
+      writer.fiberFault(payload.fiberId, payload.err.code);
+    },
+    onHostActionReturn: (payload) => {
+      if (payload.result === undefined) {
+        writer.hostActionCallAsync(payload.actionId, payload.callSiteId, payload.args);
+        return;
+      }
+      writer.hostActionCall(payload.actionId, payload.callSiteId, payload.args, payload.result);
+    },
+  };
 }
 
 function bytesToHex(bytes: Uint8Array): string {

@@ -24,7 +24,6 @@ import {
   type LinkedBrainProgram,
   linkedBrainProgramToJson,
   type PlatformServices,
-  type VmEvents,
 } from "@mindcraft-lang/core/runtime";
 import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
@@ -32,10 +31,8 @@ import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../..
 import { parseWodalProgramImageBytes, wodalProgramBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Environment } from "./environment";
-import { ObservableTraceWriter } from "./observable-trace";
+import { ObservableTraceWriter, observableTraceVmEvents } from "./observable-trace";
 import { MicroBitV2HostActions } from "./tile-ids";
-
-const DISPLAY_SCROLL = MicroBitV2HostActions.DisplayScroll.actionId;
 
 /** Text the scroll actuator shows when no text argument and no convertible WHEN result is available. */
 const DEFAULT_SCROLL_TEXT = "hello";
@@ -116,7 +113,7 @@ function hostServicesOf(environment: MindcraftEnvironment): Omit<PlatformService
 
 /**
  * Runs `bin` over `tickCount` thinks at {@link TICK_ADVANCE_MS} each, with the
- * scroll action and display-scroll port taps installed so the dispatch crosses
+ * trace observers and display-scroll port tap installed so the dispatch crosses
  * the trace.
  */
 function runTrace(bin: Uint8Array, tickCount: number): { trace: string; microbit: MicroBit } {
@@ -129,17 +126,6 @@ function runTrace(bin: Uint8Array, tickCount: number): { trace: string; microbit
   );
   const writer = new ObservableTraceWriter({ profileId: profile.numericProfileId, precision: profile.numberPrecision });
 
-  const scrollAction = environment.brainServices.runtime.actions.getById(DISPLAY_SCROLL);
-  assert.ok(scrollAction !== undefined && scrollAction.binding === "host");
-  const execAsync = scrollAction.execAsync;
-  assert.ok(execAsync !== undefined);
-  scrollAction.execAsync = (ctx, args, handle) => {
-    const callSiteId = ctx.currentCallSiteId;
-    assert.ok(callSiteId !== undefined);
-    execAsync(ctx, args, handle);
-    writer.hostActionCallAsync(DISPLAY_SCROLL, callSiteId, args);
-  };
-
   const microbit = new MicroBit();
   const deviceScrollText = microbit.display.scrollText.bind(microbit.display);
   microbit.display.scrollText = (text, durationMs, requestTime, onComplete) => {
@@ -149,7 +135,7 @@ function runTrace(bin: Uint8Array, tickCount: number): { trace: string; microbit
     deviceScrollText(text, durationMs, requestTime, onComplete);
   };
 
-  const vmEvents: VmEvents = { onFiberFault: (payload) => writer.fiberFault(payload.fiberId, payload.err.code) };
+  const vmEvents = observableTraceVmEvents(writer);
 
   const linked = decoded.program;
   const brain = new BrainRuntime(

@@ -34,7 +34,7 @@ import {
 } from "@mindcraft-lang/core/app";
 import { mkOperatorTileId } from "@mindcraft-lang/core/brain";
 import { BrainDef, type BrainPageDef, type BrainRuleDef } from "@mindcraft-lang/core/brain/model";
-import { type LinkedBrainProgram, linkedBrainProgramToJson, type VmEvents } from "@mindcraft-lang/core/runtime";
+import { type LinkedBrainProgram, linkedBrainProgramToJson } from "@mindcraft-lang/core/runtime";
 import { type IncomingRadioPacket, RadioPacketType, radioNumberIsInteger } from "../../../core/radio";
 import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
@@ -42,7 +42,7 @@ import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../..
 import { parseWodalProgramImageBytes, wodalProgramBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Environment } from "./environment";
-import { ObservableTraceWriter } from "./observable-trace";
+import { ObservableTraceWriter, observableTraceVmEvents } from "./observable-trace";
 import { WodalMicroBitRuntime } from "./runtime";
 import { MicroBitV2HostActions, WodalMicroBitV2ModifierId, WodalMicroBitV2ParameterId } from "./tile-ids";
 
@@ -405,11 +405,7 @@ function ensureJsonGolden(jsonPath: string, build: (env: MindcraftEnvironment) =
   );
 }
 
-/**
- * A loaded runtime with the observable-trace taps installed over every host
- * action the program's pages call, matching the C++ VM observer, which records
- * every host-action dispatch.
- */
+/** A loaded runtime with the observable-trace observer and the display-port tap installed. */
 function loadTracedRuntime(bin: Uint8Array): {
   runtime: WodalMicroBitRuntime;
   writer: ObservableTraceWriter;
@@ -427,42 +423,6 @@ function loadTracedRuntime(bin: Uint8Array): {
     precision: profile.numberPrecision,
   });
 
-  const actionIds = new Set<number>();
-  const pages = decoded.program.pages;
-  for (let p = 0; p < pages.size(); p++) {
-    const sites = pages.get(p)!.actionCallSites;
-    for (let s = 0; s < sites.size(); s++) {
-      const site = sites.get(s)!;
-      if (site.binding === "host") {
-        actionIds.add(site.actionId);
-      }
-    }
-  }
-
-  for (const actionId of actionIds) {
-    const action = environment.brainServices.runtime.actions.getById(actionId);
-    assert.ok(action !== undefined && action.binding === "host");
-    const exec = action.execSync;
-    if (exec !== undefined) {
-      action.execSync = (ctx, args) => {
-        const result = exec(ctx, args);
-        const callSiteId = ctx.currentCallSiteId;
-        assert.ok(callSiteId !== undefined);
-        writer.hostActionCall(actionId, callSiteId, args, result);
-        return result;
-      };
-      continue;
-    }
-    const execAsync = action.execAsync;
-    assert.ok(execAsync !== undefined);
-    action.execAsync = (ctx, args, handle) => {
-      const callSiteId = ctx.currentCallSiteId;
-      assert.ok(callSiteId !== undefined);
-      execAsync(ctx, args, handle);
-      writer.hostActionCallAsync(actionId, callSiteId, args);
-    };
-  }
-
   const microbit = new MicroBit();
   const deviceSetPixelValue = microbit.display.setPixelValue.bind(microbit.display);
   microbit.display.setPixelValue = (x, y, brightness) => {
@@ -470,9 +430,7 @@ function loadTracedRuntime(bin: Uint8Array): {
     deviceSetPixelValue(x, y, brightness);
   };
 
-  const vmEvents: VmEvents = {
-    onFiberFault: (payload) => writer.fiberFault(payload.fiberId, payload.err.code),
-  };
+  const vmEvents = observableTraceVmEvents(writer);
   const runtime = new WodalMicroBitRuntime({ environment, microbit, vmEvents });
   assert.deepEqual(runtime.loadWodalProgramImage(profile.createProgramImage(decoded.program)), { ok: true });
   return { runtime, writer, microbit };

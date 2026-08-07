@@ -32,18 +32,16 @@ import {
   mkSensorTileId,
 } from "@mindcraft-lang/core/app";
 import { BrainDef, type BrainPageDef, type BrainRuleDef } from "@mindcraft-lang/core/brain/model";
-import { type LinkedBrainProgram, linkedBrainProgramToJson, type VmEvents } from "@mindcraft-lang/core/runtime";
+import { type LinkedBrainProgram, linkedBrainProgramToJson } from "@mindcraft-lang/core/runtime";
 import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
 import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../../mindcraft/program-image";
 import { parseWodalProgramImageBytes, wodalProgramBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Environment } from "./environment";
-import { ObservableTraceWriter } from "./observable-trace";
+import { ObservableTraceWriter, observableTraceVmEvents } from "./observable-trace";
 import { WodalMicroBitRuntime } from "./runtime";
 import { MicroBitV2HostActions, WodalMicroBitV2ModifierId, WodalMicroBitV2ParameterId } from "./tile-ids";
-
-const DRAW_IMAGE = MicroBitV2HostActions.DrawImage.actionId;
 
 const BASE = "draw-image-background-immediately";
 const JSON_PATH = fileURLToPath(new URL(`./__fixtures__/${BASE}.mcprogram`, import.meta.url));
@@ -126,7 +124,7 @@ function ensureJsonGolden(): void {
   );
 }
 
-/** Runs the committed binary over the fixed tick schedule with draw and set-pixel taps. */
+/** Runs the committed binary over the fixed tick schedule with the trace observers installed. */
 function runTrace(bin: Uint8Array, tickCount: number): string {
   const environment = createMicroBitV2Environment();
   const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
@@ -140,31 +138,6 @@ function runTrace(bin: Uint8Array, tickCount: number): string {
     precision: profile.numberPrecision,
   });
 
-  const drawAction = environment.brainServices.runtime.actions.getById(DRAW_IMAGE);
-  assert.ok(drawAction !== undefined && drawAction.binding === "host");
-  const execAsync = drawAction.execAsync;
-  assert.ok(execAsync !== undefined);
-  drawAction.execAsync = (ctx, args, handle) => {
-    const callSiteId = ctx.currentCallSiteId;
-    assert.ok(callSiteId !== undefined);
-    execAsync(ctx, args, handle);
-    writer.hostActionCallAsync(DRAW_IMAGE, callSiteId, args);
-  };
-
-  for (const actionId of [CoreHostActions.OnPageEntered.actionId, MicroBitV2HostActions.DisplaySetPixel.actionId]) {
-    const syncAction = environment.brainServices.runtime.actions.getById(actionId);
-    assert.ok(syncAction !== undefined && syncAction.binding === "host");
-    const syncExec = syncAction.execSync;
-    assert.ok(syncExec !== undefined);
-    syncAction.execSync = (ctx, args) => {
-      const result = syncExec(ctx, args);
-      const callSiteId = ctx.currentCallSiteId;
-      assert.ok(callSiteId !== undefined);
-      writer.hostActionCall(actionId, callSiteId, args, result);
-      return result;
-    };
-  }
-
   const microbit = new MicroBit();
   const devicePaintFrame = microbit.display.paintFrame.bind(microbit.display);
   microbit.display.paintFrame = (image) => {
@@ -177,9 +150,7 @@ function runTrace(bin: Uint8Array, tickCount: number): string {
     deviceSetPixelValue(x, y, brightness);
   };
 
-  const vmEvents: VmEvents = {
-    onFiberFault: (payload) => writer.fiberFault(payload.fiberId, payload.err.code),
-  };
+  const vmEvents = observableTraceVmEvents(writer);
   const runtime = new WodalMicroBitRuntime({ environment, microbit, vmEvents });
   assert.deepEqual(runtime.loadWodalProgramImage(profile.createProgramImage(decoded.program)), { ok: true });
 

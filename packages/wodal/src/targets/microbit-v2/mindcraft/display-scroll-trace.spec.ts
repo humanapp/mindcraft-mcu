@@ -29,14 +29,13 @@ import {
   linkedBrainProgramFromJson,
   Op,
   type PlatformServices,
-  type VmEvents,
 } from "@mindcraft-lang/core/runtime";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
 import { parseWodalProgramImageBytes, serializeWodalProgramImageBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
 import { scrollCompletionTimeMs } from "./display-scroll";
 import { createMicroBitV2Environment } from "./environment";
-import { ObservableTraceWriter } from "./observable-trace";
+import { ObservableTraceWriter, observableTraceVmEvents } from "./observable-trace";
 import { MicroBitV2HostActions } from "./tile-ids";
 
 const ON_PAGE_ENTERED = CoreHostActions.OnPageEntered.actionId;
@@ -121,7 +120,7 @@ function hostServicesOf(environment: MindcraftEnvironment): Omit<PlatformService
 
 /**
  * Runs `bin` over `tickCount` thinks at {@link TICK_ADVANCE_MS} each, with the
- * trace taps installed: the on-page-entered and set-pixel sync actions, the
+ * trace observers installed: the on-page-entered and set-pixel sync actions, the
  * async scroll action, the scroll device port, and fiber faults. Drives the
  * display scroll animation after each think so completed handles resume on the
  * following think.
@@ -139,32 +138,6 @@ function runScrollTrace(bin: Uint8Array, tickCount: number): { trace: string; mi
     precision: profile.numberPrecision,
   });
 
-  const actions = environment.brainServices.runtime.actions;
-  for (const actionId of [ON_PAGE_ENTERED, DISPLAY_SET_PIXEL]) {
-    const action = actions.getById(actionId);
-    assert.ok(action !== undefined && action.binding === "host");
-    const exec = action.execSync;
-    assert.ok(exec !== undefined);
-    action.execSync = (ctx, args) => {
-      const result = exec(ctx, args);
-      const callSiteId = ctx.currentCallSiteId;
-      assert.ok(callSiteId !== undefined);
-      writer.hostActionCall(actionId, callSiteId, args, result);
-      return result;
-    };
-  }
-
-  const scrollAction = actions.getById(DISPLAY_SCROLL);
-  assert.ok(scrollAction !== undefined && scrollAction.binding === "host");
-  const execAsync = scrollAction.execAsync;
-  assert.ok(execAsync !== undefined);
-  scrollAction.execAsync = (ctx, args, handle) => {
-    const callSiteId = ctx.currentCallSiteId;
-    assert.ok(callSiteId !== undefined);
-    execAsync(ctx, args, handle);
-    writer.hostActionCallAsync(DISPLAY_SCROLL, callSiteId, args);
-  };
-
   const microbit = new MicroBit();
   const deviceScrollText = microbit.display.scrollText.bind(microbit.display);
   microbit.display.scrollText = (text, durationMs, requestTime, onComplete) => {
@@ -180,9 +153,7 @@ function runScrollTrace(bin: Uint8Array, tickCount: number): { trace: string; mi
     deviceSetPixelValue(x, y, brightness);
   };
 
-  const vmEvents: VmEvents = {
-    onFiberFault: (payload) => writer.fiberFault(payload.fiberId, payload.err.code),
-  };
+  const vmEvents = observableTraceVmEvents(writer);
 
   const linked = decoded.program;
   const brain = new BrainRuntime(

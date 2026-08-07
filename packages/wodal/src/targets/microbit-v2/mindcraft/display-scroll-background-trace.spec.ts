@@ -25,7 +25,7 @@ import {
   mkSensorTileId,
 } from "@mindcraft-lang/core/app";
 import { BrainDef, type BrainRuleDef } from "@mindcraft-lang/core/brain/model";
-import { type LinkedBrainProgram, linkedBrainProgramToJson, type VmEvents } from "@mindcraft-lang/core/runtime";
+import { type LinkedBrainProgram, linkedBrainProgramToJson } from "@mindcraft-lang/core/runtime";
 import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
 import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../../mindcraft/program-image";
@@ -33,11 +33,9 @@ import { parseWodalProgramImageBytes, wodalProgramBytes } from "../../../mindcra
 import { MicroBit } from "../microbit";
 import { SCROLL_DEFAULT_DELAY_MS, scrollCompletionTimeMs } from "./display-scroll";
 import { createMicroBitV2Environment } from "./environment";
-import { ObservableTraceWriter } from "./observable-trace";
+import { ObservableTraceWriter, observableTraceVmEvents } from "./observable-trace";
 import { WodalMicroBitRuntime } from "./runtime";
 import { MicroBitV2HostActions, WodalMicroBitV2ModifierId } from "./tile-ids";
-
-const DISPLAY_SCROLL = MicroBitV2HostActions.DisplayScroll.actionId;
 
 const BASE = "display-scroll-background";
 const JSON_PATH = fileURLToPath(new URL(`./__fixtures__/${BASE}.mcprogram`, import.meta.url));
@@ -101,7 +99,7 @@ function ensureJsonGolden(): void {
   );
 }
 
-/** Runs the committed binary over the fixed tick schedule with scroll and set-pixel taps. */
+/** Runs the committed binary over the fixed tick schedule with the trace observers installed. */
 function runTrace(bin: Uint8Array, tickCount: number): string {
   const environment = createMicroBitV2Environment();
   const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
@@ -114,31 +112,6 @@ function runTrace(bin: Uint8Array, tickCount: number): string {
     profileId: profile.numericProfileId,
     precision: profile.numberPrecision,
   });
-
-  const scrollAction = environment.brainServices.runtime.actions.getById(DISPLAY_SCROLL);
-  assert.ok(scrollAction !== undefined && scrollAction.binding === "host");
-  const execAsync = scrollAction.execAsync;
-  assert.ok(execAsync !== undefined);
-  scrollAction.execAsync = (ctx, args, handle) => {
-    const callSiteId = ctx.currentCallSiteId;
-    assert.ok(callSiteId !== undefined);
-    execAsync(ctx, args, handle);
-    writer.hostActionCallAsync(DISPLAY_SCROLL, callSiteId, args);
-  };
-
-  for (const actionId of [CoreHostActions.OnPageEntered.actionId, MicroBitV2HostActions.DisplaySetPixel.actionId]) {
-    const syncAction = environment.brainServices.runtime.actions.getById(actionId);
-    assert.ok(syncAction !== undefined && syncAction.binding === "host");
-    const syncExec = syncAction.execSync;
-    assert.ok(syncExec !== undefined);
-    syncAction.execSync = (ctx, args) => {
-      const result = syncExec(ctx, args);
-      const callSiteId = ctx.currentCallSiteId;
-      assert.ok(callSiteId !== undefined);
-      writer.hostActionCall(actionId, callSiteId, args, result);
-      return result;
-    };
-  }
 
   const microbit = new MicroBit();
   const deviceScrollText = microbit.display.scrollText.bind(microbit.display);
@@ -154,9 +127,7 @@ function runTrace(bin: Uint8Array, tickCount: number): string {
     deviceSetPixelValue(x, y, brightness);
   };
 
-  const vmEvents: VmEvents = {
-    onFiberFault: (payload) => writer.fiberFault(payload.fiberId, payload.err.code),
-  };
+  const vmEvents = observableTraceVmEvents(writer);
   const runtime = new WodalMicroBitRuntime({ environment, microbit, vmEvents });
   assert.deepEqual(runtime.loadWodalProgramImage(profile.createProgramImage(decoded.program)), { ok: true });
 

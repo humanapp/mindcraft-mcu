@@ -29,13 +29,12 @@ import {
   linkedBrainProgramFromJson,
   Op,
   type PlatformServices,
-  type VmEvents,
 } from "@mindcraft-lang/core/runtime";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
 import { parseWodalProgramImageBytes, serializeWodalProgramImageBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Environment } from "./environment";
-import { ObservableTraceWriter } from "./observable-trace";
+import { ObservableTraceWriter, observableTraceVmEvents } from "./observable-trace";
 
 const CURRENT_PAGE = CoreHostActions.CurrentPage.actionId;
 
@@ -106,7 +105,7 @@ function hostServicesOf(environment: MindcraftEnvironment): Omit<PlatformService
   return { runtime, shared, app };
 }
 
-/** Runs `bin` over `tickCount` 600ms thinks, tapping CURRENT_PAGE, returning the trace. */
+/** Runs `bin` over `tickCount` 600ms thinks with the trace observers installed, returning the trace. */
 function runTrace(bin: Uint8Array, tickCount: number): string {
   const environment = createMicroBitV2Environment();
   const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
@@ -120,23 +119,8 @@ function runTrace(bin: Uint8Array, tickCount: number): string {
     precision: profile.numberPrecision,
   });
 
-  const actions = environment.brainServices.runtime.actions;
-  const action = actions.getById(CURRENT_PAGE);
-  assert.ok(action !== undefined && action.binding === "host");
-  const exec = action.execSync;
-  assert.ok(exec !== undefined);
-  action.execSync = (ctx, args) => {
-    const result = exec(ctx, args);
-    const callSiteId = ctx.currentCallSiteId;
-    assert.ok(callSiteId !== undefined);
-    writer.hostActionCall(CURRENT_PAGE, callSiteId, args, result);
-    return result;
-  };
-
   const microbit = new MicroBit();
-  const vmEvents: VmEvents = {
-    onFiberFault: (payload) => writer.fiberFault(payload.fiberId, payload.err.code),
-  };
+  const vmEvents = observableTraceVmEvents(writer);
 
   const linked = decoded.program;
   const brain = new BrainRuntime(

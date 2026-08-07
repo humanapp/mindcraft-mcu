@@ -1,6 +1,6 @@
 /**
  * Golden observable trace for the committed button-display binary fixture.
- * Drives the TS VM over a scripted button-A schedule, taps the host-binding
+ * Drives the TS VM over a scripted button-A schedule, observes the host-binding
  * surface (action dispatch, the display device port, fiber faults), and pins
  * the rendered trace beside the fixture via write-if-missing + byte-stable.
  */
@@ -9,14 +9,12 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import type { VmEvents } from "@mindcraft-lang/core/runtime";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
 import { parseWodalProgramImageBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Environment } from "./environment";
-import { ObservableTraceWriter } from "./observable-trace";
+import { ObservableTraceWriter, observableTraceVmEvents } from "./observable-trace";
 import { WodalMicroBitRuntime } from "./runtime";
-import { MicroBitV2HostActions } from "./tile-ids";
 
 const BIN_PATH = fileURLToPath(new URL("./__fixtures__/button-display.mcprogram.bin", import.meta.url));
 const TRACE_PATH = fileURLToPath(new URL("./__fixtures__/button-display.press-cycles.trace", import.meta.url));
@@ -56,7 +54,7 @@ const PRESS_CYCLES_SCHEDULE: readonly ScheduleStep[] = [
 
 /**
  * Runs the committed button-display binary golden over the press-cycles
- * schedule with the observable-trace taps installed and returns the rendered
+ * schedule with the observable-trace observers installed and returns the rendered
  * trace plus the device for end-state assertions.
  */
 function runPressCyclesTrace(): { trace: string; microbit: MicroBit } {
@@ -72,23 +70,6 @@ function runPressCyclesTrace(): { trace: string; microbit: MicroBit } {
     precision: profile.numberPrecision,
   });
 
-  // Binding-table tap: wrap the registered sync exec of each host action the
-  // fixture dispatches, recording the dispatch as the binding observes it.
-  const actions = environment.brainServices.runtime.actions;
-  for (const { actionId } of [MicroBitV2HostActions.ButtonA, MicroBitV2HostActions.DisplaySetPixel]) {
-    const action = actions.getById(actionId);
-    assert.ok(action !== undefined && action.binding === "host");
-    const exec = action.execSync;
-    assert.ok(exec !== undefined);
-    action.execSync = (ctx, args) => {
-      const result = exec(ctx, args);
-      const callSiteId = ctx.currentCallSiteId;
-      assert.ok(callSiteId !== undefined);
-      writer.hostActionCall(actionId, callSiteId, args, result);
-      return result;
-    };
-  }
-
   // Device-port tap: record each pixel write as it crosses the display port.
   const microbit = new MicroBit();
   const deviceSetPixelValue = microbit.display.setPixelValue.bind(microbit.display);
@@ -97,10 +78,7 @@ function runPressCyclesTrace(): { trace: string; microbit: MicroBit } {
     deviceSetPixelValue(x, y, brightness);
   };
 
-  const vmEvents: VmEvents = {
-    onFiberFault: (payload) => writer.fiberFault(payload.fiberId, payload.err.code),
-  };
-  const runtime = new WodalMicroBitRuntime({ environment, microbit, vmEvents });
+  const runtime = new WodalMicroBitRuntime({ environment, microbit, vmEvents: observableTraceVmEvents(writer) });
   assert.deepEqual(runtime.loadWodalProgramImage(profile.createProgramImage(decoded.program)), { ok: true });
 
   let lastThinkTimeMs = 0;
