@@ -15,7 +15,6 @@ import type { MindcraftEnvironment } from "@mindcraft-lang/core/app";
 import { type IBrainTileDef, mkOperatorTileId, RuleSide, TilePlacement } from "@mindcraft-lang/core/brain";
 import { parseTilesForSuggestions, suggestTiles } from "@mindcraft-lang/core/brain/language-service";
 import { BrainDef } from "@mindcraft-lang/core/brain/model";
-import { BrainTileLiteralDef } from "@mindcraft-lang/core/brain/tiles";
 import { CoreOpId, CoreTypeIds, mkSensorTileId } from "@mindcraft-lang/core/runtime";
 import { createMicroBitV2Environment } from "./environment";
 import { MicroBitV2HostActions } from "./tile-ids";
@@ -74,11 +73,22 @@ describe("numeric micro:bit sensors are inline and compose with operators", () =
     const services = environment.brainServices;
     const brainDef = BrainDef.emptyBrainDef(services, "inline light-level compare");
     const when = brainDef.pages().get(0)!.children().get(0)!.when();
-    when.appendTile(sensorTile(environment, MicroBitV2HostActions.LightLevel.key));
-    when.appendTile(services.edit.tiles.get(mkOperatorTileId(CoreOpId.GreaterThan))!);
-    when.appendTile(new BrainTileLiteralDef(CoreTypeIds.Number, 50, {}, services));
+    const sensor = sensorTile(environment, MicroBitV2HostActions.LightLevel.key);
+    const greaterThan = services.edit.tiles.get(mkOperatorTileId(CoreOpId.GreaterThan))!;
+    const fifty = services.edit.tileBuilder.createLiteralTileDef(brainDef.catalog(), CoreTypeIds.Number, 50, {});
+    when.appendTile(sensor);
+    when.appendTile(greaterThan);
+    when.appendTile(fifty);
 
-    const brain = environment.createBrain(environment.deserializeBrainJson(brainDef.toJson()));
+    const reloaded = environment.deserializeBrainJson(brainDef.toJson());
+    const reloadedWhen = reloaded.pages().get(0)!.children().get(0)!.when().tiles();
+    assert.deepEqual(
+      reloadedWhen.toArray().map((tileDef) => tileDef.tileId),
+      [sensor.tileId, greaterThan.tileId, fifty.tileId],
+      "every composed tile must survive the brain JSON round trip"
+    );
+
+    const brain = environment.createBrain(reloaded);
     assert.equal(brain.status, "active", "the composed numeric comparison must build");
   });
 

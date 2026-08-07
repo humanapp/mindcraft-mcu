@@ -28,7 +28,6 @@ import { before, describe, test } from "node:test";
 import { List } from "@mindcraft-lang/core";
 import {
   BrainDef,
-  BrainTileLiteralDef,
   BrainTileModifierDef,
   CoreTypeIds,
   type MindcraftEnvironment,
@@ -36,6 +35,7 @@ import {
   mkSensorTileId,
 } from "@mindcraft-lang/core/app";
 import { type IBrainTileDef, mkAccessorTileId, mkVariableFactoryTileId, RuleSide } from "@mindcraft-lang/core/brain";
+import { __test__appendTile } from "@mindcraft-lang/core/brain/__test__";
 import {
   type InsertionContext,
   parseTilesForSuggestions,
@@ -312,9 +312,9 @@ describe("cutebot steer bridge", () => {
   function steerBrain(env: MindcraftEnvironment): BrainDef {
     const brainDef = BrainDef.emptyBrainDef(env.brainServices, "steer whole position");
     const rule = brainDef.pages().get(0)!.children().get(0)!;
-    rule.when().appendTile(hostTile(env, mkSensorTileId(RADIO_RECEIVE_BUFFER)));
-    rule.do().appendTile(userTile("cutebot steer"));
-    rule.do().appendTile(userTile("decoded stick position"));
+    __test__appendTile(rule.when(), hostTile(env, mkSensorTileId(RADIO_RECEIVE_BUFFER)));
+    __test__appendTile(rule.do(), userTile("cutebot steer"));
+    __test__appendTile(rule.do(), userTile("decoded stick position"));
     return brainDef;
   }
 
@@ -343,8 +343,8 @@ describe("cutebot steer bridge", () => {
     // open for a whole-position value.
     const brainDef = BrainDef.emptyBrainDef(env.brainServices, "steer picker");
     const rule = brainDef.pages().get(0)!.children().get(0)!;
-    rule.when().appendTile(hostTile(env, mkSensorTileId(RADIO_RECEIVE_BUFFER)));
-    rule.do().appendTile(userTile("cutebot steer"));
+    __test__appendTile(rule.when(), hostTile(env, mkSensorTileId(RADIO_RECEIVE_BUFFER)));
+    __test__appendTile(rule.do(), userTile("cutebot steer"));
     const posVar = positionVariable(env, brainDef, "held");
 
     const expr = parseTilesForSuggestions(rule.do().tiles());
@@ -376,12 +376,12 @@ describe("decoded stick position", () => {
   function decodeBrain(env: MindcraftEnvironment, name: string, when: IBrainTileDef): BrainDef {
     const brainDef = BrainDef.emptyBrainDef(env.brainServices, name);
     const rule = brainDef.pages().get(0)!.children().get(0)!;
-    rule.when().appendTile(when);
-    rule.do().appendTile(userTile("observe pair"));
-    rule.do().appendTile(userTile("decoded stick position"));
-    rule.do().appendTile(accessorTile(env, "x"));
-    rule.do().appendTile(userTile("decoded stick position"));
-    rule.do().appendTile(accessorTile(env, "y"));
+    __test__appendTile(rule.when(), when);
+    __test__appendTile(rule.do(), userTile("observe pair"));
+    __test__appendTile(rule.do(), userTile("decoded stick position"));
+    __test__appendTile(rule.do(), accessorTile(env, "x"));
+    __test__appendTile(rule.do(), userTile("decoded stick position"));
+    __test__appendTile(rule.do(), accessorTile(env, "y"));
     return brainDef;
   }
 
@@ -438,9 +438,9 @@ describe("decoded stick position", () => {
     // WHEN [radio receive buffer] DO [cutebot steer [decoded stick position]].
     const brainDef = BrainDef.emptyBrainDef(env.brainServices, "decode steer idle");
     const rule = brainDef.pages().get(0)!.children().get(0)!;
-    rule.when().appendTile(hostTile(env, mkSensorTileId(RADIO_RECEIVE_BUFFER)));
-    rule.do().appendTile(userTile("cutebot steer"));
-    rule.do().appendTile(userTile("decoded stick position"));
+    __test__appendTile(rule.when(), hostTile(env, mkSensorTileId(RADIO_RECEIVE_BUFFER)));
+    __test__appendTile(rule.do(), userTile("cutebot steer"));
+    __test__appendTile(rule.do(), userTile("decoded stick position"));
     // Tick 2 steers to a non-zero state from a valid packet; tick 3 delivers a
     // non-gamepad buffer that decodes to (0, 0). The wheels drop to (0, 0) on
     // tick 3 immediately - if the (0, 0) decode were treated as falsy and the
@@ -502,9 +502,9 @@ describe("position -> Buffer conversion reach", () => {
     const env = environment.current!;
     const brainDef = BrainDef.emptyBrainDef(env.brainServices, "conversion second consumer");
     const rule = brainDef.pages().get(0)!.children().get(0)!;
-    rule.when().appendTile(userTile("always"));
-    rule.do().appendTile(userTile("buffer fold"));
-    rule.do().appendTile(userTile("stick position"));
+    __test__appendTile(rule.when(), userTile("always"));
+    __test__appendTile(rule.do(), userTile("buffer fold"));
+    __test__appendTile(rule.do(), userTile("stick position"));
     // Stick at x = 50 (raw 226), y = -25 (raw 667) -> packet [0x47, 150, 75].
     const result = run(env, brainDef, [
       { analog: { [VERTICAL_PIN]: 667, [HORIZONTAL_PIN]: 226 }, digital: { [PRESS_PIN]: 1 } },
@@ -570,25 +570,25 @@ describe("radio pairing", () => {
     // Gamepad: WHEN [stick][up] DO [radio send "go"].
     const gamepad = BrainDef.emptyBrainDef(env.brainServices, "gamepad stage 1");
     const sendRule = gamepad.pages().get(0)!.children().get(0)!;
-    sendRule.when().appendTile(userTile("stick"));
-    sendRule.when().appendTile(new BrainTileModifierDef("modifier.direction.up"));
-    sendRule.do().appendTile(hostTile(env, mkActuatorTileId(RADIO_SEND)));
+    __test__appendTile(sendRule.when(), userTile("stick"));
+    __test__appendTile(sendRule.when(), new BrainTileModifierDef("modifier.direction.up"));
+    __test__appendTile(sendRule.do(), hostTile(env, mkActuatorTileId(RADIO_SEND)));
     sendRule
       .do()
       .appendTile(
-        new BrainTileLiteralDef(
+        env.brainServices.edit.tileBuilder.createLiteralTileDef(
+          gamepad.catalog(),
           CoreTypeIds.String,
           mkStringValue("go"),
-          { valueLabel: "go", persist: true },
-          env.brainServices
+          { valueLabel: "go", persist: true }
         )
       );
 
     // Chassis: WHEN [radio receive string] DO [cutebot drive].
     const chassis = BrainDef.emptyBrainDef(env.brainServices, "chassis stage 1");
     const driveRule = chassis.pages().get(0)!.children().get(0)!;
-    driveRule.when().appendTile(hostTile(env, mkSensorTileId(RADIO_RECEIVE_STRING)));
-    driveRule.do().appendTile(userTile("cutebot drive"));
+    __test__appendTile(driveRule.when(), hostTile(env, mkSensorTileId(RADIO_RECEIVE_STRING)));
+    __test__appendTile(driveRule.do(), userTile("cutebot drive"));
 
     // Stick pushed up (vertical raw < 200) so the gamepad transmits each think.
     const up: Step = {
@@ -607,9 +607,9 @@ describe("radio pairing", () => {
     // value slot, and the position -> Buffer conversion encodes the packet.
     const gamepad = BrainDef.emptyBrainDef(env.brainServices, "gamepad stage 2");
     const broadcast = gamepad.pages().get(0)!.children().get(0)!;
-    broadcast.when().appendTile(userTile("always"));
-    broadcast.do().appendTile(hostTile(env, mkActuatorTileId(RADIO_SEND)));
-    broadcast.do().appendTile(userTile("stick position"));
+    __test__appendTile(broadcast.when(), userTile("always"));
+    __test__appendTile(broadcast.do(), hostTile(env, mkActuatorTileId(RADIO_SEND)));
+    __test__appendTile(broadcast.do(), userTile("stick position"));
 
     // Chassis: WHEN [radio receive buffer] DO
     //   [cutebot steer [decoded stick position]].
@@ -617,9 +617,9 @@ describe("radio pairing", () => {
     // whole position, which fills the steer bridge's single Position slot.
     const chassis = BrainDef.emptyBrainDef(env.brainServices, "chassis stage 2");
     const steerRule = chassis.pages().get(0)!.children().get(0)!;
-    steerRule.when().appendTile(hostTile(env, mkSensorTileId(RADIO_RECEIVE_BUFFER)));
-    steerRule.do().appendTile(userTile("cutebot steer"));
-    steerRule.do().appendTile(userTile("decoded stick position"));
+    __test__appendTile(steerRule.when(), hostTile(env, mkSensorTileId(RADIO_RECEIVE_BUFFER)));
+    __test__appendTile(steerRule.do(), userTile("cutebot steer"));
+    __test__appendTile(steerRule.do(), userTile("decoded stick position"));
 
     // Stick forward-right: x = 50 (raw 226), y = 100 (raw 0).
     const stick: Step = { analog: { [VERTICAL_PIN]: 0, [HORIZONTAL_PIN]: 226 }, digital: { [PRESS_PIN]: 1 } };

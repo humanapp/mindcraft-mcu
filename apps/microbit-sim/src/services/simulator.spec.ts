@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   BrainDef,
-  BrainTileLiteralDef,
   CoreTypeIds,
   coreModule,
   createMindcraftEnvironment,
@@ -12,6 +11,7 @@ import {
   mkNumberValue,
   mkSensorTileId,
 } from "@mindcraft-lang/core/app";
+import { __test__appendTile } from "@mindcraft-lang/core/brain/__test__";
 import { ErrorCode, type LinkedBrainProgramJson, linkedBrainProgramFromJson, Op } from "@mindcraft-lang/core/runtime";
 import {
   buildWodalProgramImage,
@@ -93,8 +93,8 @@ function buttonDisplayInput(env: MindcraftEnvironment): WodalBuildInput {
   const actuatorTile = services.edit.tiles.get(mkActuatorTileId(MicroBitV2HostActions.DisplaySetPixel.key))!;
   const brainDef = BrainDef.emptyBrainDef(services, "button display");
   const rule = brainDef.pages().get(0)!.children().get(0)!;
-  rule.when().appendTile(sensorTile);
-  rule.do().appendTile(actuatorTile);
+  __test__appendTile(rule.when(), sensorTile);
+  __test__appendTile(rule.do(), actuatorTile);
   return { brainDef, environment: env, deviceProfile: getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2) };
 }
 
@@ -106,19 +106,15 @@ function radioSenderInput(env: MindcraftEnvironment, value: number): WodalBuildI
   const sendTile = services.edit.tiles.get(mkActuatorTileId(MicroBitV2HostActions.RadioSend.key))!;
   const brainDef = BrainDef.emptyBrainDef(services, "radio sender");
   const rule = brainDef.pages().get(0)!.children().get(0)!;
-  rule.when().appendTile(sensorTile);
-  rule.when().appendTile(heldTile);
-  rule.do().appendTile(sendTile);
-  rule
-    .do()
-    .appendTile(
-      new BrainTileLiteralDef(
-        CoreTypeIds.Number,
-        mkNumberValue(value),
-        { valueLabel: String(value), persist: true },
-        services
-      )
-    );
+  __test__appendTile(rule.when(), sensorTile);
+  __test__appendTile(rule.when(), heldTile);
+  __test__appendTile(rule.do(), sendTile);
+  rule.do().appendTile(
+    services.edit.tileBuilder.createLiteralTileDef(brainDef.catalog(), CoreTypeIds.Number, mkNumberValue(value), {
+      valueLabel: String(value),
+      persist: true,
+    })
+  );
   return { brainDef, environment: env, deviceProfile: getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2) };
 }
 
@@ -129,8 +125,8 @@ function radioReceiverInput(env: MindcraftEnvironment): WodalBuildInput {
   const actuatorTile = services.edit.tiles.get(mkActuatorTileId(MicroBitV2HostActions.DisplaySetPixel.key))!;
   const brainDef = BrainDef.emptyBrainDef(services, "radio receiver");
   const rule = brainDef.pages().get(0)!.children().get(0)!;
-  rule.when().appendTile(sensorTile);
-  rule.do().appendTile(actuatorTile);
+  __test__appendTile(rule.when(), sensorTile);
+  __test__appendTile(rule.do(), actuatorTile);
   return { brainDef, environment: env, deviceProfile: getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2) };
 }
 

@@ -17,6 +17,7 @@ import {
   mkParameterTileId,
   mkSensorTileId,
 } from "@mindcraft-lang/core/brain";
+import { __test__appendTile } from "@mindcraft-lang/core/brain/__test__";
 import {
   paragraphText,
   projectPageParagraph,
@@ -84,10 +85,10 @@ function rule(whenTiles: readonly IBrainTileDef[], doTiles: readonly IBrainTileD
   const brainDef = BrainDef.emptyBrainDef(services, "microbit-sentence-readings");
   const ruleDef = brainDef.pages().get(0).children().get(0) as BrainRuleDef;
   for (const tileDef of whenTiles) {
-    ruleDef.when().appendTile(tileDef);
+    __test__appendTile(ruleDef.when(), tileDef);
   }
   for (const tileDef of doTiles) {
-    ruleDef.do().appendTile(tileDef);
+    __test__appendTile(ruleDef.do(), tileDef);
   }
   return ruleDef;
 }
@@ -108,10 +109,10 @@ function appendRuleSpecs(page: BrainPageDef, specs: readonly RuleSpec[], depth: 
   for (const spec of specs) {
     const ruleDef = page.appendNewRule();
     for (const tileDef of spec.when ?? []) {
-      ruleDef.when().appendTile(tileDef);
+      __test__appendTile(ruleDef.when(), tileDef);
     }
     for (const tileDef of spec.do ?? []) {
-      ruleDef.do().appendTile(tileDef);
+      __test__appendTile(ruleDef.do(), tileDef);
     }
     for (let i = 0; i < depth; i++) {
       assert.ok(ruleDef.indent(), `rule indents to depth ${depth}`);
