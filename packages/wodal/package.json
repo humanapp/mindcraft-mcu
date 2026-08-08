@@ -77,13 +77,18 @@
       "default": "./targets/microbit-v2/lib/image.ts"
     }
   },
+  "mindcraftBuild": {
+    "script": "build:prod",
+    "outputs": ["dist"],
+    "postProcessed": true
+  },
   "scripts": {
-    "build:deps": "npm run build:node --prefix ../../external/mindcraft-lang/packages/core && npm run build:esm --prefix ../../external/mindcraft-lang/packages/core && npm run build:prod --prefix ../../external/mindcraft-lang/packages/ts-compiler && npm run build:prod --prefix ../../external/mindcraft-lang/packages/service-api && npm run build:prod --prefix ../../external/mindcraft-lang/packages/assistant-bridge",
+    "build:deps": "node ../../external/mindcraft-lang/scripts/build-packages.js .",
     "prebuild": "npm run build:deps",
     "build": "tsc -p tsconfig.json && npm run build:cli",
     "build:cli": "esbuild src/cli/wodal.ts --bundle --platform=node --format=esm --outfile=dist/cli/wodal.js",
     "build:prod": "tsc --build tsconfig.prod.json && npm run build:cli",
-    "clean": "tsc --build tsconfig.json --clean",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo tsconfig.prod.tsbuildinfo",
     "pregenerate:ambient": "npm run build:deps",
     "generate:ambient": "tsx --tsconfig scripts/tsconfig.json scripts/generate-ambient.ts",
     "lint:only": "biome lint ./src",

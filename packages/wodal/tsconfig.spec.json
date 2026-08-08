@@ -7,6 +7,5 @@
     "types": ["node"]
   },
   "include": ["src/targets/microbit-v2/rehearsal/build-defines.d.ts", "src/**/*.spec.ts"],
-  "exclude": ["node_modules", "dist"],
-  "references": [{ "path": "../../external/mindcraft-lang/packages/core/tsconfig.esm.json" }]
+  "exclude": ["node_modules", "dist"]
 }

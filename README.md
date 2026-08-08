@@ -61,15 +61,15 @@ host functions, actuators, and device adapters -- never through opcode subsets.
 
 This repository is not an npm workspaces monorepo. Each package and app installs
 into its own `node_modules`; cross-package links use `file:` dependencies. The
-Mindcraft language lives in a submodule, so initialize submodules first.
+Mindcraft language lives in a submodule.
 
 ```bash
-# Clone with submodules (or run `git submodule update --init --recursive`)
-git clone --recurse-submodules https://github.com/humanapp/mindcraft-mcu.git
+git clone https://github.com/humanapp/mindcraft-mcu.git
 cd mindcraft-mcu
 
-# Install packages and apps
-npm install
+# Initialize the submodule, install every package and app, and build the
+# packages the apps resolve as dist, in dependency order.
+npm run bootstrap
 ```
 
 Run the micro:bit simulator:

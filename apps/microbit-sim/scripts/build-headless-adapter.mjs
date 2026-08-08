@@ -9,11 +9,12 @@
  * no identity, or when the bundle fails.
  * Run through `npm run build:headless`.
  */
-import { mkdirSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   assertDependencyDistsFresh,
+  readTargetIdentity,
   readTileDocContent,
   StaleDependencyError,
 } from "@mindcraft-lang/assistant-bridge/kit";
@@ -35,16 +36,10 @@ try {
 } catch (cause) {
   if (!(cause instanceof StaleDependencyError)) throw cause;
   console.error(`build-headless-adapter: ${cause.message}`);
-  console.error("Rebuild the packages named above, then build the adapter again.");
   process.exit(1);
 }
 
-const manifestPath = join(appDir, "target-package", "mindcraft.json");
-const targetIdentity = JSON.parse(readFileSync(manifestPath, "utf8")).identity;
-if (typeof targetIdentity !== "string" || targetIdentity.length === 0) {
-  console.error(`build-headless-adapter: ${manifestPath} declares no identity for the headless adapter to report.`);
-  process.exit(1);
-}
+const targetIdentity = readTargetIdentity(appDir);
 
 const entryPath = fileURLToPath(import.meta.resolve(ADAPTER_ENTRY));
 const devicePackageDir = dirname(fileURLToPath(import.meta.resolve(DEVICE_PACKAGE)));

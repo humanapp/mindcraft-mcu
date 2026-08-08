@@ -59,9 +59,12 @@ current session. This is an absolute rule.
   Keep pnpm and yarn out entirely -- no alternate lockfiles, no `packageManager`
   field, no `pnpm`/`yarn` invocations.
 - This is intentionally NOT an npm workspaces monorepo, and must not become one.
-  There is no root `workspaces` field. Each package and app runs its own
-  `npm install` into its own `node_modules`; cross-package links use `file:`
-  dependencies and symlinks.
+  The platform submodule is consumed by two independent repository roots, and a
+  workspace root cannot span them: two roots would each claim the same packages
+  while edits are mirrored into both working trees, which is a failure class the
+  current layout does not have. There is no root `workspaces` field. Each
+  package and app runs its own `npm install` into its own `node_modules`;
+  cross-package links use `file:` dependencies and symlinks.
 - Because there is no hoisting, every package must declare the dev tooling its
   own scripts invoke (for example `tsx`) in its own `devDependencies`, so the
   script resolves the binary from that package's `node_modules/.bin`. Do not
