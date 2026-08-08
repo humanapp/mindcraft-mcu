@@ -7,6 +7,7 @@ apps/microbit-sim/dist-headless/
 cpp/build/
 cpp/out/
 apps/microbit-sim/target-package/app/
+apps/microbit-sim/target-package/rehearsal/
 
 # Environment
 .env

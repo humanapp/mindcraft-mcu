@@ -1,15 +1,22 @@
 #!/usr/bin/env node
 /**
- * Assembles this target's headless adapter payload: bundles the rehearsal
- * adapter its device-runtime dependency publishes into a plain-Node-importable
- * ES module, stamped with the target identity this target's own mindcraft.json
- * declares, and ships the device's tile documentation alongside it. Exits
- * nonzero when the manifest declares no identity, or when the bundle fails.
- * Run through `npm run build:headless`, which smokes the payload afterwards.
+ * Builds this target's headless adapter artifact: bundles the rehearsal adapter
+ * its device-runtime dependency publishes into one self-contained,
+ * plain-Node-importable ES module, stamped with the target identity this
+ * target's own mindcraft.json declares and carrying the device's tile
+ * documentation inside it. Exits nonzero when a package the bundle would carry
+ * was built before its own sources were last edited, when the manifest declares
+ * no identity, or when the bundle fails.
+ * Run through `npm run build:headless`.
  */
-import { cpSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  assertDependencyDistsFresh,
+  readTileDocContent,
+  StaleDependencyError,
+} from "@mindcraft-lang/assistant-bridge/kit";
 import { build } from "esbuild";
 
 /** The device this app distributes, named as its device-runtime package subtree carries it. */
@@ -22,8 +29,17 @@ const ADAPTER_ENTRY = `@mindcraft-lang/wodal/targets/${DEVICE}/rehearsal`;
 const DEVICE_PACKAGE = "@mindcraft-lang/wodal/package.json";
 
 const appDir = join(dirname(fileURLToPath(import.meta.url)), "..");
-const manifestPath = join(appDir, "target-package", "mindcraft.json");
 
+try {
+  assertDependencyDistsFresh(appDir);
+} catch (cause) {
+  if (!(cause instanceof StaleDependencyError)) throw cause;
+  console.error(`build-headless-adapter: ${cause.message}`);
+  console.error("Rebuild the packages named above, then build the adapter again.");
+  process.exit(1);
+}
+
+const manifestPath = join(appDir, "target-package", "mindcraft.json");
 const targetIdentity = JSON.parse(readFileSync(manifestPath, "utf8")).identity;
 if (typeof targetIdentity !== "string" || targetIdentity.length === 0) {
   console.error(`build-headless-adapter: ${manifestPath} declares no identity for the headless adapter to report.`);
@@ -32,17 +48,13 @@ if (typeof targetIdentity !== "string" || targetIdentity.length === 0) {
 
 const entryPath = fileURLToPath(import.meta.resolve(ADAPTER_ENTRY));
 const devicePackageDir = dirname(fileURLToPath(import.meta.resolve(DEVICE_PACKAGE)));
-const docsDir = join(devicePackageDir, "targets", DEVICE, "docs");
+const tileDocContent = readTileDocContent(join(devicePackageDir, "targets", DEVICE, "docs", "en", "tiles"));
 
-// The built adapter resolves its shipped tile documentation relative to its own
-// location, so the payload reproduces the layout the device-runtime package
-// carries: the artifact and the docs tree each at their package-relative path.
-const payloadDir = join(appDir, "dist-headless");
-const artifactPath = join(payloadDir, relative(devicePackageDir, entryPath));
-const payloadDocsDir = join(payloadDir, relative(devicePackageDir, docsDir));
+const artifactDir = join(appDir, "dist-headless");
+const artifactPath = join(artifactDir, "rehearsal", "adapter.js");
 
-rmSync(payloadDir, { recursive: true, force: true });
-mkdirSync(payloadDir, { recursive: true });
+rmSync(artifactDir, { recursive: true, force: true });
+mkdirSync(dirname(artifactPath), { recursive: true });
 
 await build({
   entryPoints: [entryPath],
@@ -50,10 +62,11 @@ await build({
   bundle: true,
   platform: "node",
   format: "esm",
-  define: { TARGET_IDENTITY: JSON.stringify(targetIdentity) },
+  define: {
+    TARGET_IDENTITY: JSON.stringify(targetIdentity),
+    TILE_DOC_CONTENT: JSON.stringify(tileDocContent),
+  },
   logLevel: "warning",
 });
 
-cpSync(docsDir, payloadDocsDir, { recursive: true });
-
-console.log(`assembled headless adapter: ${targetIdentity} at ${relative(appDir, artifactPath)}`);
+console.log(`built headless adapter: ${targetIdentity} at ${relative(appDir, artifactPath)}`);
