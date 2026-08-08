@@ -67,8 +67,10 @@ Mindcraft language lives in a submodule.
 git clone https://github.com/humanapp/mindcraft-mcu.git
 cd mindcraft-mcu
 
-# Initialize the submodule, install every package and app, and build the
-# packages the apps resolve as dist, in dependency order.
+# Install every package and app, and build the packages the apps resolve as
+# dist, in dependency order. The root `preinstall` hook initializes the
+# submodule first, before anything resolves a dependency inside it, so a bare
+# `npm install` does the install half on its own.
 npm run bootstrap
 ```
 
