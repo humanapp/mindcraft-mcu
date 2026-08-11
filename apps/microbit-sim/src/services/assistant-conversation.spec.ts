@@ -122,6 +122,7 @@ function appStand(script: (ruleId: string) => ScriptedService): Stand {
       ),
       history: new BrainCommandHistory(),
       reveal: () => {},
+      takeKeyboard: () => false,
     }),
     connects: () => connects,
     settled: async () => {

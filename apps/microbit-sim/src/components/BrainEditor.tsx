@@ -1,3 +1,4 @@
+import { useAssistant } from "@mindcraft-lang/assistant-panel";
 import type { BrainDef } from "@mindcraft-lang/core/app";
 import { useDocsSidebar } from "@mindcraft-lang/docs";
 import { BrainEditorDialog, BrainEditorProvider } from "@mindcraft-lang/ui";
@@ -17,6 +18,7 @@ const kUnopenedBrainName = "Brain";
 /** Loads a brain and edits it in the Brain Editor, saving the result on submit. */
 export function BrainEditor({ brainId, onClose }: BrainEditorProps) {
   const store = useMicrobitSimEnvironment();
+  const { stopAll } = useAssistant();
   // Rebuild the editor config when user tiles install so the palette picks up newly compiled tiles,
   // and when the VFS revision advances so tile icons re-resolve against the new asset generation.
   const docRevision = useSyncExternalStore(store.subscribeToDocRevision, store.getDocRevisionSnapshot);
@@ -110,11 +112,13 @@ export function BrainEditor({ brainId, onClose }: BrainEditorProps) {
         onOpenChange={(open) => {
           setIsOpen(open);
           if (!open) {
+            stopAll();
             onClose();
           }
         }}
         srcBrainDef={srcBrainDef}
         onSubmit={(newBrainDef) => {
+          stopAll();
           void store.saveBrain(brainId, newBrainDef);
           onClose();
         }}
