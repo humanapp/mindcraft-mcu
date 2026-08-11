@@ -1,0 +1,29 @@
+{
+  "solution": "tsconfig.json",
+  "projects": [
+    {
+      "project": "tsconfig.app.json",
+      "include": ["src/**/*.ts", "src/**/*.tsx"],
+      "exclude": ["src/**/*.spec.ts"]
+    },
+    {
+      "project": "tsconfig.spec.json",
+      "include": [
+        "src/vite-env.d.ts",
+        "src/**/*.spec.ts",
+        "src/components/BrainDiagnostics.tsx",
+        "src/components/CompileDiagnosticsConsole.tsx",
+        "src/components/ConsoleOutputList.tsx",
+        "src/components/GesturePicker.tsx",
+        "src/components/InstanceCard.tsx",
+        "src/components/LightLevelSlider.tsx",
+        "src/components/TemperatureSlider.tsx",
+        "src/components/UninstallImpactMessage.tsx"
+      ]
+    },
+    {
+      "project": "test-fixtures/tsconfig.json",
+      "include": ["test-fixtures/**/*.ts"]
+    }
+  ]
+}

@@ -221,6 +221,13 @@ export class MicrobitSimEnvironmentStore {
   private _appSettings: AppSettings = loadAppSettings();
   private readonly _appSettingsListeners = new Set<AppSettingsListener>();
 
+  /**
+   * Whether the brain editor's assistant panel stands open, keyed by brain
+   * document id. Held for as long as this store runs and stored nowhere, so a
+   * reload starts every brain closed.
+   */
+  private readonly _assistantPanelOpenByBrain = new Map<string, boolean>();
+
   private _uiPreferences: UiPreferences = { ...DEFAULT_UI_PREFS };
 
   private _vfsRevisionWiringInitialized = false;
@@ -815,6 +822,18 @@ export class MicrobitSimEnvironmentStore {
     return () => {
       this._appSettingsListeners.delete(fn);
     };
+  }
+
+  // -- Assistant panel (per brain, for as long as the app runs) --
+
+  /** Whether the assistant panel stood open the last time `brainId` was edited; false for a brain it was never opened for. */
+  isAssistantPanelOpen(brainId: string): boolean {
+    return this._assistantPanelOpenByBrain.get(brainId) === true;
+  }
+
+  /** Notes that the assistant panel stands `open` while `brainId` is edited. */
+  setAssistantPanelOpen(brainId: string, open: boolean): void {
+    this._assistantPanelOpenByBrain.set(brainId, open);
   }
 
   // -- UI preferences (per-project) --

@@ -1,7 +1,7 @@
 import type { BrainDef } from "@mindcraft-lang/core/app";
 import { useDocsSidebar } from "@mindcraft-lang/docs";
 import { BrainEditorDialog, BrainEditorProvider } from "@mindcraft-lang/ui";
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { buildMicrobitBrainEditorConfig } from "@/brain/editor-config";
 import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";
 import { AssistantSidePanel } from "./AssistantSidePanel";
@@ -37,8 +37,21 @@ export function BrainEditor({ brainId, onClose }: BrainEditorProps) {
   } = useDocsSidebar();
   const [srcBrainDef, setSrcBrainDef] = useState<BrainDef | undefined>(undefined);
   const [isOpen, setIsOpen] = useState(false);
-  const [isAssistantOpen, setIsAssistantOpen] = useState(false);
-  const toggleAssistant = useCallback(() => setIsAssistantOpen((open) => !open), []);
+  // Whether the assistant panel stands open for the brain being edited. The
+  // store holds the answer per brain for as long as the app runs.
+  const [isAssistantOpen, setIsAssistantOpen] = useState(() => store.isAssistantPanelOpen(brainId));
+  const isAssistantOpenRef = useRef(isAssistantOpen);
+  isAssistantOpenRef.current = isAssistantOpen;
+
+  useEffect(() => {
+    setIsAssistantOpen(store.isAssistantPanelOpen(brainId));
+  }, [brainId, store]);
+
+  const toggleAssistant = useCallback(() => {
+    const next = !isAssistantOpenRef.current;
+    setIsAssistantOpen(next);
+    store.setAssistantPanelOpen(brainId, next);
+  }, [brainId, store]);
   const entityName = srcBrainDef?.name() ?? kUnopenedBrainName;
   const workspaces = store.assistant.workspaces;
   const config = useMemo(() => {
