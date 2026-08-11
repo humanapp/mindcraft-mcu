@@ -2,6 +2,7 @@
 @import "../../../external/mindcraft-lang/packages/ui/src/ui.css";
 @source "../../../external/mindcraft-lang/packages/ui/src";
 @source "../../../external/mindcraft-lang/packages/docs/src";
+@source "../../../external/mindcraft-lang/packages/assistant-panel/src";
 
 @layer base {
   body {
