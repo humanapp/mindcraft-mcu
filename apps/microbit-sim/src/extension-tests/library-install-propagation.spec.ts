@@ -165,14 +165,12 @@ function offerFor(host: AppEnvironmentHost, coordinate: string) {
 
 /** The tile ids the brain tile picker offers for the given rule side, via the app's editor config and `suggestTiles`. */
 function pickerTileIds(host: AppEnvironmentHost, side: RuleSide): string[] {
-  const config = buildMicrobitBrainEditorConfig(
-    host.env,
-    (url) => url,
-    host.activeProjectManifest?.id,
-    undefined,
-    undefined,
-    host.installedLibraries
-  );
+  const config = buildMicrobitBrainEditorConfig({
+    env: host.env,
+    resolveVfsAssetUrl: (url) => url,
+    projectNamespace: host.activeProjectManifest?.id,
+    libraries: host.installedLibraries,
+  });
   const context: InsertionContext = { ruleSide: side };
   const catalogs = List.from<ITileCatalog>(config.tileCatalogs ?? []).asReadonly();
   assert.ok(config.brainServices, "the editor config carries brain services");

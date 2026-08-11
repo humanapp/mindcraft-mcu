@@ -5,11 +5,11 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import type { AuthoringWorkspace, TargetAdapter } from "@mindcraft-lang/assistant-bridge";
-import { catalogDigest, createAuthoringWorkspace, readCatalog } from "@mindcraft-lang/assistant-bridge";
-import { List } from "@mindcraft-lang/core/app";
-import type { ITileCatalog } from "@mindcraft-lang/core/brain";
+import type { TargetAdapter } from "@mindcraft-lang/assistant-bridge";
+import { catalogDigest } from "@mindcraft-lang/assistant-bridge";
+import { installedTiles } from "@mindcraft-lang/assistant-panel";
 import { build } from "esbuild";
+import { MICROBIT_V2_TARGET_COORDINATE } from "../services/microbit-extension-coordinates";
 
 /** The app directory, from this module's own location. */
 const APP_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -24,9 +24,6 @@ const ADAPTER_ENTRY = "@mindcraft-lang/wodal/targets/microbit-v2/rehearsal";
 
 /** The headless adapter artifact `npm run build:headless` produces. */
 const artifactPath = join(APP_DIR, "dist-headless", "rehearsal", "adapter.js");
-
-/** Name the throwaway document each catalog is read over. */
-const catalogBrainName = "catalog";
 
 /** The module a browser build of {@link ADAPTER_ENTRY} emits. */
 async function browserBundle(): Promise<string> {
@@ -66,15 +63,14 @@ async function importModule(code: string): Promise<{ createTargetAdapter: (ident
  * model, without the tiles any one document mints for itself.
  */
 function digestOf(adapter: TargetAdapter) {
-  const workspace = createAuthoringWorkspace(adapter, catalogBrainName);
-  const installed: AuthoringWorkspace = {
-    ...workspace,
-    catalogs: List.from<ITileCatalog>([...workspace.environment.tileCatalogs()]),
-  };
-  return catalogDigest(readCatalog(installed, {}).tiles);
+  return catalogDigest(installedTiles(adapter));
 }
 
 describe("the tile catalog this target states to the model", () => {
+  test("is stated under the identity the app mounts its adapter with", () => {
+    assert.equal(MICROBIT_V2_TARGET_COORDINATE, targetIdentity);
+  });
+
   test("digests the same through a browser build as through the headless artifact", async () => {
     const browser = (await importModule(await browserBundle())).createTargetAdapter(targetIdentity);
     const headless = (

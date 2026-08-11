@@ -86,34 +86,37 @@ export const microbitDataTypeNames: ReadonlyMap<string, string> = new Map([
   [CoreTypeIds.String, "text"],
 ]);
 
+/** What the microbit-v2 brain editor config is built from. */
+export interface BuildMicrobitBrainEditorConfigOptions {
+  /** The environment whose catalogs, brain services, and localizer the editor reads. */
+  env: MindcraftEnvironment;
+  /** Rewrites a compiler-minted `/vfs/<path>` tile icon URL to a loadable one. */
+  resolveVfsAssetUrl: (url: string) => string;
+  /** Namespace new user tiles are minted under; absent while no project is open. */
+  projectNamespace?: string;
+  onTileDocs?: BrainEditorConfig["onTileDocs"];
+  docsIntegration?: BrainEditorConfig["docsIntegration"];
+  sidePanel?: BrainEditorConfig["sidePanel"];
+  libraries?: BrainEditorConfig["libraries"];
+  printTransport?: BrainEditorConfig["printTransport"];
+  isBrokenTile?: BrainEditorConfig["isBrokenTile"];
+}
+
 /**
  * Builds the microbit-v2 brain editor config from the app environment.
  *
  * Tile and data-type icon URLs point at `public/assets/brain/icons`. A tile
  * with no mapped or intrinsic icon resolves to the bundled `question_mark.svg`
  * missing-tile fallback. Host tiles registered by the microbit-v2 module
- * appear automatically through `tileCatalogs`. Compiler-minted `/vfs/<path>`
- * tile icons resolve to loadable URLs through `resolveVfsAssetUrl`. When
- * `isBrokenTile` is supplied, the editor badges each instance of a user tile
- * whose definition failed to compile.
+ * appear automatically through `tileCatalogs`. When `isBrokenTile` is supplied,
+ * the editor badges each instance of a user tile whose definition failed to
+ * compile.
  */
-export function buildMicrobitBrainEditorConfig(
-  env: MindcraftEnvironment,
-  resolveVfsAssetUrl: (url: string) => string,
-  projectNamespace: string | undefined,
-  onTileDocs?: BrainEditorConfig["onTileDocs"],
-  docsIntegration?: BrainEditorConfig["docsIntegration"],
-  libraries?: BrainEditorConfig["libraries"],
-  printTransport?: BrainEditorConfig["printTransport"],
-  isBrokenTile?: BrainEditorConfig["isBrokenTile"]
-): BrainEditorConfig {
+export function buildMicrobitBrainEditorConfig(options: BuildMicrobitBrainEditorConfigOptions): BrainEditorConfig {
+  const { env, resolveVfsAssetUrl, projectNamespace, ...editorConfig } = options;
   return {
+    ...editorConfig,
     projectNamespace,
-    onTileDocs,
-    docsIntegration,
-    libraries,
-    printTransport,
-    isBrokenTile,
     dataTypeIcons: microbitDataTypeIcons,
     dataTypeNames: microbitDataTypeNames,
     customLiteralTypes: [],

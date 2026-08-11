@@ -10,6 +10,14 @@ import {
   ProjectManager,
   type ProjectManifest,
 } from "@mindcraft-lang/app-host";
+import type { AssistantConnect, EditedBrainWorkspaces } from "@mindcraft-lang/assistant-panel";
+import {
+  assistantSessionUrl,
+  assistantToolManifest,
+  createEditedBrainWorkspaces,
+  createWebSocketConnect,
+} from "@mindcraft-lang/assistant-panel";
+import type { RelayToolManifest } from "@mindcraft-lang/assistant-relay";
 import {
   type AppBridgeState,
   AppEnvironmentHost,
@@ -42,12 +50,15 @@ import {
   type WodalDeviceProfile,
   WodalDeviceProfileId,
 } from "@mindcraft-lang/wodal";
+import { createTargetAdapter } from "@mindcraft-lang/wodal/targets/microbit-v2/rehearsal";
 import { name as appName } from "../../package.json";
+import { type AppSettings, loadAppSettings, normalizeAppSettings, persistAppSettings } from "./app-settings";
 import { loadBindingToken, saveBindingToken } from "./binding-token-persistence";
 import { flashDiagnosticToEntry, runtimeFaultToEntry } from "./brain-diagnostic-entries";
 import { type AppChrome, appChromeForMode, connectMicrobitFolderSession, isFolderHostMode } from "./folder-host-mode";
 import { microbitDefaultExtensions, microbitEmbeddedExtensions } from "./microbit-embedded-extensions";
 import { microbitLibraryCatalogMoves } from "./microbit-extension-browser";
+import { MICROBIT_V2_TARGET_COORDINATE } from "./microbit-extension-coordinates";
 import {
   BRAINS_INDEX_KEY,
   buildMicrobitSimExportDocument,
@@ -116,40 +127,7 @@ function parseBrainIndex(raw: string | undefined): string[] {
   }
 }
 
-// -- AppSettings (global, persisted across projects) --
-
-const APP_SETTINGS_STORAGE_KEY = `${appName}:app-settings`;
-
-/** Global, project-independent app settings persisted in `localStorage`. */
-export interface AppSettings {
-  /** Relay URL the VS Code bridge connects to. */
-  vscodeBridgeUrl: string;
-}
-
-const DEFAULT_APP_SETTINGS: AppSettings = {
-  vscodeBridgeUrl: "vscode-bridge.mindcraft-lang.org",
-};
-
 type AppSettingsListener = (settings: AppSettings, prev: AppSettings) => void;
-
-/** Loads persisted app settings, falling back to defaults on absence or corruption. */
-function loadAppSettings(): AppSettings {
-  try {
-    const raw = localStorage.getItem(APP_SETTINGS_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as Partial<AppSettings>;
-      return { ...DEFAULT_APP_SETTINGS, ...parsed };
-    }
-  } catch {
-    // corrupted data -- fall through to defaults
-  }
-  return { ...DEFAULT_APP_SETTINGS };
-}
-
-/** Persists app settings to `localStorage`. */
-function persistAppSettings(settings: AppSettings): void {
-  localStorage.setItem(APP_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-}
 
 // -- UiPreferences (per-project, non-portable) --
 
@@ -188,6 +166,18 @@ function persistUiPreferences(projectId: string, prefs: UiPreferences): void {
   } catch {
     // storage full or unavailable
   }
+}
+
+// -- Assistant composition --
+
+/** What this app stands an assistant over: what it declares, what a turn edits, and how a session opens. */
+export interface AssistantComposition {
+  /** What the handshake declares this app serves. */
+  readonly manifest: RelayToolManifest;
+  /** The workspaces a turn's tool calls run against, following the editor's working copy. */
+  readonly workspaces: EditedBrainWorkspaces;
+  /** Opens one relay session against the service address the settings hold at the time of the call. */
+  readonly connect: AssistantConnect;
 }
 
 /**
@@ -240,6 +230,9 @@ export class MicrobitSimEnvironmentStore {
   private readonly _chrome: AppChrome;
   private readonly _printTransport: PrintTransport | undefined;
 
+  /** What an assistant provider over this app is built from, standing for the life of the store. */
+  readonly assistant: AssistantComposition;
+
   private constructor(
     host: AppEnvironmentHost,
     activeDeviceProfile: WodalDeviceProfile,
@@ -261,6 +254,12 @@ export class MicrobitSimEnvironmentStore {
       getProjectFileSystem: () => this.host.servedProjectFileSystem,
       getVfsRevision: () => this.host.getVfsRevisionSnapshot(),
     });
+    const adapter = createTargetAdapter(MICROBIT_V2_TARGET_COORDINATE);
+    this.assistant = {
+      manifest: assistantToolManifest(adapter),
+      workspaces: createEditedBrainWorkspaces({ environment: host.env, adapter }),
+      connect: () => createWebSocketConnect(assistantSessionUrl(this._appSettings.assistantServiceUrl))(),
+    };
     this.simulator = new MicrobitSimulator(host.env);
     this._userCodeReflasher = new UserCodeReflasher({
       flashedBrainIds: () =>
@@ -799,15 +798,11 @@ export class MicrobitSimEnvironmentStore {
 
   /**
    * Merges a patch into the global app settings, persists the result, and notifies listeners.
-   * A blank bridge URL is reset to the default.
+   * A blank address field is reset to its default.
    */
   updateAppSettings(patch: Partial<AppSettings>): void {
     const prev = this._appSettings;
-    const merged = { ...this._appSettings, ...patch };
-    if (!merged.vscodeBridgeUrl.trim()) {
-      merged.vscodeBridgeUrl = DEFAULT_APP_SETTINGS.vscodeBridgeUrl;
-    }
-    this._appSettings = merged;
+    this._appSettings = normalizeAppSettings({ ...this._appSettings, ...patch });
     persistAppSettings(this._appSettings);
     for (const fn of this._appSettingsListeners) {
       fn(this._appSettings, prev);

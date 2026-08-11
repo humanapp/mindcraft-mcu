@@ -550,6 +550,110 @@ Attach to \`tile:tile.sensor->microbit-v2.gesture\`: the rule fires while the
 board is tilted up. It stays true for as long as the board is held in that
 position.
 `,
+  "output-buffer-value": `\`\`\`brain noframe do
+{ "tile": "tile.out->buffer:<buffer>.value" }
+\`\`\`
+
+# The received bytes
+
+The raw bytes that just arrived over radio, for the rule that received it to use.
+
+---
+
+Place \`tile:tile.out->buffer:<buffer>.value\` in the rule whose WHEN is
+\`tile:tile.sensor->microbit-v2.radio-receive-buffer\`, or in any rule below it:
+it reads the buffer that packet carried. It only has a value on the thinks a
+buffer packet arrived.
+
+## See Also
+
+\`tile:tile.sensor->microbit-v2.radio-receive-buffer\`
+\`tile:tile.out->number:<number>.rssi\`
+`,
+  "output-number-rssi": `\`\`\`brain noframe do
+{ "tile": "tile.out->number:<number>.rssi" }
+\`\`\`
+
+# The signal strength
+
+How strong the radio signal was for the message that just arrived, as a number
+at or below zero: nearer zero is a stronger signal.
+
+---
+
+Place \`tile:tile.out->number:<number>.rssi\` in a rule whose WHEN is any of the
+radio receive tiles, or in any rule below it. On a real micro:bit the number
+drops further below zero as the sender gets further away, so comparing it
+against a number tells a close sender from a distant one. The simulator has no
+real signal and reports the same strength for every message.
+
+## See Also
+
+\`tile:tile.sensor->microbit-v2.radio-receive-number\`
+\`tile:tile.out->number:<number>.value\`
+`,
+  "output-number-value": `\`\`\`brain noframe do
+{ "tile": "tile.out->number:<number>.value" }
+\`\`\`
+
+# The received number
+
+The number that just arrived over radio, for the rule that received it to use.
+
+---
+
+Place \`tile:tile.out->number:<number>.value\` in the rule whose WHEN is
+\`tile:tile.sensor->microbit-v2.radio-receive-number\`, or in any rule below it:
+it reads the number that packet carried. It only has a value on the thinks a
+number packet arrived.
+
+## Example
+
+\`\`\`brain
+{
+  "ruleJsons": [
+    {
+      "version": 1,
+      "when": [
+        "tile.sensor->microbit-v2.radio-receive-number"
+      ],
+      "do": [
+        "tile.actuator->microbit-v2.display-scroll",
+        "tile.out->number:<number>.value"
+      ],
+      "children": [],
+      "comment": "Scroll whatever number the other micro:bit sent."
+    }
+  ],
+  "catalog": []
+}
+\`\`\`
+
+## See Also
+
+\`tile:tile.sensor->microbit-v2.radio-receive-number\`
+\`tile:tile.out->number:<number>.rssi\`
+`,
+  "output-string-value": `\`\`\`brain noframe do
+{ "tile": "tile.out->string:<string>.value" }
+\`\`\`
+
+# The received text
+
+The text that just arrived over radio, for the rule that received it to use.
+
+---
+
+Place \`tile:tile.out->string:<string>.value\` in the rule whose WHEN is
+\`tile:tile.sensor->microbit-v2.radio-receive-string\`, or in any rule below it:
+it reads the text that packet carried. It only has a value on the thinks a text
+packet arrived.
+
+## See Also
+
+\`tile:tile.sensor->microbit-v2.radio-receive-string\`
+\`tile:tile.out->number:<number>.rssi\`
+`,
   "parameter-brightness": `\`\`\`brain noframe do
 { "tile": "\${tileId}" }
 \`\`\`

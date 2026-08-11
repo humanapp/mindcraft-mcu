@@ -175,11 +175,11 @@ describe("microbit-sim served extension assets", () => {
         getProjectFileSystem: () => host.servedProjectFileSystem,
         getVfsRevision: host.getVfsRevisionSnapshot,
       });
-      const config = buildMicrobitBrainEditorConfig(
-        host.env,
-        (url) => provider.resolveAssetUrl(url),
-        host.activeProjectManifest?.id
-      );
+      const config = buildMicrobitBrainEditorConfig({
+        env: host.env,
+        resolveVfsAssetUrl: (url) => provider.resolveAssetUrl(url),
+        projectNamespace: host.activeProjectManifest?.id,
+      });
       assert.ok(config.resolveTileVisual, "the editor config carries a tile visual resolver");
 
       const beamMeta = host.lastUserTileMetadata?.find((m) => m.namespace === BEAM_COORDINATE);

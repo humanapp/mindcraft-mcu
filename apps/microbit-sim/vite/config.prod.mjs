@@ -17,6 +17,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(process.cwd(), "./src"),
+      "@mindcraft-lang/assistant-panel": path.resolve(
+        process.cwd(),
+        "../../external/mindcraft-lang/packages/assistant-panel/src"
+      ),
       "@mindcraft-lang/ui": path.resolve(process.cwd(), "../../external/mindcraft-lang/packages/ui/src"),
       "@mindcraft-lang/docs": path.resolve(process.cwd(), "../../external/mindcraft-lang/packages/docs/src"),
     },

@@ -106,7 +106,10 @@ describe("microbit-sim tile visuals", () => {
         iconUrls.add(visual.iconUrl);
       }
     }
-    const config = buildMicrobitBrainEditorConfig(createMicroBitV2Environment(), (url) => url, undefined);
+    const config = buildMicrobitBrainEditorConfig({
+      env: createMicroBitV2Environment(),
+      resolveVfsAssetUrl: (url) => url,
+    });
     for (const iconUrl of config.dataTypeIcons.values()) {
       iconUrls.add(iconUrl);
     }

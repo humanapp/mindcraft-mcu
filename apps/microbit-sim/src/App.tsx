@@ -1,3 +1,4 @@
+import { AssistantProvider } from "@mindcraft-lang/assistant-panel";
 import { DocsSidebar, DocsSidebarProvider } from "@mindcraft-lang/docs";
 import { useMemo, useSyncExternalStore } from "react";
 import { Toaster } from "sonner";
@@ -33,38 +34,44 @@ export function App() {
     return createMicrobitTileVisualResolver((url) => store.resolveVfsAssetUrl(url));
   }, [store, vfsRevision]);
   return (
-    <DocsSidebarProvider
-      registry={docsRegistry}
-      tileCatalog={docsTileCatalog}
-      brainServices={store.env.brainServices}
-      libraries={docsLibraries}
-      dataTypeNames={microbitDataTypeNames}
-      dataTypeIcons={microbitDataTypeIcons}
-      showDocsPageLinks={chrome.showDocsPageLinks}
-      printTransport={store.printTransport}
-      resolveTileVisual={docsResolveTileVisual}
+    <AssistantProvider
+      connect={store.assistant.connect}
+      manifest={store.assistant.manifest}
+      workspace={store.assistant.workspaces.workspaceFor}
     >
-      <div className="min-h-screen">
-        <ProjectHeader />
-        <main className="p-4 sm:p-6">
-          <div className="mx-auto grid w-full max-w-7xl grid-cols-1 items-start gap-8 lg:grid-cols-2">
-            {/* On a single column the wrapper dissolves (display: contents), making all three
-                sections grid items so the bridge panel can order below the simulator. */}
-            <div className="contents lg:block lg:space-y-8">
-              <BrainList />
-              {chrome.showBridgePanel && (
-                <div className="order-last">
-                  <BridgePanel />
-                </div>
-              )}
+      <DocsSidebarProvider
+        registry={docsRegistry}
+        tileCatalog={docsTileCatalog}
+        brainServices={store.env.brainServices}
+        libraries={docsLibraries}
+        dataTypeNames={microbitDataTypeNames}
+        dataTypeIcons={microbitDataTypeIcons}
+        showDocsPageLinks={chrome.showDocsPageLinks}
+        printTransport={store.printTransport}
+        resolveTileVisual={docsResolveTileVisual}
+      >
+        <div className="min-h-screen">
+          <ProjectHeader />
+          <main className="p-4 sm:p-6">
+            <div className="mx-auto grid w-full max-w-7xl grid-cols-1 items-start gap-8 lg:grid-cols-2">
+              {/* On a single column the wrapper dissolves (display: contents), making all three
+                  sections grid items so the bridge panel can order below the simulator. */}
+              <div className="contents lg:block lg:space-y-8">
+                <BrainList />
+                {chrome.showBridgePanel && (
+                  <div className="order-last">
+                    <BridgePanel />
+                  </div>
+                )}
+              </div>
+              <Simulator />
             </div>
-            <Simulator />
-          </div>
-        </main>
-        <Toaster />
-      </div>
-      {/* Docs sidebar -- fixed overlay, sibling to the main layout */}
-      <DocsSidebar />
-    </DocsSidebarProvider>
+          </main>
+          <Toaster />
+        </div>
+        {/* Docs sidebar -- fixed overlay, sibling to the main layout */}
+        <DocsSidebar />
+      </DocsSidebarProvider>
+    </AssistantProvider>
   );
 }

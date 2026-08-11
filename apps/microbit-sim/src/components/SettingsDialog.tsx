@@ -1,14 +1,14 @@
 import { Button, Input } from "@mindcraft-lang/ui";
 import { useState } from "react";
 import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";
-import type { AppSettings } from "@/services/microbit-sim-environment-store";
+import { type AppSettings, DEFAULT_APP_SETTINGS } from "@/services/app-settings";
 import { Modal } from "./Modal";
 
 interface SettingsDialogProps {
   onClose: () => void;
 }
 
-/** Edits global app settings: the VS Code Bridge relay URL. */
+/** Edits the global app settings: the VS Code Bridge relay URL and the assistant service address. */
 export function SettingsDialog({ onClose }: SettingsDialogProps) {
   const store = useMicrobitSimEnvironment();
   const [draft, setDraft] = useState<AppSettings>(() => store.getAppSettings());
@@ -29,7 +29,18 @@ export function SettingsDialog({ onClose }: SettingsDialogProps) {
             id="vscode-bridge-url"
             value={draft.vscodeBridgeUrl}
             onChange={(e) => setDraft((prev) => ({ ...prev, vscodeBridgeUrl: e.target.value }))}
-            placeholder="vscode-bridge.mindcraft-lang.org"
+            placeholder={DEFAULT_APP_SETTINGS.vscodeBridgeUrl}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label htmlFor="assistant-service-url" className="text-sm font-medium">
+            Assistant Service URL
+          </label>
+          <Input
+            id="assistant-service-url"
+            value={draft.assistantServiceUrl}
+            onChange={(e) => setDraft((prev) => ({ ...prev, assistantServiceUrl: e.target.value }))}
+            placeholder={DEFAULT_APP_SETTINGS.assistantServiceUrl}
           />
         </div>
       </div>

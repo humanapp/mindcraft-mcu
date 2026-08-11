@@ -1,14 +1,18 @@
 import type { BrainDef } from "@mindcraft-lang/core/app";
 import { useDocsSidebar } from "@mindcraft-lang/docs";
 import { BrainEditorDialog, BrainEditorProvider } from "@mindcraft-lang/ui";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { buildMicrobitBrainEditorConfig } from "@/brain/editor-config";
 import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";
+import { AssistantSidePanel } from "./AssistantSidePanel";
 
 interface BrainEditorProps {
   brainId: string;
   onClose: () => void;
 }
+
+/** Name to present the brain by while the editor stands no working copy of it. */
+const kUnopenedBrainName = "Brain";
 
 /** Loads a brain and edits it in the Brain Editor, saving the result on submit. */
 export function BrainEditor({ brainId, onClose }: BrainEditorProps) {
@@ -31,20 +35,32 @@ export function BrainEditor({ brainId, onClose }: BrainEditorProps) {
     close: closeDocs,
     reportEditorMode,
   } = useDocsSidebar();
+  const [srcBrainDef, setSrcBrainDef] = useState<BrainDef | undefined>(undefined);
+  const [isOpen, setIsOpen] = useState(false);
+  const [isAssistantOpen, setIsAssistantOpen] = useState(false);
+  const toggleAssistant = useCallback(() => setIsAssistantOpen((open) => !open), []);
+  const entityName = srcBrainDef?.name() ?? kUnopenedBrainName;
+  const workspaces = store.assistant.workspaces;
   const config = useMemo(() => {
     void docRevision;
     void vfsRevision;
     void compileDiagnostics;
-    return buildMicrobitBrainEditorConfig(
-      store.env,
-      (url) => store.resolveVfsAssetUrl(url),
-      store.activeProjectManifest?.id,
-      openDocsForTile,
-      { isOpen: isDocsOpen, toggle: toggleDocs, close: closeDocs, reportMode: reportEditorMode },
-      store.host.installedLibraries,
-      store.printTransport,
-      (tile) => store.host.getTileCompileDiagnostics(tile.action.key) !== undefined
-    );
+    return buildMicrobitBrainEditorConfig({
+      env: store.env,
+      resolveVfsAssetUrl: (url) => store.resolveVfsAssetUrl(url),
+      projectNamespace: store.activeProjectManifest?.id,
+      onTileDocs: openDocsForTile,
+      docsIntegration: { isOpen: isDocsOpen, toggle: toggleDocs, close: closeDocs, reportMode: reportEditorMode },
+      sidePanel: {
+        isOpen: isAssistantOpen,
+        toggle: toggleAssistant,
+        label: entityName,
+        content: <AssistantSidePanel isOpen={isAssistantOpen} fallbackName={entityName} workspaces={workspaces} />,
+      },
+      libraries: store.host.installedLibraries,
+      printTransport: store.printTransport,
+      isBrokenTile: (tile) => store.host.getTileCompileDiagnostics(tile.action.key) !== undefined,
+    });
   }, [
     store,
     docRevision,
@@ -55,9 +71,11 @@ export function BrainEditor({ brainId, onClose }: BrainEditorProps) {
     toggleDocs,
     closeDocs,
     reportEditorMode,
+    isAssistantOpen,
+    toggleAssistant,
+    entityName,
+    workspaces,
   ]);
-  const [srcBrainDef, setSrcBrainDef] = useState<BrainDef | undefined>(undefined);
-  const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
