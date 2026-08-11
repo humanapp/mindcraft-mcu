@@ -15,7 +15,7 @@ import {
   type Value,
   VOID_VALUE,
 } from "@mindcraft-lang/core/app";
-import { getMicroBitContextDevice } from "../context";
+import { getMicroBitContextDevice, reportDeviceOperationEnding } from "../context";
 import { SCROLL_DEFAULT_DELAY_MS, scrollDurationMs } from "../display-scroll";
 import { hasModifier, Modifier } from "../modifiers";
 import { Param } from "../parameters";
@@ -62,9 +62,13 @@ function execDisplayScroll(ctx: ExecutionContext, args: ReadonlyList<Value>, han
   if (hasModifier(args, kImmediatelySlotId)) {
     microbit.display.preempt();
   }
+  const inBackground = hasModifier(args, kInBackgroundSlotId);
   const durationMs = scrollDurationMs(text.length, SCROLL_DEFAULT_DELAY_MS);
-  microbit.display.scrollText(text, durationMs, ctx.time, () => handle.resolve(VOID_VALUE));
-  if (hasModifier(args, kInBackgroundSlotId)) {
+  microbit.display.scrollText(text, durationMs, ctx.time, (end) => {
+    handle.resolve(VOID_VALUE);
+    reportDeviceOperationEnding(ctx, { handleId: handle.id, end, inBackground });
+  });
+  if (inBackground) {
     // The scroll keeps its lease and resolves on tick time as above; resolving
     // now releases the issuing rule so it does not park on the animation.
     handle.resolve(VOID_VALUE);

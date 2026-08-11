@@ -13,7 +13,7 @@ import {
   VOID_VALUE,
 } from "@mindcraft-lang/core/app";
 import { DEFAULT_BUILT_IN_SOUND_NAME, SoundEmojiField } from "../built-in-sounds";
-import { getMicroBitContextDevice } from "../context";
+import { getMicroBitContextDevice, reportDeviceOperationEnding } from "../context";
 import { hasModifier, Modifier } from "../modifiers";
 import { Param } from "../parameters";
 import { MicroBitV2HostActions } from "../tile-ids";
@@ -47,8 +47,12 @@ function execPlaySound(ctx: ExecutionContext, args: ReadonlyList<Value>, handle:
   if (hasModifier(args, kImmediatelySlotId)) {
     microbit.speaker.preempt();
   }
-  microbit.speaker.playSoundEmoji(name, ctx.time, () => handle.resolve(VOID_VALUE));
-  if (hasModifier(args, kInBackgroundSlotId)) {
+  const inBackground = hasModifier(args, kInBackgroundSlotId);
+  microbit.speaker.playSoundEmoji(name, ctx.time, (end) => {
+    handle.resolve(VOID_VALUE);
+    reportDeviceOperationEnding(ctx, { handleId: handle.id, end, inBackground });
+  });
+  if (inBackground) {
     // The play keeps its speaker lease and resolves on tick time as above;
     // resolving now releases the issuing rule so it does not park on the sound.
     handle.resolve(VOID_VALUE);
@@ -64,8 +68,8 @@ function execPlaySound(ctx: ExecutionContext, args: ReadonlyList<Value>, handle:
  * the play starts at once; otherwise a play requested while the speaker is
  * busy is dropped. With the `in background` modifier the sound keeps its lease
  * but the handle resolves at dispatch, so the issuing rule continues this
- * round without parking on the playback. A name outside the built-in set is a
- * silent no-op that resolves at once.
+ * round without parking on the playback. A name outside the built-in set is
+ * dropped as well: nothing plays and the call resolves at once.
  */
 export default {
   ...MicroBitV2HostActions.PlaySound,

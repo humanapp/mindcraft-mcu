@@ -1,43 +1,121 @@
-import type { ScenarioInput, ScenarioInputKind } from "@mindcraft-lang/assistant-bridge";
+import type { OperationEnding, ScenarioInput, ScenarioInputKind } from "@mindcraft-lang/assistant-bridge";
+import { DispatchOutcome } from "@mindcraft-lang/assistant-bridge";
 import type { RehearsalWorld, WorldStaging } from "@mindcraft-lang/assistant-bridge/kit";
+import { AccelerometerGesture } from "../../../core/accelerometer";
+import { GestureInjector } from "../../../core/gesture-injector";
+import { OperationEnd } from "../../../core/operation-end";
+import { decodeRadioFrame, encodeRadioFrame, RadioPacketType, radioNumberIsInteger } from "../../../core/radio";
 import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
 import { MicroBit } from "../microbit";
+import type { DeviceOperationEnding } from "../mindcraft/context";
 import { getMicroBitContextDevice } from "../mindcraft/context";
 import { WodalMicroBitRuntime } from "../mindcraft/runtime";
 
 /** Simulated milliseconds one think advances the device. */
 const THINK_STEP_MS = 16;
 
-/** One percept channel of the device: what a level of it means, and how a level reaches the device. */
+/** Signal strength, in -dBm, staged radio messages carry until a scenario sets another. */
+const DEFAULT_RSSI = -42;
+
+/** Serial number staged radio messages carry, the value a sender that transmits none leaves. */
+const STAGED_SENDER_SERIAL = 0;
+
+/** The gesture each scripted name plays, keyed by the name a scenario spells. */
+const GESTURE_NAMES: Readonly<Record<string, AccelerometerGesture>> = {
+  none: AccelerometerGesture.None,
+  shake: AccelerometerGesture.Shake,
+  "tilt up": AccelerometerGesture.TiltUp,
+  "tilt down": AccelerometerGesture.TiltDown,
+  "tilt left": AccelerometerGesture.TiltLeft,
+  "tilt right": AccelerometerGesture.TiltRight,
+  "face up": AccelerometerGesture.FaceUp,
+  "face down": AccelerometerGesture.FaceDown,
+  freefall: AccelerometerGesture.Freefall,
+};
+
+/** The device a scenario's percepts are applied to, with the state staging them needs. */
+interface StagedDevice {
+  readonly device: MicroBit;
+  /** Plays scripted motion through the real gesture detector. */
+  readonly gestures: GestureInjector;
+  /** Signal strength, in -dBm, stamped on every radio message staged from now on. */
+  rssi: number;
+}
+
+/** One percept channel of the device: what an entry of it delivers, and how it reaches the device. */
 interface Percept {
-  /** One plain sentence stating what a scripted level means and the range it is read over. */
+  /** One plain sentence stating what a scripted entry delivers and the range it is read over. */
   readonly description: string;
-  /** Applies one scripted level to a device through its own host-input seam. */
-  apply(device: MicroBit, value: number | boolean): void;
+  /** Applies one scripted entry to a device through its own host-input seam. */
+  apply(stage: StagedDevice, value: number | boolean | string): void;
+}
+
+/**
+ * Delivers one radio message into the device's receive ring, narrowed, capped,
+ * and typed as an on-air message is, on the group the device is listening to at
+ * the moment of delivery, stamped with the stage's signal strength.
+ */
+function deliverRadioMessage(stage: StagedDevice, type: RadioPacketType, value: number, text: string): void {
+  const radio = stage.device.radio;
+  const group = radio.group;
+  const frame = encodeRadioFrame(
+    { type, group, value, name: "", text, bytes: new Uint8Array() },
+    stage.device.systemTime(),
+    STAGED_SENDER_SERIAL
+  );
+  radio.deliver(decodeRadioFrame(frame, group, stage.rssi));
 }
 
 /**
  * The percept channels a scenario may script, keyed by the input kind that
  * names each. A level applied by one entry holds until a later entry of the
- * same kind changes it.
+ * same kind changes it; an arrival is delivered on the think its entry names
+ * and on no other.
  */
 const PERCEPTS: Readonly<Record<string, Percept>> = {
   "button-a": {
     description: "Whether the A button is held down: true presses it, false releases it.",
-    apply: (device, value) => device.setButtonPressed("A", Boolean(value)),
+    apply: (stage, value) => stage.device.setButtonPressed("A", Boolean(value)),
   },
   "button-b": {
     description: "Whether the B button is held down: true presses it, false releases it.",
-    apply: (device, value) => device.setButtonPressed("B", Boolean(value)),
+    apply: (stage, value) => stage.device.setButtonPressed("B", Boolean(value)),
   },
   "logo-touch": {
     description: "Whether the touch logo is being touched: true holds the touch, false lets go.",
-    apply: (device, value) => device.setLogoTouched(Boolean(value)),
+    apply: (stage, value) => stage.device.setLogoTouched(Boolean(value)),
   },
   "light-level": {
     description: "How bright the room is, from 0 (dark) to 255 (bright); a level outside that range is clamped.",
-    apply: (device, value) => device.setLightLevel(Number(value)),
+    apply: (stage, value) => stage.device.setLightLevel(Number(value)),
+  },
+  temperature: {
+    description: "How warm the device is, in whole degrees Celsius; it holds until another entry changes it.",
+    apply: (stage, value) => stage.device.setTemperature(Number(value)),
+  },
+  gesture: {
+    description:
+      'How the device is being moved, named exactly: "shake", "freefall", "tilt up", "tilt down", "tilt left", "tilt right", "face up", "face down", or "none" to set it back down. A shake or a freefall plays once and takes a few thinks to be felt; a tilt or a face holds until another entry changes it.',
+    apply: (stage, value) => stage.gestures.select(GESTURE_NAMES[String(value)] ?? AccelerometerGesture.None),
+  },
+  "radio-message-number": {
+    description: "A number arriving over the radio, delivered once, on this think alone.",
+    apply: (stage, value) => {
+      const number = Number(value);
+      const type = radioNumberIsInteger(number) ? RadioPacketType.Number : RadioPacketType.Double;
+      deliverRadioMessage(stage, type, number, "");
+    },
+  },
+  "radio-message-string": {
+    description: "A word arriving over the radio, delivered once, on this think alone; long text is cut short.",
+    apply: (stage, value) => deliverRadioMessage(stage, RadioPacketType.String, 0, String(value)),
+  },
+  "radio-signal-strength": {
+    description: `How strong the radio messages after it come in, as -dBm: near 40 is close by and near 90 is far away. It holds until another entry changes it, and starts at ${-DEFAULT_RSSI}.`,
+    apply: (stage, value) => {
+      stage.rssi = -Math.abs(Number(value));
+    },
   },
 };
 
@@ -45,6 +123,18 @@ const PERCEPTS: Readonly<Record<string, Percept>> = {
 export const PERCEPT_KINDS: readonly ScenarioInputKind[] = Object.entries(PERCEPTS)
   .map(([name, percept]) => ({ name, description: percept.description }))
   .sort((a, b) => (a.name < b.name ? -1 : 1));
+
+/**
+ * How a device operation ending reads as an observation of the call that
+ * started it, or `undefined` for an ending the run can already see: an
+ * operation its caller waited for reports its end by settling that call's
+ * handle.
+ */
+function publishedEnding(ending: DeviceOperationEnding): OperationEnding | undefined {
+  if (ending.end === OperationEnd.Dropped) return DispatchOutcome.Dropped;
+  if (ending.end === OperationEnd.Preempted) return DispatchOutcome.Preempted;
+  return ending.inBackground ? DispatchOutcome.BackgroundEnd : undefined;
+}
 
 /**
  * One device running the brain under study, stepped at a fixed simulated
@@ -55,7 +145,7 @@ class DeviceWorld implements RehearsalWorld {
   private think = 0;
 
   constructor(
-    private readonly device: MicroBit,
+    private readonly stage: StagedDevice,
     private readonly runtime: WodalMicroBitRuntime,
     private readonly inputs: readonly ScenarioInput[]
   ) {}
@@ -63,9 +153,10 @@ class DeviceWorld implements RehearsalWorld {
   step(): void {
     for (const input of this.inputs) {
       if (input.at === this.think) {
-        PERCEPTS[input.kind].apply(this.device, input.value);
+        PERCEPTS[input.kind].apply(this.stage, input.value);
       }
     }
+    this.stage.gestures.advance(THINK_STEP_MS);
     this.runtime.tick(THINK_STEP_MS);
     this.think++;
   }
@@ -90,8 +181,9 @@ class DeviceWorld implements RehearsalWorld {
 
 /**
  * Stage one device world: build the brain under study into a program image for
- * the device profile, load it onto a fresh device, and report the loaded brain
- * as the participant under study. Throws when the brain does not build, the
+ * the device profile, load it onto a fresh device, report the loaded brain as
+ * the participant under study, and publish the endings of the display and
+ * speaker operations its calls start. Throws when the brain does not build, the
  * device refuses the image, or the load publishes no event stream.
  */
 export function createDeviceWorld(staging: WorldStaging): RehearsalWorld {
@@ -105,7 +197,16 @@ export function createDeviceWorld(staging: WorldStaging): RehearsalWorld {
   }
 
   const device = new MicroBit();
-  const runtime = new WodalMicroBitRuntime({ environment: staging.environment, microbit: device });
+  const runtime = new WodalMicroBitRuntime({
+    environment: staging.environment,
+    microbit: device,
+    operations: (ending) => {
+      const published = publishedEnding(ending);
+      if (published !== undefined) {
+        staging.publishOperationEnding({ handleId: ending.handleId, ending: published });
+      }
+    },
+  });
   const loaded = runtime.loadWodalProgramImage(built.image);
   if (!loaded.ok) {
     throw new Error(`the device refused the program image: ${loaded.errors.map((error) => error.code).join(", ")}`);
@@ -120,5 +221,9 @@ export function createDeviceWorld(staging: WorldStaging): RehearsalWorld {
     runs: (ctx) => getMicroBitContextDevice(ctx) === device,
   });
 
-  return new DeviceWorld(device, runtime, staging.inputs);
+  return new DeviceWorld(
+    { device, gestures: new GestureInjector(device.accelerometer), rssi: DEFAULT_RSSI },
+    runtime,
+    staging.inputs
+  );
 }

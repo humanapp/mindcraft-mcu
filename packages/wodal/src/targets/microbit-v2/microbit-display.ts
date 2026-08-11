@@ -1,5 +1,6 @@
 import { FONT_GLYPH_SIZE, fontGlyphRows } from "../../core/bitmap-font";
 import { LEDMatrix, type LEDMatrixSnapshot } from "../../core/led-matrix";
+import { OperationEnd, type OperationEndListener } from "../../core/operation-end";
 import { MICROBIT_LED_MATRIX_SIZE } from "./constants";
 
 /**
@@ -25,8 +26,8 @@ interface ScrollAnimation {
   /** Total number of column-shift steps before completion. */
   readonly totalSteps: number;
 
-  /** Invoked once when the animation completes. */
-  readonly onComplete: () => void;
+  /** Invoked once with how the animation ended. */
+  readonly onEnd: OperationEndListener;
 
   /** Steps already rendered to the matrix. */
   steppedCount: number;
@@ -46,8 +47,8 @@ interface StaticShow {
   /** Milliseconds the glyph holds the display before it blanks. */
   readonly durationMs: number;
 
-  /** Invoked once when the show completes. */
-  readonly onComplete: () => void;
+  /** Invoked once with how the show ended. */
+  readonly onEnd: OperationEndListener;
 }
 
 /** A single draw frame: packed brightness bytes plus its size, already clipped to the display. */
@@ -76,8 +77,8 @@ interface DrawLease {
   /** Logical tick time at which the sequence began (frame 0 painted). */
   readonly start: number;
 
-  /** Invoked once when the whole sequence elapses. */
-  readonly onComplete: () => void;
+  /** Invoked once with how the sequence ended. */
+  readonly onEnd: OperationEndListener;
 
   /** Frames already painted to the matrix (1 after the dispatch paint). */
   paintedCount: number;
@@ -140,17 +141,18 @@ export class MicroBitDisplay {
    * completion - the end state a scroll of the same character leaves. Either
    * rendering holds the display lease for its duration; when the display is
    * already busy (a scroll, a static show, or a timed draw holds the lease)
-   * the new request is silently dropped: nothing is shown and `onComplete`
-   * fires at once, so the dispatching fiber continues without blocking.
+   * the new request is silently dropped: nothing is shown and `onEnd` fires at
+   * once with {@link OperationEnd.Dropped}, so the dispatching fiber continues
+   * without blocking.
    *
    * @param text - Text shown on the display.
    * @param durationMs - Hold length in milliseconds.
    * @param requestTime - Logical tick time the show was requested.
-   * @param onComplete - Invoked once when the show completes (or at once when dropped).
+   * @param onEnd - Invoked once with how the show ended, at the moment it ends.
    */
-  scrollText(text: string, durationMs: number, requestTime: number, onComplete: () => void): void {
+  scrollText(text: string, durationMs: number, requestTime: number, onEnd: OperationEndListener): void {
     if (this.isBusy()) {
-      onComplete();
+      onEnd(OperationEnd.Dropped);
       return;
     }
     // Both renderings start from a blank display; any prior content (an
@@ -158,7 +160,7 @@ export class MicroBitDisplay {
     this.matrix.clear();
     if (text.length === 1) {
       this.paintGlyph(text.charCodeAt(0));
-      this.activeShow = { startTime: requestTime, durationMs, onComplete };
+      this.activeShow = { startTime: requestTime, durationMs, onEnd };
       return;
     }
     const stepsPerCharacter = this.matrix.width + SCROLL_DISPLAY_SPACING;
@@ -167,7 +169,7 @@ export class MicroBitDisplay {
       startTime: requestTime,
       durationMs,
       totalSteps: stepsPerCharacter * (text.length + 1),
-      onComplete,
+      onEnd,
       steppedCount: 0,
       scrollingPosition: 0,
       scrollingChar: 0,
@@ -180,33 +182,34 @@ export class MicroBitDisplay {
    * sequence. Each frame is packed brightness bytes, row-major, already clipped
    * to the display by the caller. When the display is already busy (a scroll or
    * a timed draw holds the lease) the draw is silently dropped: nothing is
-   * pasted, no lease is taken, and `onComplete` fires at once. Otherwise the
-   * first frame is pasted at once. A positive `perFrameDurationMs` holds the
-   * lease until `requestTime + frames.length * perFrameDurationMs`, advancing to
-   * the next frame each slice (settled by {@link advanceScroll}); a non-positive
+   * pasted, no lease is taken, and `onEnd` fires at once with
+   * {@link OperationEnd.Dropped}. Otherwise the first frame is pasted at once. A
+   * positive `perFrameDurationMs` holds the lease until
+   * `requestTime + frames.length * perFrameDurationMs`, advancing to the next
+   * frame each slice (settled by {@link advanceScroll}); a non-positive
    * `perFrameDurationMs` is fire-and-forget -- only the final frame is pasted, no
-   * lease is taken, and `onComplete` fires at once. The pasted image is never
-   * cleared; the last frame persists until the next draw.
+   * lease is taken, and the draw ends as completed at once. The pasted image is
+   * never cleared; the last frame persists until the next draw.
    *
    * @param frames - Frames shown in order; the caller supplies at least one.
    * @param perFrameDurationMs - Hold per frame in milliseconds; non-positive is fire-and-forget.
    * @param requestTime - Logical tick time the draw was requested.
-   * @param onComplete - Invoked once when the sequence elapses (or at once when dropped or untimed).
+   * @param onEnd - Invoked once with how the draw ended, at the moment it ends.
    */
   drawImage(
     frames: ReadonlyArray<DisplayFrame>,
     perFrameDurationMs: number,
     requestTime: number,
-    onComplete: () => void
+    onEnd: OperationEndListener
   ): void {
     if (this.isBusy()) {
-      onComplete();
+      onEnd(OperationEnd.Dropped);
       return;
     }
     if (perFrameDurationMs <= 0) {
       // Fire-and-forget: paint only the final frame and take no lease.
       this.paintFrame(frames[frames.length - 1]!);
-      onComplete();
+      onEnd(OperationEnd.Completed);
       return;
     }
     this.paintFrame(frames[0]!);
@@ -214,7 +217,7 @@ export class MicroBitDisplay {
       frames,
       perFrameDurationMs,
       start: requestTime,
-      onComplete,
+      onEnd,
       paintedCount: 1,
     };
   }
@@ -240,31 +243,31 @@ export class MicroBitDisplay {
 
   /**
    * Releases the current display lease at once: the held scroll, static show,
-   * or timed draw is dropped and its handle resolved, so its awaiting rule
-   * resumes as if the operation finished. A no-op when no lease is held. The
-   * display content is left as-is; the next operation overwrites it.
+   * or timed draw ends as {@link OperationEnd.Preempted}. A no-op when no lease
+   * is held. The display content is left as-is; the next operation overwrites
+   * it.
    */
   preempt(): void {
     const scroll = this.activeScroll;
     if (scroll !== undefined) {
       this.activeScroll = undefined;
-      scroll.onComplete();
+      scroll.onEnd(OperationEnd.Preempted);
     }
     const show = this.activeShow;
     if (show !== undefined) {
       this.activeShow = undefined;
-      show.onComplete();
+      show.onEnd(OperationEnd.Preempted);
     }
     const draw = this.activeDraw;
     if (draw !== undefined) {
       this.activeDraw = undefined;
-      draw.onComplete();
+      draw.onEnd(OperationEnd.Preempted);
     }
   }
 
   /**
    * Advances the active scroll animation to the column step due at `now`,
-   * rendering each shifted frame, and completes it (firing `onComplete`) once it
+   * rendering each shifted frame, and completes it (firing `onEnd`) once it
    * has reached its final step. Also advances a timed image-sequence draw to the
    * frame due at `now` and completes it once the whole sequence has elapsed, and
    * completes a static one-character show once its hold has elapsed, blanking
@@ -294,7 +297,7 @@ export class MicroBitDisplay {
     }
     if (anim.steppedCount >= anim.totalSteps) {
       this.activeScroll = undefined;
-      anim.onComplete();
+      anim.onEnd(OperationEnd.Completed);
     }
   }
 
@@ -305,8 +308,8 @@ export class MicroBitDisplay {
 
   /**
    * Resets the display to its power-on state: blanks the matrix and drops any
-   * held scroll, static show, or timed draw without resolving its handle (the
-   * whole runtime is resetting). Call whenever the device timer resets.
+   * held scroll, static show, or timed draw without firing its `onEnd`. Call
+   * whenever the device timer resets.
    */
   reset(): void {
     this.matrix.clear();
@@ -318,7 +321,7 @@ export class MicroBitDisplay {
 
   /**
    * Advances a timed image-sequence draw to the frame due at `now`, painting
-   * each newly-due frame, and completes it (firing `onComplete`) once the whole
+   * each newly-due frame, and completes it (firing `onEnd`) once the whole
    * sequence has elapsed by `now`. The frame index due at `now` is
    * `min(floor((now - start) / perFrameDurationMs), frameCount - 1)`; the last
    * frame persists after completion.
@@ -336,13 +339,13 @@ export class MicroBitDisplay {
     }
     if (now >= draw.start + frameCount * draw.perFrameDurationMs) {
       this.activeDraw = undefined;
-      draw.onComplete();
+      draw.onEnd(OperationEnd.Completed);
     }
   }
 
   /**
    * Completes the static one-character show once its hold has elapsed by `now`:
-   * the display blanks and `onComplete` fires.
+   * the display blanks and `onEnd` fires.
    */
   private advanceShow(now: number): void {
     const show = this.activeShow;
@@ -351,7 +354,7 @@ export class MicroBitDisplay {
     }
     this.activeShow = undefined;
     this.matrix.clear();
-    show.onComplete();
+    show.onEnd(OperationEnd.Completed);
   }
 
   /**
@@ -440,10 +443,9 @@ export class MicroBitDisplay {
   }
 
   /**
-   * Cancels any held display lease and blanks the matrix. A held scroll or timed
-   * draw is preempted (its handle resolved, so its awaiting rule resumes as if it
-   * had finished) before every pixel is zeroed; a no-op lease-wise when none is
-   * held.
+   * Cancels any held display lease and blanks the matrix. A held scroll, static
+   * show, or timed draw is preempted before every pixel is zeroed; a no-op
+   * lease-wise when none is held.
    */
   clear(): void {
     this.preempt();

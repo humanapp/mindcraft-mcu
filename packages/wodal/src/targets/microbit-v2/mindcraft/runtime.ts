@@ -14,7 +14,7 @@ import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/
 import type { WodalProgramImage } from "../../../mindcraft/program-image";
 import { type WodalProgramLoadValidation, WodalProgramLoadValidationCode } from "../../../mindcraft/program-load";
 import { MicroBit, type MicroBitSnapshot } from "../microbit";
-import type { WodalMicroBitRuntimeContext } from "./context";
+import type { DeviceOperationObserver, WodalMicroBitRuntimeContext } from "./context";
 
 /** Construction options for the WODAL runtime facade. */
 export interface WodalMicroBitRuntimeOptions {
@@ -26,6 +26,9 @@ export interface WodalMicroBitRuntimeOptions {
 
   /** Optional VM event observer for runtime diagnostics. */
   readonly vmEvents?: VmEvents;
+
+  /** Where the device's actuators report their operation endings; omit to watch none. */
+  readonly operations?: DeviceOperationObserver;
 }
 
 /**
@@ -37,6 +40,7 @@ export class WodalMicroBitRuntime {
 
   private readonly environment: MindcraftEnvironment;
   private readonly vmEvents: VmEvents | undefined;
+  private readonly operations: DeviceOperationObserver | undefined;
   private loadedBrain: BrainRuntime | undefined;
 
   /**
@@ -48,6 +52,7 @@ export class WodalMicroBitRuntime {
     this.environment = options.environment;
     this.microbit = options.microbit ?? new MicroBit();
     this.vmEvents = options.vmEvents;
+    this.operations = options.operations;
   }
 
   private loadLinkedBrainProgram(program: LinkedBrainProgram): WodalProgramLoadValidation {
@@ -58,7 +63,10 @@ export class WodalMicroBitRuntime {
       program.program,
       program.pages,
       createHostServices(this.environment),
-      { microbit: this.microbit } satisfies WodalMicroBitRuntimeContext,
+      {
+        microbit: this.microbit,
+        ...(this.operations ? { operations: this.operations } : {}),
+      } satisfies WodalMicroBitRuntimeContext,
       undefined,
       this.vmEvents,
       {

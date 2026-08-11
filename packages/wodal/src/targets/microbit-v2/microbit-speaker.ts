@@ -1,3 +1,4 @@
+import { OperationEnd, type OperationEndListener } from "../../core/operation-end";
 import { findBuiltInSound } from "./mindcraft/built-in-sounds";
 
 /** The sound currently holding the speaker lease, as exposed to app adapters. */
@@ -35,8 +36,8 @@ interface ActivePlay {
   /** Monotonic per-play nonce. */
   readonly playId: number;
 
-  /** Invoked once when the play completes. */
-  readonly onComplete: () => void;
+  /** Invoked once with how the play ended. */
+  readonly onEnd: OperationEndListener;
 }
 
 /**
@@ -55,24 +56,24 @@ export class MicroBitSpeaker {
    * Starts an asynchronous built-in sound play requested at logical tick time
    * `requestTime`. An accepted play takes the speaker lease for the sound's
    * nominal total duration; the lease is settled by {@link advancePlay} and
-   * `onComplete` fires once the duration has elapsed. When the speaker is
-   * already busy the new play is silently dropped: nothing plays and
-   * `onComplete` fires at once, so the dispatching fiber continues without
-   * blocking. A name outside the built-in set is a silent no-op: nothing
-   * plays, no lease is taken, and `onComplete` fires at once.
+   * `onEnd` fires once the duration has elapsed. When the speaker is already
+   * busy the new play is dropped: nothing plays and `onEnd` fires at once with
+   * {@link OperationEnd.Dropped}, so the dispatching fiber continues without
+   * blocking. A name outside the built-in set is dropped the same way: nothing
+   * plays and no lease is taken.
    *
    * @param name - Name of the built-in sound to play.
    * @param requestTime - Logical tick time the play was requested.
-   * @param onComplete - Invoked once when the play completes (or at once when dropped or a no-op).
+   * @param onEnd - Invoked once with how the play ended, at the moment it ends.
    */
-  playSoundEmoji(name: string, requestTime: number, onComplete: () => void): void {
+  playSoundEmoji(name: string, requestTime: number, onEnd: OperationEndListener): void {
     if (this.activePlay !== undefined) {
-      onComplete();
+      onEnd(OperationEnd.Dropped);
       return;
     }
     const def = findBuiltInSound(name);
     if (def === undefined) {
-      onComplete();
+      onEnd(OperationEnd.Dropped);
       return;
     }
     this.nextPlayId += 1;
@@ -81,7 +82,7 @@ export class MicroBitSpeaker {
       startedAt: requestTime,
       durationMs: def.durationMs,
       playId: this.nextPlayId,
-      onComplete,
+      onEnd,
     };
   }
 
@@ -91,9 +92,8 @@ export class MicroBitSpeaker {
   }
 
   /**
-   * Releases the current speaker lease at once: the held play is dropped and
-   * its handle resolved, so its awaiting rule resumes as if the sound
-   * finished. A no-op when no lease is held.
+   * Releases the current speaker lease at once: the held play ends as
+   * {@link OperationEnd.Preempted}. A no-op when no lease is held.
    */
   preempt(): void {
     const play = this.activePlay;
@@ -101,13 +101,13 @@ export class MicroBitSpeaker {
       return;
     }
     this.activePlay = undefined;
-    play.onComplete();
+    play.onEnd(OperationEnd.Preempted);
   }
 
   /**
-   * Completes the active play (firing `onComplete`) once its nominal duration
-   * has elapsed by `now`. This is the per-think speaker poll: it settles the
-   * play holding the lease.
+   * Completes the active play (firing `onEnd`) once its nominal duration has
+   * elapsed by `now`. This is the per-think speaker poll: it settles the play
+   * holding the lease.
    *
    * @param now - Current logical tick time.
    */
@@ -117,13 +117,12 @@ export class MicroBitSpeaker {
       return;
     }
     this.activePlay = undefined;
-    play.onComplete();
+    play.onEnd(OperationEnd.Completed);
   }
 
   /**
    * Resets the speaker to its power-on state: drops any held play without
-   * resolving its handle (the whole runtime is resetting). Call whenever the
-   * device timer resets.
+   * firing its `onEnd`. Call whenever the device timer resets.
    */
   reset(): void {
     this.activePlay = undefined;

@@ -19,7 +19,7 @@ import { toNonNegativeInteger } from "../../../../core/numeric";
 import { ImageField } from "../../../../mindcraft/shared-type-ids";
 import { MICROBIT_LED_MATRIX_SIZE } from "../../constants";
 import { builtInImageFrame, DEFAULT_BUILT_IN_IMAGE_NAME, getBuiltInImage } from "../built-in-images";
-import { getMicroBitContextDevice } from "../context";
+import { getMicroBitContextDevice, reportDeviceOperationEnding } from "../context";
 import { hasModifier, Modifier } from "../modifiers";
 import { Param } from "../parameters";
 import { MicroBitV2HostActions } from "../tile-ids";
@@ -129,8 +129,12 @@ function execDrawImage(ctx: ExecutionContext, args: ReadonlyList<Value>, handle:
   // Convert the seconds argument to whole ms at f32 precision, matching the device.
   const durationMs =
     durationSeconds === undefined ? DEFAULT_DURATION_MS : toNonNegativeInteger(Math.fround(durationSeconds * 1000));
-  microbit.display.drawImage(frames, durationMs, ctx.time, () => handle.resolve(VOID_VALUE));
-  if (hasModifier(args, kInBackgroundSlotId)) {
+  const inBackground = hasModifier(args, kInBackgroundSlotId);
+  microbit.display.drawImage(frames, durationMs, ctx.time, (end) => {
+    handle.resolve(VOID_VALUE);
+    reportDeviceOperationEnding(ctx, { handleId: handle.id, end, inBackground });
+  });
+  if (inBackground) {
     // The draw keeps its lease and resolves on tick time as above; resolving now
     // releases the issuing rule so it does not park on the hold.
     handle.resolve(VOID_VALUE);
