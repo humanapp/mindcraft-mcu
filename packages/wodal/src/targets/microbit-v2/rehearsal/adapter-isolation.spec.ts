@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { describe, test } from "node:test";
 import type { AuthoringWorkspace, ScenarioInput, SimulationRun } from "@mindcraft-lang/assistant-bridge";
 import { createAuthoringWorkspace, proposeEdit } from "@mindcraft-lang/assistant-bridge";
+import { FAKE_TARGET_IDENTITY, ruleIdAt } from "@mindcraft-lang/assistant-bridge/testing";
 import { mkActuatorTileId, mkParameterTileId, mkSensorTileId } from "@mindcraft-lang/core/app";
 import { CoreLiteralFactoryId, mkLiteralFactoryTileId } from "@mindcraft-lang/core/brain";
 import { MicroBitV2HostActions, WodalMicroBitV2ParameterId } from "../mindcraft/tile-ids";
@@ -22,23 +23,23 @@ const PERCEPT_SCHEDULE: readonly ScenarioInput[] = [
 /** Scenario every rehearsal in this file stages. */
 const SCENARIO = {
   seed: 20260808,
-  subject: createTargetAdapter().subjects()[0]!,
+  subject: createTargetAdapter(FAKE_TARGET_IDENTITY).subjects()[0]!,
   inputs: PERCEPT_SCHEDULE,
 };
 
 /** A workspace carrying one rule: while `button` is held, light the pixel at (`x`, `y`). */
 function authoredWorkspace(button: string, x: number, y: number): AuthoringWorkspace {
-  const workspace = createAuthoringWorkspace(createTargetAdapter(), "isolation brain");
+  const workspace = createAuthoringWorkspace(createTargetAdapter(FAKE_TARGET_IDENTITY), "isolation brain");
   const when = proposeEdit(workspace, {
     op: "placeTiles",
-    ruleId: "0/0",
+    ruleId: ruleIdAt(workspace.brainDef, "0/0"),
     side: "when",
     tileIds: [mkSensorTileId(button)],
   });
   assert.equal(when.ok, true, JSON.stringify(when));
   const doSide = proposeEdit(workspace, {
     op: "placeTiles",
-    ruleId: "0/0",
+    ruleId: ruleIdAt(workspace.brainDef, "0/0"),
     side: "do",
     tileIds: [
       mkActuatorTileId(MicroBitV2HostActions.DisplaySetPixel.key),
@@ -62,9 +63,29 @@ function watchingButtonB(): AuthoringWorkspace {
   return authoredWorkspace(MicroBitV2HostActions.ButtonB.key, 1, 4);
 }
 
-/** Hex SHA-256 of a whole run, byte for byte. */
+/**
+ * Hex SHA-256 of a whole run, with each rule id replaced by the order its rule
+ * was first observed in.
+ */
 function digestRun(run: SimulationRun): string {
-  return createHash("sha256").update(JSON.stringify(run)).digest("hex");
+  const ordinals = new Map<string, string>();
+  const ordinalOf = (ruleId: string): string => {
+    const seen = ordinals.get(ruleId);
+    if (seen !== undefined) return seen;
+    const ordinal = `rule-${ordinals.size}`;
+    ordinals.set(ruleId, ordinal);
+    return ordinal;
+  };
+  const observations = run.observations.map((think) => ({
+    ...think,
+    gates: think.gates.map((gate) => ({ ...gate, ruleId: ordinalOf(gate.ruleId) })),
+    dispatches: think.dispatches.map((dispatch) =>
+      dispatch.ruleId === undefined ? dispatch : { ...dispatch, ruleId: ordinalOf(dispatch.ruleId) }
+    ),
+  }));
+  return createHash("sha256")
+    .update(JSON.stringify({ ...run, observations }))
+    .digest("hex");
 }
 
 /** Rehearse `workspace` against {@link SCENARIO}. */

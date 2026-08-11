@@ -6,6 +6,6 @@
     "rootDir": ".",
     "types": ["node"]
   },
-  "include": ["src/targets/microbit-v2/rehearsal/build-defines.d.ts", "src/**/*.spec.ts"],
+  "include": ["src/**/*.spec.ts"],
   "exclude": ["node_modules", "dist"]
 }

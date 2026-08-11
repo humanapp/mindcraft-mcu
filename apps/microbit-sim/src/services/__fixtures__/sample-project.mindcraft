@@ -32,35 +32,37 @@
                 "version": 1,
                 "when": [],
                 "do": [],
-                "children": []
+                "children": [],
+                "ruleId": "u8yHC92S78jxQkEk"
               }
             ]
           }
         ]
       },
-      "u8yHC92S78jxQkEk": {
+      "K2ub6oZbxcviYzjL": {
         "version": 1,
-        "id": "u8yHC92S78jxQkEk",
+        "id": "K2ub6oZbxcviYzjL",
         "name": "Button",
         "catalog": [
           {
             "version": 2,
             "kind": "page",
-            "pageId": "K2ub6oZbxcviYzjL",
+            "pageId": "X5ab9XCyP7TEzj3U",
             "label": "Unnamed Page"
           }
         ],
         "pages": [
           {
             "version": 2,
-            "pageId": "K2ub6oZbxcviYzjL",
+            "pageId": "X5ab9XCyP7TEzj3U",
             "name": "Unnamed Page",
             "rules": [
               {
                 "version": 1,
                 "when": [],
                 "do": [],
-                "children": []
+                "children": [],
+                "ruleId": "NJHdAI6uWr46AAvb"
               }
             ]
           }
@@ -71,7 +73,7 @@
       "@mindcraft-lang/microbit-sim": {
         "brainOrder": [
           "owFRdwWIbNpAKZo8",
-          "u8yHC92S78jxQkEk"
+          "K2ub6oZbxcviYzjL"
         ],
         "simulator": {
           "order": [

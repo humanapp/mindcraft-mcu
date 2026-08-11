@@ -91,6 +91,7 @@
     "clean": "rm -rf dist tsconfig.tsbuildinfo tsconfig.prod.tsbuildinfo",
     "pregenerate:ambient": "npm run build:deps",
     "generate:ambient": "tsx --tsconfig scripts/tsconfig.json scripts/generate-ambient.ts",
+    "generate:tile-docs": "tsx --tsconfig scripts/tsconfig.json scripts/generate-tile-doc-content.ts",
     "lint:only": "biome lint ./src",
     "check:only": "biome check ./src",
     "format:only": "biome format ./src",

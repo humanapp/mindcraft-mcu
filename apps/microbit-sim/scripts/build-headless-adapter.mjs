@@ -2,11 +2,10 @@
 /**
  * Builds this target's headless adapter artifact: bundles the rehearsal adapter
  * its device-runtime dependency publishes into one self-contained,
- * plain-Node-importable ES module, stamped with the target identity this
- * target's own mindcraft.json declares and carrying the device's tile
- * documentation inside it. Exits nonzero when a package the bundle would carry
- * was built before its own sources were last edited, when the manifest declares
- * no identity, or when the bundle fails.
+ * plain-Node-importable ES module, published under the target identity this
+ * target's own mindcraft.json declares. Exits nonzero when a package the bundle
+ * would carry was built before its own sources were last edited, when the
+ * manifest declares no identity, or when the bundle fails.
  * Run through `npm run build:headless`.
  */
 import { mkdirSync, rmSync } from "node:fs";
@@ -15,9 +14,8 @@ import { fileURLToPath } from "node:url";
 import {
   assertDependencyDistsFresh,
   readTargetIdentity,
-  readTileDocContent,
   StaleDependencyError,
-} from "@mindcraft-lang/assistant-bridge/kit";
+} from "@mindcraft-lang/assistant-bridge/kit/node";
 import { build } from "esbuild";
 
 /** The device this app distributes, named as its device-runtime package subtree carries it. */
@@ -25,9 +23,6 @@ const DEVICE = "microbit-v2";
 
 /** Device-runtime entry publishing this device's rehearsal adapter factory. */
 const ADAPTER_ENTRY = `@mindcraft-lang/wodal/targets/${DEVICE}/rehearsal`;
-
-/** Device-runtime package this app resolves the adapter and its documentation from. */
-const DEVICE_PACKAGE = "@mindcraft-lang/wodal/package.json";
 
 const appDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -41,9 +36,12 @@ try {
 
 const targetIdentity = readTargetIdentity(appDir);
 
-const entryPath = fileURLToPath(import.meta.resolve(ADAPTER_ENTRY));
-const devicePackageDir = dirname(fileURLToPath(import.meta.resolve(DEVICE_PACKAGE)));
-const tileDocContent = readTileDocContent(join(devicePackageDir, "targets", DEVICE, "docs", "en", "tiles"));
+/** The module the artifact publishes: the device's adapter under this target's identity. */
+const artifactEntry = [
+  `import { createTargetAdapter as createDeviceAdapter } from ${JSON.stringify(ADAPTER_ENTRY)};`,
+  `export const createTargetAdapter = () => createDeviceAdapter(${JSON.stringify(targetIdentity)});`,
+  "",
+].join("\n");
 
 const artifactDir = join(appDir, "dist-headless");
 const artifactPath = join(artifactDir, "rehearsal", "adapter.js");
@@ -52,15 +50,11 @@ rmSync(artifactDir, { recursive: true, force: true });
 mkdirSync(dirname(artifactPath), { recursive: true });
 
 await build({
-  entryPoints: [entryPath],
+  stdin: { contents: artifactEntry, resolveDir: appDir, sourcefile: "adapter-entry.js", loader: "js" },
   outfile: artifactPath,
   bundle: true,
   platform: "node",
   format: "esm",
-  define: {
-    TARGET_IDENTITY: JSON.stringify(targetIdentity),
-    TILE_DOC_CONTENT: JSON.stringify(tileDocContent),
-  },
   logLevel: "warning",
 });
 
