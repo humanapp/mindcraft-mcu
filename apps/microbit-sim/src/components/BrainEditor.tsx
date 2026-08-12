@@ -44,15 +44,21 @@ export function BrainEditor({ brainId, onClose }: BrainEditorProps) {
   const [isAssistantOpen, setIsAssistantOpen] = useState(() => store.isAssistantPanelOpen(brainId));
   const isAssistantOpenRef = useRef(isAssistantOpen);
   isAssistantOpenRef.current = isAssistantOpen;
+  // How many times the person themselves opened the panel, scoped to the brain
+  // the editor stands. An open restored from what the store remembers raises
+  // nothing, so it takes no keyboard.
+  const [assistantOpensByPerson, setAssistantOpensByPerson] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     setIsAssistantOpen(store.isAssistantPanelOpen(brainId));
+    setAssistantOpensByPerson(undefined);
   }, [brainId, store]);
 
   const toggleAssistant = useCallback(() => {
     const next = !isAssistantOpenRef.current;
     setIsAssistantOpen(next);
     store.setAssistantPanelOpen(brainId, next);
+    if (next) setAssistantOpensByPerson((opens) => (opens ?? 0) + 1);
   }, [brainId, store]);
   const entityName = srcBrainDef?.name() ?? kUnopenedBrainName;
   const workspaces = store.assistant.workspaces;
@@ -70,7 +76,14 @@ export function BrainEditor({ brainId, onClose }: BrainEditorProps) {
         isOpen: isAssistantOpen,
         toggle: toggleAssistant,
         label: entityName,
-        content: <AssistantSidePanel isOpen={isAssistantOpen} fallbackName={entityName} workspaces={workspaces} />,
+        content: (
+          <AssistantSidePanel
+            isOpen={isAssistantOpen}
+            fallbackName={entityName}
+            workspaces={workspaces}
+            opensByPerson={assistantOpensByPerson}
+          />
+        ),
       },
       libraries: store.host.installedLibraries,
       printTransport: store.printTransport,
@@ -88,6 +101,7 @@ export function BrainEditor({ brainId, onClose }: BrainEditorProps) {
     reportEditorMode,
     isAssistantOpen,
     toggleAssistant,
+    assistantOpensByPerson,
     entityName,
     workspaces,
   ]);
