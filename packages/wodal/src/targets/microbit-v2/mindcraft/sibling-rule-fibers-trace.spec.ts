@@ -20,11 +20,12 @@
  */
 
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { type LinkedBrainProgramJson, linkedBrainProgramFromJson, Op } from "@mindcraft-lang/core/runtime";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
+import { shouldWriteGolden } from "../../../mindcraft/golden-regeneration";
 import { parseWodalProgramImageBytes, serializeWodalProgramImageBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Environment } from "./environment";
@@ -192,7 +193,7 @@ function tickBlocks(trace: string): string[][] {
 }
 
 test("the committed sibling-rule-fibers binary and observable trace golden are byte-stable", () => {
-  if (!existsSync(BIN_PATH)) {
+  if (shouldWriteGolden(BIN_PATH)) {
     writeFileSync(BIN_PATH, serializeBrainBytes());
   }
   const bin = new Uint8Array(readFileSync(BIN_PATH));
@@ -240,7 +241,7 @@ test("the committed sibling-rule-fibers binary and observable trace golden are b
   assert.equal(child1Pixels, child2Pixels);
   assert.ok(child1Pixels > 0);
 
-  if (!existsSync(TRACE_PATH)) {
+  if (shouldWriteGolden(TRACE_PATH)) {
     writeFileSync(TRACE_PATH, first);
   }
   assert.equal(readFileSync(TRACE_PATH, "utf8"), first, "sibling-rule-fibers.ticks.trace is not byte-stable");

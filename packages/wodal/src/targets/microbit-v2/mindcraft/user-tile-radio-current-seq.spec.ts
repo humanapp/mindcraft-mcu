@@ -22,6 +22,7 @@ import { TEST_PROJECT_NAMESPACE } from "@mindcraft-lang/ts-compiler/testing";
 import { type IncomingRadioPacket, RadioPacketType } from "../../../core/radio";
 import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
+import { shouldWriteGolden } from "../../../mindcraft/golden-regeneration";
 import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../../mindcraft/program-image";
 import { parseWodalProgramImageBytes, wodalProgramBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
@@ -197,7 +198,7 @@ function runTrace(bin: Uint8Array): string {
 test("the committed user-tile radio-current-seq binary and observable trace golden are byte-stable", () => {
   ensureJsonGolden();
   const generated = wodalProgramBytes(new Uint8Array(readFileSync(JSON_PATH)));
-  if (!existsSync(BIN_PATH)) {
+  if (shouldWriteGolden(BIN_PATH)) {
     writeFileSync(BIN_PATH, generated);
   }
   const bin = new Uint8Array(readFileSync(BIN_PATH));
@@ -213,7 +214,7 @@ test("the committed user-tile radio-current-seq binary and observable trace gold
   assert.equal(lines.filter((line) => line.startsWith(`port i2c write ${ECHO_ADDRESS.toString(16)} `)).length, 1);
   assert.equal(lines.filter((line) => line === `port i2c write ${ECHO_ADDRESS.toString(16)} 07`).length, 1);
 
-  if (!existsSync(TRACE_PATH)) {
+  if (shouldWriteGolden(TRACE_PATH)) {
     writeFileSync(TRACE_PATH, first);
   }
   assert.equal(readFileSync(TRACE_PATH, "utf8"), first, "user-tile-radio-current-seq.ticks.trace is not byte-stable");

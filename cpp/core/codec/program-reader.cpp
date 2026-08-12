@@ -634,15 +634,28 @@ DecodeStatus readVarsSection(ByteCursor& cursor, RegionArena& arena, uint32_t st
   MC_READ(count, cursor.readVarUint());
   MC_CHECK(checkCountFits(count, cursor));
   uint32_t* names = arena.allocate<uint32_t>(count);
-  if (names == nullptr) {
+  uint32_t* inits = arena.allocate<uint32_t>(count);
+  if (count > 0 && (names == nullptr || inits == nullptr)) {
     return DecodeStatus::fail(LoadError::ArenaExhausted);
   }
   for (uint32_t i = 0; i < count; i++) {
     MC_READ(nameIdx, cursor.readVarUint());
     MC_CHECK(checkStringIndex(nameIdx, stringTotal));
     names[i] = nameIdx;
+    // The starting value is a CVAL index biased by one; 0 marks a slot with none.
+    MC_READ(biasedInit, cursor.readVarUint());
+    if (biasedInit == 0) {
+      inits[i] = kNoVariableInit;
+    } else {
+      const uint32_t valueIdx = biasedInit - 1;
+      if (valueIdx >= image.constantPools.valueCount) {
+        return DecodeStatus::fail(LoadError::InvalidValueTag);
+      }
+      inits[i] = valueIdx;
+    }
   }
   image.variableNames = {names, count};
+  image.variableInitValues = {inits, count};
   return DecodeStatus::ok();
 }
 

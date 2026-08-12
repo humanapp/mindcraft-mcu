@@ -17,11 +17,12 @@
  */
 
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { type LinkedBrainProgramJson, linkedBrainProgramFromJson, Op } from "@mindcraft-lang/core/runtime";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
+import { shouldWriteGolden } from "../../../mindcraft/golden-regeneration";
 import { parseWodalProgramImageBytes, serializeWodalProgramImageBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Environment } from "./environment";
@@ -194,7 +195,7 @@ function runDynamicFieldTrace(bin: Uint8Array): string {
 }
 
 test("the committed dynamic-field-access binary and observable trace golden are byte-stable", () => {
-  if (!existsSync(BIN_PATH)) {
+  if (shouldWriteGolden(BIN_PATH)) {
     writeFileSync(BIN_PATH, serializeDynamicFieldBrainBytes());
   }
   const bin = new Uint8Array(readFileSync(BIN_PATH));
@@ -215,7 +216,7 @@ test("the committed dynamic-field-access binary and observable trace golden are 
   const firstAction = lines.find((line) => line.startsWith("action 401 "));
   assert.ok(firstAction !== undefined);
 
-  if (!existsSync(TRACE_PATH)) {
+  if (shouldWriteGolden(TRACE_PATH)) {
     writeFileSync(TRACE_PATH, first);
   }
   assert.equal(readFileSync(TRACE_PATH, "utf8"), first, "dynamic-field-access.ticks.trace is not byte-stable");

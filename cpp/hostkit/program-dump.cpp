@@ -414,6 +414,14 @@ bool writeCanonicalProgramDump(const ProgramImage& image, TextSink& sink) {
     if (!quoteStringTableEntry(w, image, image.variableNames[i])) {
       return false;
     }
+    w.text(" init ");
+    const uint32_t init =
+        i < image.variableInitValues.size() ? image.variableInitValues[i] : kNoVariableInit;
+    if (init == kNoVariableInit) {
+      w.ch('-');
+    } else {
+      w.hex(init);
+    }
     w.nl();
   }
 

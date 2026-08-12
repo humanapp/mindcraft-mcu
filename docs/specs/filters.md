@@ -256,6 +256,60 @@ locale, not grammatical negation; a locale for which the trailing marker would m
 position, the same seam that separates typed handles from rendered readings elsewhere.
 The per-locale readability pass is the final arbiter of both readings.
 
+## The assistant (client-side considerations)
+
+The assistant authors and inspects brains through the same client surfaces the person
+uses: the catalog the app serves, the editor's validation, and the rehearsal machinery.
+Filters join each of those surfaces as a first-class citizen; the binding rule for the
+category is that the assistant learns filters from **registration data and structured
+diagnostics**, never from per-filter prose maintained by hand on the service side.
+
+- **A first-class tile kind in the served catalog.** Filters carry their own tile kind,
+  and every client surface that switches over tile kinds treats it exhaustively: the
+  catalog digest renders filter tiles with their registration-sourced grammar (call
+  spec, sentence form) under their own category, the description extraction serves
+  their docs like any tile's, and each app's tile visuals map the kind deliberately. A
+  filter tile rendering through a default or fallback arm is a defect, not a
+  degradation.
+- **Grammar reaches the assistant from registration.** The position rules the compiler
+  enforces -- WHEN-side only, after a signal, chainable with significant order, own
+  modifiers and parameters -- travel to the assistant through the same registration
+  data that drives the picker. What the picker knows, the served catalog states; no
+  filter ships whose placement rules exist only as compiler behavior the assistant
+  must discover by refusal.
+- **Validation parity extends to the assistant's tools.** Enforcement's "the picker
+  agrees with the compiler" binds three surfaces, not two: the candidate strip, the
+  tile suggestions served to the assistant, and proposed edits are all judged by the
+  same oracle and the same compile-time validations, so they cannot disagree about
+  where a filter is legal. No filter-specific proposal operation exists: filters
+  place, replace, and delete through the ordinary tile edit operations, at any chain
+  position.
+- **Refusals teach.** Each category diagnostic -- filter outside the WHEN side, no
+  preceding signal (including the empty-WHEN child case), a required-WHEN-result
+  consumer under `invert`, an unresolvable filter tile -- is a stable structured code,
+  and a refused edit carries the code with the offending rule and tile identified. The
+  assistant repairs against the code; it never has to rediscover a category rule by
+  experiment.
+- **Descriptions carry the un-derivable facts.** A filter's name does not reveal its
+  semantics, so each built-in's documentation leads with the facts no reader can
+  derive: whether it acts on edges or levels, that its state is per call site, that
+  all filter state resets when the page (re-)activates, what the duration parameter
+  measures, and that chain order matters. The composition idioms (falling edge is
+  `invert` then `once`; until is `latch` then `invert`) are documented alongside the
+  built-ins rather than left to be re-derived per session.
+- **Rehearsal shows the filtered signal.** A rule fires on the final signal of the
+  chain, so a trace shows the post-filter firing pattern: a rule held quiet by
+  `cooldown`, or not yet satisfied by `sustained`, is indistinguishable in the trace
+  from one whose sensor stayed false. The documentation states this plainly --
+  silence can be the filter doing its job -- so the assistant diagnoses a quiet rule
+  against the chain's semantics instead of concluding the sensor is broken.
+- **Scenario staging exercises the category honestly.** Edge-triggered filters
+  (`once`, `toggle`, `latch`) are verified only by staged transitions -- a level that
+  changes mid-run -- not by a level held for the whole scenario; and any scenario
+  asserting a timing filter's behavior runs past the filter's duration, never staged
+  exactly on the boundary. A rehearsal window shorter than a `cooldown` or
+  `sustained` duration makes a working rule look dead.
+
 ## Relationship to per-sensor edge/level modifiers
 
 Filters subsume the per-sensor edge/level question: every sensor emits its one natural

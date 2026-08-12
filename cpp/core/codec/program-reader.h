@@ -11,7 +11,7 @@
 namespace mindcraft {
 
 /** Binary `.mcprogram` envelope/format version this reader decodes. */
-inline constexpr uint8_t kBinaryProgramFormatVersion = 3;
+inline constexpr uint8_t kBinaryProgramFormatVersion = 4;
 
 /** Options controlling {@link readProgramImage}. */
 struct ProgramReaderOptions {

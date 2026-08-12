@@ -32,6 +32,7 @@ import { BrainDef, type BrainRuleDef } from "@mindcraft-lang/core/brain/model";
 import { type LinkedBrainProgram, linkedBrainProgramToJson } from "@mindcraft-lang/core/runtime";
 import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
+import { shouldWriteGolden } from "../../../mindcraft/golden-regeneration";
 import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../../mindcraft/program-image";
 import { parseWodalProgramImageBytes, wodalProgramBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
@@ -169,7 +170,7 @@ function tickOfLine(trace: string, predicate: (line: string) => boolean): number
 test("the committed draw-image-background binary and observable trace golden are byte-stable", () => {
   ensureJsonGolden();
   const generated = wodalProgramBytes(new Uint8Array(readFileSync(JSON_PATH)));
-  if (!existsSync(BIN_PATH)) {
+  if (shouldWriteGolden(BIN_PATH)) {
     writeFileSync(BIN_PATH, generated);
   }
   const bin = new Uint8Array(readFileSync(BIN_PATH));
@@ -203,7 +204,7 @@ test("the committed draw-image-background binary and observable trace golden are
   const completionTick = Math.ceil((TICK_ADVANCE_MS + HOLD_SECONDS * 1000) / TICK_ADVANCE_MS);
   assert.ok(completionTick > pixelTick + 1, "the background draw holds the lease past the child's think");
 
-  if (!existsSync(TRACE_PATH)) {
+  if (shouldWriteGolden(TRACE_PATH)) {
     writeFileSync(TRACE_PATH, first);
   }
   assert.equal(readFileSync(TRACE_PATH, "utf8"), first, `${BASE}.ticks.trace is not byte-stable`);

@@ -24,6 +24,7 @@ import { BrainDef } from "@mindcraft-lang/core/brain/model";
 import { type LinkedBrainProgram, linkedBrainProgramToJson } from "@mindcraft-lang/core/runtime";
 import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
+import { shouldWriteGolden } from "../../../mindcraft/golden-regeneration";
 import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../../mindcraft/program-image";
 import { parseWodalProgramImageBytes, wodalProgramBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
@@ -221,7 +222,7 @@ for (const fixture of FIXTURES) {
 
     ensureJsonGolden(fixture, jsonPath);
     const generated = binFromCommittedJson(jsonPath);
-    if (!existsSync(binPath)) {
+    if (shouldWriteGolden(binPath)) {
       writeFileSync(binPath, generated);
     }
     const bin = new Uint8Array(readFileSync(binPath));
@@ -238,7 +239,7 @@ for (const fixture of FIXTURES) {
     assert.ok(lines.some((line) => line.startsWith("port display set-pixel ")));
     assert.equal(first.microbit.display.getPixelValue(0, 0), 255);
 
-    if (!existsSync(tracePath)) {
+    if (shouldWriteGolden(tracePath)) {
       writeFileSync(tracePath, first.trace);
     }
     assert.equal(readFileSync(tracePath, "utf8"), first.trace, `${fixture.name}.ticks.trace is not byte-stable`);

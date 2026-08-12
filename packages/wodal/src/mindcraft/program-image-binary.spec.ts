@@ -14,10 +14,9 @@
  */
 
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-
 import { stream } from "@mindcraft-lang/core";
 import {
   type BrainProgramValueJson,
@@ -30,6 +29,7 @@ import {
 } from "@mindcraft-lang/core/runtime";
 import { createMicroBitV2Environment } from "../targets/microbit-v2/mindcraft/environment";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "./device-profile";
+import { shouldWriteGolden } from "./golden-regeneration";
 import {
   parseWodalProgramImageBytes,
   serializeWodalProgramImageBytes,
@@ -147,7 +147,7 @@ for (const golden of GOLDENS) {
     const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
 
     const generated = Buffer.from(buildBinary(envelope));
-    if (!existsSync(binPath)) {
+    if (shouldWriteGolden(binPath)) {
       writeFileSync(binPath, generated);
     }
     const committed = readFileSync(binPath);
@@ -172,7 +172,7 @@ for (const golden of GOLDENS) {
       precision: profile.numberPrecision,
       typeRegistry,
     });
-    if (!existsSync(dumpPath)) {
+    if (shouldWriteGolden(dumpPath)) {
       writeFileSync(dumpPath, dumpText);
     }
     const committedDumpText = readFileSync(dumpPath, "utf8");

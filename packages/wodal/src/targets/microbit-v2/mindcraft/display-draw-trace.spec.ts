@@ -27,7 +27,7 @@
  */
 
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import {
@@ -51,6 +51,7 @@ import {
 } from "@mindcraft-lang/core/runtime";
 import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
+import { shouldWriteGolden } from "../../../mindcraft/golden-regeneration";
 import { parseWodalProgramImageBytes, serializeWodalProgramImageBytes } from "../../../mindcraft/program-image-binary";
 import { WODAL_SHARED_TYPE_IDS, WodalSharedTypeAtomId } from "../../../mindcraft/shared-type-ids";
 import { MicroBit } from "../microbit";
@@ -454,7 +455,7 @@ function runBytesFixture(
   // Build once and reuse: a build mints a fresh brain whose page id is drawn
   // from the environment RNG, so the same `built` bytes are the stability
   // reference for both the file write and the comparison below.
-  const built = existsSync(binPath) ? undefined : buildBytes();
+  const built = shouldWriteGolden(binPath) ? buildBytes() : undefined;
   if (built !== undefined) {
     writeFileSync(binPath, built);
   }
@@ -465,7 +466,7 @@ function runBytesFixture(
   const second = runDrawTrace(bin, tickCount, tickMs);
   assert.equal(second.trace, first.trace, "two fresh runs must render byte-identical traces");
 
-  if (!existsSync(tracePath)) {
+  if (shouldWriteGolden(tracePath)) {
     writeFileSync(tracePath, first.trace);
   }
   assert.equal(readFileSync(tracePath, "utf8"), first.trace, `${name}.ticks.trace is not byte-stable`);

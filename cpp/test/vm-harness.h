@@ -174,9 +174,14 @@ public:
     return *this;
   }
 
-  /** Appends a brain variable slot named by string-table entry `nameStringIdx`. */
-  ProgramBuilder& brainVariable(uint32_t nameStringIdx) {
-    variables_.push_back(nameStringIdx);
+  /**
+   * Appends a brain variable slot named by string-table entry `nameStringIdx`.
+   * `initValueIdx` is the slot's starting value as a value-pool index, or
+   * {@link mindcraft::kNoVariableInit} for a slot that starts holding no value.
+   */
+  ProgramBuilder& brainVariable(uint32_t nameStringIdx,
+                                uint32_t initValueIdx = mindcraft::kNoVariableInit) {
+    variables_.push_back({nameStringIdx, initValueIdx});
     return *this;
   }
 
@@ -227,8 +232,9 @@ public:
       w.raw(fn.body.span());
     }
     w.varUint(static_cast<uint32_t>(variables_.size()));
-    for (const uint32_t nameIdx : variables_) {
-      w.varUint(nameIdx);
+    for (const VariableSlot& slot : variables_) {
+      varsSlot(w, slot.nameStringIdx,
+               slot.initValueIdx == mindcraft::kNoVariableInit ? 0 : slot.initValueIdx + 1);
     }
     if (!ruleFuncs_.empty()) {
       w.varUint(static_cast<uint32_t>(ruleFuncs_.size()));
@@ -279,8 +285,14 @@ private:
   WireBuilder numbers_;
   uint32_t valueCount_ = 0;
   WireBuilder values_;
+  /** One brain variable slot: its name's string index and its starting value's pool index. */
+  struct VariableSlot {
+    uint32_t nameStringIdx;
+    uint32_t initValueIdx;
+  };
+
   std::vector<FunctionSpec> functions_;
-  std::vector<uint32_t> variables_;
+  std::vector<VariableSlot> variables_;
   std::vector<uint32_t> ruleFuncs_;
   std::vector<PageSpec> pages_;
 };

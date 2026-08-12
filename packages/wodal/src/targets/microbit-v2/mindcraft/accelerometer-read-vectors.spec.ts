@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
-
 import { Accelerometer, AccelerometerGesture } from "../../../core/accelerometer";
+import { shouldWriteGolden } from "../../../mindcraft/golden-regeneration";
 
 // -- Accelerometer port read-back parity fixture for the C++ gate -------------
 //
@@ -155,7 +155,7 @@ function buildFixture(): Buffer {
 describe("accelerometer port read-back parity vectors", () => {
   test("emit a stable golden read-back table for the C++ gate", () => {
     const fixture = buildFixture();
-    if (!existsSync(FIXTURE)) {
+    if (shouldWriteGolden(FIXTURE)) {
       writeFileSync(FIXTURE, fixture);
     }
     const committed = readFileSync(FIXTURE);

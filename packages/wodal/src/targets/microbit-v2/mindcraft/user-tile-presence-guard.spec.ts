@@ -32,6 +32,7 @@ import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@m
 import { TEST_PROJECT_NAMESPACE } from "@mindcraft-lang/ts-compiler/testing";
 import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
+import { shouldWriteGolden } from "../../../mindcraft/golden-regeneration";
 import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../../mindcraft/program-image";
 import { parseWodalProgramImageBytes, wodalProgramBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
@@ -218,7 +219,7 @@ function runTrace(bin: Uint8Array): { trace: string; sentValues: number[] } {
 test("the committed presence-guard binary and observable trace golden are byte-stable", () => {
   ensureJsonGolden();
   const generated = wodalProgramBytes(new Uint8Array(readFileSync(JSON_PATH)));
-  if (!existsSync(BIN_PATH)) {
+  if (shouldWriteGolden(BIN_PATH)) {
     writeFileSync(BIN_PATH, generated);
   }
   const bin = new Uint8Array(readFileSync(BIN_PATH));
@@ -237,7 +238,7 @@ test("the committed presence-guard binary and observable trace golden are byte-s
   assert.equal(lines.filter((line) => line.startsWith("port radio send ")).length, SCHEDULE.length);
   assert.deepEqual(first.sentValues, [DECODED_VALUE, DECODED_VALUE]);
 
-  if (!existsSync(TRACE_PATH)) {
+  if (shouldWriteGolden(TRACE_PATH)) {
     writeFileSync(TRACE_PATH, first.trace);
   }
   assert.equal(

@@ -38,6 +38,7 @@ import { type LinkedBrainProgram, linkedBrainProgramToJson } from "@mindcraft-la
 import { type IncomingRadioPacket, RadioPacketType, radioNumberIsInteger } from "../../../core/radio";
 import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
+import { shouldWriteGolden } from "../../../mindcraft/golden-regeneration";
 import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../../mindcraft/program-image";
 import { parseWodalProgramImageBytes, wodalProgramBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
@@ -502,7 +503,7 @@ for (const fixture of FIXTURES) {
 
     ensureJsonGolden(jsonPath, (env) => buildBrainDef(env, fixture.name, fixture.pages));
     const generated = wodalProgramBytes(new Uint8Array(readFileSync(jsonPath)));
-    if (!existsSync(binPath)) {
+    if (shouldWriteGolden(binPath)) {
       writeFileSync(binPath, generated);
     }
     const bin = new Uint8Array(readFileSync(binPath));
@@ -518,7 +519,7 @@ for (const fixture of FIXTURES) {
 
     assert.deepEqual(pixelsPerTick(first, fixture.schedule.length), expectedPixelsAsHex(fixture));
 
-    if (!existsSync(tracePath)) {
+    if (shouldWriteGolden(tracePath)) {
       writeFileSync(tracePath, first);
     }
     assert.equal(readFileSync(tracePath, "utf8"), first, `${fixture.name}.ticks.trace is not byte-stable`);
@@ -567,7 +568,7 @@ test(`the committed ${PARKED_BASE} binary and observable trace golden are byte-s
 
   ensureJsonGolden(jsonPath, buildParkedSubjectBrain);
   const generated = wodalProgramBytes(new Uint8Array(readFileSync(jsonPath)));
-  if (!existsSync(binPath)) {
+  if (shouldWriteGolden(binPath)) {
     writeFileSync(binPath, generated);
   }
   const bin = new Uint8Array(readFileSync(binPath));
@@ -619,7 +620,7 @@ test(`the committed ${PARKED_BASE} binary and observable trace golden are byte-s
   const marks = pixelsPerTick(first, tickCount).map((tick) => tick.length);
   assert.deepEqual(marks, [1, 0, 0, 0, 0, 0, 0, 1, 1, 1]);
 
-  if (!existsSync(tracePath)) {
+  if (shouldWriteGolden(tracePath)) {
     writeFileSync(tracePath, first);
   }
   assert.equal(readFileSync(tracePath, "utf8"), first, `${PARKED_BASE}.ticks.trace is not byte-stable`);

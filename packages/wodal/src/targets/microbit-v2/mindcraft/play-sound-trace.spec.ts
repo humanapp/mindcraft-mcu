@@ -41,6 +41,7 @@ import { BrainDef, type BrainPageDef, type BrainRuleDef } from "@mindcraft-lang/
 import { type LinkedBrainProgram, linkedBrainProgramToJson } from "@mindcraft-lang/core/runtime";
 import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
+import { shouldWriteGolden } from "../../../mindcraft/golden-regeneration";
 import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../../mindcraft/program-image";
 import { parseWodalProgramImageBytes, wodalProgramBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
@@ -264,7 +265,7 @@ function runPlaySoundFixture(base: string, rules: readonly PlayRuleSpec[], tickC
     );
   }
   const generated = wodalProgramBytes(new Uint8Array(readFileSync(jsonPath)));
-  if (!existsSync(binPath)) {
+  if (shouldWriteGolden(binPath)) {
     writeFileSync(binPath, generated);
   }
   const bin = new Uint8Array(readFileSync(binPath));
@@ -278,7 +279,7 @@ function runPlaySoundFixture(base: string, rules: readonly PlayRuleSpec[], tickC
   assert.equal(lines.filter((line) => line.startsWith("tick ")).length, tickCount);
   assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
 
-  if (!existsSync(tracePath)) {
+  if (shouldWriteGolden(tracePath)) {
     writeFileSync(tracePath, first);
   }
   assert.equal(readFileSync(tracePath, "utf8"), first, `${base}.ticks.trace is not byte-stable`);

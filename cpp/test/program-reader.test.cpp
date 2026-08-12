@@ -384,7 +384,7 @@ TEST_CASE("format versions other than 3 fail UnsupportedFormatVersion") {
 TEST_CASE("a var-int needing more than 32 bits fails VarIntOverflow") {
   // Six continuation-flagged bytes in the profileId position.
   WireBuilder sixBytes;
-  sixBytes.u8(0x89).u8('M').u8('B').u8('P').u8(3);
+  sixBytes.u8(0x89).u8('M').u8('B').u8('P').u8(mindcraft::kBinaryProgramFormatVersion);
   for (int i = 0; i < 5; i++) {
     sixBytes.u8(0x80);
   }
@@ -393,7 +393,7 @@ TEST_CASE("a var-int needing more than 32 bits fails VarIntOverflow") {
 
   // Five bytes whose 5th carries payload above bit 31.
   WireBuilder highBits;
-  highBits.u8(0x89).u8('M').u8('B').u8('P').u8(3);
+  highBits.u8(0x89).u8('M').u8('B').u8('P').u8(mindcraft::kBinaryProgramFormatVersion);
   highBits.u8(0xff).u8(0xff).u8(0xff).u8(0xff).u8(0x1f);
   CHECK(decodeError(highBits) == LoadError::VarIntOverflow);
 }

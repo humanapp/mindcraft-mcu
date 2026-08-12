@@ -223,51 +223,6 @@ uint32_t addRel(uint32_t pc, uint32_t relBits) {
 }
 
 /**
- * Convert a decoded constant-pool entry to a runtime value. Returns false for
- * the `List`, `Map`, and `Struct` constant kinds and for a `Function` constant
- * carrying captures; the caller faults on a false result.
- */
-bool constValueToRuntime(const ConstValue& constant, Value& out) {
-  switch (constant.kind) {
-  case ConstValueKind::Unknown:
-    out = kUnknownValue;
-    return true;
-  case ConstValueKind::Void:
-    out = kVoidValue;
-    return true;
-  case ConstValueKind::Nil:
-    out = kNilValue;
-    return true;
-  case ConstValueKind::Boolean:
-    out = Value::boolean(constant.boolean.value);
-    return true;
-  case ConstValueKind::Number:
-    out = Value::number(constant.number.value);
-    return true;
-  case ConstValueKind::String:
-    out = Value::borrowedString(constant.string.stringIdx);
-    return true;
-  case ConstValueKind::Buffer:
-    out = Value::borrowedBuffer(constant.buffer.byteOffset, constant.buffer.byteCount);
-    return true;
-  case ConstValueKind::Enum:
-    out = Value::enumSymbol(constant.enumVal.typeIdx, constant.enumVal.ordinal);
-    return true;
-  case ConstValueKind::Function:
-    if (constant.function.hasCaptures) {
-      return false;
-    }
-    out = Value::function(constant.function.funcId);
-    return true;
-  case ConstValueKind::List:
-  case ConstValueKind::Map:
-  case ConstValueKind::Struct:
-    return false;
-  }
-  return false;
-}
-
-/**
  * Commits a call frame for `calleeId`. The callee's args are the topmost `argc`
  * operands (arg0 deepest); they are moved into the callee's locals 0..argc-1 and
  * the operand stack is truncated, dropping the args plus `extraDrop` slots below
@@ -611,6 +566,46 @@ Status dispatchGetWhenResult(const RuntimeSurface& surface, const ProgramImage& 
 }
 
 } // namespace
+
+bool constValueToRuntime(const ConstValue& constant, Value& out) {
+  switch (constant.kind) {
+  case ConstValueKind::Unknown:
+    out = kUnknownValue;
+    return true;
+  case ConstValueKind::Void:
+    out = kVoidValue;
+    return true;
+  case ConstValueKind::Nil:
+    out = kNilValue;
+    return true;
+  case ConstValueKind::Boolean:
+    out = Value::boolean(constant.boolean.value);
+    return true;
+  case ConstValueKind::Number:
+    out = Value::number(constant.number.value);
+    return true;
+  case ConstValueKind::String:
+    out = Value::borrowedString(constant.string.stringIdx);
+    return true;
+  case ConstValueKind::Buffer:
+    out = Value::borrowedBuffer(constant.buffer.byteOffset, constant.buffer.byteCount);
+    return true;
+  case ConstValueKind::Enum:
+    out = Value::enumSymbol(constant.enumVal.typeIdx, constant.enumVal.ordinal);
+    return true;
+  case ConstValueKind::Function:
+    if (constant.function.hasCaptures) {
+      return false;
+    }
+    out = Value::function(constant.function.funcId);
+    return true;
+  case ConstValueKind::List:
+  case ConstValueKind::Map:
+  case ConstValueKind::Struct:
+    return false;
+  }
+  return false;
+}
 
 bool setRuleVariable(ExecutionContext& ctx, ManagedHeap& heap, GcRoots* roots, const Value& name,
                      const Value& value) {

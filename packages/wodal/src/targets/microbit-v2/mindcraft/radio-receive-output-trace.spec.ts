@@ -38,6 +38,7 @@ import {
 } from "../../../core/radio";
 import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
+import { shouldWriteGolden } from "../../../mindcraft/golden-regeneration";
 import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../../mindcraft/program-image";
 import { parseWodalProgramImageBytes, wodalProgramBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
@@ -289,7 +290,7 @@ for (const fixture of FIXTURES) {
 
     ensureJsonGolden(fixture, jsonPath);
     const generated = binFromCommittedJson(jsonPath);
-    if (!existsSync(binPath)) {
+    if (shouldWriteGolden(binPath)) {
       writeFileSync(binPath, generated);
     }
     const bin = new Uint8Array(readFileSync(binPath));
@@ -311,7 +312,7 @@ for (const fixture of FIXTURES) {
     fixture.expectSend(first.sends[0]!);
     fixture.expectSend(second.sends[0]!);
 
-    if (!existsSync(tracePath)) {
+    if (shouldWriteGolden(tracePath)) {
       writeFileSync(tracePath, first.trace);
     }
     assert.equal(readFileSync(tracePath, "utf8"), first.trace, `${fixture.name}.ticks.trace is not byte-stable`);

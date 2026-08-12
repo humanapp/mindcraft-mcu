@@ -33,6 +33,7 @@ import {
 } from "../../../core/radio";
 import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
+import { shouldWriteGolden } from "../../../mindcraft/golden-regeneration";
 import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../../mindcraft/program-image";
 import { parseWodalProgramImageBytes, wodalProgramBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
@@ -185,7 +186,7 @@ test("the committed two-provider radio-output binary and observable trace golden
 
   ensureJsonGolden(jsonPath);
   const generated = wodalProgramBytes(new Uint8Array(readFileSync(jsonPath)));
-  if (!existsSync(binPath)) {
+  if (shouldWriteGolden(binPath)) {
     writeFileSync(binPath, generated);
   }
   const bin = new Uint8Array(readFileSync(binPath));
@@ -211,7 +212,7 @@ test("the committed two-provider radio-output binary and observable trace golden
   assert.equal(numberSend.value, NUMBER_VALUE);
   assert.equal(stringSend.text, STRING_VALUE);
 
-  if (!existsSync(tracePath)) {
+  if (shouldWriteGolden(tracePath)) {
     writeFileSync(tracePath, first.trace);
   }
   assert.equal(readFileSync(tracePath, "utf8"), first.trace, `${NAME}.ticks.trace is not byte-stable`);

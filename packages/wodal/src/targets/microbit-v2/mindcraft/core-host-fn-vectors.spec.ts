@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
-
 import { List } from "@mindcraft-lang/core";
 import {
   CoreFuncId,
@@ -18,6 +17,7 @@ import {
   type Value,
   ValueDict,
 } from "@mindcraft-lang/core/runtime";
+import { shouldWriteGolden } from "../../../mindcraft/golden-regeneration";
 import { createMicroBitV2Environment } from "./environment";
 
 // -- Golden value-vector emitter for the C++ HOST_CALL parity gate ----------
@@ -408,7 +408,7 @@ const fixture = Buffer.from([...header.bytes, ...writer.bytes]);
 
 describe("core host-function parity vectors", () => {
   test("emit a stable golden input->output table for the C++ gate", () => {
-    if (!existsSync(FIXTURE)) {
+    if (shouldWriteGolden(FIXTURE)) {
       writeFileSync(FIXTURE, fixture);
     }
     const committed = readFileSync(FIXTURE);

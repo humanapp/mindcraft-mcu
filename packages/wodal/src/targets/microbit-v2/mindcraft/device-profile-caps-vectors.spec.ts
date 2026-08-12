@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
-
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
+import { shouldWriteGolden } from "../../../mindcraft/golden-regeneration";
 
 // -- Scheduler/resource cap parity fixture for the C++ gate -------------------
 //
@@ -69,7 +69,7 @@ const fixture = Buffer.from(writer.bytes);
 
 describe("device profile cap parity vectors", () => {
   test("emit a stable golden cap table for the C++ gate", () => {
-    if (!existsSync(FIXTURE)) {
+    if (shouldWriteGolden(FIXTURE)) {
       writeFileSync(FIXTURE, fixture);
     }
     const committed = readFileSync(FIXTURE);

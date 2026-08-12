@@ -135,16 +135,21 @@ struct ExecutionContext {
 
   /**
    * Allocates the slot tables from `arena`: `variableCount` brain-variable
-   * slots (initialized to nil), `callSiteCount` per-callsite host-state slots
-   * (initially absent), the `callSiteCount` by `callSiteSlotStride` bytecode
-   * callsite-var pad (initialized to nil) plus its allocation flags,
-   * `systemCount` brain-global System store slots (initialized to nil), and
-   * `ruleFiringCount` per-rule firing records (initialized to
-   * {@link RuleFiringState::DidFire}). Returns false when the arena cannot back
-   * them, leaving the tables empty.
+   * slots, `callSiteCount` per-callsite host-state slots (initially absent),
+   * the `callSiteCount` by `callSiteSlotStride` bytecode callsite-var pad
+   * (initialized to nil) plus its allocation flags, `systemCount` brain-global
+   * System store slots (initialized to nil), and `ruleFiringCount` per-rule
+   * firing records (initialized to {@link RuleFiringState::DidFire}). Returns
+   * false when the arena cannot back them, leaving the tables empty.
+   *
+   * Each variable slot is seeded from the matching `variableInitValues` entry,
+   * an index into `constValues` or {@link kNoVariableInit}. A slot with no
+   * entry, or whose entry is the sentinel, is initialized to nil.
    */
   bool bindSlots(RegionArena& arena, uint32_t variableCount, uint32_t callSiteCount,
-                 uint32_t slotStride = 0, uint32_t systemCount = 0, uint32_t ruleFiringCount = 0) {
+                 uint32_t slotStride = 0, uint32_t systemCount = 0, uint32_t ruleFiringCount = 0,
+                 Span<const uint32_t> variableInitValues = {},
+                 Span<const ConstValue> constValues = {}) {
     Value* vars = arena.allocate<Value>(variableCount);
     Value* states = arena.allocate<Value>(callSiteCount);
     bool* present = arena.allocate<bool>(callSiteCount);
@@ -161,6 +166,17 @@ struct ExecutionContext {
     }
     for (uint32_t i = 0; i < variableCount; i++) {
       vars[i] = kNilValue;
+      if (i >= variableInitValues.size()) {
+        continue;
+      }
+      const uint32_t initIdx = variableInitValues[i];
+      if (initIdx == kNoVariableInit || initIdx >= constValues.size()) {
+        continue;
+      }
+      Value seeded = kNilValue;
+      if (constValueToRuntime(constValues[initIdx], seeded)) {
+        vars[i] = seeded;
+      }
     }
     for (uint32_t i = 0; i < slotTotal; i++) {
       slots[i] = kNilValue;

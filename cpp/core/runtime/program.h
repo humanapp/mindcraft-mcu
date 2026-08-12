@@ -5,6 +5,7 @@
 
 #include "core/platform/span.h"
 #include "core/runtime/bytecode.h"
+#include "core/runtime/value.h"
 
 namespace mindcraft {
 
@@ -16,6 +17,9 @@ inline constexpr uint32_t kNoFuncId = 0xffffffffu;
  * Reserved: a program type table never reaches this index.
  */
 inline constexpr uint32_t kNoTypeIdx = 0xffffffffu;
+
+/** Sentinel {@link ProgramImage::variableInitValues} entry for a slot with no starting value. */
+inline constexpr uint32_t kNoVariableInit = 0xffffffffu;
 
 /**
  * Single decoded VM instruction: opcode plus up to three operands. Operand
@@ -472,6 +476,13 @@ struct ProgramImage {
   /** Brain variable names as string-table indices; slot index is the position. */
   Span<const uint32_t> variableNames;
 
+  /**
+   * Per-slot starting value as an index into {@link constValues}, or
+   * {@link kNoVariableInit} for a slot that starts holding no value. Parallel
+   * to {@link variableNames}.
+   */
+  Span<const uint32_t> variableInitValues;
+
   /** True when the program carries an actions table (which may be empty). */
   bool hasActions;
   /** Bytecode action bindings keyed by program-local action slot. */
@@ -522,5 +533,12 @@ static_assert(std::is_trivially_copyable_v<PageMetadata>,
               "image structures stay trivially copyable");
 static_assert(std::is_trivially_copyable_v<ProgramImage>,
               "image structures stay trivially copyable");
+
+/**
+ * Convert a decoded constant-pool entry to a runtime value, writing it to
+ * `out`. Returns false, leaving `out` unspecified, for the `List`, `Map`, and
+ * `Struct` constant kinds and for a `Function` constant carrying captures.
+ */
+bool constValueToRuntime(const ConstValue& constant, Value& out);
 
 } // namespace mindcraft

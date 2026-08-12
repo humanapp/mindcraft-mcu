@@ -46,6 +46,7 @@ import {
 } from "@mindcraft-lang/core/runtime";
 import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
+import { shouldWriteGolden } from "../../../mindcraft/golden-regeneration";
 import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../../mindcraft/program-image";
 import {
   parseWodalProgramImageBytes,
@@ -317,7 +318,7 @@ function ensureJsonGolden(jsonPath: string, build: (env: MindcraftEnvironment) =
 /** Derives the byte-stable binary from a frozen JSON golden, pinning the `.bin` on first run. */
 function pinnedBinary(jsonPath: string, binPath: string): Uint8Array {
   const generated = wodalProgramBytes(new Uint8Array(readFileSync(jsonPath)));
-  if (!existsSync(binPath)) {
+  if (shouldWriteGolden(binPath)) {
     writeFileSync(binPath, generated);
   }
   const bin = new Uint8Array(readFileSync(binPath));
@@ -401,7 +402,7 @@ test("the committed timer-brain binary and observable trace golden are byte-stab
   assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
   assert.equal(first.microbit.display.getPixelValue(0, 0), 255);
 
-  if (!existsSync(TIMER_TRACE_PATH)) {
+  if (shouldWriteGolden(TIMER_TRACE_PATH)) {
     writeFileSync(TIMER_TRACE_PATH, first.trace);
   }
   assert.equal(readFileSync(TIMER_TRACE_PATH, "utf8"), first.trace, "timer-brain.ticks.trace is not byte-stable");
@@ -430,7 +431,7 @@ test("a timeout on a page entered via switch re-arms and fires (pages bounce)", 
   );
   assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
 
-  if (!existsSync(TIMEOUT_BOUNCE_TRACE_PATH)) {
+  if (shouldWriteGolden(TIMEOUT_BOUNCE_TRACE_PATH)) {
     writeFileSync(TIMEOUT_BOUNCE_TRACE_PATH, first.trace);
   }
   assert.equal(
@@ -441,7 +442,7 @@ test("a timeout on a page entered via switch re-arms and fires (pages bounce)", 
 });
 
 test("the committed core-host-actions coverage probe binary and observable trace are byte-stable", () => {
-  if (!existsSync(COVERAGE_BIN_PATH)) {
+  if (shouldWriteGolden(COVERAGE_BIN_PATH)) {
     writeFileSync(COVERAGE_BIN_PATH, serializeBrainBytes(buildCoverageBrainJson()));
   }
   const bin = new Uint8Array(readFileSync(COVERAGE_BIN_PATH));
@@ -472,7 +473,7 @@ test("the committed core-host-actions coverage probe binary and observable trace
   );
   assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
 
-  if (!existsSync(COVERAGE_TRACE_PATH)) {
+  if (shouldWriteGolden(COVERAGE_TRACE_PATH)) {
     writeFileSync(COVERAGE_TRACE_PATH, first.trace);
   }
   assert.equal(
@@ -483,7 +484,7 @@ test("the committed core-host-actions coverage probe binary and observable trace
 });
 
 test("the committed restart-interrupt binary and observable trace golden are byte-stable", () => {
-  if (!existsSync(RESTART_INTERRUPT_BIN_PATH)) {
+  if (shouldWriteGolden(RESTART_INTERRUPT_BIN_PATH)) {
     writeFileSync(RESTART_INTERRUPT_BIN_PATH, serializeBrainBytes(buildRestartInterruptBrainJson()));
   }
   const bin = new Uint8Array(readFileSync(RESTART_INTERRUPT_BIN_PATH));
@@ -508,7 +509,7 @@ test("the committed restart-interrupt binary and observable trace golden are byt
   assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
   assert.equal(first.microbit.display.getPixelValue(0, 0), 0);
 
-  if (!existsSync(RESTART_INTERRUPT_TRACE_PATH)) {
+  if (shouldWriteGolden(RESTART_INTERRUPT_TRACE_PATH)) {
     writeFileSync(RESTART_INTERRUPT_TRACE_PATH, first.trace);
   }
   assert.equal(

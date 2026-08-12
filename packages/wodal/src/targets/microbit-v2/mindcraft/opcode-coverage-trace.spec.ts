@@ -16,7 +16,7 @@
  */
 
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import type { MindcraftEnvironment } from "@mindcraft-lang/core/app";
@@ -28,6 +28,7 @@ import {
   type PlatformServices,
 } from "@mindcraft-lang/core/runtime";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
+import { shouldWriteGolden } from "../../../mindcraft/golden-regeneration";
 import { parseWodalProgramImageBytes, serializeWodalProgramImageBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Environment } from "./environment";
@@ -214,7 +215,7 @@ function runTrace(bin: Uint8Array): { trace: string; microbit: MicroBit } {
 }
 
 test("the committed opcode-coverage binary and observable trace golden are byte-stable", () => {
-  if (!existsSync(BIN_PATH)) {
+  if (shouldWriteGolden(BIN_PATH)) {
     writeFileSync(BIN_PATH, serializeBrainBytes(buildOpcodeCoverageBrainJson()));
   }
   const bin = new Uint8Array(readFileSync(BIN_PATH));
@@ -234,7 +235,7 @@ test("the committed opcode-coverage binary and observable trace golden are byte-
   // The mutations leave list = [1], so the rule lights pixel (1, 1).
   assert.equal(first.microbit.display.getPixelValue(1, 1), 255);
 
-  if (!existsSync(TRACE_PATH)) {
+  if (shouldWriteGolden(TRACE_PATH)) {
     writeFileSync(TRACE_PATH, first.trace);
   }
   assert.equal(readFileSync(TRACE_PATH, "utf8"), first.trace, "opcode-coverage.ticks.trace is not byte-stable");

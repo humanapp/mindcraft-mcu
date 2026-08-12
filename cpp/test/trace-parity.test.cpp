@@ -3419,6 +3419,72 @@ TEST_CASE("the user-tile struct fixture byte-matches the golden observable trace
   }
 }
 
+TEST_CASE("the variable-zero-init fixture byte-matches the golden observable trace") {
+  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/variable-zero-init";
+  const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
+  const std::string golden = readTextFile(base + ".ticks.trace");
+
+  std::vector<uint8_t> arenaStorage(64 * 1024);
+  RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
+  constexpr ProgramReaderOptions options{kMicroBitV2TypeAtomIdCount, kSharedTypeAtomIdCount};
+  const Result<ProgramImage, LoadError> decoded =
+      readProgramImage(ByteSpan(wire.data(), wire.size()), arena, options);
+  REQUIRE(decoded.isOk());
+  const ProgramImage& image = decoded.value();
+
+  // The slot's starting value travels in the program image.
+  REQUIRE(image.variableNames.size() == 1);
+  REQUIRE(image.variableInitValues.size() == 1);
+  CHECK(image.variableInitValues[0] != mindcraft::kNoVariableInit);
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  HostMicroBit microbit;
+  microbit.display.writer = &writer;
+  TraceTap tap(writer);
+
+  mindcraft::ManagedHeap heap(arena, &image);
+  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  ExecutionContext ctx;
+  mindcraft::TypeRegistry types(image);
+  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
+  RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
+  surface.types = &types;
+  surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
+
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+
+  HostLoop hostLoop(brain, microbit.ports);
+  REQUIRE(hostLoop.startup().isOk());
+
+  // Startup binds the slot tables. The unwritten count holds its starting value
+  // of 0 before the first think, so the WHEN comparison holds from tick 1.
+  REQUIRE(ctx.variables.size() == 1);
+  CHECK(ctx.variables[0].tag() == mindcraft::ValueTag::Number);
+  CHECK(ctx.variables[0].asNumber() == 0.0f);
+
+  // Six 16ms thinks mirror the schedule in wodal
+  // packages/wodal/src/targets/microbit-v2/mindcraft/variable-zero-init-trace.spec.ts.
+  float lastThinkTimeMs = 0;
+  for (int i = 0; i < 6; i++) {
+    const float timeMs = lastThinkTimeMs + 16;
+    microbit.clock.now = static_cast<uint32_t>(timeMs);
+    writer.tick(static_cast<uint32_t>(i + 1), timeMs,
+                lastThinkTimeMs == 0 ? 0 : timeMs - lastThinkTimeMs);
+    hostLoop.tick();
+    REQUIRE_FALSE(hostLoop.faulted());
+    lastThinkTimeMs = timeMs;
+  }
+
+  CHECK(tap.renderable);
+  CHECK(sink.text() == golden);
+  // The rule ran three times and stopped: count counted 0, 1, 2 and reached 3.
+  CHECK(ctx.variables[0].asNumber() == 3.0f);
+}
+
 TEST_CASE("the assignment-conversion fixture byte-matches the golden observable trace") {
   const std::string base =
       std::string(mindcraft::test::kWodalFixturesDir) + "/assignment-conversion";

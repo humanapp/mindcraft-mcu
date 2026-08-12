@@ -17,7 +17,7 @@
  */
 
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import type { MindcraftEnvironment } from "@mindcraft-lang/core/app";
@@ -31,6 +31,7 @@ import {
   type PlatformServices,
 } from "@mindcraft-lang/core/runtime";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
+import { shouldWriteGolden } from "../../../mindcraft/golden-regeneration";
 import { parseWodalProgramImageBytes, serializeWodalProgramImageBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
 import { scrollCompletionTimeMs } from "./display-scroll";
@@ -187,7 +188,7 @@ function runScrollTrace(bin: Uint8Array, tickCount: number): { trace: string; mi
 }
 
 test("the committed display-scroll binary and observable trace golden are byte-stable", () => {
-  if (!existsSync(BIN_PATH)) {
+  if (shouldWriteGolden(BIN_PATH)) {
     writeFileSync(BIN_PATH, serializeBrainBytes(buildScrollBrainJson()));
   }
   const bin = new Uint8Array(readFileSync(BIN_PATH));
@@ -218,7 +219,7 @@ test("the committed display-scroll binary and observable trace golden are byte-s
   assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
   assert.equal(first.microbit.display.getPixelValue(0, 0), 255);
 
-  if (!existsSync(TRACE_PATH)) {
+  if (shouldWriteGolden(TRACE_PATH)) {
     writeFileSync(TRACE_PATH, first.trace);
   }
   assert.equal(readFileSync(TRACE_PATH, "utf8"), first.trace, "display-scroll.ticks.trace is not byte-stable");
@@ -278,7 +279,7 @@ function buildManagedScrollBrainJson(): LinkedBrainProgramJson {
 }
 
 test("the committed managed-string-scroll binary and observable trace golden are byte-stable", () => {
-  if (!existsSync(MANAGED_BIN_PATH)) {
+  if (shouldWriteGolden(MANAGED_BIN_PATH)) {
     writeFileSync(MANAGED_BIN_PATH, serializeBrainBytes(buildManagedScrollBrainJson()));
   }
   const bin = new Uint8Array(readFileSync(MANAGED_BIN_PATH));
@@ -302,7 +303,7 @@ test("the committed managed-string-scroll binary and observable trace golden are
   assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
   assert.equal(first.microbit.display.getPixelValue(0, 0), 255);
 
-  if (!existsSync(MANAGED_TRACE_PATH)) {
+  if (shouldWriteGolden(MANAGED_TRACE_PATH)) {
     writeFileSync(MANAGED_TRACE_PATH, first.trace);
   }
   assert.equal(
@@ -386,7 +387,7 @@ function buildConcurrentScrollBrainJson(): LinkedBrainProgramJson {
 }
 
 test("a scroll dispatched while the lease is held is silently dropped", () => {
-  if (!existsSync(DROP_BIN_PATH)) {
+  if (shouldWriteGolden(DROP_BIN_PATH)) {
     writeFileSync(DROP_BIN_PATH, serializeBrainBytes(buildConcurrentScrollBrainJson()));
   }
   const bin = new Uint8Array(readFileSync(DROP_BIN_PATH));
@@ -415,7 +416,7 @@ test("a scroll dispatched while the lease is held is silently dropped", () => {
   assert.equal(first.microbit.display.getPixelValue(0, 0), 255);
   assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
 
-  if (!existsSync(DROP_TRACE_PATH)) {
+  if (shouldWriteGolden(DROP_TRACE_PATH)) {
     writeFileSync(DROP_TRACE_PATH, first.trace);
   }
   assert.equal(

@@ -46,7 +46,8 @@ Status BrainRuntime::startup() {
   // VM resolves is in range. Allocated once for the brain's lifetime.
   const uint32_t ruleFiringCount = static_cast<uint32_t>(program_.functions.size());
   if (!surface_.context->bindSlots(scheduler_.arena(), variableCount, callSiteCount,
-                                   callSiteSlotStride, systemSlotCount, ruleFiringCount)) {
+                                   callSiteSlotStride, systemSlotCount, ruleFiringCount,
+                                   program_.variableInitValues, program_.constValues)) {
     return Status::fail(ErrorCode::HostError);
   }
   // Bind the program's rule-ancestor edges so rule-variable reads (including the

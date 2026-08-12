@@ -35,6 +35,7 @@ import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@m
 import { TEST_PROJECT_NAMESPACE } from "@mindcraft-lang/ts-compiler/testing";
 import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
+import { shouldWriteGolden } from "../../../mindcraft/golden-regeneration";
 import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../../mindcraft/program-image";
 import { parseWodalProgramImageBytes, wodalProgramBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
@@ -289,7 +290,7 @@ function runClearFixture(
 
   ensureJsonGolden(jsonPath, actuators);
   const generated = wodalProgramBytes(new Uint8Array(readFileSync(jsonPath)));
-  if (!existsSync(binPath)) {
+  if (shouldWriteGolden(binPath)) {
     writeFileSync(binPath, generated);
   }
   const bin = new Uint8Array(readFileSync(binPath));
@@ -299,7 +300,7 @@ function runClearFixture(
   const second = runTrace(bin, tickCount);
   assert.equal(second.trace, first.trace, "two fresh runs must render byte-identical traces");
 
-  if (!existsSync(tracePath)) {
+  if (shouldWriteGolden(tracePath)) {
     writeFileSync(tracePath, first.trace);
   }
   assert.equal(readFileSync(tracePath, "utf8"), first.trace, `${name}.ticks.trace is not byte-stable`);

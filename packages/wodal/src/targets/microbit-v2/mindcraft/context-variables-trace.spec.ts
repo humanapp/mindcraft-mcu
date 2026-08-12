@@ -20,11 +20,12 @@
  */
 
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { CoreFuncId, type LinkedBrainProgramJson, linkedBrainProgramFromJson, Op } from "@mindcraft-lang/core/runtime";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
+import { shouldWriteGolden } from "../../../mindcraft/golden-regeneration";
 import { parseWodalProgramImageBytes, serializeWodalProgramImageBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Environment } from "./environment";
@@ -225,7 +226,7 @@ function runContextVariableTrace(bin: Uint8Array): string {
 }
 
 test("the committed context-variables binary and observable trace golden are byte-stable", () => {
-  if (!existsSync(BIN_PATH)) {
+  if (shouldWriteGolden(BIN_PATH)) {
     writeFileSync(BIN_PATH, serializeContextVariableBrainBytes());
   }
   const bin = new Uint8Array(readFileSync(BIN_PATH));
@@ -245,7 +246,7 @@ test("the committed context-variables binary and observable trace golden are byt
   assert.equal(lines.filter((line) => line.startsWith("port display set-pixel ")).length, 24);
   assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
 
-  if (!existsSync(TRACE_PATH)) {
+  if (shouldWriteGolden(TRACE_PATH)) {
     writeFileSync(TRACE_PATH, first);
   }
   assert.equal(readFileSync(TRACE_PATH, "utf8"), first, "context-variables.ticks.trace is not byte-stable");

@@ -27,6 +27,7 @@ import {
 } from "@mindcraft-lang/core/runtime";
 import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
+import { shouldWriteGolden } from "../../../mindcraft/golden-regeneration";
 import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../../mindcraft/program-image";
 import { parseWodalProgramImageBytes, wodalProgramBytes } from "../../../mindcraft/program-image-binary";
 import { MicroBit } from "../microbit";
@@ -173,7 +174,7 @@ for (const variant of VARIANTS) {
     ensureJsonGolden(variant);
     const generated = wodalProgramBytes(new Uint8Array(readFileSync(fixturePath(variant.base, "mcprogram"))));
     const binPath = fixturePath(variant.base, "mcprogram.bin");
-    if (!existsSync(binPath)) {
+    if (shouldWriteGolden(binPath)) {
       writeFileSync(binPath, generated);
     }
     const bin = new Uint8Array(readFileSync(binPath));
@@ -189,7 +190,7 @@ for (const variant of VARIANTS) {
     assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
 
     const tracePath = fixturePath(variant.base, "ticks.trace");
-    if (!existsSync(tracePath)) {
+    if (shouldWriteGolden(tracePath)) {
       writeFileSync(tracePath, first.trace);
     }
     assert.equal(readFileSync(tracePath, "utf8"), first.trace, `${variant.base}.ticks.trace is not byte-stable`);

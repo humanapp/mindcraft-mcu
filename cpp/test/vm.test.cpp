@@ -974,6 +974,48 @@ Value execSumAction(void* hostData, mindcraft::ExecutionContext& ctx, Span<const
 
 } // namespace
 
+TEST_CASE("bindSlots seeds a variable slot from the program's starting value") {
+  ProgramBuilder b;
+  b.poolString("count");
+  b.poolString("label");
+  b.valueNumber(0.0f); // value slot 0
+  b.valueString(1);    // value slot 1
+  b.valueBool(false);  // value slot 2
+  b.brainVariable(0, 0);
+  b.brainVariable(1, 1);
+  b.brainVariable(0, 2);
+  // A fourth slot declares no starting value.
+  b.brainVariable(1);
+  b.beginFunction().instr(Op::LOAD_VAR_SLOT, 0).instr(Op::RET);
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  REQUIRE(image.variableInitValues.size() == 4);
+  CHECK(image.variableInitValues[0] == 0);
+  CHECK(image.variableInitValues[3] == mindcraft::kNoVariableInit);
+
+  std::array<uint8_t, 512> ctxStorage;
+  mindcraft::RegionArena ctxArena(Span<uint8_t>(ctxStorage.data(), ctxStorage.size()));
+  mindcraft::ExecutionContext ctx;
+  REQUIRE(ctx.bindSlots(ctxArena, 4, 0, 0, 0, 0, image.variableInitValues, image.constValues));
+
+  CHECK(ctx.variables[0].tag() == ValueTag::Number);
+  CHECK(ctx.variables[0].asNumber() == 0.0f);
+  CHECK(ctx.variables[1].tag() == ValueTag::String);
+  CHECK(ctx.variables[2].tag() == ValueTag::Boolean);
+  CHECK(ctx.variables[2].asBoolean() == false);
+  CHECK(ctx.variables[3].tag() == ValueTag::Nil);
+
+  // The seeded value is what LOAD_VAR_SLOT observes before any store.
+  mindcraft::RuntimeSurface surface;
+  surface.context = &ctx;
+  Machine machine;
+  const RunResult loaded = runProgram(machine, image, {}, 1000, surface);
+  REQUIRE(loaded.status == RunStatus::Done);
+  CHECK(loaded.result.tag() == ValueTag::Number);
+  CHECK(loaded.result.asNumber() == 0.0f);
+}
+
 TEST_CASE("LOAD_VAR_SLOT and STORE_VAR_SLOT round-trip brain variables") {
   ProgramBuilder b;
   b.poolString("counter");

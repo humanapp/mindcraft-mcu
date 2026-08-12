@@ -68,11 +68,25 @@ private:
   std::vector<uint8_t> bytes_;
 };
 
-/** Magic, format version 3, profileId, presence bitmask. */
+/** Magic, the reader's format version, profileId, presence bitmask. */
 inline WireBuilder programHeader(uint8_t presence = 0, uint32_t profileId = 0) {
   WireBuilder w;
-  w.u8(0x89).u8('M').u8('B').u8('P').u8(3).varUint(profileId).u8(presence);
+  w.u8(0x89)
+      .u8('M')
+      .u8('B')
+      .u8('P')
+      .u8(mindcraft::kBinaryProgramFormatVersion)
+      .varUint(profileId)
+      .u8(presence);
   return w;
+}
+
+/**
+ * Appends one `VARS` slot: the name's string index, then the starting value's
+ * `CVAL` index biased by one, or `0` for a slot with no starting value.
+ */
+inline void varsSlot(WireBuilder& w, uint32_t nameIdx, uint32_t biasedInitIdx = 0) {
+  w.varUint(nameIdx).varUint(biasedInitIdx);
 }
 
 /** Appends empty CSTR, TYPS, CNUM, CVAL, FUNC, and VARS sections. */
