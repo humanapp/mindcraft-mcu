@@ -384,10 +384,9 @@ emit(CoreFuncId.StrConcat, [s("a"), s("b"), s("c")]); // "abc"
 emit(CoreFuncId.StrConcat, [s("a"), nil, s("c")]); // "ac"
 
 // -- RNG stream (the exact LCG, seed 1) --------------------------------------
-// MathRandom advances the VM-global LCG (math.node.ts MathOps.random), whose
-// module seed is process-shared and not resettable. The expected stream is
-// computed here from the pinned seed 1; the C++ gate draws from a fresh
-// VmRng{1} in the same order.
+// MathRandom advances the environment's own LCG (core's `Rng`). The expected
+// stream is computed here from the pinned seed 1; the C++ gate draws from a
+// fresh VmRng{1} in the same order.
 let rngState = 1 >>> 0;
 function rngNext(): number {
   rngState = (Math.imul(rngState, 1664525) + 1013904223) >>> 0;

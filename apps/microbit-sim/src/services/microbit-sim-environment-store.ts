@@ -35,6 +35,7 @@ import {
 import {
   BrainDef,
   coreModule,
+  createEntropySeededRng,
   createMindcraftEnvironment,
   logger,
   type MindcraftEnvironment,
@@ -335,9 +336,7 @@ export class MicrobitSimEnvironmentStore {
       ...(folderSession ? {} : { bridgeUrl: appSettings.vscodeBridgeUrl }),
       loadBindingToken,
       saveBindingToken,
-      // Minted ids (brain id, page id) must be unique across sessions; the deterministic MathOps.random
-      // LCG repeats every load and would collide.
-      rng: { next: () => Math.random() },
+      rng: createEntropySeededRng(),
       onDidCompile: (result, tileResult) => {
         instanceRef?.handleProjectCompiled(tileResult);
         publishFolderDiagnostics?.(result.files);
