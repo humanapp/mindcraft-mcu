@@ -83,8 +83,9 @@ function digestRun(run: SimulationRun): string {
       dispatch.ruleId === undefined ? dispatch : { ...dispatch, ruleId: ordinalOf(dispatch.ruleId) }
     ),
   }));
+  const { runId: _addressedAs, ...recorded } = run;
   return createHash("sha256")
-    .update(JSON.stringify({ ...run, observations }))
+    .update(JSON.stringify({ ...recorded, observations }))
     .digest("hex");
 }
 

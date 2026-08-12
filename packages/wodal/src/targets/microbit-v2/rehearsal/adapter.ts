@@ -5,7 +5,7 @@ import type { NumberPrecision } from "@mindcraft-lang/core/runtime";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
 import { createWodalSharedModule } from "../../../mindcraft/shared-module";
 import { microBitV2TileDocs } from "./tile-docs";
-import { createDeviceWorld, PERCEPT_KINDS } from "./world";
+import { createDeviceWorld, PERCEPT_KINDS, STATE_CHANNELS } from "./world";
 
 /** The device profile this adapter authors for and rehearses against. */
 const PROFILE = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
@@ -33,6 +33,7 @@ const driver: WorldDriver = {
   modules: () => [createWodalSharedModule(), PROFILE.createMindcraftModule()],
   subjects: () => [DEVICE_SUBJECT],
   inputKinds: () => PERCEPT_KINDS,
+  stateChannels: () => STATE_CHANNELS,
   precision: (): NumberPrecision => PROFILE.numberPrecision,
   stage: (staging: WorldStaging): Promise<RehearsalWorld> => Promise.resolve(createDeviceWorld(staging)),
 };

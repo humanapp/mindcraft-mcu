@@ -60,6 +60,12 @@ function authoredWorkspace(): AuthoringWorkspace {
   return workspace;
 }
 
+/** What a run recorded, which the same seed and schedule must reproduce exactly. */
+function recorded(run: SimulationRun): Omit<SimulationRun, "runId"> {
+  const { runId: _addressedAs, ...rest } = run;
+  return rest;
+}
+
 /** Run the authored brain against `SCENARIO`. */
 async function rehearse(workspace: AuthoringWorkspace): Promise<SimulationRun> {
   return workspace.adapter.run({ brainDef: workspace.brainDef, scenario: SCENARIO, thinks: RUN_THINKS });
@@ -155,7 +161,8 @@ describe("a scripted percept schedule", () => {
     const first = await rehearse(workspace);
     const second = await rehearse(workspace);
 
-    assert.equal(JSON.stringify(first), JSON.stringify(second));
+    assert.equal(JSON.stringify(recorded(first)), JSON.stringify(recorded(second)));
+    assert.notEqual(first.runId, second.runId, "each rehearsal is addressable on its own");
     assert.equal(first.thinks, RUN_THINKS);
     assert.deepEqual(first.world, { initialPopulation: 1, finalPopulation: 1, brainsExecuted: 1 });
   });

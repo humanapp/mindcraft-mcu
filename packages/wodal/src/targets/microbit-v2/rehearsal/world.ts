@@ -1,4 +1,9 @@
-import type { OperationEnding, ScenarioInput, ScenarioInputKind } from "@mindcraft-lang/assistant-bridge";
+import type {
+  OperationEnding,
+  ScenarioInput,
+  ScenarioInputKind,
+  SubjectStateChannel,
+} from "@mindcraft-lang/assistant-bridge";
 import { DispatchOutcome } from "@mindcraft-lang/assistant-bridge";
 import type { RehearsalWorld, WorldStaging } from "@mindcraft-lang/assistant-bridge/kit";
 import { AccelerometerGesture } from "../../../core/accelerometer";
@@ -124,6 +129,50 @@ export const PERCEPT_KINDS: readonly ScenarioInputKind[] = Object.entries(PERCEP
   .map(([name, percept]) => ({ name, description: percept.description }))
   .sort((a, b) => (a.name < b.name ? -1 : 1));
 
+/** Channel name the screen's contents are reported under. */
+const DISPLAY_CHANNEL = "display";
+
+/** Channel name the speaker is reported under. */
+const SPEAKER_CHANNEL = "speaker";
+
+/** Brightness steps a reported pixel is quantised to: one digit, 0 through 9. */
+const BRIGHTNESS_STEPS = 10;
+
+/** Largest brightness a pixel holds. */
+const MAX_BRIGHTNESS = 255;
+
+/** The value the speaker channel reports while nothing is playing. */
+const SPEAKER_IDLE = "idle";
+
+/**
+ * Every state channel this target reports of the device, in the order a delta
+ * lists them.
+ */
+export const STATE_CHANNELS: readonly SubjectStateChannel[] = [
+  {
+    name: DISPLAY_CHANNEL,
+    description:
+      "What the 5x5 screen shows, as 25 brightness digits read left to right and top to bottom, one row after the next: 0 is off and 9 is full brightness, so `0000000900000000000000000` is one lit pixel in the middle.",
+  },
+  {
+    name: SPEAKER_CHANNEL,
+    description: `The sound playing right now, as its name followed by \`#\` and a number that counts up each time a sound starts, or \`${SPEAKER_IDLE}\` while nothing is playing.`,
+  },
+];
+
+/**
+ * The screen as 25 brightness digits, row-major, each pixel's 0..255 brightness
+ * quantised to one digit.
+ */
+function renderDisplay(pixels: readonly number[]): string {
+  let text = "";
+  for (const pixel of pixels) {
+    const step = Math.floor((pixel * BRIGHTNESS_STEPS) / (MAX_BRIGHTNESS + 1));
+    text += String(step);
+  }
+  return text;
+}
+
 /**
  * How a device operation ending reads as an observation of the call that
  * started it, or `undefined` for an ending the run can already see: an
@@ -172,6 +221,15 @@ class DeviceWorld implements RehearsalWorld {
 
   brainsExecuted(): number {
     return 1;
+  }
+
+  /** The screen and the speaker as they stand at the end of the think just stepped. */
+  readState(): ReadonlyMap<string, string> {
+    const playing = this.stage.device.speaker.snapshot().playing;
+    return new Map([
+      [DISPLAY_CHANNEL, renderDisplay(this.stage.device.display.snapshot().pixels)],
+      [SPEAKER_CHANNEL, playing === undefined ? SPEAKER_IDLE : `${playing.name}#${playing.playId}`],
+    ]);
   }
 
   shutdown(): void {
