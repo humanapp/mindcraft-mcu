@@ -3,23 +3,27 @@ profile 1
 precision f32
 tick 1 time 43fa0000 dt 00000000
 action 4 site 0 args 0 result bool 1
+tile 0 site 1 args 0 async
 tick 2 time 447a0000 dt 43fa0000
 port speaker play "giggle"
 tick 3 time 44bb8000 dt 43fa0000
 tick 4 time 44fa0000 dt 43fa0000
 tick 5 time 451c4000 dt 43fa0000
 tick 6 time 453b8000 dt 43fa0000
+tile 1 site 2 args 0 async
 tick 7 time 455ac000 dt 43fa0000
 port speaker play "happy"
 tick 8 time 457a0000 dt 43fa0000
 tick 9 time 458ca000 dt 43fa0000
 tick a time 459c4000 dt 43fa0000
 tick b time 45abe000 dt 43fa0000
+tile 2 site 3 args 0 async
 tick c time 45bb8000 dt 43fa0000
 port speaker play "hello"
 tick d time 45cb2000 dt 43fa0000
 tick e time 45dac000 dt 43fa0000
 tick f time 45ea6000 dt 43fa0000
+tile 3 site 4 args 0 async
 tick 10 time 45fa0000 dt 43fa0000
 port speaker play "mysterious"
 tick 11 time 4604d000 dt 43fa0000
@@ -32,6 +36,7 @@ tick 17 time 4633b000 dt 43fa0000
 tick 18 time 463b8000 dt 43fa0000
 tick 19 time 46435000 dt 43fa0000
 tick 1a time 464b2000 dt 43fa0000
+tile 4 site 5 args 0 async
 tick 1b time 4652f000 dt 43fa0000
 port speaker play "sad"
 tick 1c time 465ac000 dt 43fa0000
@@ -39,12 +44,14 @@ tick 1d time 46629000 dt 43fa0000
 tick 1e time 466a6000 dt 43fa0000
 tick 1f time 46723000 dt 43fa0000
 tick 20 time 467a0000 dt 43fa0000
+tile 5 site 6 args 0 async
 tick 21 time 4680e800 dt 43fa0000
 port speaker play "slide"
 tick 22 time 4684d000 dt 43fa0000
 tick 23 time 4688b800 dt 43fa0000
 tick 24 time 468ca000 dt 43fa0000
 tick 25 time 46908800 dt 43fa0000
+tile 6 site 7 args 0 async
 tick 26 time 46947000 dt 43fa0000
 port speaker play "soaring"
 tick 27 time 46985800 dt 43fa0000
@@ -65,6 +72,7 @@ tick 35 time 46cf0800 dt 43fa0000
 tick 36 time 46d2f000 dt 43fa0000
 tick 37 time 46d6d800 dt 43fa0000
 tick 38 time 46dac000 dt 43fa0000
+tile 7 site 8 args 0 async
 tick 39 time 46dea800 dt 43fa0000
 port speaker play "spring"
 tick 3a time 46e29000 dt 43fa0000
@@ -73,6 +81,7 @@ tick 3c time 46ea6000 dt 43fa0000
 tick 3d time 46ee4800 dt 43fa0000
 tick 3e time 46f23000 dt 43fa0000
 tick 3f time 46f61800 dt 43fa0000
+tile 8 site 9 args 0 async
 tick 40 time 46fa0000 dt 43fa0000
 port speaker play "twinkle"
 tick 41 time 46fde800 dt 43fa0000
@@ -90,6 +99,7 @@ tick 4c time 47147000 dt 43fa0000
 tick 4d time 47166400 dt 43fa0000
 tick 4e time 47185800 dt 43fa0000
 tick 4f time 471a4c00 dt 43fa0000
+tile 9 site a args 0 async
 tick 50 time 471c4000 dt 43fa0000
 port speaker play "yawn"
 tick 51 time 471e3400 dt 43fa0000

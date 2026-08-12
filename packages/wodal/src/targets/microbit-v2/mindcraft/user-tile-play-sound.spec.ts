@@ -362,8 +362,13 @@ function runPlaySoundFixture(
   const lines = first.trace.split("\n");
   assert.equal(lines.filter((line) => line.startsWith("tick ")).length, tickCount);
   assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
-  // The async playSound is a host function (op 41), so it carries no `action ... async` line.
-  assert.equal(lines.filter((line) => line.endsWith(" async")).length, 0);
+  // Each compiled async actuator dispatches once; the host functions (op 41)
+  // they await carry no `action ... async` line of their own.
+  assert.equal(
+    lines.filter((line) => line.startsWith("tile ") && line.endsWith(" async")).length,
+    actuatorNames.length
+  );
+  assert.equal(lines.filter((line) => line.startsWith("action ") && line.endsWith(" async")).length, 0);
 
   if (shouldWriteGolden(tracePath)) {
     writeFileSync(tracePath, first.trace);

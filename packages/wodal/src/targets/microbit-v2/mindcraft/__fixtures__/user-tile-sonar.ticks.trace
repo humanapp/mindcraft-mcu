@@ -2,8 +2,12 @@ mctrace 1
 profile 1
 precision f32
 tick 1 time 41800000 dt 00000000
+tile 0 site 0 args 0 result bool 1
 port sonar distance 8 c c8
 port sonar distance 8 c c8
+tile 1 site 1 args 0 result nil
 tick 2 time 42000000 dt 41800000
+tile 0 site 0 args 0 result bool 1
 port sonar distance 8 c 55
 port sonar distance 8 c 55
+tile 1 site 1 args 0 result nil

@@ -338,7 +338,7 @@ test("a user-tile timed drawImage holds the display, parks, and resumes", () => 
   assert.equal(lines.filter((line) => line === `port display draw 5 5 ${TOP_ROW_HEX}`).length, 1);
   assert.equal(lines.filter((line) => line.startsWith("port display set-pixel ")).length, 1);
   // The async draw is a host function (op 41), so it carries no `action ... async` line.
-  assert.equal(lines.filter((line) => line.endsWith(" async")).length, 0);
+  assert.equal(lines.filter((line) => line.startsWith("action ") && line.endsWith(" async")).length, 0);
   assert.equal(result.microbit.display.getPixelValue(4, 4), 255);
   assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
 });
@@ -355,7 +355,8 @@ test("a user-tile fire-and-forget drawImage paints and continues in the same thi
   // The draw and the marker pixel both land on the same think (no park).
   assert.equal(lines.filter((line) => line === `port display draw 5 5 ${TOP_ROW_HEX}`).length, 1);
   assert.equal(lines.filter((line) => line.startsWith("port display set-pixel ")).length, 1);
-  assert.equal(lines.filter((line) => line.endsWith(" async")).length, 0);
+  // The async draw is a host function (op 41), so it carries no `action ... async` line.
+  assert.equal(lines.filter((line) => line.startsWith("action ") && line.endsWith(" async")).length, 0);
   assert.equal(result.microbit.display.getPixelValue(4, 4), 255);
   assert.equal(result.microbit.display.getPixelValue(0, 0), 255);
   assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
@@ -366,7 +367,8 @@ test("a user-tile that imports the heart icon from the stdlib draws its pixels",
   const lines = trace.split("\n");
   // The heart icon, constructed at module-init by the stdlib parser, pasted once.
   assert.equal(lines.filter((line) => line === `port display draw 5 5 ${HEART_HEX}`).length, 1);
-  assert.equal(lines.filter((line) => line.endsWith(" async")).length, 0);
+  // The async draw is a host function (op 41), so it carries no `action ... async` line.
+  assert.equal(lines.filter((line) => line.startsWith("action ") && line.endsWith(" async")).length, 0);
   assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
 });
 

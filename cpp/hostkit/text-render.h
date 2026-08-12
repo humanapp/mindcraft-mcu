@@ -95,10 +95,12 @@ inline void quoteBytes(TextWriter& w, const uint8_t* bytes, uint32_t length) {
 }
 
 /**
- * Emits a string-table entry double-quoted via {@link quoteBytes}. Returns
- * false when the index or its byte range is outside the image's pools.
+ * Resolves a string-table entry to its bytes. Returns false, leaving `bytes`
+ * and `length` untouched, when the index or its byte range is outside the
+ * image's pools.
  */
-inline bool quoteStringTableEntry(TextWriter& w, const ProgramImage& image, uint32_t stringIdx) {
+inline bool stringTableBytes(const ProgramImage& image, uint32_t stringIdx, const uint8_t*& bytes,
+                             uint32_t& length) {
   if (stringIdx >= image.strings.size()) {
     return false;
   }
@@ -106,7 +108,23 @@ inline bool quoteStringTableEntry(TextWriter& w, const ProgramImage& image, uint
   if (ref.offset > image.stringData.size() || ref.length > image.stringData.size() - ref.offset) {
     return false;
   }
-  quoteBytes(w, image.stringData.data() + ref.offset, ref.length);
+  bytes = image.stringData.data() + ref.offset;
+  length = ref.length;
+  return true;
+}
+
+/**
+ * Emits a string-table entry double-quoted via {@link quoteBytes}. Returns
+ * false without emitting when the index or its byte range is outside the
+ * image's pools.
+ */
+inline bool quoteStringTableEntry(TextWriter& w, const ProgramImage& image, uint32_t stringIdx) {
+  const uint8_t* bytes = nullptr;
+  uint32_t length = 0;
+  if (!stringTableBytes(image, stringIdx, bytes, length)) {
+    return false;
+  }
+  quoteBytes(w, bytes, length);
   return true;
 }
 

@@ -2,8 +2,16 @@ mctrace 1
 profile 1
 precision f32
 tick 1 time 41800000 dt 00000000
+tile 0 site 0 args 0 result bool 1
+tile 1 site 1 args 0 result struct 2 struct 2 number 40400000 number 40800000 number 40e00000
 port gpio digital-write 8 3
+tile 2 site 2 args 1 number 40400000 result nil
 port gpio digital-write 9 7
+tile 3 site 3 args 1 number 40e00000 result nil
 tick 2 time 42000000 dt 41800000
+tile 0 site 0 args 0 result bool 1
+tile 1 site 1 args 0 result struct 2 struct 2 number 40400000 number 40800000 number 40e00000
 port gpio digital-write 8 3
+tile 2 site 2 args 1 number 40400000 result nil
 port gpio digital-write 9 7
+tile 3 site 3 args 1 number 40e00000 result nil

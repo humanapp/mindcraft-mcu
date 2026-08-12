@@ -25,7 +25,8 @@ inline constexpr uint32_t kObservableTraceFormatVersion = 1;
  * each event method appends one line. Integer scalars render as minimal
  * lowercase hex of their unsigned 32-bit value; brain-observable numbers
  * render as zero-padded IEEE-754 f32 bit patterns; strings render
- * double-quoted with non-printable bytes escaped.
+ * double-quoted with non-printable bytes escaped. A value kind the format
+ * does not render, or one whose contents are unreachable, renders `opaque`.
  *
  * The program supplies the header's profile id and the string table that
  * resolves string-valued tokens; it must outlive the writer.
@@ -36,9 +37,9 @@ public:
   ObservableTraceWriter(TextSink& sink, const ProgramImage& program);
 
   /**
-   * Binds the managed heap that resolves managed (heap-allocated) string values
-   * when rendering string-valued tokens. Without it only borrowed program-table
-   * strings render; a managed string token then reports an undefined value kind.
+   * Binds the managed heap that resolves heap-allocated strings, buffers,
+   * structs, and lists when rendering value tokens. Without it only borrowed
+   * program-table values render; a heap-allocated one renders `opaque`.
    */
   void setHeap(const ManagedHeap* heap) { heap_ = heap; }
 
@@ -52,25 +53,36 @@ public:
   void tick(uint32_t ordinal, mc_number_t time, mc_number_t dt);
 
   /**
-   * Records one completed synchronous host-action dispatch: the stable
-   * action id, the bound call site, the positional arg buffer as the
-   * binding received it, and the returned value. Returns false without
-   * completing the line when an argument or the result carries a value kind
-   * the trace format does not define (anything outside void, nil, bool,
-   * number, and string); bytes already rendered stay written.
+   * Records one completed synchronous host-bound action dispatch: the stable
+   * action id, the bound call site, the positional arg buffer as the binding
+   * received it, and the returned value.
    */
-  bool hostActionCall(uint32_t actionId, uint32_t callSiteId, Span<const Value> args,
+  void hostActionCall(uint32_t actionId, uint32_t callSiteId, Span<const Value> args,
                       const Value& result);
 
   /**
-   * Records one asynchronous host-action dispatch: the stable action id, the
-   * bound call site, and the positional arg buffer as the binding received it.
-   * The dispatch returns a pending handle, so the line ends with `async` and
-   * renders no result. Returns false without completing the line when an
-   * argument carries a value kind the trace format does not define; bytes
-   * already rendered stay written.
+   * Records one asynchronous host-bound action dispatch: the stable action id,
+   * the bound call site, and the positional arg buffer as the binding received
+   * it. The dispatch returns a pending handle, so the line ends with `async`
+   * and renders no result.
    */
-  bool hostActionCallAsync(uint32_t actionId, uint32_t callSiteId, Span<const Value> args);
+  void hostActionCallAsync(uint32_t actionId, uint32_t callSiteId, Span<const Value> args);
+
+  /**
+   * Records one completed synchronous bytecode-bound action dispatch: the
+   * action's slot in the program's action table, the bound call site, the
+   * body's parameter slots as it left them, and the value it returned.
+   */
+  void bytecodeActionCall(uint32_t actionSlot, uint32_t callSiteId, Span<const Value> args,
+                          const Value& result);
+
+  /**
+   * Records one asynchronous bytecode-bound action dispatch: the action's slot
+   * in the program's action table, the bound call site, and the positional arg
+   * buffer the dispatch passed. The line ends with `async` and renders no
+   * result.
+   */
+  void bytecodeActionCallAsync(uint32_t actionSlot, uint32_t callSiteId, Span<const Value> args);
 
   /**
    * Records one pixel write crossing the display device port, with the
@@ -167,8 +179,9 @@ public:
   void fiberFault(uint32_t fiberId, ErrorCode code);
 
 private:
-  bool actionPrefix(uint32_t actionId, uint32_t callSiteId, Span<const Value> args);
-  bool valueToken(const Value& value);
+  void callPrefix(const char* verb, uint32_t id, uint32_t callSiteId, Span<const Value> args);
+  void valueToken(const Value& value);
+  bool enumSymbolBytes(const Value& value, const uint8_t*& bytes, uint32_t& length) const;
 
   TextWriter w_;
   const ProgramImage& program_;

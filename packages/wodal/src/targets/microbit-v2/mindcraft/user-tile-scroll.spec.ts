@@ -283,7 +283,7 @@ test("a user-tile awaited scrollText holds the display, parks, and resumes", () 
   assert.equal(lines.filter((line) => line === `port display scroll "${text}"`).length, 1);
   assert.equal(lines.filter((line) => line.startsWith("port display set-pixel ")).length, 1);
   // The async scroll is a host function (op 41), so it carries no `action ... async` line.
-  assert.equal(lines.filter((line) => line.endsWith(" async")).length, 0);
+  assert.equal(lines.filter((line) => line.startsWith("action ") && line.endsWith(" async")).length, 0);
   assert.equal(result.microbit.display.getPixelValue(4, 4), 255);
   assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
 });
@@ -306,7 +306,8 @@ test("a user-tile one-character scrollText shows a static glyph, holds, and blan
   const lines = trace.split("\n");
   assert.equal(lines.filter((line) => line === `port display scroll "${text}"`).length, 1);
   assert.equal(lines.filter((line) => line.startsWith("port display set-pixel ")).length, 1);
-  assert.equal(lines.filter((line) => line.endsWith(" async")).length, 0);
+  // The async scroll is a host function (op 41), so it carries no `action ... async` line.
+  assert.equal(lines.filter((line) => line.startsWith("action ") && line.endsWith(" async")).length, 0);
   // The show blanked the glyph at completion; the marker is the only lit pixel.
   assert.equal(result.microbit.display.getPixelValue(2, 2), 0);
   assert.equal(result.microbit.display.getPixelValue(4, 4), 255);

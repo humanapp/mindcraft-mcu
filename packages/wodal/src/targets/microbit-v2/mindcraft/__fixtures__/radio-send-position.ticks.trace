@@ -5,6 +5,8 @@ tick 1 time 41800000 dt 00000000
 action 400 site 0 args 6 nil nil nil nil nil nil result bool 0
 tick 2 time 42000000 dt 41800000
 action 400 site 0 args 6 nil nil nil nil nil nil result bool 1
+tile 0 site 1 args 0 result struct 2 number 42480000 number c1c80000
+tile 1 site 2 args 1 struct 2 number 42480000 number c1c80000 result buffer 47964b
 port radio send group 0 buffer 47964b
 action 408 site 3 args 4 nil nil nil buffer 47964b result void
 tick 3 time 42400000 dt 41800000

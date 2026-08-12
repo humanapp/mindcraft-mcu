@@ -2,8 +2,12 @@ mctrace 1
 profile 1
 precision f32
 tick 1 time 41800000 dt 00000000
+tile 0 site 0 args 1 nil result nil
+tile 0 site 2 args 1 buffer 2a0709 result number 44e12000
 port radio send group 0 number 44e12000
 action 408 site 3 args 4 nil nil nil nil result void
 tick 2 time 42000000 dt 41800000
+tile 0 site 0 args 1 nil result nil
+tile 0 site 2 args 1 buffer 2a0709 result number 44e12000
 port radio send group 0 number 44e12000
 action 408 site 3 args 4 nil nil nil nil result void

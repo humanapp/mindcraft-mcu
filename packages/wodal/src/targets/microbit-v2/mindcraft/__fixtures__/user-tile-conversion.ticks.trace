@@ -2,6 +2,12 @@ mctrace 1
 profile 1
 precision f32
 tick 1 time 41800000 dt 00000000
+tile 0 site 0 args 0 result bool 1
+tile 1 site 1 args 1 number 42280000 result buffer 072a2b
 port gpio digital-write 8 12203
+tile 2 site 2 args 1 buffer 072a2b result nil
 tick 2 time 42000000 dt 41800000
+tile 0 site 0 args 0 result bool 1
+tile 1 site 1 args 1 number 42280000 result buffer 072a2b
 port gpio digital-write 8 12203
+tile 2 site 2 args 1 buffer 072a2b result nil

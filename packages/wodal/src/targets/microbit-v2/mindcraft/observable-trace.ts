@@ -5,9 +5,9 @@
  * traces; the committed trace beside a program fixture is the behavioral
  * contract a separately built VM is verified against.
  *
- * Every event is observable at the host-binding surface: host-action
- * dispatch, device-port calls, fiber faults, and the schedule's tick
- * boundaries. No line depends on VM internals.
+ * Every event is observable at the host-binding surface: action dispatch,
+ * host-bound and bytecode-bound alike, device-port calls, fiber faults, and the
+ * schedule's tick boundaries. No line depends on VM internals.
  *
  * Trace format, version 1 (LOCKED; any change bumps
  * {@link OBSERVABLE_TRACE_FORMAT_VERSION} and regenerates every committed
@@ -28,13 +28,16 @@
  *   are literal except `"` (renders `\"`) and `\` (renders `\\`); every
  *   other byte renders as `\xNN` with two lowercase hex digits.
  * - A value token is one of `void`, `nil`, `bool 0|1`, `number <bits>`,
- *   `string "<bytes>"`, `buffer <hex>` (two lowercase hex digits per byte,
- *   no separators; empty for an empty buffer), `struct <fieldCount>
- *   <value>...` (the field count in hex followed by one value token per field
- *   slot, in slot order; native-backed structs do not render), or `list
- *   <count> <value>...` (the element count in hex followed by one value token
- *   per element, in order; empty for an empty list). Any other value kind
- *   crossing the host-binding surface is an error in format version 1.
+ *   `string "<bytes>"`, `enum "<symbol>"` (the symbol's name, quoted as a
+ *   string; the enum's type is not rendered), `buffer <hex>` (two lowercase
+ *   hex digits per byte, no separators; empty for an empty buffer), `struct
+ *   <fieldCount> <value>...` (the field count in hex followed by one value
+ *   token per field slot, in slot order), `list <count> <value>...` (the
+ *   element count in hex followed by one value token per element, in order;
+ *   empty for an empty list), or `opaque`. Every other value kind renders as
+ *   `opaque`, as does a value whose contents the renderer cannot reach: a
+ *   native-backed struct, or a heap-allocated string, buffer, struct, or list
+ *   with no heap bound. Rendering a value never fails.
  *
  * Line layout: a three-line header, then events in emission order.
  *
@@ -45,6 +48,8 @@
  * tick <ordinal> time <bits> dt <bits>
  * action <actionId> site <callSiteId> args <argc> <value>... result <value>
  * action <actionId> site <callSiteId> args <argc> <value>... async
+ * tile <actionSlot> site <callSiteId> args <argc> <value>... result <value>
+ * tile <actionSlot> site <callSiteId> args <argc> <value>... async
  * port display set-pixel <xBits> <yBits> <brightnessBits>
  * port display scroll "<bytes>"
  * port display draw <width> <height> <hex>
@@ -74,17 +79,28 @@
  *   scheduled time, and `dt` is 0 when the previous think time is 0 and the
  *   difference from the previous think time otherwise. Schedule times must
  *   be exactly representable at the profile precision.
- * - `action ... result`: one synchronous host-action dispatch, emitted when
- *   the call returns. `<actionId>` is the stable registry id, `<callSiteId>`
- *   keys the per-callsite host state, the `<argc>` argument values are the
- *   positional arg buffer exactly as the binding receives it (a missing
- *   optional slot is `nil`), and `result` is the value the call pushes back.
- *   Device-port lines raised while the action body runs are emitted at the
- *   moment of the port call, before the action's own line.
- * - `action ... async`: one asynchronous host-action dispatch, emitted when
- *   the body is invoked. The leading tokens match the synchronous form; the
- *   trailing `async` marks that the call returns a pending handle rather than
- *   a value. Device-port lines raised by the body precede this line.
+ * - `action ... result`: one synchronous host-bound action dispatch, emitted
+ *   when the call returns. `<actionId>` is the stable registry id,
+ *   `<callSiteId>` keys the per-callsite host state, the `<argc>` argument
+ *   values are the positional arg buffer exactly as the binding receives it (a
+ *   missing optional slot is `nil`), and `result` is the value the call pushes
+ *   back. Device-port lines raised while the action body runs are emitted at
+ *   the moment of the port call, before the action's own line.
+ * - `action ... async`: one asynchronous host-bound action dispatch, emitted
+ *   when the body is invoked. The leading tokens match the synchronous form;
+ *   the trailing `async` marks a call that returns a pending handle and no
+ *   value. Device-port lines raised by the body precede this line.
+ * - `tile ... result`: one synchronous bytecode-bound action dispatch -- a
+ *   compiled tile -- emitted when its body hands control back.
+ *   `<actionSlot>` is the action's index in the program's action table, in the
+ *   same hex form as `<actionId>` and in a separate numbering space from it.
+ *   The `<argc>` argument values are the body's parameter slots as it left
+ *   them, and `result` is the value it returned. Device-port lines raised by
+ *   the body precede this line, as do the lines of any action it dispatched.
+ * - `tile ... async`: one asynchronous bytecode-bound action dispatch, emitted
+ *   when the child fiber running the body is spawned. The `<argc>` argument
+ *   values are the ones the dispatch passed; the trailing `async` marks a call
+ *   that returns a pending handle and no value.
  * - `port display set-pixel`: one pixel write crossing the display device
  *   port, with the x/y/brightness arguments as passed to the port (before
  *   the device clamps or discards them).
@@ -158,6 +174,9 @@ export interface ObservableTraceOptions {
   readonly precision: NumberPrecision;
 }
 
+/** Value token standing in for a value kind the trace format does not render. */
+const OPAQUE_VALUE_TOKEN = "opaque";
+
 function hexU32(value: number): string {
   return (value >>> 0).toString(16);
 }
@@ -206,14 +225,14 @@ function valueToken(value: Value, precision: NumberPrecision): string {
       return `number ${numberBits(value.v, precision)}`;
     case NativeType.String:
       return `string ${quoted(value.v)}`;
+    case NativeType.Enum:
+      return `enum ${quoted(value.v)}`;
     case NativeType.Buffer:
       return `buffer ${bufferToHex(value)}`;
     case NativeType.Struct: {
       const fields = value.v;
       if (fields === undefined) {
-        throw new Error(
-          `observable trace: native-backed struct has no rendering in trace format ${OBSERVABLE_TRACE_FORMAT_VERSION}`
-        );
+        return OPAQUE_VALUE_TOKEN;
       }
       let text = `struct ${hexU32(fields.size())}`;
       for (let i = 0; i < fields.size(); i++) {
@@ -230,9 +249,7 @@ function valueToken(value: Value, precision: NumberPrecision): string {
       return text;
     }
     default:
-      throw new Error(
-        `observable trace: value kind '${value.t}' has no rendering in trace format ${OBSERVABLE_TRACE_FORMAT_VERSION}`
-      );
+      return OPAQUE_VALUE_TOKEN;
   }
 }
 
@@ -267,7 +284,7 @@ export class ObservableTraceWriter {
   }
 
   /**
-   * Records one completed synchronous host-action dispatch.
+   * Records one completed synchronous host-bound action dispatch.
    *
    * @param actionId - Stable registry id of the dispatched action.
    * @param callSiteId - Call-site id the dispatch was bound to.
@@ -279,7 +296,7 @@ export class ObservableTraceWriter {
   }
 
   /**
-   * Records one asynchronous host-action dispatch.
+   * Records one asynchronous host-bound action dispatch.
    *
    * @param actionId - Stable registry id of the dispatched action.
    * @param callSiteId - Call-site id the dispatch was bound to.
@@ -287,6 +304,29 @@ export class ObservableTraceWriter {
    */
   hostActionCallAsync(actionId: number, callSiteId: number, args: ReadonlyList<Value>): void {
     this.line(`${this.actionPrefix(actionId, callSiteId, args)} async`);
+  }
+
+  /**
+   * Records one completed synchronous bytecode-bound action dispatch.
+   *
+   * @param actionSlot - Index of the action in the program's action table.
+   * @param callSiteId - Call-site id the dispatch was bound to.
+   * @param args - The body's parameter slots as it left them.
+   * @param result - Value the body returned.
+   */
+  bytecodeActionCall(actionSlot: number, callSiteId: number, args: ReadonlyList<Value>, result: Value): void {
+    this.line(`${this.tilePrefix(actionSlot, callSiteId, args)} result ${valueToken(result, this.precision)}`);
+  }
+
+  /**
+   * Records one asynchronous bytecode-bound action dispatch.
+   *
+   * @param actionSlot - Index of the action in the program's action table.
+   * @param callSiteId - Call-site id the dispatch was bound to.
+   * @param args - Positional arg buffer the dispatch passed.
+   */
+  bytecodeActionCallAsync(actionSlot: number, callSiteId: number, args: ReadonlyList<Value>): void {
+    this.line(`${this.tilePrefix(actionSlot, callSiteId, args)} async`);
   }
 
   /**
@@ -460,7 +500,15 @@ export class ObservableTraceWriter {
   }
 
   private actionPrefix(actionId: number, callSiteId: number, args: ReadonlyList<Value>): string {
-    let text = `action ${hexU32(actionId)} site ${hexU32(callSiteId)} args ${hexU32(args.size())}`;
+    return this.callPrefix("action", actionId, callSiteId, args);
+  }
+
+  private tilePrefix(actionSlot: number, callSiteId: number, args: ReadonlyList<Value>): string {
+    return this.callPrefix("tile", actionSlot, callSiteId, args);
+  }
+
+  private callPrefix(verb: string, id: number, callSiteId: number, args: ReadonlyList<Value>): string {
+    let text = `${verb} ${hexU32(id)} site ${hexU32(callSiteId)} args ${hexU32(args.size())}`;
     for (let i = 0; i < args.size(); i++) {
       text += ` ${valueToken(args.get(i), this.precision)}`;
     }
@@ -493,7 +541,7 @@ export class ObservableTraceWriter {
 }
 
 /**
- * Builds the runtime event hooks that record a run's host-action dispatches and
+ * Builds the runtime event hooks that record a run's action dispatches and
  * fiber faults into `writer`. Pass the result as the `vmEvents` of the
  * `WodalMicroBitRuntime` or `BrainRuntime` under trace. Tap the device ports
  * separately to record the run's `port` lines.
@@ -506,6 +554,14 @@ export function observableTraceVmEvents(writer: ObservableTraceWriter): VmEvents
       writer.fiberFault(payload.fiberId, payload.err.code);
     },
     onHostActionReturn: (payload) => {
+      if (payload.binding === "bytecode") {
+        if (payload.result === undefined) {
+          writer.bytecodeActionCallAsync(payload.actionId, payload.callSiteId, payload.args);
+          return;
+        }
+        writer.bytecodeActionCall(payload.actionId, payload.callSiteId, payload.args, payload.result);
+        return;
+      }
       if (payload.result === undefined) {
         writer.hostActionCallAsync(payload.actionId, payload.callSiteId, payload.args);
         return;

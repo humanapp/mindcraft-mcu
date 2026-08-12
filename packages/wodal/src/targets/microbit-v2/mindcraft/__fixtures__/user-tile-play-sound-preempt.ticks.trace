@@ -3,7 +3,9 @@ profile 1
 precision f32
 tick 1 time 43fa0000 dt 00000000
 action 4 site 0 args 0 result bool 1
+tile 0 site 1 args 0 async
 action 4 site 2 args 0 result bool 1
+tile 1 site 3 args 0 async
 tick 2 time 447a0000 dt 43fa0000
 port speaker play "twinkle"
 port speaker play "happy"

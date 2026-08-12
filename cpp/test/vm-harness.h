@@ -89,6 +89,25 @@ public:
     return *this;
   }
 
+  /**
+   * Appends a program-local enum type-table entry: its name (string-table entry
+   * `nameStringIdx`) and its string-valued symbols in declared order, each a
+   * `{symbolStringIdx, valueStringIdx}` pair. An enum value's ordinal indexes
+   * this list.
+   */
+  ProgramBuilder& enumType(uint32_t nameStringIdx,
+                           std::initializer_list<std::pair<uint32_t, uint32_t>> symbols) {
+    typeCount_++;
+    types_.u8(7).varUint(nameStringIdx).varUint(static_cast<uint32_t>(symbols.size()));
+    if (symbols.size() > 0) {
+      types_.u8(1); // string-valued symbols
+      for (const std::pair<uint32_t, uint32_t>& symbol : symbols) {
+        types_.varUint(symbol.first).varUint(symbol.second);
+      }
+    }
+    return *this;
+  }
+
   /** Appends a boolean value constant. */
   ProgramBuilder& valueBool(bool value) {
     valueCount_++;
@@ -185,6 +204,16 @@ public:
     return *this;
   }
 
+  /**
+   * Appends a bytecode action whose body is `entryFuncId`, taking the next
+   * action slot. Actions are emitted in append order, so the first call takes
+   * slot 0 -- the operand `ACTION_CALL` / `ACTION_CALL_ASYNC` carries.
+   */
+  ProgramBuilder& bytecodeAction(uint32_t entryFuncId) {
+    actions_.push_back(entryFuncId);
+    return *this;
+  }
+
   /** Marks `funcId` as a rule entry in the program's rule-funcId set. */
   ProgramBuilder& ruleFunc(uint32_t funcId) {
     ruleFuncs_.push_back(funcId);
@@ -215,7 +244,9 @@ public:
    * bytes, so the builder must outlive the image.
    */
   mindcraft::ProgramImage build(std::vector<uint8_t>& storage) {
-    const uint8_t presence = ruleFuncs_.empty() ? 0 : 2; // RULF presence bit
+    // Presence bits: ACTS is bit 0, RULF is bit 1.
+    const uint8_t presence =
+        static_cast<uint8_t>((actions_.empty() ? 0 : 1) | (ruleFuncs_.empty() ? 0 : 2));
     WireBuilder& w = wire_;
     w = programHeader(presence);
     w.varUint(static_cast<uint32_t>(strings_.size()))
@@ -235,6 +266,12 @@ public:
     for (const VariableSlot& slot : variables_) {
       varsSlot(w, slot.nameStringIdx,
                slot.initValueIdx == mindcraft::kNoVariableInit ? 0 : slot.initValueIdx + 1);
+    }
+    if (!actions_.empty()) {
+      w.varUint(static_cast<uint32_t>(actions_.size()));
+      for (const uint32_t entryFuncId : actions_) {
+        w.u8(0).varUint(entryFuncId); // no lifecycle hooks
+      }
     }
     if (!ruleFuncs_.empty()) {
       w.varUint(static_cast<uint32_t>(ruleFuncs_.size()));
@@ -293,6 +330,7 @@ private:
 
   std::vector<FunctionSpec> functions_;
   std::vector<VariableSlot> variables_;
+  std::vector<uint32_t> actions_;
   std::vector<uint32_t> ruleFuncs_;
   std::vector<PageSpec> pages_;
 };

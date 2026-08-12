@@ -9,6 +9,8 @@ import assert from "node:assert/strict";
 import { readFileSync, writeFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { List } from "@mindcraft-lang/core";
+import { mkFunctionValue, NativeType, type Value } from "@mindcraft-lang/core/runtime";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
 import { shouldWriteGolden } from "../../../mindcraft/golden-regeneration";
 import { parseWodalProgramImageBytes } from "../../../mindcraft/program-image-binary";
@@ -114,4 +116,33 @@ test("the committed press-cycles observable trace golden is byte-stable", () => 
     writeFileSync(TRACE_PATH, first.trace);
   }
   assert.equal(readFileSync(TRACE_PATH, "utf8"), first.trace, "button-display.press-cycles.trace is not byte-stable");
+});
+
+/** An enum value of the program-local type `mode` holding `symbol`. */
+function enumValue(symbol: string): Value {
+  return { t: NativeType.Enum, typeId: "mode", v: symbol };
+}
+
+test("an enum value renders its symbol name", () => {
+  const writer = new ObservableTraceWriter({ profileId: 0, precision: "f32" });
+  writer.hostActionCall(2, 0, List.from([enumValue("Stop")]), enumValue("Go"));
+
+  assert.equal(writer.render().split("\n")[3], 'action 2 site 0 args 1 enum "Stop" result enum "Go"');
+});
+
+test("a value kind outside the trace vocabulary renders opaque and never throws", () => {
+  const writer = new ObservableTraceWriter({ profileId: 0, precision: "f32" });
+  writer.hostActionCall(1, 0, List.from([mkFunctionValue(0)]), mkFunctionValue(1));
+
+  assert.equal(writer.render().split("\n")[3], "action 1 site 0 args 1 opaque result opaque");
+});
+
+test("a bytecode-bound dispatch renders a tile line", () => {
+  const writer = new ObservableTraceWriter({ profileId: 0, precision: "f32" });
+  writer.bytecodeActionCall(3, 5, List.from([enumValue("Go")]), mkFunctionValue(0));
+  writer.bytecodeActionCallAsync(4, 6, List.empty<Value>());
+
+  const lines = writer.render().split("\n");
+  assert.equal(lines[3], 'tile 3 site 5 args 1 enum "Go" result opaque');
+  assert.equal(lines[4], "tile 4 site 6 args 0 async");
 });

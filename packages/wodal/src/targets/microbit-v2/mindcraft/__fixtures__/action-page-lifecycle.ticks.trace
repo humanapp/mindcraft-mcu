@@ -8,9 +8,11 @@ action 401 site 0 args 3 number 00000000 number 00000000 number 41300000 result 
 tick 1 time 41800000 dt 00000000
 port display set-pixel 00000000 00000000 40e00000
 action 401 site 0 args 3 number 00000000 number 00000000 number 40e00000 result void
+tile 0 site 1 args 1 number 42280000 result nil
 tick 2 time 42000000 dt 41800000
 port display set-pixel 00000000 00000000 42280000
 action 401 site 0 args 3 number 00000000 number 00000000 number 42280000 result void
+tile 0 site 1 args 1 number 42280000 result nil
 tick 3 time 42400000 dt 41800000
 port display set-pixel 00000000 00000000 41400000
 action 401 site 0 args 3 number 00000000 number 00000000 number 41400000 result void
@@ -20,6 +22,7 @@ port display set-pixel 00000000 00000000 41a80000
 action 401 site 0 args 3 number 00000000 number 00000000 number 41a80000 result void
 port display set-pixel 00000000 00000000 41000000
 action 401 site 0 args 3 number 00000000 number 00000000 number 41000000 result void
+tile 1 site 2 args 1 number 422c0000 result nil
 tick 4 time 42800000 dt 41800000
 port display set-pixel 00000000 00000000 41b00000
 action 401 site 0 args 3 number 00000000 number 00000000 number 41b00000 result void
@@ -27,3 +30,4 @@ port display set-pixel 00000000 00000000 41300000
 action 401 site 0 args 3 number 00000000 number 00000000 number 41300000 result void
 port display set-pixel 00000000 00000000 42280000
 action 401 site 0 args 3 number 00000000 number 00000000 number 42280000 result void
+tile 0 site 1 args 1 number 42280000 result nil

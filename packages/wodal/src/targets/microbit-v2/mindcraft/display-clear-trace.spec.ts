@@ -317,7 +317,8 @@ test("a bare display.clear() emits one port display clear", () => {
   assert.equal(lines.filter((line) => line === "port display clear").length, 1);
   assert.equal(lines.filter((line) => line.startsWith("port display draw ")).length, 0);
   assert.equal(lines.filter((line) => line.startsWith("port display set-pixel ")).length, 0);
-  assert.equal(lines.filter((line) => line.endsWith(" async")).length, 0);
+  // The awaited work is a host function (op 41), so it carries no `action ... async` line.
+  assert.equal(lines.filter((line) => line.startsWith("action ") && line.endsWith(" async")).length, 0);
   assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
 });
 
@@ -337,7 +338,8 @@ test("clear() preempts a held draw, releasing the parked fiber and blanking the 
   assert.equal(lines.filter((line) => line === "port display clear").length, 1);
   // The preemptor's marker (0,4) and the released holder's marker (4,4) both land.
   assert.equal(lines.filter((line) => line.startsWith("port display set-pixel ")).length, 2);
-  assert.equal(lines.filter((line) => line.endsWith(" async")).length, 0);
+  // The awaited work is a host function (op 41), so it carries no `action ... async` line.
+  assert.equal(lines.filter((line) => line.startsWith("action ") && line.endsWith(" async")).length, 0);
   assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
   // clear() zeroed the top row; the two markers are the only lit pixels.
   assert.equal(result.microbit.display.getPixelValue(0, 0), 0);

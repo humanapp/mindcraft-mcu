@@ -613,16 +613,25 @@ struct TraceTap : VmObserver {
   explicit TraceTap(ObservableTraceWriter& writer) : writer(writer) {}
 
   ObservableTraceWriter& writer;
-  bool renderable = true;
 
   void onHostActionCall(uint32_t actionId, uint32_t callSiteId, Span<const Value> args,
                         const Value& result) override {
-    renderable = writer.hostActionCall(actionId, callSiteId, args, result) && renderable;
+    writer.hostActionCall(actionId, callSiteId, args, result);
   }
 
   void onHostActionCallAsync(uint32_t actionId, uint32_t callSiteId,
                              Span<const Value> args) override {
-    renderable = writer.hostActionCallAsync(actionId, callSiteId, args) && renderable;
+    writer.hostActionCallAsync(actionId, callSiteId, args);
+  }
+
+  void onBytecodeActionCall(uint32_t actionSlot, uint32_t callSiteId, Span<const Value> args,
+                            const Value& result) override {
+    writer.bytecodeActionCall(actionSlot, callSiteId, args, result);
+  }
+
+  void onBytecodeActionCallAsync(uint32_t actionSlot, uint32_t callSiteId,
+                                 Span<const Value> args) override {
+    writer.bytecodeActionCallAsync(actionSlot, callSiteId, args);
   }
 
   void onFiberFault(uint32_t fiberId, ErrorCode code) override { writer.fiberFault(fiberId, code); }
@@ -727,7 +736,6 @@ void runButtonSensorParity(const std::string& name, const ButtonScheduleStep* sc
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // Every button-sensor fixture's schedule fires the rule, lighting pixel (0,0).
   CHECK(microbit.display.pixels[0][0] == 255);
@@ -791,7 +799,6 @@ void runGestureSensorParity(const std::string& name, const GestureScheduleStep* 
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // Each gesture fixture's matching gesture fires once, lighting pixel (0,0).
   CHECK(microbit.display.pixels[0][0] == 255);
@@ -853,7 +860,6 @@ TEST_CASE("the button-display fixture byte-matches the golden observable trace")
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // The end state mirrors the TS spec's device assertion: pixel (0,0) lit.
   CHECK(microbit.display.pixels[0][0] == 255);
@@ -1066,7 +1072,6 @@ void runRadioReceiveParity(const std::string& name, const std::vector<RadioRecei
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
 }
 
@@ -1225,7 +1230,6 @@ void runRadioSendTileParity(const std::string& name) {
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
 }
 
@@ -1298,7 +1302,6 @@ TEST_CASE("the radio-send-position fixture byte-matches the golden observable tr
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
 }
 
@@ -1349,7 +1352,6 @@ TEST_CASE("the user-tile radio-send fixture byte-matches the golden observable t
   hostLoop.tick();
   REQUIRE_FALSE(hostLoop.faulted());
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
 }
 
@@ -1415,7 +1417,6 @@ TEST_CASE("the user-tile radio-receive fixture byte-matches the golden observabl
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
 }
 
@@ -1480,7 +1481,6 @@ TEST_CASE("the user-tile radio-current-seq fixture byte-matches the golden obser
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
 }
 
@@ -1528,7 +1528,6 @@ TEST_CASE("the exceptions-yield fixture byte-matches the golden observable trace
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
 }
 
@@ -1585,7 +1584,6 @@ TEST_CASE("the container-ops fixture byte-matches the golden observable trace") 
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // Each think writes the packed list/map results to address 0x20.
   REQUIRE(microbit.i2c.writes.size() == 2);
@@ -1648,7 +1646,6 @@ TEST_CASE("the buffer-ops fixture byte-matches the golden observable trace") {
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // Each think writes the four buffers the actuator built, in address order.
   REQUIRE(microbit.i2c.writes.size() == 8);
@@ -1711,7 +1708,6 @@ TEST_CASE("the dynamic-field-access fixture byte-matches the golden observable t
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
 }
 
@@ -1759,7 +1755,6 @@ TEST_CASE("the sync-action-yield fixture byte-matches the golden observable trac
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
 }
 
@@ -1812,7 +1807,6 @@ TEST_CASE("the action-page-lifecycle fixture byte-matches the golden observable 
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
 }
 
@@ -1861,7 +1855,6 @@ TEST_CASE("the context-variables fixture byte-matches the golden observable trac
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
 }
 
@@ -1919,7 +1912,6 @@ TEST_CASE("the rule-helper-variables fixture byte-matches the golden observable 
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // Each think surfaces the inherited read (77) and the helper's write read back (88).
   REQUIRE(microbit.i2c.writes.size() == 2);
@@ -1982,7 +1974,6 @@ TEST_CASE("the struct-closure fixture byte-matches the golden observable trace")
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // Each think surfaces p.x (9), p.y (4), identity(42), and the closure capture (7).
   REQUIRE(microbit.i2c.writes.size() == 2);
@@ -2046,7 +2037,6 @@ TEST_CASE("the helper-below-class fixture byte-matches the golden observable tra
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // Each think surfaces the field read (40), the method's helper-backed sum (42),
   // and the direct helper call (2).
@@ -2114,7 +2104,6 @@ TEST_CASE("the user-tile enum-return fixture byte-matches the golden observable 
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // Each think fires the enum-triggered rule once and surfaces the probe bytes.
   REQUIRE(microbit.i2c.writes.size() == 2);
@@ -2186,7 +2175,6 @@ TEST_CASE("the user-tile button-display fixture byte-matches the golden observab
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // The device ends with pixel (0,0) lit, mirroring the TS oracle assertion.
   CHECK(microbit.display.pixels[0][0] == 255);
@@ -2260,7 +2248,6 @@ TEST_CASE("the user-tile button-states fixture byte-matches the golden observabl
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // The final think touches only the logo, so pixel (2,0) ends lit and (0,0) dark.
   CHECK(microbit.display.pixels[0][2] == 1);
@@ -2365,7 +2352,6 @@ TEST_CASE("the user-tile accelerometer-reads fixture byte-matches the golden obs
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // The final think holds x=40 at pixel (0,0) and derives pitch 171 from 3
   // radians at pixel (3,0); the gesture cleared to 0 at pixel (2,1).
@@ -2422,7 +2408,6 @@ TEST_CASE("the light-level-sensor fixture byte-matches the golden observable tra
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // The two positive-level ticks fire, lighting pixel (0,0); the dark tick does not.
   CHECK(microbit.display.pixels[0][0] == 255);
@@ -2490,7 +2475,6 @@ TEST_CASE("the user-tile light-level fixture byte-matches the golden observable 
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // The final think holds 40 at pixel (0,0).
   CHECK(microbit.display.pixels[0][0] == 40);
@@ -2544,7 +2528,6 @@ TEST_CASE("the temperature-sensor fixture byte-matches the golden observable tra
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // The positive and negative ticks fire, lighting pixel (0,0); the zero tick does not.
   CHECK(microbit.display.pixels[0][0] == 255);
@@ -2613,7 +2596,6 @@ TEST_CASE("the user-tile temperature fixture byte-matches the golden observable 
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // The final think holds -5, which the display port narrows to uint8 251 at pixel (0,0).
   CHECK(microbit.display.pixels[0][0] == 251);
@@ -2672,7 +2654,6 @@ TEST_CASE("the user-tile i2c-write fixture byte-matches the golden observable tr
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // The injectable bus records the exact address and bytes the brain wrote.
   REQUIRE(microbit.i2c.writes.size() == 2);
@@ -2735,7 +2716,6 @@ TEST_CASE("the user-tile system fixture byte-matches the golden observable trace
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // The shared System state persists and increments across thinks: the bytes
   // written are the running count 11, 12, 13.
@@ -2800,7 +2780,6 @@ TEST_CASE("the user-tile system struct state fixture byte-matches the golden obs
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // x climbs 1, 2, 3 across thinks while y stays 5: the struct-typed state
   // field persists in the System store and mutates think over think.
@@ -2874,7 +2853,6 @@ TEST_CASE("the user-tile i2c-read fixture byte-matches the golden observable tra
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // Each echoed write carries the bytes the read returned: the responder bytes
   // for the responder address, an empty buffer for the no-device read.
@@ -2941,7 +2919,6 @@ TEST_CASE("the user-tile gpio fixture byte-matches the golden observable trace")
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // The injectable model records the in-range writes/pull/servo and served the
   // injected read; the out-of-range pin recorded nothing.
@@ -3018,7 +2995,6 @@ TEST_CASE("the user-tile buffer-narrowing fixture byte-matches the golden observ
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // Each think drove the narrowed buffer's first byte (42) onto pin 2 and the
   // round-tripped number (7) onto pin 3, proving Buffer.isBuffer discriminated
@@ -3066,6 +3042,7 @@ static void checkWhenResultFixture(const std::string& name, uint32_t expected) {
   TraceTap tap(writer);
 
   mindcraft::ManagedHeap heap(arena, &image);
+  writer.setHeap(&heap);
   auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
   auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
   ExecutionContext ctx;
@@ -3095,7 +3072,6 @@ static void checkWhenResultFixture(const std::string& name, uint32_t expected) {
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // Each think: the inline decoder drove the narrowed WHEN result onto pin 2 and
   // the driver drove the same value onto pin 3, proving ctx.getWhenResult()
@@ -3153,6 +3129,7 @@ static void checkNestedWhenResultFixture(const std::string& name, uint32_t expec
   TraceTap tap(writer);
 
   mindcraft::ManagedHeap heap(arena, &image);
+  writer.setHeap(&heap);
   auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
   auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
   ExecutionContext ctx;
@@ -3182,7 +3159,6 @@ static void checkNestedWhenResultFixture(const std::string& name, uint32_t expec
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   REQUIRE_FALSE(microbit.gpio.writes.empty());
   bool sawSensorPin = false;
@@ -3274,7 +3250,6 @@ TEST_CASE("the user-tile gpio analog fixture byte-matches the golden observable 
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // The mirrored digital writes carry each think's sum, proving the read values
   // flowed through the compiled brain.
@@ -3312,6 +3287,7 @@ TEST_CASE("the user-tile conversion fixture byte-matches the golden observable t
   // bytecode action call, and the actuator mirrors the folded packet bytes
   // to a digital write.
   mindcraft::ManagedHeap heap(arena, &image);
+  writer.setHeap(&heap);
   auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
   auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
   ExecutionContext ctx;
@@ -3341,7 +3317,6 @@ TEST_CASE("the user-tile conversion fixture byte-matches the golden observable t
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // Each think's write carries the folded converted bytes [7, 42, 43] -> 74243,
   // proving the compiled convert function produced the exact packet on this VM.
@@ -3376,6 +3351,7 @@ TEST_CASE("the user-tile struct fixture byte-matches the golden observable trace
   // struct through an anonymous param and packs its fields (pin 8), and a
   // brain-side accessor read feeds a number actuator (pin 9).
   mindcraft::ManagedHeap heap(arena, &image);
+  writer.setHeap(&heap);
   auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
   auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
   ExecutionContext ctx;
@@ -3405,7 +3381,6 @@ TEST_CASE("the user-tile struct fixture byte-matches the golden observable trace
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // Each think writes the packed fields x*100+y = 304 on pin 8 and the
   // accessor-read x = 3 on pin 9, proving the struct value and its field
@@ -3479,7 +3454,6 @@ TEST_CASE("the variable-zero-init fixture byte-matches the golden observable tra
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // The rule ran three times and stopped: count counted 0, 1, 2 and reached 3.
   CHECK(ctx.variables[0].asNumber() == 3.0f);
@@ -3510,6 +3484,7 @@ TEST_CASE("the assignment-conversion fixture byte-matches the golden observable 
   // struct's Number field (pin 10), and [not] over a Number literal whose
   // Boolean result feeds a Number arg slot (pin 11).
   mindcraft::ManagedHeap heap(arena, &image);
+  writer.setHeap(&heap);
   auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
   auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
   ExecutionContext ctx;
@@ -3539,7 +3514,6 @@ TEST_CASE("the assignment-conversion fixture byte-matches the golden observable 
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // Each think surfaces the three converted values, proving the emitted
   // conversion calls behave identically on this VM: true -> 1 (pin 9),
@@ -3581,6 +3555,7 @@ TEST_CASE("the user-tile nested struct fixture byte-matches the golden observabl
   // [sprite][pos][x] feeds pin 8, and a flat accessor read [sprite][hp]
   // feeds pin 9.
   mindcraft::ManagedHeap heap(arena, &image);
+  writer.setHeap(&heap);
   auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
   auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
   ExecutionContext ctx;
@@ -3610,7 +3585,6 @@ TEST_CASE("the user-tile nested struct fixture byte-matches the golden observabl
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // Each think writes the chained read pos.x = 3 on pin 8 and the flat read
   // hp = 7 on pin 9, proving the nested struct value and its field reads
@@ -3676,7 +3650,6 @@ TEST_CASE("the user-tile presence-guard fixture byte-matches the golden observab
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
 }
 
@@ -3737,7 +3710,6 @@ TEST_CASE("the user-tile sonar fixture byte-matches the golden observable trace"
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // The two reads per think reference the same pin pair, so the driver registers
   // exactly one sonar.
@@ -3793,7 +3765,6 @@ TEST_CASE("the user-tile pixel-conversion fixture byte-matches the golden observ
   hostLoop.tick();
   REQUIRE_FALSE(hostLoop.faulted());
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // The stored pixels reflect the narrowing: 7.9 -> 7, 300 -> 44, -30 -> 226, and
   // the fractional coordinate 1.9 -> column 1.
@@ -3888,7 +3859,6 @@ void checkDrawFixture(const std::string& name, int tickCount, float tickMs) {
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
 }
 
@@ -3953,7 +3923,6 @@ void checkPlaySoundFixture(const std::string& name, int tickCount, float tickMs)
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
 }
 
@@ -4029,7 +3998,6 @@ void checkUserTileDrawFixture(const std::string& name, int tickCount, float tick
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
 }
 
@@ -4107,7 +4075,6 @@ void checkUserTilePlaySoundFixture(const std::string& name, int tickCount, float
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
 }
 
@@ -4168,7 +4135,6 @@ TEST_CASE("the timer-brain fixture byte-matches the golden observable trace") {
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   CHECK(microbit.display.pixels[0][0] == 255);
 }
@@ -4227,7 +4193,6 @@ TEST_CASE("the timeout-bounce fixture byte-matches the golden observable trace")
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
 }
 
@@ -4342,7 +4307,6 @@ TEST_CASE("the restart-interrupt fixture byte-matches the golden observable trac
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   CHECK(microbit.display.pixels[0][0] == 0);
 }
@@ -4403,7 +4367,6 @@ TEST_CASE("the core-host-actions fixture byte-matches the golden observable trac
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
 }
 
@@ -4470,7 +4433,6 @@ TEST_CASE("the display-scroll fixture byte-matches the golden observable trace")
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   CHECK(microbit.display.pixels[0][0] == 255);
 }
@@ -4530,7 +4492,6 @@ static void checkScrollWhenResultFixture(const std::string& name) {
   hostLoop.tick();
   REQUIRE_FALSE(hostLoop.faulted());
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
 }
 
@@ -4739,7 +4700,6 @@ TEST_CASE("the display-scroll-drop fixture byte-matches the golden observable tr
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   CHECK(microbit.display.pixels[0][0] == 255);
 }
@@ -4802,7 +4762,6 @@ TEST_CASE("the display-scroll-background fixture byte-matches the golden observa
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
 }
 
@@ -4861,7 +4820,6 @@ TEST_CASE("the async-action fixture byte-matches the golden observable trace") {
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // Device-free: no pixel is ever written.
   CHECK(microbit.display.pixels[0][0] == 0);
@@ -4912,7 +4870,6 @@ TEST_CASE("the sibling-rule-fibers fixture byte-matches the golden observable tr
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
 }
 
@@ -4959,7 +4916,6 @@ TEST_CASE("the parent-quiesce fixture byte-matches the golden observable trace")
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
 }
 
@@ -5019,7 +4975,6 @@ TEST_CASE("the async-parent-sequencing fixture byte-matches the golden observabl
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
 }
 
@@ -5081,7 +5036,6 @@ TEST_CASE("the async-handle-backpressure fixture byte-matches the golden observa
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
 }
 
@@ -5134,7 +5088,6 @@ TEST_CASE("the non-firing-parent fixture byte-matches the golden observable trac
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
 }
 
@@ -5192,7 +5145,6 @@ TEST_CASE("the sync-cascade-depth-first fixture byte-matches the golden observab
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
 }
 
@@ -5253,7 +5205,6 @@ TEST_CASE("the mixed-sync-async-child fixture byte-matches the golden observable
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
 }
 
@@ -5306,7 +5257,6 @@ TEST_CASE("the pixel-conversion fixture byte-matches the golden observable trace
   hostLoop.tick();
   REQUIRE_FALSE(hostLoop.faulted());
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // The fractional x truncated to 1 so pixel (1, 2) is lit; the out-of-matrix
   // coordinate stored nothing; the wrapped and truncated brightnesses landed.
@@ -5363,7 +5313,6 @@ TEST_CASE("the opcode-coverage fixture byte-matches the golden observable trace"
   hostLoop.tick();
   REQUIRE_FALSE(hostLoop.faulted());
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   // The list mutations leave list = [1], lighting pixel (1, 1).
   CHECK(microbit.display.pixels[1][1] == 255);
@@ -5429,7 +5378,6 @@ TEST_CASE("the managed-string-scroll fixture byte-matches the golden observable 
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
   CHECK(microbit.display.pixels[0][0] == 255);
 }
@@ -5583,7 +5531,6 @@ void runOtherwiseParity(const std::string& name, const std::vector<OtherwiseStep
     lastThinkTimeMs = timeMs;
   }
 
-  CHECK(tap.renderable);
   CHECK(sink.text() == golden);
 }
 

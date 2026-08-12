@@ -2,14 +2,20 @@ mctrace 1
 profile 1
 precision f32
 tick 1 time 41800000 dt 00000000
+tile 0 site 0 args 0 result bool 1
 port gpio analog-read 1 0
 port gpio analog-read 2 3ff
 port gpio digital-write 8 3ff
+tile 1 site 1 args 0 result nil
 tick 2 time 42000000 dt 41800000
+tile 0 site 0 args 0 result bool 1
 port gpio analog-read 1 200
 port gpio analog-read 2 3ff
 port gpio digital-write 8 5ff
+tile 1 site 1 args 0 result nil
 tick 3 time 42400000 dt 41800000
+tile 0 site 0 args 0 result bool 1
 port gpio analog-read 1 200
 port gpio analog-read 2 3ff
 port gpio digital-write 8 5ff
+tile 1 site 1 args 0 result nil

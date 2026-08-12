@@ -887,6 +887,19 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
         state.stackDepth = returning.base;
       }
       state.localsDepth = returning.localsOffset;
+      // A dispatched sync action frame always has a caller below it; a hook
+      // frame and an async action's child frame are their fiber's entry frame,
+      // and neither is a dispatch hand-back. The popped frame's locals are
+      // still readable: shrinking localsDepth leaves the slots in place.
+      if (state.frameDepth > 0 && returning.hasActionBinding && !returning.actionBinding.isAsync &&
+          surface.observer != nullptr) {
+        const FunctionBytecode& returningFn = program.functions[returning.funcId];
+        const uint32_t injected = returningFn.injectCtxTypeIdx != kNoTypeIdx ? 1u : 0u;
+        const Span<const Value> args(state.locals + returning.localsOffset + injected,
+                                     returningFn.numParams - injected);
+        surface.observer->onBytecodeActionCall(returning.actionBinding.actionId,
+                                               returning.actionBinding.callSiteId, args, retv);
+      }
       if (!pushValue(state, retv)) {
         return RunResult::fault(ErrorCode::StackOverflow, returning.funcId, returning.pc);
       }
@@ -1845,6 +1858,9 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
           action.entryFuncId, actionSlot, callSiteId, inheritedRuleFuncId, args, err);
       if (handleId == kNoHandleId) {
         return fault(err);
+      }
+      if (surface.observer != nullptr) {
+        surface.observer->onBytecodeActionCallAsync(actionSlot, callSiteId, args);
       }
       state.stackDepth -= argc;
       if (!pushValue(state, Value::handle(handleId))) {

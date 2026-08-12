@@ -12,6 +12,7 @@ port display set-pixel 00000000 00000000 437f0000
 action 401 site 0 args 3 number 00000000 number 00000000 nil result void
 port display set-pixel 00000000 00000000 42040000
 action 401 site 0 args 3 number 00000000 number 00000000 number 42040000 result void
+tile 0 site 1 args 0 result nil
 port display set-pixel 00000000 00000000 42300000
 action 401 site 0 args 3 number 00000000 number 00000000 number 42300000 result void
 port display set-pixel 00000000 00000000 41b00000
@@ -29,6 +30,7 @@ port display set-pixel 00000000 00000000 437f0000
 action 401 site 0 args 3 number 00000000 number 00000000 nil result void
 port display set-pixel 00000000 00000000 42040000
 action 401 site 0 args 3 number 00000000 number 00000000 number 42040000 result void
+tile 0 site 1 args 0 result nil
 port display set-pixel 00000000 00000000 42300000
 action 401 site 0 args 3 number 00000000 number 00000000 number 42300000 result void
 port display set-pixel 00000000 00000000 41b00000
@@ -46,6 +48,7 @@ port display set-pixel 00000000 00000000 437f0000
 action 401 site 0 args 3 number 00000000 number 00000000 nil result void
 port display set-pixel 00000000 00000000 42040000
 action 401 site 0 args 3 number 00000000 number 00000000 number 42040000 result void
+tile 0 site 1 args 0 result nil
 port display set-pixel 00000000 00000000 42300000
 action 401 site 0 args 3 number 00000000 number 00000000 number 42300000 result void
 port display set-pixel 00000000 00000000 41b00000

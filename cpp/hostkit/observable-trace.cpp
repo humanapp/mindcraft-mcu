@@ -4,6 +4,12 @@
 #include "core/runtime/managed-heap.h"
 
 namespace mindcraft {
+namespace {
+
+/** Value token standing in for a value kind the trace format does not render. */
+constexpr const char* kOpaqueValueToken = "opaque";
+
+} // namespace
 
 ObservableTraceWriter::ObservableTraceWriter(TextSink& sink, const ProgramImage& program)
     : w_(sink), program_(program) {
@@ -28,44 +34,48 @@ void ObservableTraceWriter::tick(uint32_t ordinal, mc_number_t time, mc_number_t
   w_.nl();
 }
 
-bool ObservableTraceWriter::hostActionCall(uint32_t actionId, uint32_t callSiteId,
+void ObservableTraceWriter::hostActionCall(uint32_t actionId, uint32_t callSiteId,
                                            Span<const Value> args, const Value& result) {
-  if (!actionPrefix(actionId, callSiteId, args)) {
-    return false;
-  }
+  callPrefix("action ", actionId, callSiteId, args);
   w_.text(" result ");
-  if (!valueToken(result)) {
-    return false;
-  }
+  valueToken(result);
   w_.nl();
-  return true;
 }
 
-bool ObservableTraceWriter::hostActionCallAsync(uint32_t actionId, uint32_t callSiteId,
+void ObservableTraceWriter::hostActionCallAsync(uint32_t actionId, uint32_t callSiteId,
                                                 Span<const Value> args) {
-  if (!actionPrefix(actionId, callSiteId, args)) {
-    return false;
-  }
+  callPrefix("action ", actionId, callSiteId, args);
   w_.text(" async");
   w_.nl();
-  return true;
 }
 
-bool ObservableTraceWriter::actionPrefix(uint32_t actionId, uint32_t callSiteId,
-                                         Span<const Value> args) {
-  w_.text("action ");
-  w_.hex(actionId);
+void ObservableTraceWriter::bytecodeActionCall(uint32_t actionSlot, uint32_t callSiteId,
+                                               Span<const Value> args, const Value& result) {
+  callPrefix("tile ", actionSlot, callSiteId, args);
+  w_.text(" result ");
+  valueToken(result);
+  w_.nl();
+}
+
+void ObservableTraceWriter::bytecodeActionCallAsync(uint32_t actionSlot, uint32_t callSiteId,
+                                                    Span<const Value> args) {
+  callPrefix("tile ", actionSlot, callSiteId, args);
+  w_.text(" async");
+  w_.nl();
+}
+
+void ObservableTraceWriter::callPrefix(const char* verb, uint32_t id, uint32_t callSiteId,
+                                       Span<const Value> args) {
+  w_.text(verb);
+  w_.hex(id);
   w_.text(" site ");
   w_.hex(callSiteId);
   w_.text(" args ");
   w_.hex(static_cast<uint32_t>(args.size()));
   for (size_t i = 0; i < args.size(); i++) {
     w_.ch(' ');
-    if (!valueToken(args[i])) {
-      return false;
-    }
+    valueToken(args[i]);
   }
-  return true;
 }
 
 void ObservableTraceWriter::displaySetPixel(mc_number_t x, mc_number_t y, mc_number_t brightness) {
@@ -240,92 +250,117 @@ void ObservableTraceWriter::fiberFault(uint32_t fiberId, ErrorCode code) {
   w_.nl();
 }
 
-bool ObservableTraceWriter::valueToken(const Value& value) {
+void ObservableTraceWriter::valueToken(const Value& value) {
   switch (value.tag()) {
   case ValueTag::Void:
     w_.text("void");
-    return true;
+    return;
   case ValueTag::Nil:
     w_.text("nil");
-    return true;
+    return;
   case ValueTag::Boolean:
     w_.text(value.asBoolean() ? "bool 1" : "bool 0");
-    return true;
+    return;
   case ValueTag::Number:
     w_.text("number ");
     w_.numberBits(value.asNumber());
-    return true;
-  case ValueTag::String:
-    w_.text("string ");
+    return;
+  case ValueTag::String: {
+    const uint8_t* bytes = nullptr;
+    uint32_t length = 0;
     if (value.isManagedString()) {
-      const char* bytes = nullptr;
-      uint32_t length = 0;
-      if (heap_ == nullptr || !heap_->stringContent(value, bytes, length)) {
-        return false;
+      const char* chars = nullptr;
+      if (heap_ == nullptr || !heap_->stringContent(value, chars, length)) {
+        w_.text(kOpaqueValueToken);
+        return;
       }
-      quoteBytes(w_, reinterpret_cast<const uint8_t*>(bytes), length);
-      return true;
+      bytes = reinterpret_cast<const uint8_t*>(chars);
+    } else if (!stringTableBytes(program_, value.borrowedStringIndex(), bytes, length)) {
+      w_.text(kOpaqueValueToken);
+      return;
     }
-    return quoteStringTableEntry(w_, program_, value.borrowedStringIndex());
+    w_.text("string ");
+    quoteBytes(w_, bytes, length);
+    return;
+  }
+  case ValueTag::Enum: {
+    const uint8_t* bytes = nullptr;
+    uint32_t length = 0;
+    if (!enumSymbolBytes(value, bytes, length)) {
+      w_.text(kOpaqueValueToken);
+      return;
+    }
+    w_.text("enum ");
+    quoteBytes(w_, bytes, length);
+    return;
+  }
   case ValueTag::Buffer: {
-    w_.text("buffer ");
     const uint8_t* bytes = nullptr;
     uint32_t length = 0;
     if (value.isManagedBuffer()) {
       if (heap_ == nullptr || !heap_->bufferContent(value, bytes, length)) {
-        return false;
+        w_.text(kOpaqueValueToken);
+        return;
       }
     } else {
       const ByteSpan span = bufferBytes(program_, value);
       bytes = span.data();
       length = span.size();
     }
+    w_.text("buffer ");
     for (uint32_t i = 0; i < length; i++) {
       w_.hexDigit(static_cast<uint8_t>(bytes[i] >> 4));
       w_.hexDigit(static_cast<uint8_t>(bytes[i] & 0xf));
     }
-    return true;
+    return;
   }
   case ValueTag::Struct: {
-    if (heap_ == nullptr) {
-      return false;
-    }
-    const StructObject* obj = heap_->structOf(value);
+    const StructObject* obj = heap_ == nullptr ? nullptr : heap_->structOf(value);
     if (obj == nullptr) {
-      return false;
+      w_.text(kOpaqueValueToken);
+      return;
     }
     w_.text("struct ");
     w_.hex(obj->slotCount);
     for (uint32_t i = 0; i < obj->slotCount; i++) {
       w_.ch(' ');
-      if (!valueToken(heap_->structGet(obj, i))) {
-        return false;
-      }
+      valueToken(heap_->structGet(obj, i));
     }
-    return true;
+    return;
   }
   case ValueTag::List: {
-    if (heap_ == nullptr) {
-      return false;
-    }
-    const ListObject* obj = heap_->list(value);
+    const ListObject* obj = heap_ == nullptr ? nullptr : heap_->list(value);
     if (obj == nullptr) {
-      return false;
+      w_.text(kOpaqueValueToken);
+      return;
     }
     w_.text("list ");
     w_.hex(obj->size);
     for (uint32_t i = 0; i < obj->size; i++) {
       w_.ch(' ');
-      if (!valueToken(heap_->listGet(obj, static_cast<int32_t>(i)))) {
-        return false;
-      }
+      valueToken(heap_->listGet(obj, static_cast<int32_t>(i)));
     }
-    return true;
+    return;
   }
   default:
-    // No other value kind has a rendering in trace format version 1.
+    w_.text(kOpaqueValueToken);
+    return;
+  }
+}
+
+bool ObservableTraceWriter::enumSymbolBytes(const Value& value, const uint8_t*& bytes,
+                                            uint32_t& length) const {
+  const uint32_t typeIdx = value.typeId();
+  if (typeIdx >= program_.types.size() || program_.types[typeIdx].tag != TypeTag::Enum) {
     return false;
   }
+  const TypeEntry::EnumOf& entry = program_.types[typeIdx].enumOf;
+  const uint32_t ordinal = value.enumOrdinal();
+  if (ordinal >= entry.symbolsCount || entry.symbolsOffset + ordinal >= program_.typeRefs.size()) {
+    return false;
+  }
+  return stringTableBytes(program_, program_.typeRefs[entry.symbolsOffset + ordinal], bytes,
+                          length);
 }
 
 } // namespace mindcraft

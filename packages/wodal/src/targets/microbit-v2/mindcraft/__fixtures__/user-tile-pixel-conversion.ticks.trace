@@ -2,9 +2,11 @@ mctrace 1
 profile 1
 precision f32
 tick 1 time 41800000 dt 00000000
+tile 0 site 0 args 0 result bool 1
 port display set-pixel 00000000 00000000 00000000
 port display set-pixel 3f800000 00000000 40e00000
 port display set-pixel 40000000 00000000 42300000
 port display set-pixel 40400000 00000000 43620000
 port display set-pixel 3f800000 3f800000 40a00000
 port display set-pixel 41100000 3f800000 40a00000
+tile 1 site 1 args 0 result nil

@@ -6,6 +6,7 @@ port display set-pixel 00000000 00000000 3f800000
 action 401 site 1 args 3 number 00000000 number 00000000 number 3f800000 result void
 port display set-pixel 3f800000 00000000 3f800000
 action 401 site 2 args 3 number 3f800000 number 00000000 number 3f800000 result void
+tile 0 site 3 args 0 async
 tick 2 time 42000000 dt 41800000
 tick 3 time 42400000 dt 41800000
 port display set-pixel 3f800000 3f800000 3f800000
@@ -15,6 +16,7 @@ port display set-pixel 00000000 00000000 3f800000
 action 401 site 1 args 3 number 00000000 number 00000000 number 3f800000 result void
 port display set-pixel 3f800000 00000000 3f800000
 action 401 site 2 args 3 number 3f800000 number 00000000 number 3f800000 result void
+tile 0 site 3 args 0 async
 tick 5 time 42a00000 dt 41800000
 tick 6 time 42c00000 dt 41800000
 port display set-pixel 3f800000 3f800000 3f800000
@@ -24,4 +26,5 @@ port display set-pixel 00000000 00000000 3f800000
 action 401 site 1 args 3 number 00000000 number 00000000 number 3f800000 result void
 port display set-pixel 3f800000 00000000 3f800000
 action 401 site 2 args 3 number 3f800000 number 00000000 number 3f800000 result void
+tile 0 site 3 args 0 async
 tick 8 time 43000000 dt 41800000

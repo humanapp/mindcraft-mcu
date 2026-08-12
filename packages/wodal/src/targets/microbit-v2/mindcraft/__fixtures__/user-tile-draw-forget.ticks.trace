@@ -3,6 +3,7 @@ profile 1
 precision f32
 tick 1 time 42c80000 dt 00000000
 action 4 site 0 args 0 result bool 1
+tile 0 site 1 args 0 async
 tick 2 time 43480000 dt 42c80000
 port display draw 5 5 ffffffffff0000000000000000000000000000000000000000
 port display set-pixel 40800000 40800000 437f0000

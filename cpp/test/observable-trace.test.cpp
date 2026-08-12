@@ -41,6 +41,30 @@ struct FaultTraceTap : VmObserver {
   void onFiberFault(uint32_t fiberId, ErrorCode code) override { writer.fiberFault(fiberId, code); }
 };
 
+/** Forwards bytecode-action dispatches to the trace writer. */
+struct BytecodeActionTraceTap : VmObserver {
+  explicit BytecodeActionTraceTap(ObservableTraceWriter& writer) : writer(writer) {}
+
+  ObservableTraceWriter& writer;
+
+  void onHostActionCall(uint32_t, uint32_t, Span<const Value>, const Value&) override {}
+
+  void onBytecodeActionCall(uint32_t actionSlot, uint32_t callSiteId, Span<const Value> args,
+                            const Value& result) override {
+    writer.bytecodeActionCall(actionSlot, callSiteId, args, result);
+  }
+
+  void onBytecodeActionCallAsync(uint32_t actionSlot, uint32_t callSiteId,
+                                 Span<const Value> args) override {
+    writer.bytecodeActionCallAsync(actionSlot, callSiteId, args);
+  }
+
+  void onFiberFault(uint32_t fiberId, ErrorCode code) override { writer.fiberFault(fiberId, code); }
+};
+
+/** Call-site id the bytecode-action fixtures bind their dispatch to. */
+constexpr uint32_t kActionCallSiteId = 5;
+
 } // namespace
 
 TEST_CASE("the trace header renders the format version, profile, and precision") {
@@ -78,7 +102,7 @@ TEST_CASE("action lines render every defined value token") {
   ObservableTraceWriter writer(sink, image);
   const Value args[5] = {mindcraft::kVoidValue, mindcraft::kNilValue, Value::boolean(true),
                          Value::number(-7.25f), Value::borrowedString(0)};
-  REQUIRE(writer.hostActionCall(0x400, 3, Span<const Value>(args, 5), Value::boolean(false)));
+  writer.hostActionCall(0x400, 3, Span<const Value>(args, 5), Value::boolean(false));
   const std::string expected =
       "mctrace 1\nprofile 0\nprecision f32\n"
       "action 400 site 3 args 5 void nil bool 1 number c0e80000 string \"a\\\"b\\\\c\\x01\""
@@ -86,14 +110,37 @@ TEST_CASE("action lines render every defined value token") {
   CHECK(sink.text() == expected);
 }
 
-TEST_CASE("a value kind outside the trace vocabulary is unrenderable") {
+TEST_CASE("a value kind outside the trace vocabulary renders opaque") {
   ProgramBuilder b;
   std::vector<uint8_t> storage(16 * 1024);
   const ProgramImage image = b.build(storage);
 
   StringTextSink sink;
   ObservableTraceWriter writer(sink, image);
-  CHECK(!writer.hostActionCall(1, 0, {}, Value::enumSymbol(0, 2)));
+  // A function value has no rendering, and an enum whose type is not in the
+  // program's type table cannot resolve its symbol.
+  const Value args[1] = {Value::enumSymbol(0, 2)};
+  writer.hostActionCall(1, 0, Span<const Value>(args, 1), Value::function(0, 0));
+  const std::string expected = "mctrace 1\nprofile 0\nprecision f32\n"
+                               "action 1 site 0 args 1 opaque result opaque\n";
+  CHECK(sink.text() == expected);
+}
+
+TEST_CASE("an enum value renders its symbol name") {
+  ProgramBuilder b;
+  b.poolString("Go");
+  b.poolString("Stop");
+  b.enumType(0, {{0, 0}, {1, 1}});
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  const Value args[1] = {Value::enumSymbol(0, 1)};
+  writer.hostActionCall(2, 0, Span<const Value>(args, 1), Value::enumSymbol(0, 0));
+  const std::string expected = "mctrace 1\nprofile 0\nprecision f32\n"
+                               "action 2 site 0 args 1 enum \"Stop\" result enum \"Go\"\n";
+  CHECK(sink.text() == expected);
 }
 
 TEST_CASE("port and fault lines render their fixed shapes") {
@@ -161,5 +208,90 @@ TEST_CASE("a faulting rule traces the fault line shape and respawns next think")
                                "fault 1 6\n"
                                "tick 2 time 42000000 dt 41800000\n"
                                "fault 2 6\n";
+  CHECK(sink.text() == expected);
+}
+
+TEST_CASE("a synchronous bytecode-action call traces at the body's hand-back") {
+  // A rule dispatching the program's one bytecode action with a single number
+  // argument; the body returns a number of its own. The action line renders the
+  // action's slot as its id and the value the body handed back.
+  ProgramBuilder b;
+  b.poolString("page-id");
+  b.number(7);  // const 0: the dispatched argument
+  b.number(42); // const 1: the body's return value
+  b.valueNil(); // value const 0: what the rule returns
+  b.beginFunction()
+      .instr(Op::PUSH_CONST_NUM, 0)
+      .instr(Op::ACTION_CALL, 0, 1, kActionCallSiteId)
+      .instr(Op::POP)
+      .instr(Op::PUSH_CONST_VAL, 0)
+      .instr(Op::RET);
+  b.beginFunction(1).instr(Op::PUSH_CONST_NUM, 1).instr(Op::RET);
+  b.bytecodeAction(1);
+  b.ruleFunc(0);
+  b.beginPage(0).pageRoot(0);
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  BytecodeActionTraceTap tap(writer);
+  ExecutionContext ctx;
+  RuntimeSurface surface{&ctx, {}, &tap};
+  std::array<uint8_t, 4 * (2048 + sizeof(mindcraft::FiberRecord) + 64) + 256> arenaBytes;
+  RegionArena arena(Span<uint8_t>(arenaBytes.data(), arenaBytes.size()));
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+  REQUIRE(brain.startup().isOk());
+
+  writer.tick(1, 16.0f, 0.0f);
+  REQUIRE(brain.think(16.0f).isOk());
+
+  const std::string expected = "mctrace 1\nprofile 0\nprecision f32\n"
+                               "tick 1 time 41800000 dt 00000000\n"
+                               "tile 0 site 5 args 1 number 40e00000 result number 42280000\n";
+  CHECK(sink.text() == expected);
+}
+
+TEST_CASE("an asynchronous bytecode-action call traces at the dispatch") {
+  // The same action dispatched through ACTION_CALL_ASYNC: the line renders when
+  // the child fiber running the body is spawned, and ends with `async` for the
+  // pending handle the dispatch yields.
+  ProgramBuilder b;
+  b.poolString("page-id");
+  b.number(7);
+  b.number(42);
+  b.valueNil();
+  b.beginFunction()
+      .instr(Op::PUSH_CONST_NUM, 0)
+      .instr(Op::ACTION_CALL_ASYNC, 0, 1, kActionCallSiteId)
+      .instr(Op::AWAIT)
+      .instr(Op::POP)
+      .instr(Op::PUSH_CONST_VAL, 0)
+      .instr(Op::RET);
+  b.beginFunction(1).instr(Op::PUSH_CONST_NUM, 1).instr(Op::RET);
+  b.bytecodeAction(1);
+  b.ruleFunc(0);
+  b.beginPage(0).pageRoot(0);
+  std::vector<uint8_t> storage(16 * 1024);
+  const ProgramImage image = b.build(storage);
+
+  StringTextSink sink;
+  ObservableTraceWriter writer(sink, image);
+  BytecodeActionTraceTap tap(writer);
+  ExecutionContext ctx;
+  RuntimeSurface surface{&ctx, {}, &tap};
+  std::array<uint8_t, 4 * (2048 + sizeof(mindcraft::FiberRecord) + 64) + 256> arenaBytes;
+  RegionArena arena(Span<uint8_t>(arenaBytes.data(), arenaBytes.size()));
+  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  BrainRuntime brain(image, scheduler, surface);
+  REQUIRE(brain.startup().isOk());
+
+  writer.tick(1, 16.0f, 0.0f);
+  REQUIRE(brain.think(16.0f).isOk());
+
+  const std::string expected = "mctrace 1\nprofile 0\nprecision f32\n"
+                               "tick 1 time 41800000 dt 00000000\n"
+                               "tile 0 site 5 args 1 number 40e00000 async\n";
   CHECK(sink.text() == expected);
 }

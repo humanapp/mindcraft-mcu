@@ -36,6 +36,34 @@ public:
     static_cast<void>(args);
   }
 
+  /**
+   * One completed synchronous bytecode-action dispatch. Raised when the body
+   * hands control back, keyed by the action's slot in the program's action
+   * table. `args` is the body's parameter slots as it left them, without any
+   * injected context slot, and is valid only for the duration of this call. A
+   * body that faults raises nothing.
+   */
+  virtual void onBytecodeActionCall(uint32_t actionSlot, uint32_t callSiteId,
+                                    Span<const Value> args, const Value& result) {
+    static_cast<void>(actionSlot);
+    static_cast<void>(callSiteId);
+    static_cast<void>(args);
+    static_cast<void>(result);
+  }
+
+  /**
+   * One asynchronous bytecode-action dispatch. Raised when the child fiber
+   * running the body is spawned, before its handle settles; keyed by the
+   * action's slot in the program's action table. `args` is the positional arg
+   * buffer the dispatch passed and is valid only for the duration of this call.
+   */
+  virtual void onBytecodeActionCallAsync(uint32_t actionSlot, uint32_t callSiteId,
+                                         Span<const Value> args) {
+    static_cast<void>(actionSlot);
+    static_cast<void>(callSiteId);
+    static_cast<void>(args);
+  }
+
   /** One fiber fault, raised when the fiber transitions to its fault state. */
   virtual void onFiberFault(uint32_t fiberId, ErrorCode code) = 0;
 
