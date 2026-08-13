@@ -38,7 +38,6 @@ export function App() {
       connect={store.assistant.connect}
       manifest={store.assistant.manifest}
       workspace={store.assistant.workspaces.workspaceFor}
-      activity={store.assistant.activity}
     >
       <DocsSidebarProvider
         registry={docsRegistry}

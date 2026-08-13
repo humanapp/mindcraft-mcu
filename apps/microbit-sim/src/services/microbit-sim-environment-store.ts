@@ -270,7 +270,7 @@ export class MicrobitSimEnvironmentStore {
     this.assistant = {
       manifest: assistantToolManifest(adapter),
       activity,
-      workspaces: createEditedBrainWorkspaces({ environment: host.env, adapter, activity }),
+      workspaces: createEditedBrainWorkspaces({ environment: host.env, adapter }),
       connect: () => createWebSocketConnect(assistantSessionUrl(this._appSettings.assistantServiceUrl))(),
     };
     this.simulator = new MicrobitSimulator(host.env);
