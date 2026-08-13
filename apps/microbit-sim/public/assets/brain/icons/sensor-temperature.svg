@@ -1,10 +1,27 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg width="100%" height="100%" viewBox="0 0 64 64" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
-    <g>
-        <rect x="26" y="8" width="12" height="40" rx="6" style="fill:rgb(154,161,171);"/>
-        <circle cx="32" cy="50" r="11" style="fill:rgb(154,161,171);"/>
-        <circle cx="32" cy="50" r="7" style="fill:rgb(75,85,99);"/>
-        <rect x="29" y="20" width="6" height="30" rx="3" style="fill:rgb(75,85,99);"/>
+<svg width="100%" height="100%" viewBox="0 0 64 64" version="1.1" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <filter id="halo" x="-15%" y="-15%" width="130%" height="130%">
+            <feMorphology in="SourceAlpha" operator="dilate" radius="2.2" result="dilated"/>
+            <feFlood flood-color="#ffffff" result="white"/>
+            <feComposite in="white" in2="dilated" operator="in" result="outline"/>
+            <feMerge>
+                <feMergeNode in="outline"/>
+                <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+        </filter>
+    </defs>
+    <g filter="url(#halo)">
+        <rect x="26" y="8" width="12" height="40" rx="6" fill="none" stroke="#262b33" stroke-width="2.4"/>
+        <circle cx="32" cy="50" r="11" fill="none" stroke="#262b33" stroke-width="2.4"/>
+        <rect x="26" y="8" width="12" height="40" rx="6" fill="#e9edf2"/>
+        <circle cx="32" cy="50" r="11" fill="#e9edf2"/>
+        <circle cx="32" cy="50" r="7" fill="#f4493f"/>
+        <rect x="29" y="12" width="6" height="34" rx="3" fill="#d6dbe3"/>
+        <rect x="29" y="26" width="6" height="24" rx="3" fill="#f4493f"/>
+        <rect x="40" y="16" width="5" height="2.4" rx="1.2" fill="#3c434d"/>
+        <rect x="40" y="22" width="5" height="2.4" rx="1.2" fill="#3c434d"/>
+        <rect x="40" y="28" width="5" height="2.4" rx="1.2" fill="#3c434d"/>
+        <rect x="40" y="34" width="5" height="2.4" rx="1.2" fill="#3c434d"/>
     </g>
 </svg>
