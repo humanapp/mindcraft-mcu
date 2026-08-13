@@ -1,5 +1,5 @@
 ```brain noframe do
-{ "tile": "tile.out->number:<number>.rssi" }
+{ "tile": "${tileId}" }
 ```
 
 # The signal strength

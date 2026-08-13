@@ -329,7 +329,7 @@ A slow, sleepy sound.
 A ready-made sound for \`tile:tile.actuator->microbit-v2.play-sound\`.
 `,
   "modifier-click": `\`\`\`brain noframe when
-{ "tile": "tile.modifier->microbit-v2.click" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Click
@@ -343,7 +343,7 @@ rule fires when the button is released after a press shorter than one second.
 A longer press is a \`tile:tile.modifier->microbit-v2.long-click\` instead.
 `,
   "modifier-double-click": `\`\`\`brain noframe when
-{ "tile": "tile.modifier->microbit-v2.double-click" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Double click
@@ -356,7 +356,7 @@ Attach to a button tile such as \`tile:tile.sensor->microbit-v2.button-a\`: the
 rule fires when a second press starts within half a second of a click.
 `,
   "modifier-face-down": `\`\`\`brain noframe when
-{ "tile": "tile.modifier->microbit-v2.face-down" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Face down
@@ -369,7 +369,7 @@ Attach to \`tile:tile.sensor->microbit-v2.gesture\`: the rule fires while the
 board lies flat with the display facing down.
 `,
   "modifier-face-up": `\`\`\`brain noframe when
-{ "tile": "tile.modifier->microbit-v2.face-up" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Face up
@@ -382,7 +382,7 @@ Attach to \`tile:tile.sensor->microbit-v2.gesture\`: the rule fires while the
 board lies flat with the display facing up.
 `,
   "modifier-freefall": `\`\`\`brain noframe when
-{ "tile": "tile.modifier->microbit-v2.freefall" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Freefall
@@ -395,7 +395,7 @@ Attach to \`tile:tile.sensor->microbit-v2.gesture\`: the rule fires while the
 board is falling freely, such as when it is dropped or tossed.
 `,
   "modifier-held": `\`\`\`brain noframe when
-{ "tile": "tile.modifier->microbit-v2.held" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Held
@@ -442,7 +442,7 @@ display or speaker stays busy until it completes, so a new request during that
 time is still dropped.
 `,
   "modifier-long-click": `\`\`\`brain noframe when
-{ "tile": "tile.modifier->microbit-v2.long-click" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Long click
@@ -455,7 +455,7 @@ Attach to a button tile such as \`tile:tile.sensor->microbit-v2.button-a\`: the
 rule fires when the button is released after being held for one second or more.
 `,
   "modifier-pressed": `\`\`\`brain noframe when
-{ "tile": "tile.modifier->microbit-v2.pressed" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Pressed
@@ -469,7 +469,7 @@ rule fires on the think the button is first pressed. This is also what a bare
 button tile detects.
 `,
   "modifier-released": `\`\`\`brain noframe when
-{ "tile": "tile.modifier->microbit-v2.released" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Released
@@ -482,7 +482,7 @@ Attach to a button tile such as \`tile:tile.sensor->microbit-v2.button-a\`: the
 rule fires on the think the button is let go.
 `,
   "modifier-shake": `\`\`\`brain noframe when
-{ "tile": "tile.modifier->microbit-v2.shake" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Shake
@@ -495,7 +495,7 @@ Attach to \`tile:tile.sensor->microbit-v2.gesture\` to detect shaking. This is
 also what a bare gesture tile detects.
 `,
   "modifier-tilt-down": `\`\`\`brain noframe when
-{ "tile": "tile.modifier->microbit-v2.tilt-down" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Tilt down
@@ -509,7 +509,7 @@ board is tilted down. It stays true for as long as the board is held in that
 position.
 `,
   "modifier-tilt-left": `\`\`\`brain noframe when
-{ "tile": "tile.modifier->microbit-v2.tilt-left" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Tilt left
@@ -523,7 +523,7 @@ board is tilted left. It stays true for as long as the board is held in that
 position.
 `,
   "modifier-tilt-right": `\`\`\`brain noframe when
-{ "tile": "tile.modifier->microbit-v2.tilt-right" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Tilt right
@@ -537,7 +537,7 @@ board is tilted right. It stays true for as long as the board is held in that
 position.
 `,
   "modifier-tilt-up": `\`\`\`brain noframe when
-{ "tile": "tile.modifier->microbit-v2.tilt-up" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Tilt up
@@ -551,7 +551,7 @@ board is tilted up. It stays true for as long as the board is held in that
 position.
 `,
   "output-buffer-value": `\`\`\`brain noframe do
-{ "tile": "tile.out->buffer:<buffer>.value" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # The received bytes
@@ -571,7 +571,7 @@ buffer packet arrived.
 \`tile:tile.out->number:<number>.rssi\`
 `,
   "output-number-rssi": `\`\`\`brain noframe do
-{ "tile": "tile.out->number:<number>.rssi" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # The signal strength
@@ -593,7 +593,7 @@ real signal and reports the same strength for every message.
 \`tile:tile.out->number:<number>.value\`
 `,
   "output-number-value": `\`\`\`brain noframe do
-{ "tile": "tile.out->number:<number>.value" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # The received number
@@ -619,7 +619,7 @@ number packet arrived.
       ],
       "do": [
         "tile.actuator->microbit-v2.display-scroll",
-        "tile.out->number:<number>.value"
+        "\${tileId}"
       ],
       "children": [],
       "comment": "Scroll whatever number the other micro:bit sent."
@@ -635,7 +635,7 @@ number packet arrived.
 \`tile:tile.out->number:<number>.rssi\`
 `,
   "output-string-value": `\`\`\`brain noframe do
-{ "tile": "tile.out->string:<string>.value" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # The received text
@@ -751,7 +751,7 @@ Gives \`tile:tile.actuator->microbit-v2.display-set-pixel\` its row, a number
 from 0 (top) to 4 (bottom). When left off, the row is 0.
 `,
   "sensor-button-a": `\`\`\`brain noframe when
-{ "tile": "tile.sensor->microbit-v2.button-a" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Button A
@@ -770,7 +770,7 @@ more, and \`tile:tile.modifier->microbit-v2.held\` is true the whole time the
 button is down.
 `,
   "sensor-button-ab": `\`\`\`brain noframe when
-{ "tile": "tile.sensor->microbit-v2.button-ab" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Button A+B
@@ -789,7 +789,7 @@ event modifiers: \`tile:tile.modifier->microbit-v2.pressed\` (the default),
 \`tile:tile.modifier->microbit-v2.held\`.
 `,
   "sensor-button-b": `\`\`\`brain noframe when
-{ "tile": "tile.sensor->microbit-v2.button-b" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Button B
@@ -808,7 +808,7 @@ more, and \`tile:tile.modifier->microbit-v2.held\` is true the whole time the
 button is down.
 `,
   "sensor-gesture": `\`\`\`brain noframe when
-{ "tile": "tile.sensor->microbit-v2.gesture" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Gesture
@@ -830,7 +830,7 @@ selected modifier word; with no word it detects
 \`tile:tile.modifier->microbit-v2.freefall\`.
 `,
   "sensor-light-level": `\`\`\`brain noframe when
-{ "tile": "tile.sensor->microbit-v2.light-level" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Light level
@@ -846,7 +846,7 @@ so any light makes it fire. The reading is the tile's result, and also fills the
 threshold, for example to react only when the room goes dark.
 `,
   "sensor-logo": `\`\`\`brain noframe when
-{ "tile": "tile.sensor->microbit-v2.button-logo" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Logo
@@ -866,7 +866,7 @@ a third button. It takes the same optional event modifiers as
 \`tile:tile.modifier->microbit-v2.held\`.
 `,
   "sensor-radio-receive-buffer": `\`\`\`brain noframe when
-{ "tile": "tile.sensor->microbit-v2.radio-receive-buffer" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Radio receive buffer
@@ -883,7 +883,7 @@ decodes. Both micro:bits must be on the same radio group (see
 \`tile:tile.actuator->microbit-v2.set-radio-group\`).
 `,
   "sensor-radio-receive-number": `\`\`\`brain noframe when
-{ "tile": "tile.sensor->microbit-v2.radio-receive-number" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Radio receive number
@@ -899,7 +899,7 @@ received number is the tile's result, and the packet also fills the
 \`tile:tile.actuator->microbit-v2.set-radio-group\`).
 `,
   "sensor-radio-receive-string": `\`\`\`brain noframe when
-{ "tile": "tile.sensor->microbit-v2.radio-receive-string" }
+{ "tile": "\${tileId}" }
 \`\`\`
 
 # Radio receive string

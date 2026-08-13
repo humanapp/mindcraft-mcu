@@ -1,5 +1,5 @@
 ```brain noframe when
-{ "tile": "tile.sensor->microbit-v2.radio-receive-buffer" }
+{ "tile": "${tileId}" }
 ```
 
 # Radio receive buffer

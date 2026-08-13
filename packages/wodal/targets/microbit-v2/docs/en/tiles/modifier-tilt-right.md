@@ -1,5 +1,5 @@
 ```brain noframe when
-{ "tile": "tile.modifier->microbit-v2.tilt-right" }
+{ "tile": "${tileId}" }
 ```
 
 # Tilt right

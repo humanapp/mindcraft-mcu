@@ -1,5 +1,5 @@
 ```brain noframe when
-{ "tile": "tile.sensor->microbit-v2.button-ab" }
+{ "tile": "${tileId}" }
 ```
 
 # Button A+B

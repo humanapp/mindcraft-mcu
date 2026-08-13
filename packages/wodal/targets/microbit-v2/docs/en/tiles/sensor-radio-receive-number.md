@@ -1,5 +1,5 @@
 ```brain noframe when
-{ "tile": "tile.sensor->microbit-v2.radio-receive-number" }
+{ "tile": "${tileId}" }
 ```
 
 # Radio receive number

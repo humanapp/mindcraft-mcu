@@ -1,5 +1,5 @@
 ```brain noframe do
-{ "tile": "tile.out->buffer:<buffer>.value" }
+{ "tile": "${tileId}" }
 ```
 
 # The received bytes

@@ -1,5 +1,5 @@
 ```brain noframe when
-{ "tile": "tile.sensor->microbit-v2.light-level" }
+{ "tile": "${tileId}" }
 ```
 
 # Light level

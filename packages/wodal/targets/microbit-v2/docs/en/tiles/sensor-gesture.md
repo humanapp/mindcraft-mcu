@@ -1,5 +1,5 @@
 ```brain noframe when
-{ "tile": "tile.sensor->microbit-v2.gesture" }
+{ "tile": "${tileId}" }
 ```
 
 # Gesture

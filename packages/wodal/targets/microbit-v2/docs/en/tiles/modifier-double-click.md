@@ -1,5 +1,5 @@
 ```brain noframe when
-{ "tile": "tile.modifier->microbit-v2.double-click" }
+{ "tile": "${tileId}" }
 ```
 
 # Double click

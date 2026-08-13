@@ -1,5 +1,5 @@
 ```brain noframe do
-{ "tile": "tile.out->string:<string>.value" }
+{ "tile": "${tileId}" }
 ```
 
 # The received text

@@ -1,5 +1,5 @@
 ```brain noframe do
-{ "tile": "tile.out->number:<number>.value" }
+{ "tile": "${tileId}" }
 ```
 
 # The received number
@@ -25,7 +25,7 @@ number packet arrived.
       ],
       "do": [
         "tile.actuator->microbit-v2.display-scroll",
-        "tile.out->number:<number>.value"
+        "${tileId}"
       ],
       "children": [],
       "comment": "Scroll whatever number the other micro:bit sent."
