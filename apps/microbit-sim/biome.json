@@ -26,6 +26,6 @@
     }
   },
   "files": {
-    "includes": ["**", "!ambient/"]
+    "includes": ["**", "!ambient/", "!src/docs/_generated/**"]
   }
 }
