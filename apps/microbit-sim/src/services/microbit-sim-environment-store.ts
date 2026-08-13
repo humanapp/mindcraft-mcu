@@ -10,11 +10,12 @@ import {
   ProjectManager,
   type ProjectManifest,
 } from "@mindcraft-lang/app-host";
-import type { AssistantConnect, EditedBrainWorkspaces } from "@mindcraft-lang/assistant-panel";
+import type { AssistantConnect, EditedBrainWorkspaces, PersonActivity } from "@mindcraft-lang/assistant-panel";
 import {
   assistantSessionUrl,
   assistantToolManifest,
   createEditedBrainWorkspaces,
+  createPersonActivity,
   createWebSocketConnect,
 } from "@mindcraft-lang/assistant-panel";
 import type { RelayToolManifest } from "@mindcraft-lang/assistant-relay";
@@ -177,6 +178,8 @@ export interface AssistantComposition {
   readonly manifest: RelayToolManifest;
   /** The workspaces a turn's tool calls run against, following the editor's working copy. */
   readonly workspaces: EditedBrainWorkspaces;
+  /** Where the person's own acting on the edited brain is recorded, read by the panel and the workspaces alike. */
+  readonly activity: PersonActivity;
   /** Opens one relay session against the service address the settings hold at the time of the call. */
   readonly connect: AssistantConnect;
 }
@@ -263,9 +266,11 @@ export class MicrobitSimEnvironmentStore {
       getVfsRevision: () => this.host.getVfsRevisionSnapshot(),
     });
     const adapter = createTargetAdapter(MICROBIT_V2_TARGET_COORDINATE);
+    const activity = createPersonActivity();
     this.assistant = {
       manifest: assistantToolManifest(adapter),
-      workspaces: createEditedBrainWorkspaces({ environment: host.env, adapter }),
+      activity,
+      workspaces: createEditedBrainWorkspaces({ environment: host.env, adapter, activity }),
       connect: () => createWebSocketConnect(assistantSessionUrl(this._appSettings.assistantServiceUrl))(),
     };
     this.simulator = new MicrobitSimulator(host.env);

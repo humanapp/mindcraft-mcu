@@ -8,8 +8,12 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { ruleIdAt } from "@mindcraft-lang/assistant-bridge/testing";
-import type { EditedBrainWorkspaces } from "@mindcraft-lang/assistant-panel";
-import { assistantToolManifest, createEditedBrainWorkspaces } from "@mindcraft-lang/assistant-panel";
+import type { EditedBrainWorkspaces, PersonActivity } from "@mindcraft-lang/assistant-panel";
+import {
+  assistantToolManifest,
+  createEditedBrainWorkspaces,
+  createPersonActivity,
+} from "@mindcraft-lang/assistant-panel";
 import { recordFor } from "@mindcraft-lang/assistant-panel/conversation/store";
 import type { AssistantChannel } from "@mindcraft-lang/assistant-panel/session/channel";
 import { AssistantMachine, AssistantStatus } from "@mindcraft-lang/assistant-panel/session/machine";
@@ -72,6 +76,8 @@ function haltingTurn(): ScriptedService {
 interface Stand {
   readonly machine: AssistantMachine;
   readonly workspaces: EditedBrainWorkspaces;
+  /** Where the person's own acting on the edited brain is recorded, shared by the machine and the workspaces. */
+  readonly activity: PersonActivity;
   /** Opens a working copy of a brain named `name`, as the editor does. */
   editorOpenedOn(name: string): EditedBrain;
   /** How many sessions the machine has asked for. */
@@ -89,7 +95,8 @@ interface Stand {
 function appStand(script: (ruleId: string) => ScriptedService): Stand {
   const environment = createMicroBitV2Environment();
   const adapter = createTargetAdapter(MICROBIT_V2_TARGET_COORDINATE);
-  const workspaces = createEditedBrainWorkspaces({ environment, adapter });
+  const activity = createPersonActivity();
+  const workspaces = createEditedBrainWorkspaces({ environment, adapter, activity });
   const services: Promise<void>[] = [];
   let connects = 0;
 
@@ -111,11 +118,13 @@ function appStand(script: (ruleId: string) => ScriptedService): Stand {
     connect,
     manifest: assistantToolManifest(adapter),
     workspace: workspaces.workspaceFor,
+    activity,
   });
 
   return {
     machine,
     workspaces,
+    activity,
     editorOpenedOn: (name) => ({
       brainDef: BrainDef.emptyBrainDef(environment.brainServices, name).workingCopy(
         List.from(environment.tileCatalogs())
@@ -267,5 +276,73 @@ describe("an editor closed and opened again on the same brain", () => {
 
     assert.equal(stand.connects(), 1, "the brain's session outlived the editor");
     assert.deepEqual(onlyTurn(stand.record(brainId)).ending, { kind: "end", code: "complete" });
+  });
+});
+
+describe("the person's own hands on the brain being edited", () => {
+  test("records nothing for a whole turn's edits, so the entity never takes itself over", async () => {
+    const stand = appStand(authoringTurn);
+    const edited = stand.editorOpenedOn("Greeter");
+    const brainId = edited.brainDef.id();
+    stand.workspaces.setEditedBrain(edited);
+    stand.machine.setActiveBrain(brainId);
+
+    stand.machine.send("show a happy face when I press A");
+    await settle(stand, () => stand.machine.getState().status !== AssistantStatus.TurnActive);
+    await stand.settled();
+
+    assert.deepEqual(onlyTurn(stand.record(brainId)).ending, { kind: "end", code: "complete" });
+    assert.equal(edited.history.undoDepth(), authoredEdits, "the turn's edits really reached the history");
+    assert.equal(stand.activity.mutations(brainId), 0);
+  });
+
+  test("takes the turn over at the next call, keeping every edit that already landed", async () => {
+    const stand = appStand(authoringTurn);
+    const opened = stand.editorOpenedOn("Greeter");
+    const brainId = opened.brainDef.id();
+    // The person's hands land the moment the batch's first edit does.
+    let noted = false;
+    const edited: EditedBrain = {
+      ...opened,
+      reveal: () => {
+        if (noted) return;
+        noted = true;
+        stand.activity.noteMutation(brainId);
+      },
+    };
+    stand.workspaces.setEditedBrain(edited);
+    stand.machine.setActiveBrain(brainId);
+
+    stand.machine.send("show a happy face when I press A");
+    await settle(stand, () => stand.machine.getState().status !== AssistantStatus.TurnActive);
+    await stand.settled();
+
+    const turn = onlyTurn(stand.record(brainId));
+    assert.deepEqual(turn.ending, { kind: "end", code: "stopped" });
+    assert.deepEqual(
+      callsOf(turn).map((call) => call.outcome.kind),
+      ["ok", "ok", "takeover"]
+    );
+    assert.deepEqual(ruleSideTileIds(edited.brainDef, "when"), [...authoredWhenTiles], "the landed edit stays");
+    assert.deepEqual(ruleSideTileIds(edited.brainDef, "do"), [], "the call the person took over ran nothing");
+    assert.equal(stand.machine.getState().status, AssistantStatus.Ready, "the session stays standing");
+  });
+
+  test("leaves the view alone while the person is working the rules", async () => {
+    const stand = appStand(authoringTurn);
+    const opened = stand.editorOpenedOn("Greeter");
+    const brainId = opened.brainDef.id();
+    const revealed: unknown[] = [];
+    const edited: EditedBrain = { ...opened, reveal: (place) => revealed.push(place) };
+    stand.workspaces.setEditedBrain(edited);
+    stand.machine.setActiveBrain(brainId);
+    stand.activity.noteInteraction(brainId);
+
+    stand.machine.send("show a happy face when I press A");
+    await settle(stand, () => stand.machine.getState().status !== AssistantStatus.TurnActive);
+    await stand.settled();
+
+    assert.equal(edited.history.undoDepth(), authoredEdits, "the edits landed all the same");
+    assert.deepEqual(revealed, []);
   });
 });
