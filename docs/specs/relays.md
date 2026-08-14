@@ -1,16 +1,16 @@
-# Spec: filters (WHEN-side signal filters)
+# Spec: relays (WHEN-side signal relays)
 
 A core, target-agnostic tile-language feature: a new tile category for transforming a rule's
 firing signal on the WHEN side.
 
-## What a filter is
+## What a relay is
 
-A **filter** is a **unary signal transform placed on the WHEN side of a rule, after a
+A **relay** is a **unary signal transform placed on the WHEN side of a rule, after a
 sensor**. It consumes the preceding signal and produces a transformed signal; the rule fires
 on the final signal of the chain:
 
 ```
-WHEN  <sensor>  <filter>  [<filter> ...]   ->  rule fires on the final signal
+WHEN  <sensor>  <relay>  [<relay> ...]   ->  rule fires on the final signal
 ```
 
 Examples:
@@ -24,25 +24,25 @@ WHEN see carnivore invert          // fires while NOT seeing a carnivore
 
 Category properties:
 
-- **WHEN-side only.** Filters are not valid in a rule's `do` / actuator position.
-- **Top-level, never in an expression.** A filter post-processes the rule's signal; it does
+- **WHEN-side only.** Relays are not valid in a rule's `do` / actuator position.
+- **Top-level, never in an expression.** A relay post-processes the rule's signal; it does
   not embed inside boolean/value expressions.
-- **Transforms, does not originate.** A filter operates on the signal it is given; with no
+- **Transforms, does not originate.** A relay operates on the signal it is given; with no
   preceding signal it is invalid (it cannot be the sole WHEN element). This includes a child
-  rule whose WHEN holds only a filter: the empty-WHEN ancestor fall-through supplies a
-  rule's WHEN *result*, not its firing signal, so a filter cannot transform an ancestor's
-  signal and an empty-WHEN-plus-filter child is invalid.
-- **Unary on the signal** (one signal in, one out) - and a filter **may also take its own
+  rule whose WHEN holds only a relay: the empty-WHEN ancestor fall-through supplies a
+  rule's WHEN *result*, not its firing signal, so a relay cannot transform an ancestor's
+  signal and an empty-WHEN-plus-relay child is invalid.
+- **Unary on the signal** (one signal in, one out) - and a relay **may also take its own
   arguments** (modifiers + parameters), distinct from the signal (see Arguments).
-- **Chainable (pipeline).** Multiple filters compose left-to-right; order is significant.
+- **Chainable (pipeline).** Multiple relays compose left-to-right; order is significant.
   There is no chain-length cap. Each chain position is its own call site: two `toggle`
-  filters in one chain hold two independent bits.
+  relays in one chain hold two independent bits.
 - **May be stateful** (per call site): `once`/`latch`/`toggle` keep a bit; the timing
-  filters keep timestamps; `invert` is stateless. State lifecycle is uniform (see State
+  relays keep timestamps; `invert` is stateless. State lifecycle is uniform (see State
   lifecycle).
-- **Synchronous.** A filter evaluates within the think and never parks - no handles, no
+- **Synchronous.** A relay evaluates within the think and never parks - no handles, no
   await. The WHEN side is a per-think sampling of the signal; time-dependent behavior is
-  expressed by the timing filters sampling the current time, and completion-driven
+  expressed by the timing relays sampling the current time, and completion-driven
   behavior is ordinary rule sequencing (an awaited actuator parks only its own rule's
   fiber; the actions and child rules after it run on completion while other rules
   continue concurrently).
@@ -51,45 +51,45 @@ Category properties:
 
 The WHEN side evaluates to a **value**; truthiness - or presence, for presence-gated
 sensors - is applied at the WHEN boundary, and the rule's **WHEN result** captures the
-pre-truthiness value. Filters insert **between the sensor's value and that boundary**: each
-filter consumes the upstream signal (the value together with its truthiness/presence) and
+pre-truthiness value. Relays insert **between the sensor's value and that boundary**: each
+relay consumes the upstream signal (the value together with its truthiness/presence) and
 produces the chain's next signal. The final signal decides whether the rule fires.
 
-### The WHEN result of a filtered rule
+### The WHEN result of a relayed rule
 
 - On a firing tick where the upstream value is **currently present**, the upstream value
   passes through unchanged as the rule's WHEN result. (`once` fires on the rising edge -
   the tick the value arrives - so the value is present and delivered.)
 - On a firing tick with **no current upstream value** - a held `latch` after the input
   fell, an `invert` firing because nothing is there - the WHEN result is **absent**.
-- A filter therefore **preserves the upstream result type, weakened to maybe-absent**. A
-  consumer that declares a required WHEN-result type is compatible with a filtered WHEN
+- A relay therefore **preserves the upstream result type, weakened to maybe-absent**. A
+  consumer that declares a required WHEN-result type is compatible with a relayed WHEN
   exactly when it is compatible with the upstream type - except under `invert`, which fires
   precisely when no value is present, so a required-type consumer under `invert` is
   rejected.
 
-## Filters are regular intrinsics over the action calling convention
+## Relays are regular intrinsics over the action calling convention
 
-Filters are **regular intrinsics**, not a closed set of fixed native primitives. The
+Relays are **regular intrinsics**, not a closed set of fixed native primitives. The
 mechanism is the **bytecode-action calling convention** - the same convention conversions
 ride: slot-indexed arguments via the core call-spec grammar, per-call-site state keyed by
 `callSiteId`, `ctx` access (time, variables), and a body that may be a host function or
-bytecode, per filter. A filter body has the full capability of the language. No new opcode
-and no VM-contract change: the brain compiler emits the filter as an action-convention call
+bytecode, per relay. A relay body has the full capability of the language. No new opcode
+and no VM-contract change: the brain compiler emits the relay as an action-convention call
 that consumes the upstream signal and produces the transformed signal.
 
-Because the convention is bytecode-capable by construction, user-defined filters are a
+Because the convention is bytecode-capable by construction, user-defined relays are a
 future registration surface over the same convention (deferred; see Deferred).
 
 ## Arguments (modifiers + parameters)
 
-A filter **takes arguments just like a sensor does** - modifiers and parameters, declared
+A relay **takes arguments just like a sensor does** - modifiers and parameters, declared
 with the same core call-spec grammar (`bag`/`choice`/`optional`/`mod`/`param`, slot-indexed
-via `mkCallDef`). A filter's full runtime inputs are: the upstream signal, its own
+via `mkCallDef`). A relay's full runtime inputs are: the upstream signal, its own
 slot-indexed arg buffer, its per-call-site state, and `ctx`. Built-ins may take no
 arguments (`invert`) or some; the mechanism supports them uniformly.
 
-## Built-in filters
+## Built-in relays
 
 The calling convention is the substance; each built-in is small. The core set has two
 families.
@@ -117,7 +117,7 @@ is orthogonal (require-before / extend-after / suppress-after):
 - **`cooldown <duration>`** - after passing a firing, **suppress for the duration** (a
   rate limit). Per-call-site state (the last-passed timestamp).
 
-A pass-through `level` is the identity (the raw signal) and needs no filter.
+A pass-through `level` is the identity (the raw signal) and needs no relay.
 
 ## Compositions
 
@@ -132,9 +132,9 @@ The set is kept small by composition; these idioms are part of the design, not a
 
 ## State lifecycle
 
-**All per-call-site filter state resets when the rule's page (re-)activates.** This is the
+**All per-call-site relay state resets when the rule's page (re-)activates.** This is the
 one lifecycle rule for the category: `once` forgets its previous level, `toggle` clears its
-bit, `latch` releases its hold, and the timing filters forget their timestamps. A `latch`
+bit, `latch` releases its hold, and the timing relays forget their timestamps. A `latch`
 therefore holds until page re-entry; a duration/clear parameter is deferred design (see
 Deferred).
 
@@ -142,33 +142,33 @@ Deferred).
 
 The category rules are compile-time validations, and the picker agrees with the compiler:
 
-- The compiler rejects, with error-severity diagnostics: a filter outside the WHEN side; a
-  filter with no preceding signal (the sole-WHEN-element and empty-WHEN-child cases); a
-  required-WHEN-result consumer whose result availability the filter removes (`invert`).
-- The picker offers a filter tile only where the compiler accepts it, and the
+- The compiler rejects, with error-severity diagnostics: a relay outside the WHEN side; a
+  relay with no preceding signal (the sole-WHEN-element and empty-WHEN-child cases); a
+  required-WHEN-result consumer whose result availability the relay removes (`invert`).
+- The picker offers a relay tile only where the compiler accepts it, and the
   suggestion-compiler consistency oracle covers the category in both directions.
 - **Degraded documents:** degradation is fail-safe for this category only. A rule
-  containing an unresolvable (missing-placeholder) or unparseable filter tile is
+  containing an unresolvable (missing-placeholder) or unparseable relay tile is
   rejected with an error-severity diagnostic -- surfaced like every rule diagnostic --
-  and does not fire; a filter silently dropping out of a chain would change firing
+  and does not fire; a relay silently dropping out of a chain would change firing
   semantics, so the category never degrades pass-through. Other tile kinds keep the
-  platform's degrade-and-run placeholder semantics. Filter identity is part of the tile
-  id, so a placeholder remains recognizable as a former filter; that is what scopes the
+  platform's degrade-and-run placeholder semantics. Relay identity is part of the tile
+  id, so a placeholder remains recognizable as a former relay; that is what scopes the
   escalation to the category. A WHEN side left without a compilable signal never
   evaluates: the rule compiles to not fire, not to a partial evaluation.
 
 ## Sentence composition
 
-Filters are first-class in both of the editor's projections: the tile row and the
+Relays are first-class in both of the editor's projections: the tile row and the
 sentence. The sentence system's invariants bind the category's wording and rendering.
 
 ### Word and span
 
-- **Each filter is one word segment** in the sentence, carrying its tile's span. Its
+- **Each relay is one word segment** in the sentence, carrying its tile's span. Its
   `language.form` is simultaneously the sentence word, the candidate-chip label, and the
   typed handle -- one string. A form may contain spaces ("just once" is one segment) but a
-  filter never owns two segments.
-- A filter's arguments are their own tiles and their own words, following the filter's
+  relay never owns two segments.
+- A relay's arguments are their own tiles and their own words, following the relay's
   word in tile order. A duration-bearing form therefore **ends where the duration
   begins**: the form is the leading phrase and the duration literal is the next word
   ("held for" + "1s" reads "held for 1s"). Wordings that would place the duration inside
@@ -176,31 +176,31 @@ sentence. The sentence system's invariants bind the category's wording and rende
 - Word order always equals tile order within the side; the caret and change-highlight
   layers depend on it.
 
-### Rendering (the WHEN clause with filters)
+### Rendering (the WHEN clause with relays)
 
-- The WHEN projection **splits structurally at the first filter tile**: the sensor call
-  renders through its frame template exactly as an unfiltered rule does, and the filter
-  chain renders after it as suffix words -- each filter's form plus its argument words --
-  joined by the sentence-filter glue entry: "When I see a carnivore just once, walk."
+- The WHEN projection **splits structurally at the first relay tile**: the sensor call
+  renders through its frame template exactly as an unrelayed rule does, and the relay
+  chain renders after it as suffix words -- each relay's form plus its argument words --
+  joined by the sentence-relay glue entry: "When I see a carnivore just once, walk."
   This applies identically to the child-rule (subordinate-clause) projection.
 - **The comma invariant.** In the sentence, a comma marks a clause boundary and nothing
   else: the trigger/action pivot and the subordinate-clause connective. The typed comma
   is the composer's pivot gesture, and every rendered comma must keep that one meaning.
-  Filter glue is intra-clause: in English it is a space, and no locale's sentence-filter
-  glue entry may introduce a comma. Filter forms are worded to read as adverbial
+  Relay glue is intra-clause: in English it is a space, and no locale's sentence-relay
+  glue entry may introduce a comma. Relay forms are worded to read as adverbial
   phrases so space-joining scans.
 - **Negation reads inside the clause, not as a suffix.** `invert` carries a `negates`
-  marker in its language metadata. When an invert-class filter is the FIRST tile of the
+  marker in its language metadata. When an invert-class relay is the FIRST tile of the
   chain, template selection uses the frame's negated variant, and the `{negation}` slot
-  is filled by the filter's own word -- so the tile keeps its word segment and its span:
-  "When I do not see a carnivore, walk." An invert-class filter NOT at the head of the
+  is filled by the tile's own word -- so the tile keeps its word segment and its span:
+  "When I do not see a carnivore, walk." An invert-class relay NOT at the head of the
   chain falls back to the suffix reading (negating the whole base clause there would
   misread the semantics -- the `latch invert` "until" idiom); plain-but-faithful beats
   clever-but-wrong.
 - Built-in forms ship in the tiles' registration metadata. Starting wordings, with final
   wording owned by the readability sweep under the idiom-over-polish posture:
 
-  | filter | form (sentence word) |
+  | relay | form (sentence word) |
   | - | - |
   | `invert` | "not" (routed into the negated frame at chain head; suffix word otherwise) |
   | `once` | "just once" |
@@ -212,39 +212,39 @@ sentence. The sentence system's invariants bind the category's wording and rende
 
 - Form rules: no leading articles, and the distinguishing word starts a word of the form
   (so typing it reaches the candidate by prefix or word-prefix match).
-- A timing filter whose duration is not yet placed reads with its bare completion
+- A timing relay whose duration is not yet placed reads with its bare completion
   (`language.bare`, e.g. "held for a moment"), the same mechanism argument-taking
   sensors use.
 
-### Input (composing a filtered rule)
+### Input (composing a relayed rule)
 
-- The candidate strip is oracle-driven, so filters are offered exactly where the
+- The candidate strip is oracle-driven, so relays are offered exactly where the
   compiler accepts them: after a complete signal on the WHEN side, at append, insert,
-  and replace positions, including mid-chain. Filters group under their own "Filters"
+  and replace positions, including mid-chain. Relays group under their own "Relays"
   heading, ordered after Sensors.
-- A filter is typed by its form and committed like any word (Enter takes the top
+- A relay is typed by its form and committed like any word (Enter takes the top
   candidate; Space takes an exact or unique-prefix match); tapping the chip is the same
-  commit. Chains compose by typing successive filter words. Durations are typed as
+  commit. Chains compose by typing successive relay words. Durations are typed as
   formatted numbers ("1s", "500ms"), minting the literal that reads back as typed.
-- While filters are offerable the composition stays on the WHEN side; the comma pivots
+- While relays are offerable the composition stays on the WHEN side; the comma pivots
   to DO as usual, and the period settles the sentence. Both gate on the completed rule
-  parsing cleanly, so a complete filter chain parses with zero diagnostics.
+  parsing cleanly, so a complete relay chain parses with zero diagnostics.
 
 ### Selection and editing
 
-- Each filter word is a caret element; the gap before it inserts, tapping the word arms
+- Each relay word is a caret element; the gap before it inserts, tapping the word arms
   replace (the strip opens filtered to that position's valid tiles), and
-  backspace/delete remove the tile through the normal command path. Chained filters are
+  backspace/delete remove the tile through the normal command path. Chained relays are
   individually selectable and replaceable; nothing special-cases repeats.
 - Diagnostics do not render in the sentence; they surface on the tile row as badges. A
-  missing (unresolvable) filter reads by its fallback label in the sentence while the
+  missing (unresolvable) relay reads by its fallback label in the sentence while the
   rule, per Enforcement, does not fire.
 
 ### Localization
 
-Filter forms localize under the tile-label context like every tile word; the
-sentence-filter glue and any negated-variant selection reuse the existing sentence
-template entries. No filter-specific localization machinery exists.
+Relay forms localize under the tile-label context like every tile word; the
+sentence-relay glue and any negated-variant selection reuse the existing sentence
+template entries. No relay-specific localization machinery exists.
 
 Negation localizes at two levels. The head-of-chain reading is a whole per-locale
 negated template with a movable `{negation}` slot, so each language places (or
@@ -260,62 +260,62 @@ The per-locale readability pass is the final arbiter of both readings.
 
 The assistant authors and inspects brains through the same client surfaces the person
 uses: the catalog the app serves, the editor's validation, and the rehearsal machinery.
-Filters join each of those surfaces as a first-class citizen; the binding rule for the
-category is that the assistant learns filters from **registration data and structured
-diagnostics**, never from per-filter prose maintained by hand on the service side.
+Relays join each of those surfaces as a first-class citizen; the binding rule for the
+category is that the assistant learns relays from **registration data and structured
+diagnostics**, never from per-relay prose maintained by hand on the service side.
 
-- **A first-class tile kind in the served catalog.** Filters carry their own tile kind,
+- **A first-class tile kind in the served catalog.** Relays carry their own tile kind,
   and every client surface that switches over tile kinds treats it exhaustively: the
-  catalog digest renders filter tiles with their registration-sourced grammar (call
+  catalog digest renders relay tiles with their registration-sourced grammar (call
   spec, sentence form) under their own category, the description extraction serves
   their docs like any tile's, and each app's tile visuals map the kind deliberately. A
-  filter tile rendering through a default or fallback arm is a defect, not a
+  relay tile rendering through a default or fallback arm is a defect, not a
   degradation.
 - **Grammar reaches the assistant from registration.** The position rules the compiler
   enforces -- WHEN-side only, after a signal, chainable with significant order, own
   modifiers and parameters -- travel to the assistant through the same registration
   data that drives the picker. What the picker knows, the served catalog states; no
-  filter ships whose placement rules exist only as compiler behavior the assistant
+  relay ships whose placement rules exist only as compiler behavior the assistant
   must discover by refusal.
 - **Validation parity extends to the assistant's tools.** Enforcement's "the picker
   agrees with the compiler" binds three surfaces, not two: the candidate strip, the
   tile suggestions served to the assistant, and proposed edits are all judged by the
   same oracle and the same compile-time validations, so they cannot disagree about
-  where a filter is legal. No filter-specific proposal operation exists: filters
+  where a relay is legal. No relay-specific proposal operation exists: relays
   place, replace, and delete through the ordinary tile edit operations, at any chain
   position.
-- **Refusals teach.** Each category diagnostic -- filter outside the WHEN side, no
+- **Refusals teach.** Each category diagnostic -- relay outside the WHEN side, no
   preceding signal (including the empty-WHEN child case), a required-WHEN-result
-  consumer under `invert`, an unresolvable filter tile -- is a stable structured code,
+  consumer under `invert`, an unresolvable relay tile -- is a stable structured code,
   and a refused edit carries the code with the offending rule and tile identified. The
   assistant repairs against the code; it never has to rediscover a category rule by
   experiment.
-- **Descriptions carry the un-derivable facts.** A filter's name does not reveal its
+- **Descriptions carry the un-derivable facts.** A relay's name does not reveal its
   semantics, so each built-in's documentation leads with the facts no reader can
   derive: whether it acts on edges or levels, that its state is per call site, that
-  all filter state resets when the page (re-)activates, what the duration parameter
+  all relay state resets when the page (re-)activates, what the duration parameter
   measures, and that chain order matters. The composition idioms (falling edge is
   `invert` then `once`; until is `latch` then `invert`) are documented alongside the
   built-ins rather than left to be re-derived per session.
-- **Rehearsal shows the filtered signal.** A rule fires on the final signal of the
-  chain, so a trace shows the post-filter firing pattern: a rule held quiet by
+- **Rehearsal shows the relayed signal.** A rule fires on the final signal of the
+  chain, so a trace shows the post-relay firing pattern: a rule held quiet by
   `cooldown`, or not yet satisfied by `sustained`, is indistinguishable in the trace
   from one whose sensor stayed false. The documentation states this plainly --
-  silence can be the filter doing its job -- so the assistant diagnoses a quiet rule
+  silence can be the relay doing its job -- so the assistant diagnoses a quiet rule
   against the chain's semantics instead of concluding the sensor is broken.
-- **Scenario staging exercises the category honestly.** Edge-triggered filters
+- **Scenario staging exercises the category honestly.** Edge-triggered relays
   (`once`, `toggle`, `latch`) are verified only by staged transitions -- a level that
   changes mid-run -- not by a level held for the whole scenario; and any scenario
-  asserting a timing filter's behavior runs past the filter's duration, never staged
+  asserting a timing relay's behavior runs past the relay's duration, never staged
   exactly on the boundary. A rehearsal window shorter than a `cooldown` or
   `sustained` duration makes a working rule look dead.
 
 ## Relationship to per-sensor edge/level modifiers
 
-Filters subsume the per-sensor edge/level question: every sensor emits its one natural
+Relays subsume the per-sensor edge/level question: every sensor emits its one natural
 (level) signal and `once`/`latch`/`toggle`/`invert` handle triggering uniformly. This
 overlaps the button `held`/`pressed` modifiers. Stance: **coexist** - per-sensor modifiers
-for ergonomics, filters for power - with **canonical** (filters as the one mechanism, one
+for ergonomics, relays for power - with **canonical** (relays as the one mechanism, one
 signal per sensor) as the north star.
 
 ## Scope
@@ -323,15 +323,15 @@ signal per sensor) as the north star.
 Core language, target-agnostic, and a shared-surface feature for **both product apps**
 (the micro:bit product and the sim/game product): brain compiler + language service +
 editor tile category + the built-in intrinsics on each platform's runtime. Independent of
-the device-surface work; sensors ship with their natural signal and filters layer on.
+the device-surface work; sensors ship with their natural signal and relays layer on.
 
-## Defining filters in ts-code (deferred surface; shape specified now)
+## Defining relays in ts-code (deferred surface; shape specified now)
 
-User code defines a filter the way it defines sensors, actuators, and conversions: a
-`Filter({...})` config, registered over the same action convention as the built-ins.
+User code defines a relay the way it defines sensors, actuators, and conversions: a
+`Relay({...})` config, registered over the same action convention as the built-ins.
 
 ```ts
-export default Filter({
+export default Relay({
   name: "debounce",
   icon: "wave-square",
   docs: "Passes the signal only after it has held steady for the window.",
@@ -342,40 +342,40 @@ export default Filter({
 });
 ```
 
-`Filter` carries the same identity and presentation members as the other tile configs:
+`Relay` carries the same identity and presentation members as the other tile configs:
 the auto-minted stable `id?`, `name`, and optional `label`, `icon`, `docs`, and `tags`,
 feeding the picker and the docs panel exactly as they do for sensors and actuators.
 
 - **`onSignal(ctx, signal, args) -> boolean`.** The body receives the upstream signal as a
   boolean - the truthiness/presence bit - plus `ctx` and the slot-indexed args. The body
   never sees or alters the upstream *value*: WHEN-result pass-through is runtime machinery
-  (see The WHEN result of a filtered rule), so a filter body cannot violate the
+  (see The WHEN result of a relayed rule), so a relay body cannot violate the
   result-delivery rules.
-- **Synchronous.** `onSignal` returns the signal directly; a filter is evaluated inside
+- **Synchronous.** `onSignal` returns the signal directly; a relay is evaluated inside
   the WHEN and never parks (no `Promise`, no handles). An `async` or Promise-returning
   `onSignal` is rejected with a precise diagnostic.
 - **State** uses the established user-code scoping: module-level `let` is per-call-site,
   which gives each chain position its own state with no new mechanism. Reconciliation to
   settle when this surface is built: the category's page-re-entry reset must hold for
-  user-defined filter state too, so per-call-site module state in a filter body resets on
+  user-defined relay state too, so per-call-site module state in a relay body resets on
   page (re-)activation - whether that is the general user-code lifecycle or a
-  filter-specific reset is the open design point.
+  relay-specific reset is the open design point.
 - Declaration, extraction, ambient typing, and diagnostics follow the same conventions as
   the other user-code tile configs, including a precise diagnostic for any config the
   surface cannot support.
 - `language?: TileLanguageConfig` (the `form`/`frame`/`bare` group the other configs
   carry) is part of the surface, wired explicitly into the extractor with the same
-  per-member diagnostics -- a user-defined filter names its own sentence word.
+  per-member diagnostics -- a user-defined relay names its own sentence word.
 
 ## Deferred
 
-- **User-defined filters** - the `Filter({...})` surface above; the built-ins ship first
+- **User-defined relays** - the `Relay({...})` surface above; the built-ins ship first
   and the convention is bytecode-capable by construction, so the surface is a registration
   feature when a real library consumer needs it. `debounce` (pass changes only after the
   signal has held steady for a window) is the canonical user-defined example and is
   deliberately not core.
 - **`every <n>`** - fire on every Nth rising edge (a divider). Real but has no named
-  consumer yet; a small parameterized filter whenever one appears.
+  consumer yet; a small parameterized relay whenever one appears.
 - **`sometimes` / probability** - pass a firing with probability p. High play value, but
   it requires a deterministic seeded random service in the VM contract (both VMs must
   produce identical traces), so it waits on that service existing.

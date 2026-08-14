@@ -56,7 +56,7 @@ Buffer tiles, user-code conversions, Buffer as a first-class value with `Buffer.
   posture.
 - **Colors name the buttons**: red = B1, green = B2, blue = B3, yellow = B4.
 - **Level signals, like buttons.** True while held; edge / one-shot behavior comes from composed
-  filters (`docs/specs/filters.md`), not tile variants.
+  relays (`docs/specs/relays.md`), not tile variants.
 - **Stick press: deferred.** The hardware press (P8) exists and, in the vendor model, suppresses
   direction (the direction tiles read false while pressed), but a `[stick pressed]` tile is not in
   the first cut - add it when wanted, following the `[button]` pattern.
