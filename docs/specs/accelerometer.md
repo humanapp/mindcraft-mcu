@@ -45,7 +45,7 @@ CODAL's 2G/3G/6G/8G impulse levels.
 
 **Every modifier emits a LEVEL signal: true on every tick the gesture is recognized**, false
 otherwise - uniform across all gestures. Edge / fire-once / toggle behavior is obtained by
-composing a **relay** (`docs/specs/relays.md`), the same way for every sensor, rather
+composing a **relay** (`external/mindcraft-lang/docs/specs/relays.md`), the same way for every sensor, rather
 than per-gesture variants here.
 
 ```
