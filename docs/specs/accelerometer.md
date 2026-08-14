@@ -45,7 +45,7 @@ CODAL's 2G/3G/6G/8G impulse levels.
 
 **Every modifier emits a LEVEL signal: true on every tick the gesture is recognized**, false
 otherwise - uniform across all gestures. Edge / fire-once / toggle behavior is obtained by
-composing a **relay** (`external/mindcraft-lang/docs/specs/relays.md`), the same way for every sensor, rather
+composing a **shaper** (`external/mindcraft-lang/docs/specs/shapers.md`), the same way for every sensor, rather
 than per-gesture variants here.
 
 ```
@@ -108,7 +108,7 @@ sub-choice is in scope only when `[impact]` is selected.
 - **Level signal.** The tile is true on every tick its gesture is recognized, false otherwise -
   uniform across all gestures, no per-gesture edge/level split and no debounce. (For `shake` and
   an impact the recognized window is brief; for the postures it is sustained - both are just
-  "true while recognized".) Edge / fire-once / toggle behavior comes from a composed relay, not
+  "true while recognized".) Edge / fire-once / toggle behavior comes from a composed shaper, not
   this tile.
 - **Independent, no suppression** (modifiers and call-sites), matching buttons.
 
