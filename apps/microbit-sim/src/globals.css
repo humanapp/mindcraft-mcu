@@ -84,6 +84,8 @@
   --color-brain-desk-glow: transparent;
   --color-brain-rule-from: #202020;
   --color-brain-rule-to: #202020;
+  /* Candidate offering: a raised tray, clear of both the desk and its own cards. */
+  --color-brain-panel: #3a3a3a;
   /* Crisp near-white outline separating a tile from the dark desk. */
   --color-brain-tile-border: #eef1f5;
   --color-brain-armed: #eef1f5;
