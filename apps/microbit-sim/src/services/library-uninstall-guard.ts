@@ -1,4 +1,4 @@
-import type { ProjectFileSystem } from "@mindcraft-lang/app-host";
+import type { FileContent, ProjectFileSystem } from "@mindcraft-lang/app-host";
 import type {
   EmbeddedExtension,
   FetchedExtensionContentMap,
@@ -45,7 +45,7 @@ export function collectMicrobitLibraryUninstallImpact(
       brains.push({ name: brain.name(), json: host.serializeBrainForStorage(brain) });
     }
   }
-  const files = new Map<string, string>();
+  const files = new Map<string, FileContent>();
   for (const [path, entry] of host.projectFileSystem.exportSnapshot()) {
     if (entry.kind === "file") {
       files.set(path, entry.content);

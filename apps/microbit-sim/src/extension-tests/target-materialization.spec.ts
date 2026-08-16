@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
+import type { FileContent } from "@mindcraft-lang/app-host";
 import type { EmbeddedExtension, ResolvedExtensions } from "@mindcraft-lang/bridge-app";
 import { resolveProjectExtensions } from "@mindcraft-lang/bridge-app";
 import { buildEmbeddedExtensionFromDir } from "@mindcraft-lang/bridge-app/node";
@@ -74,7 +75,7 @@ function compileProbe(
   extraFiles: Readonly<Record<string, string>> = {}
 ): {
   tsErrorCount: number;
-  controlledFiles: ReadonlyMap<string, string>;
+  controlledFiles: ReadonlyMap<string, FileContent>;
 } {
   const environment = createMicroBitV2Environment();
   const mounts: readonly Mount[] = [];

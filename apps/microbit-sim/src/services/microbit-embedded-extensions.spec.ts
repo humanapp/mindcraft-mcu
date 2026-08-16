@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { fileContentText } from "@mindcraft-lang/app-host";
 import type { EmbeddedExtension } from "@mindcraft-lang/bridge-app";
 import {
   findEmbeddedExtensionsMissingStableIds,
@@ -67,10 +68,16 @@ describe("microbit embedded layers -- transitive resolution of the core <- codal
     assert.deepEqual(mountFor(CORE_LIB_COORDINATE).ambient, ["mindcraft.core.d.ts"]);
     assert.deepEqual(mountFor(CODAL_LIB_COORDINATE).ambient, ["mindcraft.codal.d.ts"]);
     assert.deepEqual(mountFor(MICROBIT_V2_LIB_COORDINATE).ambient, ["mindcraft.microbit-v2.d.ts"]);
-    assert.match(mountFor(CORE_LIB_COORDINATE).files.get("/mindcraft.core.d.ts") ?? "", /declare var Buffer/);
-    assert.match(mountFor(CODAL_LIB_COORDINATE).files.get("/mindcraft.codal.d.ts") ?? "", /interface Button/);
     assert.match(
-      mountFor(MICROBIT_V2_LIB_COORDINATE).files.get("/mindcraft.microbit-v2.d.ts") ?? "",
+      fileContentText(mountFor(CORE_LIB_COORDINATE).files.get("/mindcraft.core.d.ts") ?? "") ?? "",
+      /declare var Buffer/
+    );
+    assert.match(
+      fileContentText(mountFor(CODAL_LIB_COORDINATE).files.get("/mindcraft.codal.d.ts") ?? "") ?? "",
+      /interface Button/
+    );
+    assert.match(
+      fileContentText(mountFor(MICROBIT_V2_LIB_COORDINATE).files.get("/mindcraft.microbit-v2.d.ts") ?? "") ?? "",
       /interface MicroBit\b/
     );
   });

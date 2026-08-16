@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
+import type { FileContent } from "@mindcraft-lang/app-host";
 import { applyCatalogMove, parseExtensionReference } from "@mindcraft-lang/app-host";
 import type { EmbeddedExtension, FetchedExtensionContentMap } from "@mindcraft-lang/bridge-app";
 import { resolveProjectExtensions } from "@mindcraft-lang/bridge-app";
@@ -115,7 +116,7 @@ function fetchedWithOverlays(overlays: readonly ExtensionFileOverlay[]): Fetched
   if (overlays.length === 0) {
     return publishedLibraryFetched;
   }
-  const fetched = new Map<string, ReadonlyMap<string, string>>();
+  const fetched = new Map<string, ReadonlyMap<string, FileContent>>();
   for (const [reference, files] of publishedLibraryFetched) {
     const parsed = parseExtensionReference(reference);
     const coordinate = parsed?.transport === "gh" ? `${parsed.owner}/${parsed.repo}` : undefined;

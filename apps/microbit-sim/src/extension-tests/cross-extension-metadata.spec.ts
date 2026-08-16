@@ -14,6 +14,7 @@
 import assert from "node:assert/strict";
 import { before, describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { fileContentText } from "@mindcraft-lang/app-host";
 import type { EmbeddedExtension } from "@mindcraft-lang/bridge-app";
 import {
   applyCompiledUserTiles,
@@ -231,7 +232,7 @@ describe("cross-extension user-tile metadata", () => {
     assert.ok(cutebotContent, "the Cutebot published snapshot is served by the fixture");
     const cutebotManifestFile = cutebotContent.get("/mindcraft.json");
     assert.ok(cutebotManifestFile, "the Cutebot snapshot carries a mindcraft.json");
-    const cutebotManifest = JSON.parse(cutebotManifestFile) as { name: string };
+    const cutebotManifest = JSON.parse(fileContentText(cutebotManifestFile) ?? "") as { name: string };
     const cutebotOrigin = resolved.origins.find((origin) => origin.origin === CUTEBOT_EXT_COORDINATE);
     assert.equal(cutebotOrigin?.name, cutebotManifest.name, "the origin display name comes from the library manifest");
 
