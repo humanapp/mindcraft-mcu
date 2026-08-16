@@ -90,7 +90,7 @@ interface ButtonEvents {
 }
 
 function hasArg(args: ReadonlyList<Value>, slotId: number): boolean {
-  const value = args.get(slotId);
+  const value = args.at(slotId);
   return value !== undefined && !isNilValue(value);
 }
 

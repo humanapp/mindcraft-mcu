@@ -67,9 +67,9 @@ export function clipImage(value: Value): ClippedFrame | undefined {
   if (!isStructValue(value) || value.v === undefined) {
     return undefined;
   }
-  const widthValue = extractNumberValue(value.v.get(ImageField.Width));
-  const heightValue = extractNumberValue(value.v.get(ImageField.Height));
-  const pixels = value.v.get(ImageField.Pixels);
+  const widthValue = extractNumberValue(value.v.at(ImageField.Width));
+  const heightValue = extractNumberValue(value.v.at(ImageField.Height));
+  const pixels = value.v.at(ImageField.Pixels);
   if (widthValue === undefined || heightValue === undefined || !isBufferValue(pixels)) {
     return undefined;
   }
@@ -124,8 +124,8 @@ function execDrawImage(ctx: ExecutionContext, args: ReadonlyList<Value>, handle:
   if (hasModifier(args, kImmediatelySlotId)) {
     microbit.display.preempt();
   }
-  const frames = clipImageSequence(args.get(kImageSlotId));
-  const durationSeconds = extractNumberValue(args.get(kDurationSlotId));
+  const frames = clipImageSequence(args.at(kImageSlotId));
+  const durationSeconds = extractNumberValue(args.at(kDurationSlotId));
   // Convert the seconds argument to whole ms at f32 precision, matching the device.
   const durationMs =
     durationSeconds === undefined ? DEFAULT_DURATION_MS : toNonNegativeInteger(Math.fround(durationSeconds * 1000));

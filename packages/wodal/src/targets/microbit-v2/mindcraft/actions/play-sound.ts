@@ -34,11 +34,11 @@ function soundEmojiName(value: Value | undefined): string | undefined {
   if (value === undefined || !isStructValue(value) || value.v === undefined) {
     return undefined;
   }
-  return extractStringValue(value.v.get(SoundEmojiField.Name));
+  return extractStringValue(value.v.at(SoundEmojiField.Name));
 }
 
 function execPlaySound(ctx: ExecutionContext, args: ReadonlyList<Value>, handle: AsyncHandle): void {
-  const name = soundEmojiName(args.get(kSoundSlotId)) ?? DEFAULT_BUILT_IN_SOUND_NAME;
+  const name = soundEmojiName(args.at(kSoundSlotId)) ?? DEFAULT_BUILT_IN_SOUND_NAME;
   const microbit = getMicroBitContextDevice(ctx);
   if (!microbit) {
     handle.resolve(VOID_VALUE);

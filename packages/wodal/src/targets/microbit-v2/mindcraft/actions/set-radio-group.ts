@@ -27,7 +27,7 @@ function execSetRadioGroup(ctx: ExecutionContext, args: ReadonlyList<Value>): Va
   if (!microbit) {
     return VOID_VALUE;
   }
-  microbit.radio.setGroup(extractNumberValue(args.get(kGroupSlotId)) ?? RADIO_DEFAULT_GROUP);
+  microbit.radio.setGroup(extractNumberValue(args.at(kGroupSlotId)) ?? RADIO_DEFAULT_GROUP);
   return VOID_VALUE;
 }
 

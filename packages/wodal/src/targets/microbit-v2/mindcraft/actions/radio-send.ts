@@ -37,7 +37,7 @@ const kBooleanSlotId = getSlotId(callDef, AnonBoolean);
 const kBufferSlotId = getSlotId(callDef, AnonBuffer);
 
 function presentArg(args: ReadonlyList<Value>, slotId: number): Value | undefined {
-  const value = args.get(slotId);
+  const value = args.at(slotId);
   return value !== undefined && !isNilValue(value) ? value : undefined;
 }
 

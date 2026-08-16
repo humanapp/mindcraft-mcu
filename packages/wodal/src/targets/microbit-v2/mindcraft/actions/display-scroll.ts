@@ -32,7 +32,7 @@ const kInBackgroundSlotId = getSlotId(callDef, Modifier.inBackground);
 
 /** True when arg slot `slotId` carries a present (non-nil) value. */
 function hasArg(args: ReadonlyList<Value>, slotId: number): boolean {
-  const value = args.get(slotId);
+  const value = args.at(slotId);
   return value !== undefined && !isNilValue(value);
 }
 
@@ -52,7 +52,7 @@ function whenResultText(ctx: ExecutionContext): string | undefined {
 
 function execDisplayScroll(ctx: ExecutionContext, args: ReadonlyList<Value>, handle: AsyncHandle): void {
   const text = hasArg(args, kTextSlotId)
-    ? (extractStringValue(args.get(kTextSlotId)) ?? DEFAULT_TEXT)
+    ? (extractStringValue(args.at(kTextSlotId)) ?? DEFAULT_TEXT)
     : (whenResultText(ctx) ?? DEFAULT_TEXT);
   const microbit = getMicroBitContextDevice(ctx);
   if (!microbit) {

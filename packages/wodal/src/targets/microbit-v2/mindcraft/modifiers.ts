@@ -3,7 +3,7 @@ import { WodalMicroBitV2ModifierId } from "./tile-ids";
 
 /** Whether the modifier arg at `slotId` is present (a non-nil value), i.e. its tile is attached. */
 export function hasModifier(args: ReadonlyList<Value>, slotId: number): boolean {
-  const value = args.get(slotId);
+  const value = args.at(slotId);
   return value !== undefined && !isNilValue(value);
 }
 

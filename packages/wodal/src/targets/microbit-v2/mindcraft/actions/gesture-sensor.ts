@@ -45,7 +45,7 @@ const kFaceDownSlotId = getSlotId(callDef, Modifier.faceDown);
 const kFreefallSlotId = getSlotId(callDef, Modifier.freefall);
 
 function hasArg(args: ReadonlyList<Value>, slotId: number): boolean {
-  const value = args.get(slotId);
+  const value = args.at(slotId);
   return value !== undefined && !isNilValue(value);
 }
 

@@ -283,7 +283,7 @@ test("each built-in image registers a literal tile carrying its baked Image stru
     const value = (tile as BrainTileLiteralDef).value as Value | undefined;
     assert.ok(isStructValue(value));
     assert.equal(value.typeId, WODAL_SHARED_TYPE_IDS.Image);
-    const pixels = value.v?.get(ImageField.Pixels);
+    const pixels = value.v?.at(ImageField.Pixels);
     assert.ok(isBufferValue(pixels));
     assert.equal(bufferToHex(pixels), builtInImageHex(def));
   }

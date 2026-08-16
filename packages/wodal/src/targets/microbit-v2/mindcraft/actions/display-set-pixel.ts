@@ -30,9 +30,9 @@ function execDisplaySetPixel(ctx: ExecutionContext, args: ReadonlyList<Value>): 
   if (!microbit) {
     return VOID_VALUE;
   }
-  const x = extractNumberValue(args.get(kXSlotId)) ?? DEFAULT_X;
-  const y = extractNumberValue(args.get(kYSlotId)) ?? DEFAULT_Y;
-  const brightness = extractNumberValue(args.get(kBrightnessSlotId)) ?? DEFAULT_BRIGHTNESS;
+  const x = extractNumberValue(args.at(kXSlotId)) ?? DEFAULT_X;
+  const y = extractNumberValue(args.at(kYSlotId)) ?? DEFAULT_Y;
+  const brightness = extractNumberValue(args.at(kBrightnessSlotId)) ?? DEFAULT_BRIGHTNESS;
   microbit.display.setPixelValue(pixelCoordToPort(x), pixelCoordToPort(y), brightnessToPort(brightness));
   return VOID_VALUE;
 }

@@ -65,7 +65,7 @@ function literal(label: string): IBrainTileDef {
   const all = services.edit.tiles.getAll();
   for (let i = 0; i < all.size(); i++) {
     const tileDef = all.get(i);
-    if (tileDef?.kind === "literal" && tileDef.metadata?.label === label) {
+    if (tileDef.kind === "literal" && tileDef.metadata?.label === label) {
       return tileDef;
     }
   }

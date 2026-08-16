@@ -191,7 +191,7 @@ export const CONTEXT_MICROBIT_FIELD_ID = 6;
 
 /** The value at `fieldIndex` of an options struct arg, or nil when the arg is absent or not a struct. */
 function optionField(options: Value | undefined, fieldIndex: number): Value {
-  return isStructValue(options) && options.v !== undefined ? (options.v.get(fieldIndex) ?? NIL_VALUE) : NIL_VALUE;
+  return isStructValue(options) && options.v !== undefined ? (options.v.at(fieldIndex) ?? NIL_VALUE) : NIL_VALUE;
 }
 
 /** True when the boolean field at `fieldIndex` of an options struct arg is present and true. */
@@ -694,13 +694,13 @@ function registerMicroBitDisplayFunctions(api: MindcraftModuleApi): void {
           handle.resolve(VOID_VALUE);
           return;
         }
-        const options = args.get(2);
+        const options = args.at(2);
         // The `immediately` flag preempts the current display lease at dispatch,
         // so the draw runs at once even when the display is busy.
         if (optionFlag(options, DrawImageOptionsField.Immediately)) {
           display.preempt();
         }
-        const imageArg = args.get(1);
+        const imageArg = args.at(1);
         const clipped = (imageArg !== undefined ? clipImage(imageArg) : undefined) ?? DEFAULT_IMAGE;
         const durationSeconds = extractNumberValue(optionField(options, DrawImageOptionsField.Duration));
         // Convert the seconds argument to whole ms at f32 precision, matching the device.
@@ -743,13 +743,13 @@ function registerMicroBitDisplayFunctions(api: MindcraftModuleApi): void {
           handle.resolve(VOID_VALUE);
           return;
         }
-        const options = args.get(2);
+        const options = args.at(2);
         // The `immediately` flag preempts the current display lease at dispatch,
         // so the show runs at once even when the display is busy.
         if (optionFlag(options, LeaseOptionsField.Immediately)) {
           display.preempt();
         }
-        const text = extractStringValue(args.get(1)) ?? "";
+        const text = extractStringValue(args.at(1)) ?? "";
         const durationMs = scrollDurationMs(text.length, SCROLL_DEFAULT_DELAY_MS);
         display.scrollText(text, durationMs, ctx.time, () => handle.resolve(VOID_VALUE));
         // The `inBackground` flag keeps the show's tick-time lease but resolves the
@@ -891,7 +891,7 @@ function registerI2CFunctions(api: MindcraftModuleApi): void {
       exec: (_ctx: ExecutionContext, args: ReadonlyList<Value>) => {
         const bus = getI2CReceiver(args);
         const address = toNonNegativeInteger(numberArg(args, 1));
-        const bytes = bufferArgBytes(args.get(2));
+        const bytes = bufferArgBytes(args.at(2));
         return mkNumberValue(bus ? bus.write(address, bytes) : 0);
       },
     },
@@ -1057,7 +1057,7 @@ function registerRadioFunctions(api: MindcraftModuleApi): void {
           group: radio ? radio.group : 0,
           value: 0,
           name: "",
-          text: extractStringValue(args.get(1)) ?? "",
+          text: extractStringValue(args.at(1)) ?? "",
           bytes: EMPTY_BYTES,
         });
       },
@@ -1077,7 +1077,7 @@ function registerRadioFunctions(api: MindcraftModuleApi): void {
           type: radioNumberIsInteger(value) ? RadioPacketType.Value : RadioPacketType.DoubleValue,
           group: radio ? radio.group : 0,
           value,
-          name: extractStringValue(args.get(1)) ?? "",
+          name: extractStringValue(args.at(1)) ?? "",
           text: "",
           bytes: EMPTY_BYTES,
         });
@@ -1099,7 +1099,7 @@ function registerRadioFunctions(api: MindcraftModuleApi): void {
           value: 0,
           name: "",
           text: "",
-          bytes: bufferArgBytes(args.get(1)),
+          bytes: bufferArgBytes(args.at(1)),
         });
       },
     },
@@ -1119,7 +1119,7 @@ function registerRadioFunctions(api: MindcraftModuleApi): void {
           value: 0,
           name: "",
           text: "",
-          bytes: bufferArgBytes(args.get(1)),
+          bytes: bufferArgBytes(args.at(1)),
         });
       },
     },
@@ -1208,8 +1208,8 @@ function registerAudioFunctions(api: MindcraftModuleApi): void {
         }
         // A non-string or absent argument reads as an empty name, which the
         // speaker treats as a name outside the built-in set: a silent no-op.
-        const name = extractStringValue(args.get(1)) ?? "";
-        const options = args.get(2);
+        const name = extractStringValue(args.at(1)) ?? "";
+        const options = args.at(2);
         // The `immediately` flag preempts the current speaker lease at dispatch,
         // before the new play is examined, so an unknown name still preempts.
         if (optionFlag(options, LeaseOptionsField.Immediately)) {
@@ -1314,7 +1314,7 @@ function registerBuiltInSoundTiles(api: MindcraftModuleApi): void {
 }
 
 function getDisplayReceiver(args: ReadonlyList<Value>): MicroBitDisplay | undefined {
-  const receiver = args.get(0);
+  const receiver = args.at(0);
   if (!isStructNative(receiver, WODAL_MICROBIT_V2_TYPE_IDS.MicroBitDisplay)) {
     return undefined;
   }
@@ -1322,7 +1322,7 @@ function getDisplayReceiver(args: ReadonlyList<Value>): MicroBitDisplay | undefi
 }
 
 function getButtonReceiver(args: ReadonlyList<Value>): Button | TouchButton | undefined {
-  const receiver = args.get(0);
+  const receiver = args.at(0);
   if (
     !isStructNative(receiver, WODAL_MICROBIT_V2_TYPE_IDS.Button) &&
     !isStructNative(receiver, WODAL_MICROBIT_V2_TYPE_IDS.TouchButton)
@@ -1333,7 +1333,7 @@ function getButtonReceiver(args: ReadonlyList<Value>): Button | TouchButton | un
 }
 
 function getTouchButtonReceiver(args: ReadonlyList<Value>): TouchButton | undefined {
-  const receiver = args.get(0);
+  const receiver = args.at(0);
   if (!isStructNative(receiver, WODAL_MICROBIT_V2_TYPE_IDS.TouchButton)) {
     return undefined;
   }
@@ -1341,7 +1341,7 @@ function getTouchButtonReceiver(args: ReadonlyList<Value>): TouchButton | undefi
 }
 
 function getAccelerometerReceiver(args: ReadonlyList<Value>): Accelerometer | undefined {
-  const receiver = args.get(0);
+  const receiver = args.at(0);
   if (!isStructNative(receiver, WODAL_MICROBIT_V2_TYPE_IDS.Accelerometer)) {
     return undefined;
   }
@@ -1349,7 +1349,7 @@ function getAccelerometerReceiver(args: ReadonlyList<Value>): Accelerometer | un
 }
 
 function getThermometerReceiver(args: ReadonlyList<Value>): Thermometer | undefined {
-  const receiver = args.get(0);
+  const receiver = args.at(0);
   if (!isStructNative(receiver, WODAL_MICROBIT_V2_TYPE_IDS.Thermometer)) {
     return undefined;
   }
@@ -1357,7 +1357,7 @@ function getThermometerReceiver(args: ReadonlyList<Value>): Thermometer | undefi
 }
 
 function getI2CReceiver(args: ReadonlyList<Value>): I2CBus | undefined {
-  const receiver = args.get(0);
+  const receiver = args.at(0);
   if (!isStructNative(receiver, WODAL_MICROBIT_V2_TYPE_IDS.I2C)) {
     return undefined;
   }
@@ -1365,7 +1365,7 @@ function getI2CReceiver(args: ReadonlyList<Value>): I2CBus | undefined {
 }
 
 function getGPIOReceiver(args: ReadonlyList<Value>): Gpio | undefined {
-  const receiver = args.get(0);
+  const receiver = args.at(0);
   if (!isStructNative(receiver, WODAL_MICROBIT_V2_TYPE_IDS.GPIO)) {
     return undefined;
   }
@@ -1373,7 +1373,7 @@ function getGPIOReceiver(args: ReadonlyList<Value>): Gpio | undefined {
 }
 
 function getSonarReceiver(args: ReadonlyList<Value>): SensorDriver | undefined {
-  const receiver = args.get(0);
+  const receiver = args.at(0);
   if (!isStructNative(receiver, WODAL_MICROBIT_V2_TYPE_IDS.Sonar)) {
     return undefined;
   }
@@ -1381,7 +1381,7 @@ function getSonarReceiver(args: ReadonlyList<Value>): SensorDriver | undefined {
 }
 
 function getAudioReceiver(args: ReadonlyList<Value>): MicroBitSpeaker | undefined {
-  const receiver = args.get(0);
+  const receiver = args.at(0);
   if (!isStructNative(receiver, WODAL_MICROBIT_V2_TYPE_IDS.MicroBitAudio)) {
     return undefined;
   }
@@ -1389,7 +1389,7 @@ function getAudioReceiver(args: ReadonlyList<Value>): MicroBitSpeaker | undefine
 }
 
 function getRadioReceiver(args: ReadonlyList<Value>): Radio | undefined {
-  const receiver = args.get(0);
+  const receiver = args.at(0);
   if (!isStructNative(receiver, WODAL_MICROBIT_V2_TYPE_IDS.Radio)) {
     return undefined;
   }
@@ -1418,5 +1418,5 @@ function isStructNative(value: Value | undefined, typeId: string): value is Stru
 }
 
 function numberArg(args: ReadonlyList<Value>, index: number): number {
-  return extractNumberValue(args.get(index)) ?? 0;
+  return extractNumberValue(args.at(index)) ?? 0;
 }
