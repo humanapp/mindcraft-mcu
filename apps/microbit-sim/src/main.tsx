@@ -22,7 +22,23 @@ if (!root) {
 }
 
 async function bootstrap(mount: HTMLElement): Promise<void> {
+  let disposed = false;
   const store = await MicrobitSimEnvironmentStore.create();
+  const disposeStore = () => {
+    if (disposed) {
+      return;
+    }
+    disposed = true;
+    store.dispose();
+  };
+  window.addEventListener("pagehide", disposeStore, { once: true });
+  // Going hidden commits the pending project save; the store stays alive.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      void store.projectManager.flushAutoSave();
+    }
+  });
+
   await store.initialize();
   createRoot(mount).render(
     <StrictMode>
