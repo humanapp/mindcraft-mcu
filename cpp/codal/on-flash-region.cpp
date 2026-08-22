@@ -1,6 +1,6 @@
 #include "codal/on-flash-region.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 namespace {
 
@@ -31,4 +31,4 @@ Result<ByteSpan, RegionError> readRegionProgram(ByteSpan region) {
       ByteSpan(region.data() + kRegionHeaderSize, region.size() - kRegionHeaderSize));
 }
 
-} // namespace mindcraft
+} // namespace wendoo

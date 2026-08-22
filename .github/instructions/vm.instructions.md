@@ -2,23 +2,23 @@
 applyTo: "{docs/specs/contracts/vm-contract.md,packages/wodal/**,apps/microbit-sim/**,cpp/**}"
 ---
 
-<!-- Adapted from external/mindcraft-lang/.github/instructions/vm.instructions.md -->
+<!-- Adapted from external/wendoo-lang/.github/instructions/vm.instructions.md -->
 
-# Mindcraft VM Contract
+# Wendoo VM Contract
 
-The Mindcraft VM is a stack-based bytecode virtual machine with fiber-based
+The Wendoo VM is a stack-based bytecode virtual machine with fiber-based
 concurrency and async handles. The TypeScript reference implementation lives in
-`external/mindcraft-lang/packages/core/src/runtime/`.
+`external/wendoo-lang/packages/core/src/runtime/`.
 
 ## Contract Source
 
 The bytecode compatibility contract lives at
-`external/mindcraft-lang/docs/specs/contracts/vm-contract.md` until this repo
+`external/wendoo-lang/docs/specs/contracts/vm-contract.md` until this repo
 owns a local copy. When this repo adds `docs/specs/contracts/vm-contract.md`,
 that local file becomes the active contract anchor for MCU work.
 
 The TS expression of opcode numeric assignments is
-`external/mindcraft-lang/packages/core/src/runtime/bytecode.ts`.
+`external/wendoo-lang/packages/core/src/runtime/bytecode.ts`.
 
 When changing an opcode, operand semantic, value semantic, host calling
 convention, handle behavior, or error code, update the VM contract in the same
@@ -37,7 +37,7 @@ unit.
 
 ## Key Reference Files
 
-All files below are under `external/mindcraft-lang/packages/core/src/runtime/`
+All files below are under `external/wendoo-lang/packages/core/src/runtime/`
 unless noted otherwise.
 
 - `vm.ts` - `VM` class and `FiberScheduler`

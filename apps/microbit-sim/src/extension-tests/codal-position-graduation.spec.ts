@@ -30,12 +30,12 @@ import {
   type ExtensionFetchTransport,
   type ProjectFileSystem,
   type ProjectManager,
-} from "@mindcraft-lang/app-host";
-import { AppEnvironmentHost, type EmbeddedExtension, resolveProjectExtensions } from "@mindcraft-lang/bridge-app";
-import { buildEmbeddedExtensionFromDir } from "@mindcraft-lang/bridge-app/node";
-import { coreModule } from "@mindcraft-lang/core/app";
-import { createProfileNumerics } from "@mindcraft-lang/core/runtime";
-import { createWodalSharedModule, getWodalDeviceProfile, WodalDeviceProfileId } from "@mindcraft-lang/wodal";
+} from "@wendoo-lang/app-host";
+import { AppEnvironmentHost, type EmbeddedExtension, resolveProjectExtensions } from "@wendoo-lang/bridge-app";
+import { buildEmbeddedExtensionFromDir } from "@wendoo-lang/bridge-app/node";
+import { coreModule } from "@wendoo-lang/core/app";
+import { createProfileNumerics } from "@wendoo-lang/core/runtime";
+import { createWodalSharedModule, getWodalDeviceProfile, WodalDeviceProfileId } from "@wendoo-lang/wodal";
 import {
   buildMicrobitCatalogOffers,
   buildMicrobitExtensionEntries,
@@ -62,7 +62,7 @@ import {
 } from "./published-library-fixtures";
 
 /** The retired embedded chassis coordinate the catalog's rename move migrates away from. */
-const RETIRED_CUTEBOT_COORDINATE = "mindcraft-lang/lib-microbit-cutebot";
+const RETIRED_CUTEBOT_COORDINATE = "wendoo-lang/lib-microbit-cutebot";
 
 function extensionDir(relativePath: string): string {
   return fileURLToPath(new URL(relativePath, import.meta.url));
@@ -82,7 +82,7 @@ function appEmbedRecord(): EmbeddedExtension[] {
     ),
     buildEmbeddedExtensionFromDir(extensionDir("../../../../packages/wodal/lib"), CODAL_LIB_COORDINATE),
     buildEmbeddedExtensionFromDir(
-      extensionDir("../../../../external/mindcraft-lang/packages/core/lib"),
+      extensionDir("../../../../external/wendoo-lang/packages/core/lib"),
       CORE_LIB_COORDINATE
     ),
   ];
@@ -104,7 +104,7 @@ function dependentExtension(coordinate: string, extensions: Record<string, strin
     files: [
       { path: "index.ts", content: "export {};" },
       {
-        path: "mindcraft.json",
+        path: "wendoo.json",
         content: JSON.stringify({ name: "Dependent", version: "0.1.0", extensions }),
       },
     ],
@@ -371,7 +371,7 @@ function makeHost(
   const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
   return new AppEnvironmentHost({
     projectManager,
-    modules: [coreModule(), createWodalSharedModule(), profile.createMindcraftModule()],
+    modules: [coreModule(), createWodalSharedModule(), profile.createWendooModule()],
     numerics: createProfileNumerics(profile.numberPrecision),
     mounts: [],
     embeddedExtensions: appEmbedRecord(),

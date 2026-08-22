@@ -1,8 +1,8 @@
-import { assertUnreachable } from "@mindcraft-lang/core";
-import { CoreTypeIds, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
-import type { BrainTileKind, IBrainTileDef } from "@mindcraft-lang/core/brain";
-import type { BrainEditorConfig, TileColorDef, TileVisual } from "@mindcraft-lang/ui";
-import { adjustColor, saturateColor } from "@mindcraft-lang/ui";
+import { assertUnreachable } from "@wendoo-lang/core";
+import { CoreTypeIds, type WendooEnvironment } from "@wendoo-lang/core/app";
+import type { BrainTileKind, IBrainTileDef } from "@wendoo-lang/core/brain";
+import type { BrainEditorConfig, TileColorDef, TileVisual } from "@wendoo-lang/ui";
+import { adjustColor, saturateColor } from "@wendoo-lang/ui";
 import { ICON_BASE, tileVisuals } from "./tile-visuals";
 
 /** The default icon URL a tile of the given kind falls back to, or undefined when the kind has no kind-specific default. */
@@ -89,7 +89,7 @@ export const microbitDataTypeNames: ReadonlyMap<string, string> = new Map([
 /** What the microbit-v2 brain editor config is built from. */
 export interface BuildMicrobitBrainEditorConfigOptions {
   /** The environment whose catalogs, brain services, and localizer the editor reads. */
-  env: MindcraftEnvironment;
+  env: WendooEnvironment;
   /** Rewrites a compiler-minted `/vfs/<path>` tile icon URL to a loadable one. */
   resolveVfsAssetUrl: (url: string) => string;
   /** Namespace new user tiles are minted under; absent while no project is open. */

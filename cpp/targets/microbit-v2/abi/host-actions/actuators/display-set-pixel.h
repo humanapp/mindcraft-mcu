@@ -9,13 +9,13 @@
 #include "core/runtime/value.h"
 #include "targets/microbit-v2/abi/host-binding-conversions.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 /**
  * Positional arg slots of the display set-pixel actuator, mirroring the
  * flattened call-definition arg slots of the wodal action source
- * (packages/wodal/src/targets/microbit-v2/mindcraft/actions/display-set-pixel.ts).
+ * (packages/wodal/src/targets/microbit-v2/wendoo/actions/display-set-pixel.ts).
  * Slot order is the call spec's declaration order and is wire-stable with the
  * compiler's emitted arg buffers.
  */
@@ -50,4 +50,4 @@ inline Value execDisplaySetPixel(void *hostData, ExecutionContext &ctx, Span<con
     return kVoidValue;
 }
 
-} // namespace mindcraft
+} // namespace wendoo

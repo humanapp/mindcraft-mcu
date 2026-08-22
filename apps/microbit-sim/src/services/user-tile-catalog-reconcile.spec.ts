@@ -16,29 +16,29 @@ import {
   type ProjectCollection,
   type ProjectFileSystem,
   type ProjectManager,
-} from "@mindcraft-lang/app-host";
-import type { AppEnvironmentHostOptions } from "@mindcraft-lang/bridge-app";
-import { AppEnvironmentHost } from "@mindcraft-lang/bridge-app";
-import { List } from "@mindcraft-lang/core";
-import { coreModule, mkActuatorTileId } from "@mindcraft-lang/core/app";
-import { type IBrainTileDef, type ITileCatalog, RuleSide } from "@mindcraft-lang/core/brain";
+} from "@wendoo-lang/app-host";
+import type { AppEnvironmentHostOptions } from "@wendoo-lang/bridge-app";
+import { AppEnvironmentHost } from "@wendoo-lang/bridge-app";
+import { List } from "@wendoo-lang/core";
+import { coreModule, mkActuatorTileId } from "@wendoo-lang/core/app";
+import { type IBrainTileDef, type ITileCatalog, RuleSide } from "@wendoo-lang/core/brain";
 import {
   type InsertionContext,
   parseTilesForSuggestions,
   suggestTiles,
-} from "@mindcraft-lang/core/brain/language-service";
-import { declarationMount, isCompilerControlledPath, type Mount } from "@mindcraft-lang/ts-compiler";
+} from "@wendoo-lang/core/brain/language-service";
+import { declarationMount, isCompilerControlledPath, type Mount } from "@wendoo-lang/ts-compiler";
 
 function readText(relativePath: string): string {
   return readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), "utf8");
 }
 
-const CORE_AMBIENT = readText("../../../../external/mindcraft-lang/packages/core/lib/mindcraft.core.d.ts");
-const MOUNTS: readonly Mount[] = [declarationMount([{ path: "mindcraft.core.d.ts", content: CORE_AMBIENT }])];
+const CORE_AMBIENT = readText("../../../../external/wendoo-lang/packages/core/lib/wendoo.core.d.ts");
+const MOUNTS: readonly Mount[] = [declarationMount([{ path: "wendoo.core.d.ts", content: CORE_AMBIENT }])];
 
 const PROJECT_ID = "mb-p1";
 
-const MY_ACTUATOR = `import { Actuator, type Context } from "mindcraft";
+const MY_ACTUATOR = `import { Actuator, type Context } from "wendoo";
 
 export default Actuator({
   id: "acmine0000000001",
@@ -48,7 +48,7 @@ export default Actuator({
 });
 `;
 
-const KEEP_ACTUATOR = `import { Actuator, type Context } from "mindcraft";
+const KEEP_ACTUATOR = `import { Actuator, type Context } from "wendoo";
 
 export default Actuator({
   id: "ackeep0000000001",
@@ -218,7 +218,7 @@ describe("user tile catalog reconcile on recompile", () => {
       host.applyExternalProjectFileChange({
         action: "write",
         path: "mine.ts",
-        content: 'import { Actuator, type Context } from "mindcraft";\n\nexport default Actu\n',
+        content: 'import { Actuator, type Context } from "wendoo";\n\nexport default Actu\n',
         newEtag: "e2",
       });
 

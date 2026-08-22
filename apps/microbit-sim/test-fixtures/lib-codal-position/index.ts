@@ -1,4 +1,4 @@
-import { NumberType, type StructOf, StructType } from "mindcraft";
+import { NumberType, type StructOf, StructType } from "wendoo";
 
 /**
  * A two-axis position value in game convention: `x` is the horizontal axis
@@ -9,7 +9,7 @@ import { NumberType, type StructOf, StructType } from "mindcraft";
  * `returnType` and take it as a typed argument, `accessors: true` derives the
  * `[x]` / `[y]` read tiles, and `variables: true` offers a "create variable of
  * type position" factory tile. Import it as the extension's published surface
- * from `@lib/mindcraft-lang/lib-codal-position`.
+ * from `@lib/wendoo-lang/lib-codal-position`.
  */
 export const Position = StructType({
   name: "position",

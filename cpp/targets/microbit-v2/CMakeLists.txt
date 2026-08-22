@@ -237,33 +237,33 @@ if("${SOURCE_FILES}" STREQUAL "")
     message(FATAL_ERROR "${BoldRed}No user application to build, please add a main.cpp at: ${PROJECT_SOURCE_DIR}/${CODAL_APP_SOURCE_DIR}${ColourReset}")
 endif()
 
-# mindcraft: compile the host-agnostic VM core (cpp/core) and the board-agnostic
+# wendoo: compile the host-agnostic VM core (cpp/core) and the board-agnostic
 # CODAL layer (cpp/codal: the host loop + fault-mode policy that run the VM on
 # this firmware) into the build. The application C++ sources, core, and codal
 # build as C++17; the per-source flag is appended after the target's own -std
 # flag, and the last -std flag wins. CODAL libraries keep the target's flags
 # unchanged.
-get_filename_component(MINDCRAFT_CPP_ROOT "${PROJECT_SOURCE_DIR}/../.." ABSOLUTE)
-RECURSIVE_FIND_FILE(MINDCRAFT_CORE_SOURCES "${MINDCRAFT_CPP_ROOT}/core" "*.cpp")
-if("${MINDCRAFT_CORE_SOURCES}" STREQUAL "")
-    message(FATAL_ERROR "${BoldRed}No mindcraft core sources found at: ${MINDCRAFT_CPP_ROOT}/core${ColourReset}")
+get_filename_component(WENDOO_CPP_ROOT "${PROJECT_SOURCE_DIR}/../.." ABSOLUTE)
+RECURSIVE_FIND_FILE(WENDOO_CORE_SOURCES "${WENDOO_CPP_ROOT}/core" "*.cpp")
+if("${WENDOO_CORE_SOURCES}" STREQUAL "")
+    message(FATAL_ERROR "${BoldRed}No wendoo core sources found at: ${WENDOO_CPP_ROOT}/core${ColourReset}")
 endif()
-RECURSIVE_FIND_FILE(MINDCRAFT_CODAL_SOURCES "${MINDCRAFT_CPP_ROOT}/codal" "*.cpp")
-if("${MINDCRAFT_CODAL_SOURCES}" STREQUAL "")
-    message(FATAL_ERROR "${BoldRed}No mindcraft codal sources found at: ${MINDCRAFT_CPP_ROOT}/codal${ColourReset}")
+RECURSIVE_FIND_FILE(WENDOO_CODAL_SOURCES "${WENDOO_CPP_ROOT}/codal" "*.cpp")
+if("${WENDOO_CODAL_SOURCES}" STREQUAL "")
+    message(FATAL_ERROR "${BoldRed}No wendoo codal sources found at: ${WENDOO_CPP_ROOT}/codal${ColourReset}")
 endif()
-RECURSIVE_FIND_FILE(MINDCRAFT_APP_CPP_FILES "${PROJECT_SOURCE_DIR}/${CODAL_APP_SOURCE_DIR}" "*.cpp")
-set_source_files_properties(${MINDCRAFT_APP_CPP_FILES} ${MINDCRAFT_CORE_SOURCES} ${MINDCRAFT_CODAL_SOURCES} PROPERTIES COMPILE_FLAGS "-std=c++17")
-list(APPEND SOURCE_FILES ${MINDCRAFT_CORE_SOURCES} ${MINDCRAFT_CODAL_SOURCES})
-include_directories("${MINDCRAFT_CPP_ROOT}")
+RECURSIVE_FIND_FILE(WENDOO_APP_CPP_FILES "${PROJECT_SOURCE_DIR}/${CODAL_APP_SOURCE_DIR}" "*.cpp")
+set_source_files_properties(${WENDOO_APP_CPP_FILES} ${WENDOO_CORE_SOURCES} ${WENDOO_CODAL_SOURCES} PROPERTIES COMPILE_FLAGS "-std=c++17")
+list(APPEND SOURCE_FILES ${WENDOO_CORE_SOURCES} ${WENDOO_CODAL_SOURCES})
+include_directories("${WENDOO_CPP_ROOT}")
 
-# mindcraft: reserve the on-flash .mcprogram region. The supplemental
+# wendoo: reserve the on-flash .mcprogram region. The supplemental
 # linker script defines no SECTIONS, so it augments the CODAL nRF52833 script
 # (set in PARENT_SCOPE by the codal-microbit-v2 subproject above) with the
 # region's boot-readable symbols without disturbing the firmware layout. The
 # build's metadata emitter extracts the same symbols for the host patcher.
-set(MINDCRAFT_REGION_LD "${PROJECT_SOURCE_DIR}/mcprogram-region.ld")
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -T\"${MINDCRAFT_REGION_LD}\"")
+set(WENDOO_REGION_LD "${PROJECT_SOURCE_DIR}/mcprogram-region.ld")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -T\"${WENDOO_REGION_LD}\"")
 
 if ("${BUILD_TOOL}" STRGREATER "")
     string(COMPARE EQUAL "${BUILD_TOOL}" "YOTTA" YOTTA_BUILD)

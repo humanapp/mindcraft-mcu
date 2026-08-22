@@ -1,6 +1,6 @@
 #pragma once
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * Brain numeric value type at the build profile's numeric precision. The
@@ -9,4 +9,4 @@ namespace mindcraft {
  */
 using mc_number_t = float;
 
-} // namespace mindcraft
+} // namespace wendoo

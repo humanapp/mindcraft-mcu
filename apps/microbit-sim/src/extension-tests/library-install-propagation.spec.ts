@@ -21,15 +21,15 @@ import {
   createInMemoryProjectFileSystem,
   type ProjectFileSystem,
   type ProjectManager,
-} from "@mindcraft-lang/app-host";
-import { AppEnvironmentHost, type EmbeddedExtension } from "@mindcraft-lang/bridge-app";
-import { buildEmbeddedExtensionFromDir } from "@mindcraft-lang/bridge-app/node";
-import { List } from "@mindcraft-lang/core";
-import { coreModule, mkActuatorTileId, mkSensorTileId } from "@mindcraft-lang/core/app";
-import { type ITileCatalog, RuleSide } from "@mindcraft-lang/core/brain";
-import { type InsertionContext, suggestTiles } from "@mindcraft-lang/core/brain/language-service";
-import { createProfileNumerics } from "@mindcraft-lang/core/runtime";
-import { createWodalSharedModule, getWodalDeviceProfile, WodalDeviceProfileId } from "@mindcraft-lang/wodal";
+} from "@wendoo-lang/app-host";
+import { AppEnvironmentHost, type EmbeddedExtension } from "@wendoo-lang/bridge-app";
+import { buildEmbeddedExtensionFromDir } from "@wendoo-lang/bridge-app/node";
+import { List } from "@wendoo-lang/core";
+import { coreModule, mkActuatorTileId, mkSensorTileId } from "@wendoo-lang/core/app";
+import { type ITileCatalog, RuleSide } from "@wendoo-lang/core/brain";
+import { type InsertionContext, suggestTiles } from "@wendoo-lang/core/brain/language-service";
+import { createProfileNumerics } from "@wendoo-lang/core/runtime";
+import { createWodalSharedModule, getWodalDeviceProfile, WodalDeviceProfileId } from "@wendoo-lang/wodal";
 import { buildMicrobitBrainEditorConfig } from "../brain/editor-config";
 import { createMicrobitDocsRegistry } from "../docs/docs-registry";
 import {
@@ -62,7 +62,7 @@ function microbitEmbedRecord(): EmbeddedExtension[] {
     ),
     buildEmbeddedExtensionFromDir(extensionDir("../../../../packages/wodal/lib"), CODAL_LIB_COORDINATE),
     buildEmbeddedExtensionFromDir(
-      extensionDir("../../../../external/mindcraft-lang/packages/core/lib"),
+      extensionDir("../../../../external/wendoo-lang/packages/core/lib"),
       CORE_LIB_COORDINATE
     ),
   ];
@@ -146,7 +146,7 @@ function makeHost(): AppEnvironmentHost {
   const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
   return new AppEnvironmentHost({
     projectManager: seededProjectManager(createInMemoryProjectFileSystem()),
-    modules: [coreModule(), createWodalSharedModule(), profile.createMindcraftModule()],
+    modules: [coreModule(), createWodalSharedModule(), profile.createWendooModule()],
     numerics: createProfileNumerics(profile.numberPrecision),
     mounts: [],
     embeddedExtensions: microbitEmbedRecord(),

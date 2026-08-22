@@ -52,7 +52,7 @@ completions.
   integration, and run controls belong in `apps/microbit-sim`.
 - Model CODAL mechanics through a web runtime profile; do not expose
   browser-specific UI concepts from WODAL APIs.
-- External events enqueue work. They must not call Mindcraft VM entry points
+- External events enqueue work. They must not call Wendoo VM entry points
   directly or resolve handles outside the host loop.
 
 ### Microbit Sim App (`apps/microbit-sim`)
@@ -67,9 +67,9 @@ completions.
 
 - TypeScript and C++ VMs must remain bytecode-compatible. File encoding may
   differ, but decoded bytecode semantics must match
-  `external/mindcraft-lang/docs/specs/contracts/vm-contract.md` until this
+  `external/wendoo-lang/docs/specs/contracts/vm-contract.md` until this
   repo owns a local `docs/specs/contracts/vm-contract.md`.
 - All compilation and linking happen on the web/compiler side. Runtime packages
   must not introduce target-aware bytecode lowering.
-- Preserve the Mindcraft host calling convention: positional arg buffers,
+- Preserve the Wendoo host calling convention: positional arg buffers,
   callsite ids, async handles, and single-entry host-loop execution.

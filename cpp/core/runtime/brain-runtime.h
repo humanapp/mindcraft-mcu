@@ -9,7 +9,7 @@
 #include "core/runtime/value.h"
 #include "core/runtime/vm.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /** Sentinel page index marking "no page" (before any deactivation). */
 inline constexpr uint32_t kNoPageIndex = 0xffffffffu;
@@ -18,7 +18,7 @@ inline constexpr uint32_t kNoPageIndex = 0xffffffffu;
  * The brain think loop over one active page: page activation, per-think rule
  * fiber respawn, and time stamping. Mirrors the `startup`/`think` flow of
  * `BrainRuntime` in
- * external/mindcraft-lang/packages/core/src/runtime/brain-runtime.ts for a
+ * external/wendoo-lang/packages/core/src/runtime/brain-runtime.ts for a
  * single-page program.
  *
  * Single-entry: only the host loop may call {@link think}; host callbacks
@@ -65,7 +65,7 @@ public:
    * not run them. Requesting the current page restarts it (see
    * {@link requestPageRestart}); out of range is a no-op. Mirrors
    * `requestPageChange` in
-   * external/mindcraft-lang/packages/core/src/runtime/brain-runtime.ts.
+   * external/wendoo-lang/packages/core/src/runtime/brain-runtime.ts.
    */
   void requestPageChange(uint32_t pageIndex);
 
@@ -74,7 +74,7 @@ public:
    * its rule fibers so {@link think} respawns them from their entry, without
    * re-running the page's activation hooks or resetting per-callsite state.
    * Mirrors `requestPageRestart` in
-   * external/mindcraft-lang/packages/core/src/runtime/brain-runtime.ts.
+   * external/wendoo-lang/packages/core/src/runtime/brain-runtime.ts.
    */
   void requestPageRestart();
 
@@ -82,7 +82,7 @@ public:
    * Requests a switch to the page whose stable id equals the `length` bytes at
    * `pageId`, comparing by content against each page's id. A no-op when no page
    * matches. Mirrors the stable-id arm of `requestPageChangeByPageId` in
-   * external/mindcraft-lang/packages/core/src/runtime/brain-runtime.ts; the TS
+   * external/wendoo-lang/packages/core/src/runtime/brain-runtime.ts; the TS
    * page-name fallback has no mirror because the decoded image carries no page
    * names.
    */
@@ -98,7 +98,7 @@ public:
    * The stable page id of the most recently deactivated page as a
    * borrowed-string {@link Value}, or the current page's id when no page has
    * been deactivated yet. Mirrors `getPreviousPageId` in
-   * external/mindcraft-lang/packages/core/src/runtime/brain-runtime.ts.
+   * external/wendoo-lang/packages/core/src/runtime/brain-runtime.ts.
    */
   Value getPreviousPageId() const;
 
@@ -139,4 +139,4 @@ private:
   uint32_t previousPageIndex_ = kNoPageIndex;
 };
 
-} // namespace mindcraft
+} // namespace wendoo

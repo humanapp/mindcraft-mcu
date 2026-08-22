@@ -6,8 +6,8 @@
 #include <array>
 #include <cstdint>
 
-using mindcraft::RegionArena;
-using mindcraft::Span;
+using wendoo::RegionArena;
+using wendoo::Span;
 
 TEST_CASE("allocations are naturally aligned and zero-filled") {
   alignas(8) std::array<uint8_t, 256> storage;

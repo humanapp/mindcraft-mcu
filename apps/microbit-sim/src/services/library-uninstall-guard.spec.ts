@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { createInMemoryProjectFileSystem } from "@mindcraft-lang/app-host";
-import type { EmbeddedExtension } from "@mindcraft-lang/bridge-app";
+import { createInMemoryProjectFileSystem } from "@wendoo-lang/app-host";
+import type { EmbeddedExtension } from "@wendoo-lang/bridge-app";
 import { collectMicrobitLibraryUninstallImpact, type UninstallGuardHost } from "./library-uninstall-guard";
 
 const CUTEBOT = "acme/lib-cutebot";
@@ -11,7 +11,7 @@ function embedded(coordinate: string): EmbeddedExtension {
     canonicalOrigin: coordinate,
     files: [
       {
-        path: "mindcraft.json",
+        path: "wendoo.json",
         content: JSON.stringify({ name: coordinate, version: "1.0.0", files: ["index.ts"] }),
       },
       { path: "index.ts", content: "export {};" },

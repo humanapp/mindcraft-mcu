@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * Non-owning view over a contiguous run of `size` elements starting at
@@ -41,4 +41,4 @@ private:
 /** Read-only view over raw bytes. */
 using ByteSpan = Span<const uint8_t>;
 
-} // namespace mindcraft
+} // namespace wendoo

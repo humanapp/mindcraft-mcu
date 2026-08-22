@@ -1,9 +1,9 @@
-import type { UserTileMetadata } from "@mindcraft-lang/bridge-app";
-import type { ActionKind, MindcraftEnvironment } from "@mindcraft-lang/core/app";
-import { mkActionTileId } from "@mindcraft-lang/core/app";
-import type { ITileCatalog } from "@mindcraft-lang/core/brain";
-import type { DocsRegistry, DocsTileEntry } from "@mindcraft-lang/docs";
-import { buildDocsRegistry } from "@mindcraft-lang/docs";
+import type { UserTileMetadata } from "@wendoo-lang/bridge-app";
+import type { ActionKind, WendooEnvironment } from "@wendoo-lang/core/app";
+import { mkActionTileId } from "@wendoo-lang/core/app";
+import type { ITileCatalog } from "@wendoo-lang/core/brain";
+import type { DocsRegistry, DocsTileEntry } from "@wendoo-lang/docs";
+import { buildDocsRegistry } from "@wendoo-lang/docs";
 import { conceptContent, patternContent } from "./_generated/en";
 import {
   conceptOrder,
@@ -74,7 +74,7 @@ function buildHostTileDocEntries(catalog: ITileCatalog, isDocumented: (tileId: s
  * and render the sidebar's no-documentation fallback.
  */
 export function createMicrobitDocsRegistry(
-  env: MindcraftEnvironment,
+  env: WendooEnvironment,
   userTileMetadata: readonly UserTileMetadata[] | undefined
 ): DocsRegistry {
   const registry = buildDocsRegistry({
@@ -103,7 +103,7 @@ export function createMicrobitDocsRegistry(
 }
 
 /** Tile catalog that resolves a tile id across every catalog the environment registers. */
-export function createDocsTileCatalog(env: MindcraftEnvironment): ITileCatalog {
+export function createDocsTileCatalog(env: WendooEnvironment): ITileCatalog {
   return {
     get: (tileId: string) => {
       for (const catalog of env.tileCatalogs()) {

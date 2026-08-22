@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import type { AuthoringWorkspace, ScenarioInput, SimulationRun } from "@mindcraft-lang/assistant-bridge";
-import { createAuthoringWorkspace, proposeEdit } from "@mindcraft-lang/assistant-bridge";
-import { ScenarioRejection, ScenarioRejectionCode } from "@mindcraft-lang/assistant-bridge/kit";
-import { ConformanceCheckCode, checkAdapterConformance } from "@mindcraft-lang/assistant-bridge/kit/node";
-import { FAKE_TARGET_IDENTITY, ruleIdAt } from "@mindcraft-lang/assistant-bridge/testing";
-import { mkActuatorTileId, mkParameterTileId, mkSensorTileId } from "@mindcraft-lang/core/app";
-import { CoreLiteralFactoryId, mkLiteralFactoryTileId } from "@mindcraft-lang/core/brain";
-import { MICROBIT_V2_TILE_DOCS } from "../mindcraft/tile-docs";
-import { MicroBitV2HostActions, WodalMicroBitV2ParameterId } from "../mindcraft/tile-ids";
+import type { AuthoringWorkspace, ScenarioInput, SimulationRun } from "@wendoo-lang/assistant-bridge";
+import { createAuthoringWorkspace, proposeEdit } from "@wendoo-lang/assistant-bridge";
+import { ScenarioRejection, ScenarioRejectionCode } from "@wendoo-lang/assistant-bridge/kit";
+import { ConformanceCheckCode, checkAdapterConformance } from "@wendoo-lang/assistant-bridge/kit/node";
+import { FAKE_TARGET_IDENTITY, ruleIdAt } from "@wendoo-lang/assistant-bridge/testing";
+import { mkActuatorTileId, mkParameterTileId, mkSensorTileId } from "@wendoo-lang/core/app";
+import { CoreLiteralFactoryId, mkLiteralFactoryTileId } from "@wendoo-lang/core/brain";
+import { MICROBIT_V2_TILE_DOCS } from "../wendoo/tile-docs";
+import { MicroBitV2HostActions, WodalMicroBitV2ParameterId } from "../wendoo/tile-ids";
 import { createTargetAdapter } from "./adapter";
 import { PERCEPT_KINDS } from "./world";
 

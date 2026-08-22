@@ -13,7 +13,7 @@
 #include "targets/microbit-v2/abi/host-functions/native-receiver.h"
 #include "targets/microbit-v2/abi/type-atom-id.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 /**
@@ -44,7 +44,7 @@ struct MicroBitV2I2CReadEnv
  * unrecognized receiver, a no-device read, or a bus error pushes an empty
  * `Buffer`. A heap allocation failure faults the call. `hostData` is the bound
  * {@link MicroBitV2I2CReadEnv}. Mirrors the `I2C.readBuffer` host function in
- * packages/wodal/src/targets/microbit-v2/mindcraft/module.ts.
+ * packages/wodal/src/targets/microbit-v2/wendoo/module.ts.
  */
 inline Status execI2CReadBuffer(void *hostData, Span<const Value> args, Value &result)
 {
@@ -83,4 +83,4 @@ inline Status execI2CReadBuffer(void *hostData, Span<const Value> args, Value &r
     return Status::ok();
 }
 
-} // namespace mindcraft
+} // namespace wendoo

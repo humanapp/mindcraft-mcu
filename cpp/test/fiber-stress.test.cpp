@@ -12,19 +12,19 @@
 #include <cstdint>
 #include <vector>
 
-using mindcraft::AsyncHandle;
-using mindcraft::BrainRuntime;
-using mindcraft::ErrorCode;
-using mindcraft::ExecutionContext;
-using mindcraft::FiberScheduler;
-using mindcraft::HostActionBinding;
-using mindcraft::Op;
-using mindcraft::ProgramImage;
-using mindcraft::RegionArena;
-using mindcraft::Span;
-using mindcraft::Status;
-using mindcraft::Value;
-using mindcraft::VmObserver;
+using wendoo::AsyncHandle;
+using wendoo::BrainRuntime;
+using wendoo::ErrorCode;
+using wendoo::ExecutionContext;
+using wendoo::FiberScheduler;
+using wendoo::HostActionBinding;
+using wendoo::Op;
+using wendoo::ProgramImage;
+using wendoo::RegionArena;
+using wendoo::Span;
+using wendoo::Status;
+using wendoo::Value;
+using wendoo::VmObserver;
 
 namespace {
 
@@ -116,7 +116,7 @@ Value execMaybeRestart(void* hostData, ExecutionContext&, Span<const Value>) {
     env.restartArmed = false;
     env.brain->requestPageRestart();
   }
-  return mindcraft::kVoidValue;
+  return wendoo::kVoidValue;
 }
 
 /** Records fiber faults so the stress run can assert none occurred. */
@@ -262,12 +262,12 @@ TEST_CASE("sustained nested-async spawning with mid-round cancels stays leak-bou
 
   ExecutionContext ctx;
   FaultObserver observer;
-  mindcraft::RuntimeSurface surface{&ctx, {bindings, 2}, &observer};
+  wendoo::RuntimeSurface surface{&ctx, {bindings, 2}, &observer};
   // Synchronous child-rule cascades expand a whole subtree within one think, so
   // every work root's grandchild dispatches its async actuator in the same think:
   // concurrent pending handles peak higher than the device default of 8. Run
   // under the raised async-handle cap the many-handles-at-once tests share.
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kAsyncDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kAsyncDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   env.scheduler = &scheduler;
   env.brain = &brain;
@@ -313,7 +313,7 @@ TEST_CASE("sustained nested-async spawning with mid-round cancels stays leak-bou
   // occupancy runs higher than the old one-level-per-think spread yet still well
   // under the fiber guard, and the runtime working set stays a small fraction of
   // the 32 KiB device VM region.
-  CHECK(env.peakLive < mindcraft::test::kDeviceProfileCaps.maxFibers);
+  CHECK(env.peakLive < wendoo::test::kDeviceProfileCaps.maxFibers);
   CHECK(warmupHighWater < 32u * 1024u);
   CHECK(env.peakLive >= kWorkRoots); // the nested subtrees actually ran concurrently
 
@@ -336,13 +336,13 @@ TEST_CASE("wide same-think async breadth backpressures under a small handle cap 
 
   ExecutionContext ctx;
   FaultObserver observer;
-  mindcraft::RuntimeSurface surface{&ctx, {bindings, 1}, &observer};
+  wendoo::RuntimeSurface surface{&ctx, {bindings, 1}, &observer};
   // The cap (4) sits below the same-think async breadth (kWideChildren), so the
   // fifth child onward finds the handle table full each think and backpressures.
   constexpr uint32_t kHandleCap = 4;
   FiberScheduler scheduler(
       image, surface, arena,
-      mindcraft::test::withMaxHandles(mindcraft::test::kDeviceProfileCaps, kHandleCap));
+      wendoo::test::withMaxHandles(wendoo::test::kDeviceProfileCaps, kHandleCap));
   BrainRuntime brain(image, scheduler, surface);
   env.scheduler = &scheduler;
   env.brain = &brain;

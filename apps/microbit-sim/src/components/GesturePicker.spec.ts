@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { AccelerometerGesture, GestureInjector, MicroBit } from "@mindcraft-lang/wodal/targets/microbit-v2";
+import { AccelerometerGesture, GestureInjector, MicroBit } from "@wendoo-lang/wodal/targets/microbit-v2";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { SimulatorInstance } from "../services/simulator";

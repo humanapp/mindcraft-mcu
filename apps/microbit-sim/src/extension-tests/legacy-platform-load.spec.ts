@@ -2,26 +2,22 @@ import "fake-indexeddb/auto";
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import type { ExtensionFetchTransport } from "@mindcraft-lang/app-host";
+import type { ExtensionFetchTransport } from "@wendoo-lang/app-host";
 import {
   createIdbProjectStore,
   DEFAULT_PROJECT_NAME,
   importProjectDocument,
   type ProjectFileSnapshot,
   ProjectManager,
-} from "@mindcraft-lang/app-host";
-import type { EmbeddedExtension } from "@mindcraft-lang/bridge-app";
-import {
-  AppEnvironmentHost,
-  CatalogMoveWarningCode,
-  INSTALLED_EXTENSIONS_APP_DATA_KEY,
-} from "@mindcraft-lang/bridge-app";
-import { buildEmbeddedExtensionFromDir } from "@mindcraft-lang/bridge-app/node";
-import { coreModule } from "@mindcraft-lang/core/app";
-import type { IBrainDef, IBrainRuleDef, IBrainTileDef } from "@mindcraft-lang/core/brain";
-import { createProfileNumerics } from "@mindcraft-lang/core/runtime";
-import { isCompilerControlledPath, type WorkspaceCompileResult } from "@mindcraft-lang/ts-compiler";
-import { createWodalSharedModule, getWodalDeviceProfile, WodalDeviceProfileId } from "@mindcraft-lang/wodal";
+} from "@wendoo-lang/app-host";
+import type { EmbeddedExtension } from "@wendoo-lang/bridge-app";
+import { AppEnvironmentHost, CatalogMoveWarningCode, INSTALLED_EXTENSIONS_APP_DATA_KEY } from "@wendoo-lang/bridge-app";
+import { buildEmbeddedExtensionFromDir } from "@wendoo-lang/bridge-app/node";
+import { coreModule } from "@wendoo-lang/core/app";
+import type { IBrainDef, IBrainRuleDef, IBrainTileDef } from "@wendoo-lang/core/brain";
+import { createProfileNumerics } from "@wendoo-lang/core/runtime";
+import { isCompilerControlledPath, type WorkspaceCompileResult } from "@wendoo-lang/ts-compiler";
+import { createWodalSharedModule, getWodalDeviceProfile, WodalDeviceProfileId } from "@wendoo-lang/wodal";
 import { microbitLibraryCatalogMoves } from "../services/microbit-extension-browser";
 import {
   CODAL_LIB_COORDINATE,
@@ -75,8 +71,8 @@ function extensionDir(relativePath: string): string {
  * hold. The bundled catalog's rename moves migrate them to the published
  * coordinates on load.
  */
-const LEGACY_CUTEBOT_COORDINATE = "mindcraft-lang/lib-microbit-cutebot";
-const LEGACY_YAHBOOM_COORDINATE = "mindcraft-lang/lib-microbit-yahboom-gamepad";
+const LEGACY_CUTEBOT_COORDINATE = "wendoo-lang/lib-microbit-cutebot";
+const LEGACY_YAHBOOM_COORDINATE = "wendoo-lang/lib-microbit-yahboom-gamepad";
 
 /**
  * The app's full embed record: the same four coordinate/directory registrations
@@ -93,7 +89,7 @@ function appEmbedRecord(): EmbeddedExtension[] {
     ),
     buildEmbeddedExtensionFromDir(extensionDir("../../../../packages/wodal/lib"), CODAL_LIB_COORDINATE),
     buildEmbeddedExtensionFromDir(
-      extensionDir("../../../../external/mindcraft-lang/packages/core/lib"),
+      extensionDir("../../../../external/wendoo-lang/packages/core/lib"),
       CORE_LIB_COORDINATE
     ),
   ];
@@ -118,8 +114,8 @@ const MIGRATED_EXTENSIONS: Readonly<Record<string, string>> = {
 };
 
 const MY_ACTUATOR_PATH = "my-actuator/my-actuator.ts";
-const MY_ACTUATOR_SOURCE = `import { Actuator } from "mindcraft";
-import { heart } from "@lib/mindcraft-lang/lib-microbit-v2"
+const MY_ACTUATOR_SOURCE = `import { Actuator } from "wendoo";
+import { heart } from "@lib/wendoo-lang/lib-microbit-v2"
 const icon = heart();
 export default Actuator({ id: "fbkHu4V3tO8EQ8Bd", name: "my actuator", onExecute(ctx, params) {}, });
 `;
@@ -270,7 +266,7 @@ async function makeProductionShapedHost(
   });
   const host = new AppEnvironmentHost({
     projectManager,
-    modules: [coreModule(), createWodalSharedModule(), activeProfile.createMindcraftModule()],
+    modules: [coreModule(), createWodalSharedModule(), activeProfile.createWendooModule()],
     numerics: createProfileNumerics(activeProfile.numberPrecision),
     mounts: [],
     embeddedExtensions: appEmbedRecord(),
@@ -619,7 +615,7 @@ describe("legacy project load -- one refused move writes nothing while the other
 });
 
 // ---------------------------------------------------------------------------
-// The .mindcraft IMPORT path: a shared export document imported as a new
+// The .wendoo IMPORT path: a shared export document imported as a new
 // project. Unlike the picker path above, the imported project's app data
 // carries the export's saved brains but never the installed-extensions
 // snapshots (an export is portable and omits them), so the first load after
@@ -627,8 +623,8 @@ describe("legacy project load -- one refused move writes nothing while the other
 // ---------------------------------------------------------------------------
 
 /** The export's user-content file, importing the target coordinate (whose hostApp package lists no files). */
-const STALE_TRG_IMPORT_SOURCE = `import { Actuator } from "mindcraft";
-import { heart } from "@lib/mindcraft-lang/trg-microbit-v2"
+const STALE_TRG_IMPORT_SOURCE = `import { Actuator } from "wendoo";
+import { heart } from "@lib/wendoo-lang/trg-microbit-v2"
 
 const icon = heart();
 
@@ -647,7 +643,7 @@ export default Actuator({
  */
 function cuterbotDocumentText(): string {
   return JSON.stringify({
-    format: "mindcraft.project/2",
+    format: "wendoo.project/2",
     manifest: {
       name: "cuterbot",
       version: "0.1.0",
@@ -689,7 +685,7 @@ async function importCuterbotProject(
   const { host, projectManager, lastCompile } = await makeProductionShapedHost(transport);
   await host.initialize(DEFAULT_PROJECT_NAME);
   const defaultProjectId = projectManager.activeProject!.manifest.id;
-  const file = new File([cuterbotDocumentText()], "cuterbot.mindcraft");
+  const file = new File([cuterbotDocumentText()], "cuterbot.wendoo");
   const imported = await importProjectDocument(file, MICROBIT_SIM_APP_CHUNK_KEY, projectManager, {
     appChunkCallback: translateMicrobitSimAppChunk,
   });
@@ -728,7 +724,7 @@ function outageTransport(): { transport: ExtensionFetchTransport; restore: () =>
   };
 }
 
-describe("cuterbot .mindcraft import -- production wiring", () => {
+describe("cuterbot .wendoo import -- production wiring", () => {
   // The load-time migration fetches and registers the library tiles under the
   // new namespaces, so the same first load must rewrite and resolve the saved
   // brains' instances of those tiles.

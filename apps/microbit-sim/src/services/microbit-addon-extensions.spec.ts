@@ -1,16 +1,16 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import type { EmbeddedExtension } from "@mindcraft-lang/bridge-app";
+import type { EmbeddedExtension } from "@wendoo-lang/bridge-app";
 import {
   collectMetadataFromCompile,
   findEmbeddedExtensionsMissingStableIds,
   formatEmbeddedExtensionIdViolations,
   resolveProjectExtensions,
-} from "@mindcraft-lang/bridge-app";
-import { buildEmbeddedExtensionFromDir } from "@mindcraft-lang/bridge-app/node";
-import { createWorkspaceCompiler, type Mount, type WorkspaceSnapshot } from "@mindcraft-lang/ts-compiler";
-import { createMicroBitV2Environment } from "@mindcraft-lang/wodal/targets/microbit-v2";
+} from "@wendoo-lang/bridge-app";
+import { buildEmbeddedExtensionFromDir } from "@wendoo-lang/bridge-app/node";
+import { createWorkspaceCompiler, type Mount, type WorkspaceSnapshot } from "@wendoo-lang/ts-compiler";
+import { createMicroBitV2Environment } from "@wendoo-lang/wodal/targets/microbit-v2";
 import {
   CODAL_POSITION_GH_REF,
   publishedLibraryFetched,
@@ -38,7 +38,7 @@ function extensionDir(relativePath: string): string {
 
 /**
  * The runnable target and the three microbit layer libraries assembled from
- * each extension's own `mindcraft.json` `files` list through the shared
+ * each extension's own `wendoo.json` `files` list through the shared
  * loader. The layer stack is core <- wodal <- microbit-v2; the target resolves
  * the published libraries' `trg-` compatibility-target edge.
  */
@@ -51,7 +51,7 @@ function microbitEmbedRecord(): EmbeddedExtension[] {
     ),
     buildEmbeddedExtensionFromDir(extensionDir("../../../../packages/wodal/lib"), CODAL_LIB_COORDINATE),
     buildEmbeddedExtensionFromDir(
-      extensionDir("../../../../external/mindcraft-lang/packages/core/lib"),
+      extensionDir("../../../../external/wendoo-lang/packages/core/lib"),
       CORE_LIB_COORDINATE
     ),
   ];
@@ -180,8 +180,8 @@ describe("microbit published libraries -- browser entries list direct dependenci
 });
 
 describe("microbit published libraries -- install materializes a usable type", () => {
-  const HOST_PROGRAM = `import { Sensor, type Context } from "mindcraft";
-import { Position } from "@lib/mindcraft-lang/lib-codal-position";
+  const HOST_PROGRAM = `import { Sensor, type Context } from "wendoo";
+import { Position } from "@lib/wendoo-lang/lib-codal-position";
 
 export default Sensor({
   name: "position probe",

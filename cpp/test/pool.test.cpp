@@ -8,9 +8,9 @@
 #include <cstdint>
 #include <vector>
 
-using mindcraft::Pool;
-using mindcraft::RegionArena;
-using mindcraft::Span;
+using wendoo::Pool;
+using wendoo::RegionArena;
+using wendoo::Span;
 
 namespace {
 struct Item {

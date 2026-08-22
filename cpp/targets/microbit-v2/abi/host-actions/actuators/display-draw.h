@@ -13,13 +13,13 @@
 #include "core/runtime/result.h"
 #include "core/runtime/value.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 /**
  * Positional arg slots of the draw-image actuator, mirroring the flattened
  * call-definition arg slots of the wodal action source
- * (packages/wodal/src/targets/microbit-v2/mindcraft/actions/display-draw.ts):
+ * (packages/wodal/src/targets/microbit-v2/wendoo/actions/display-draw.ts):
  * slot 0 is the required `Image`, slot 1 the optional duration.
  */
 inline constexpr uint32_t kDrawImageImageArgSlot = 0;
@@ -292,4 +292,4 @@ inline Status execDrawImage(void *hostData, ExecutionContext &ctx, Span<const Va
     return Status::ok();
 }
 
-} // namespace mindcraft
+} // namespace wendoo

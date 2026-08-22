@@ -9,25 +9,25 @@ import {
   type ProjectCollection,
   type ProjectFileSystem,
   type ProjectManager,
-} from "@mindcraft-lang/app-host";
-import { AppEnvironmentHost, createVfsAssetUrlProvider, type EmbeddedExtension } from "@mindcraft-lang/bridge-app";
-import { coreModule, mkActuatorTileId, mkSensorTileId } from "@mindcraft-lang/core/app";
-import type { IBrainTileDef } from "@mindcraft-lang/core/brain";
-import { declarationMount, isCompilerControlledPath, type Mount } from "@mindcraft-lang/ts-compiler";
+} from "@wendoo-lang/app-host";
+import { AppEnvironmentHost, createVfsAssetUrlProvider, type EmbeddedExtension } from "@wendoo-lang/bridge-app";
+import { coreModule, mkActuatorTileId, mkSensorTileId } from "@wendoo-lang/core/app";
+import type { IBrainTileDef } from "@wendoo-lang/core/brain";
+import { declarationMount, isCompilerControlledPath, type Mount } from "@wendoo-lang/ts-compiler";
 import { buildMicrobitBrainEditorConfig } from "../brain/editor-config";
 
 function readText(relativePath: string): string {
   return readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), "utf8");
 }
 
-const CORE_AMBIENT = readText("../../../../external/mindcraft-lang/packages/core/lib/mindcraft.core.d.ts");
+const CORE_AMBIENT = readText("../../../../external/wendoo-lang/packages/core/lib/wendoo.core.d.ts");
 
-const BEAM_COORDINATE = "mindcraft-lang/beam-lib";
+const BEAM_COORDINATE = "wendoo-lang/beam-lib";
 const BEAM_REFERENCE = `embedded:${BEAM_COORDINATE}`;
 const BEAM_ICON_PATH = `.libraries/${BEAM_COORDINATE}/beam.svg`;
 const BEAM_ICON_SVG = '<svg id="beam"></svg>';
 
-const BEAM_EXTENSION_ENTRY = `import { Sensor, type Context } from "mindcraft";
+const BEAM_EXTENSION_ENTRY = `import { Sensor, type Context } from "wendoo";
 
 export default Sensor({
   id: "beamSensor000001",
@@ -44,11 +44,11 @@ const BEAM_EXTENSION: EmbeddedExtension = {
   files: [
     { path: "beam.ts", content: BEAM_EXTENSION_ENTRY },
     { path: "beam.svg", content: BEAM_ICON_SVG },
-    { path: "mindcraft.json", content: JSON.stringify({ name: "Beam", version: "0.1.0", entry: "beam.ts" }) },
+    { path: "wendoo.json", content: JSON.stringify({ name: "Beam", version: "0.1.0", entry: "beam.ts" }) },
   ],
 };
 
-const MOUNTS: readonly Mount[] = [declarationMount([{ path: "mindcraft.core.d.ts", content: CORE_AMBIENT }])];
+const MOUNTS: readonly Mount[] = [declarationMount([{ path: "wendoo.core.d.ts", content: CORE_AMBIENT }])];
 
 function installEmptyLocalStorage(): () => void {
   const original = Object.getOwnPropertyDescriptor(globalThis, "localStorage");

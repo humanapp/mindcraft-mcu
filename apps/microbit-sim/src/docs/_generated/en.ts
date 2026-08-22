@@ -978,7 +978,7 @@ show something on the display.
 };
 
 export const conceptContent: Record<string, string> = {
-  "about": `# Mindcraft micro:bit Simulator
+  "about": `# Wendoo micro:bit Simulator
 
 A browser-based simulator for the BBC micro:bit -- program its brain with tiles, watch it run in the simulator, then flash the same program onto a real board.
 
@@ -1024,7 +1024,7 @@ Rules are evaluated top-to-bottom. Place more specific rules above more general 
 `,
   "vscode": `# Authoring Tiles in VS Code
 
-Write custom brain tiles in TypeScript using **VS Code for the Web**. The Mindcraft extension connects your editor to the micro:bit simulator so new sensors and actuators appear as tiles in the Brain Editor as you code.
+Write custom brain tiles in TypeScript using **VS Code for the Web**. The Wendoo extension connects your editor to the micro:bit simulator so new sensors and actuators appear as tiles in the Brain Editor as you code.
 
 ## Setup
 
@@ -1032,7 +1032,7 @@ Write custom brain tiles in TypeScript using **VS Code for the Web**. The Mindcr
 
 1. Open [vscode.dev](https://vscode.dev)
 2. Switch to the Extensions panel
-3. Search for **mindcraft** and install it
+3. Search for **wendoo** and install it
 
 ### 2. Start the bridge
 
@@ -1042,7 +1042,7 @@ Write custom brain tiles in TypeScript using **VS Code for the Web**. The Mindcr
 ### 3. Connect
 
 1. Back in vscode.dev, open the Command Palette (\`Ctrl+Shift+P\` / \`Cmd+Shift+P\`)
-2. Run \`Mindcraft: Connect\`
+2. Run \`Wendoo: Connect\`
 3. Paste the **join code** and press Enter
 
 TypeScript files will now sync between the editor and the simulator. Edits hot-reload immediately -- save a file and the updated tile is ready to use.

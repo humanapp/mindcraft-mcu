@@ -8,7 +8,7 @@
 #include "core/runtime/result.h"
 #include "core/runtime/value.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 class ManagedHeap;
 class GcRoots;
@@ -17,7 +17,7 @@ class TypeRegistry;
 /**
  * The VM-global pseudo-random generator: the 32-bit linear congruential
  * generator mirrored from `MathOps.random` in
- * external/mindcraft-lang/packages/core/src/platform/math.node.ts (Numerical
+ * external/wendoo-lang/packages/core/src/platform/math.node.ts (Numerical
  * Recipes parameters a = 1664525, c = 1013904223, modulus 2^32). The state is a
  * single `uint32_t` advanced in unsigned 32-bit arithmetic and mapped to
  * `[0, 1)` by dividing by 2^32 at the profile precision. The pinned default
@@ -80,4 +80,4 @@ struct HostCallEnv {
 Status callCoreHostFunction(CoreFuncId id, Span<const Value> args, const HostCallEnv& env,
                             Value& out);
 
-} // namespace mindcraft
+} // namespace wendoo

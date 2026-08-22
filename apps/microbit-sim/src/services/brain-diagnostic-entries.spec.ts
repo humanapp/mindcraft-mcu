@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { ErrorCode } from "@mindcraft-lang/core/runtime";
+import { ErrorCode } from "@wendoo-lang/core/runtime";
 import { flashDiagnosticToEntry, runtimeFaultToEntry } from "./brain-diagnostic-entries";
 import type { InstanceFiberFault } from "./simulator";
 

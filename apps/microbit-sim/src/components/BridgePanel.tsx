@@ -1,5 +1,5 @@
-import { useDocsSidebar } from "@mindcraft-lang/docs";
-import { Switch } from "@mindcraft-lang/ui";
+import { useDocsSidebar } from "@wendoo-lang/docs";
+import { Switch } from "@wendoo-lang/ui";
 import { Check, CircleHelp, Copy } from "lucide-react";
 import { useEffect, useId, useState, useSyncExternalStore } from "react";
 import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";

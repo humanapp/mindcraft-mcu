@@ -1,7 +1,5 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-
-import { BUILT_IN_SOUNDS } from "./mindcraft/built-in-sounds";
 import { decodeBuiltInSoundRaw, decodeSoundExpressionRaw, type RawToneEffect } from "./sound-expression";
 import {
   applyEffect,
@@ -11,6 +9,7 @@ import {
   type SynthState,
   tonePrint,
 } from "./sound-synthesis";
+import { BUILT_IN_SOUNDS } from "./wendoo/built-in-sounds";
 
 /** CODAL's per-segment sample count: `(int)(sampleRate * ms/1000)`, truncated. */
 function codalSampleCount(durationMs: number): number {

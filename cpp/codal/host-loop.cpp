@@ -2,7 +2,7 @@
 
 #include "core/runtime/mc-number.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 HostLoop::HostLoop(BrainRuntime& brain, DevicePorts ports) : brain_(brain), ports_(ports) {}
 
@@ -33,4 +33,4 @@ void HostLoop::enterFault(ErrorCode code) {
   formatFaultCode(faultCodeText_, FaultDomain::Runtime, static_cast<uint16_t>(code));
 }
 
-} // namespace mindcraft
+} // namespace wendoo

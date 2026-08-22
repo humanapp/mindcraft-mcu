@@ -1,6 +1,6 @@
 #pragma once
 
-namespace mindcraft {
+namespace wendoo {
 namespace binary32 {
 
 /**
@@ -55,4 +55,4 @@ float pow(float base, float exponent);
 bool multiplyAddRoundsTwice();
 
 } // namespace binary32
-} // namespace mindcraft
+} // namespace wendoo

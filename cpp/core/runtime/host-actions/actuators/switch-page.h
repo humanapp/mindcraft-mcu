@@ -10,7 +10,7 @@
 #include "core/runtime/mc-number.h"
 #include "core/runtime/value.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /** Arg slot of the switch-page number alternative (1-based page number). */
 inline constexpr uint32_t kSwitchPageNumberSlot = 0;
@@ -45,4 +45,4 @@ inline Value execSwitchPage(void* hostData, ExecutionContext& ctx, Span<const Va
   return kVoidValue;
 }
 
-} // namespace mindcraft
+} // namespace wendoo

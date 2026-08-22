@@ -10,7 +10,7 @@
 #include "core/runtime/program.h"
 #include "core/runtime/value.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /** Default timeout delay in seconds when the sensor is called with no argument. */
 inline constexpr mc_number_t kTimeoutDefaultDelaySeconds = 1;
@@ -111,4 +111,4 @@ inline Value execTimeout(void* hostData, ExecutionContext& ctx, Span<const Value
   return shouldFire ? kTrueValue : kFalseValue;
 }
 
-} // namespace mindcraft
+} // namespace wendoo

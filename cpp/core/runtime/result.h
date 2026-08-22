@@ -4,7 +4,7 @@
 
 #include "core/runtime/error-code.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * Success/failure outcome of an operation that yields no value. Construct via
@@ -78,4 +78,4 @@ private:
   T value_{};
 };
 
-} // namespace mindcraft
+} // namespace wendoo

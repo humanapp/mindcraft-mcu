@@ -79,7 +79,7 @@ Core fields (shared):
 | Kind          | `shield button` sensor; the rest actuators |
 | Stance        | poll sensor; **sync actuators** (instantaneous framebuffer writes - no temporal quality, no await) |
 | Composability | `shield button` inline (composable into conditions); actuators are `do` actions |
-| Module        | microbit-v2 (`mindcraft.microbit-v2`) |
+| Module        | microbit-v2 (`wendoo.microbit-v2`) |
 | Label(s)      | "shield button", "shield draw image", "shield show text", "shield clear" |
 
 The geometric primitives (line, rectangle, circle) are Device-API-only; they have no tile (see
@@ -200,7 +200,7 @@ for reads, no awaited member).
   is **pinned by the wodal implementation as the oracle** and byte-matched on the C++ side via
   the frame hash - the algorithms above are normative so both VMs rasterize identically.
 - The `ArcadeShield` interface joins the target-bound ambient layer
-  (`mindcraft.microbit-v2.d.ts`) via the ambient-generation allow-list.
+  (`wendoo.microbit-v2.d.ts`) via the ambient-generation allow-list.
 
 ## Simulator (apps/microbit-sim)
 

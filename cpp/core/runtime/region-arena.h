@@ -7,7 +7,7 @@
 
 #include "core/platform/span.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * Forward-only bump allocator over one contiguous byte region. Two entry
@@ -75,4 +75,4 @@ private:
   size_t used_;
 };
 
-} // namespace mindcraft
+} // namespace wendoo

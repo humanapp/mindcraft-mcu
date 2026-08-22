@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { FolderAppMessage, FolderHostMessage, FolderHostPort } from "@mindcraft-lang/bridge-app";
+import type { FolderAppMessage, FolderHostMessage, FolderHostPort } from "@wendoo-lang/bridge-app";
 import {
   FOLDER_HOST_MODE_FOLDER,
   FOLDER_HOST_MODE_GLOBAL,
   FolderSessionError,
   FolderSessionErrorCode,
   WORKSPACE_FOLDER_PROJECT_COLLECTION_ID,
-} from "@mindcraft-lang/bridge-app";
+} from "@wendoo-lang/bridge-app";
 import {
   appChromeForMode,
   connectMicrobitFolderSession,
@@ -19,15 +19,15 @@ import { BRAINS_INDEX_KEY, SIMULATOR_STATE_KEY } from "./project-io";
 
 describe("isFolderHostMode", () => {
   it("is true only for the folder host-mode bootstrap flag", () => {
-    assert.strictEqual(isFolderHostMode("?mindcraftHostMode=folder"), true);
+    assert.strictEqual(isFolderHostMode("?wendooHostMode=folder"), true);
     assert.strictEqual(isFolderHostMode(""), false);
-    assert.strictEqual(isFolderHostMode("?mindcraftHostMode=other"), false);
+    assert.strictEqual(isFolderHostMode("?wendooHostMode=other"), false);
     assert.strictEqual(isFolderHostMode("?other=folder"), false);
   });
 
   it("accepts the host-defined global as a second carrier of the same flag", () => {
     assert.strictEqual(isFolderHostMode("", { [FOLDER_HOST_MODE_GLOBAL]: FOLDER_HOST_MODE_FOLDER }), true);
-    assert.strictEqual(isFolderHostMode("?mindcraftHostMode=folder", {}), true);
+    assert.strictEqual(isFolderHostMode("?wendooHostMode=folder", {}), true);
     assert.strictEqual(isFolderHostMode("", { [FOLDER_HOST_MODE_GLOBAL]: "other" }), false);
     assert.strictEqual(isFolderHostMode("", {}), false);
   });

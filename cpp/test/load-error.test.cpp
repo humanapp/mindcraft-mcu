@@ -5,9 +5,9 @@
 #include <cstdint>
 #include <iterator>
 
-using mindcraft::kLoadErrorNames;
-using mindcraft::LoadError;
-using mindcraft::loadErrorName;
+using wendoo::kLoadErrorNames;
+using wendoo::LoadError;
+using wendoo::loadErrorName;
 
 TEST_CASE("LoadError values are stable") {
   CHECK(static_cast<uint16_t>(LoadError::Truncated) == 1);

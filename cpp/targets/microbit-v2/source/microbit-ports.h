@@ -8,7 +8,7 @@
 #include "targets/microbit-v2/abi/display-scroll.h"
 #include "targets/microbit-v2/abi/sound-emoji.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 /**
@@ -875,7 +875,7 @@ public:
     {
         if (!serialReported_)
         {
-            uBit_.serial.printf("mindcraft-mcu fault: code=%s\r\n", code);
+            uBit_.serial.printf("wendoo-mcu fault: code=%s\r\n", code);
             serialReported_ = true;
         }
         uBit_.display.scroll(ManagedString(code), kScrollDelayMs);
@@ -914,4 +914,4 @@ private:
     bool serialReported_ = false;
 };
 
-} // namespace mindcraft
+} // namespace wendoo

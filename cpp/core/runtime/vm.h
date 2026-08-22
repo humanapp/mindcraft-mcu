@@ -13,7 +13,7 @@
 #include "core/runtime/value.h"
 #include "core/runtime/vm-observer.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 class ManagedHeap;
 class GcRoots;
@@ -25,7 +25,7 @@ struct ChildRuleSpawner;
 
 /**
  * Outcome of one dispatch-loop slice. Mirrors `VmStatus` in
- * external/mindcraft-lang/packages/core/src/runtime/vm-types.ts. `Waiting`
+ * external/wendoo-lang/packages/core/src/runtime/vm-types.ts. `Waiting`
  * is produced once async handles land; no current opcode emits it.
  */
 enum class RunStatus : uint8_t {
@@ -173,7 +173,7 @@ bool isTruthy(const Value& value, const ProgramImage& program, const ManagedHeap
  * own allocations. A write outside any rule is a no-op (returns true). Returns
  * false on a name that is neither a string nor a number, or when the heap
  * cannot back an allocation. Mirrors `setRuleVariable` in
- * external/mindcraft-lang/packages/core/src/runtime/context.ts.
+ * external/wendoo-lang/packages/core/src/runtime/context.ts.
  */
 bool setRuleVariable(ExecutionContext& ctx, ManagedHeap& heap, GcRoots* roots, const Value& name,
                      const Value& value);
@@ -203,4 +203,4 @@ Status startExecution(ExecutionState& state, const ProgramImage& program, uint32
 RunResult runExecution(ExecutionState& state, const ProgramImage& program,
                        const RuntimeSurface& surface = {});
 
-} // namespace mindcraft
+} // namespace wendoo

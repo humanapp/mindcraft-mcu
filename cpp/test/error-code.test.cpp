@@ -4,9 +4,9 @@
 
 #include <cstdint>
 
-using mindcraft::ErrorCode;
-using mindcraft::errorCodeName;
-using mindcraft::kErrorCodeNames;
+using wendoo::ErrorCode;
+using wendoo::errorCodeName;
+using wendoo::kErrorCodeNames;
 
 TEST_CASE("ErrorCode values are wire-stable") {
   CHECK(static_cast<uint16_t>(ErrorCode::Timeout) == 1);

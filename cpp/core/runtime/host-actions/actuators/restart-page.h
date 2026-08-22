@@ -6,7 +6,7 @@
 #include "core/runtime/host-actions/core-host-action-env.h"
 #include "core/runtime/value.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * Actuator body: restart the current page at the next think. `hostData` is the
@@ -20,4 +20,4 @@ inline Value execRestartPage(void* hostData, ExecutionContext& ctx, Span<const V
   return kVoidValue;
 }
 
-} // namespace mindcraft
+} // namespace wendoo

@@ -12,14 +12,14 @@
 #include "targets/microbit-v2/abi/button-index.h"
 #include "targets/microbit-v2/abi/host-binding-conversions.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 /**
  * Press-duration boundary in VM logical milliseconds: a release whose press
  * lasted at or above this derives a `long click`, a shorter press a `click`.
  * Mirrors LONG_CLICK_THRESHOLD_MS in
- * packages/wodal/src/targets/microbit-v2/mindcraft/actions/button-sensor.ts.
+ * packages/wodal/src/targets/microbit-v2/wendoo/actions/button-sensor.ts.
  */
 inline constexpr mc_number_t kButtonLongClickThresholdMs = 1000;
 
@@ -270,4 +270,4 @@ inline void buttonSensorPageEntered(void *hostData, ExecutionContext &ctx)
     ctx.clearCallSiteState();
 }
 
-} // namespace mindcraft
+} // namespace wendoo

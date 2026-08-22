@@ -6,7 +6,7 @@
 #include "core/runtime/host-actions/core-host-action-env.h"
 #include "core/runtime/value.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * Sensor body: the stable id of the active page as a string. `hostData` is the
@@ -19,4 +19,4 @@ inline Value execCurrentPage(void* hostData, ExecutionContext& ctx, Span<const V
   return env.brain->getCurrentPageId();
 }
 
-} // namespace mindcraft
+} // namespace wendoo

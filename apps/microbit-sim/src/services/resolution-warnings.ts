@@ -1,4 +1,4 @@
-import type { ExtensionResolutionWarning } from "@mindcraft-lang/bridge-app";
+import type { ExtensionResolutionWarning } from "@wendoo-lang/bridge-app";
 
 /**
  * The warning kinds reporting a library whose content did not resolve on the

@@ -8,7 +8,7 @@
 #include "targets/microbit-v2/abi/host-functions/native-receiver.h"
 #include "targets/microbit-v2/abi/type-atom-id.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 namespace detail
@@ -35,7 +35,7 @@ inline PixelDisplayPort *lightLevelReceiver(void *hostData, Span<const Value> ar
  * (0 dark to 255 bright) through the display port. Arg 0 is the display
  * receiver; an unrecognized receiver reads 0. `hostData` is the bound
  * {@link DevicePorts}. Mirrors the `MicroBitDisplay.getLightLevel` body in
- * packages/wodal/src/targets/microbit-v2/mindcraft/module.ts.
+ * packages/wodal/src/targets/microbit-v2/wendoo/module.ts.
  */
 inline Status execDisplayGetLightLevel(void *hostData, Span<const Value> args, Value &result)
 {
@@ -44,4 +44,4 @@ inline Status execDisplayGetLightLevel(void *hostData, Span<const Value> args, V
     return Status::ok();
 }
 
-} // namespace mindcraft
+} // namespace wendoo

@@ -1,5 +1,5 @@
-import { BUILT_IN_SOUNDS } from "./mindcraft/built-in-sounds";
 import { decodeBuiltInSoundRaw, type RawSoundEffect, type RawToneEffect, type SoundWaveform } from "./sound-expression";
+import { BUILT_IN_SOUNDS } from "./wendoo/built-in-sounds";
 
 /**
  * Sample rate of the rendered PCM, in Hz. Matches CODAL's

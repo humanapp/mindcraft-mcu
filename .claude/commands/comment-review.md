@@ -18,12 +18,12 @@ You are an independent comment reviewer. Do NOT edit any files; only read and re
 
 1. Collect the change's source diff (changed lines only). Submodule file
    changes do NOT appear in the parent diff, so diff BOTH the main repo and the
-   `external/mindcraft-lang` submodule:
+   `external/wendoo-lang` submodule:
    - Main repo (working tree vs HEAD):
      `git diff -U0 HEAD -- '*.ts' '*.tsx' '*.cpp' '*.h' '*.hpp' '*.cc'`
    - Submodule, relative to the commit the parent records (this catches both
      uncommitted edits and commits made inside the submodule):
-     `base=$(git rev-parse HEAD:external/mindcraft-lang) && git -C external/mindcraft-lang diff -U0 "$base" -- '*.ts' '*.tsx' '*.cpp' '*.h' '*.hpp' '*.cc'`
+     `base=$(git rev-parse HEAD:external/wendoo-lang) && git -C external/wendoo-lang diff -U0 "$base" -- '*.ts' '*.tsx' '*.cpp' '*.h' '*.hpp' '*.cc'`
    If the invoker scoped paths, restrict the pathspecs to those: $ARGUMENTS
 
 2. Read `.github/instructions/global.instructions.md`, section

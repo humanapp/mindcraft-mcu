@@ -5,7 +5,7 @@
 #include <string>
 
 /** Collects rendered text into a std::string. */
-class StringTextSink : public mindcraft::TextSink {
+class StringTextSink : public wendoo::TextSink {
 public:
   void write(const char* bytes, size_t length) override { text_.append(bytes, length); }
 

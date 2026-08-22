@@ -1,4 +1,4 @@
-import { Actuator, type Context } from "mindcraft";
+import { Actuator, type Context } from "wendoo";
 import { Movement } from "./movement";
 
 /**

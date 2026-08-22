@@ -16,12 +16,12 @@
 #include "targets/microbit-v2/abi/host-functions/native-receiver.h"
 #include "targets/microbit-v2/abi/type-atom-id.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 /**
  * Field ids of the `RadioPacket` value struct, in declaration order. Mirrors
- * RadioPacketField in packages/wodal/src/targets/microbit-v2/mindcraft/module.ts.
+ * RadioPacketField in packages/wodal/src/targets/microbit-v2/wendoo/module.ts.
  */
 enum class RadioPacketField : uint32_t
 {
@@ -343,7 +343,7 @@ inline bool buildRadioPacketStruct(MicroBitV2RadioReceiveEnv &env, uint32_t pack
  * unrecognized receiver yields an empty list; a heap allocation failure faults.
  * `hostData` is the bound {@link MicroBitV2RadioReceiveEnv}. Mirrors the
  * `Radio.receive` host function in
- * packages/wodal/src/targets/microbit-v2/mindcraft/module.ts.
+ * packages/wodal/src/targets/microbit-v2/wendoo/module.ts.
  */
 inline Status execRadioReceive(void *hostData, Span<const Value> args, Value &result)
 {
@@ -400,7 +400,7 @@ inline Status execRadioReceive(void *hostData, Span<const Value> args, Value &re
  * packet's sequence, or 0 when the ring has received nothing), so a caller can
  * arm its `receive(since)` cursor to "from now." Stateless. `hostData` is the
  * bound {@link MicroBitV2RadioEnv}. Mirrors the `Radio.currentSeq` host function
- * in packages/wodal/src/targets/microbit-v2/mindcraft/module.ts.
+ * in packages/wodal/src/targets/microbit-v2/wendoo/module.ts.
  */
 inline Status execRadioCurrentSeq(void *hostData, Span<const Value> args, Value &result)
 {
@@ -415,4 +415,4 @@ inline Status execRadioCurrentSeq(void *hostData, Span<const Value> args, Value 
     return Status::ok();
 }
 
-} // namespace mindcraft
+} // namespace wendoo

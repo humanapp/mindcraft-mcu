@@ -8,7 +8,7 @@
 #include "targets/microbit-v2/abi/host-functions/native-receiver.h"
 #include "targets/microbit-v2/abi/type-atom-id.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 namespace detail
@@ -35,7 +35,7 @@ inline AccelerometerInputPort *accelerometerReceiver(void *hostData, Span<const 
  * through the accelerometer port. Arg 0 is the accelerometer receiver; an
  * unrecognized receiver reads 0. `hostData` is the bound {@link DevicePorts}.
  * Mirrors the `Accelerometer.getX` body in
- * packages/wodal/src/targets/microbit-v2/mindcraft/module.ts.
+ * packages/wodal/src/targets/microbit-v2/wendoo/module.ts.
  */
 inline Status execAccelerometerGetX(void *hostData, Span<const Value> args, Value &result)
 {
@@ -101,4 +101,4 @@ inline Status execAccelerometerGetGesture(void *hostData, Span<const Value> args
     return Status::ok();
 }
 
-} // namespace mindcraft
+} // namespace wendoo

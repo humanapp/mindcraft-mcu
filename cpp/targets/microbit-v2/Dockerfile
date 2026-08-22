@@ -32,8 +32,8 @@ RUN case "${TARGETARCH}" in \
 
 ENV PATH="/opt/gcc-arm-none-eabi/bin:${PATH}"
 
-COPY . /opt/mindcraft-cpp
-WORKDIR /opt/mindcraft-cpp/targets/microbit-v2
+COPY . /opt/wendoo-cpp
+WORKDIR /opt/wendoo-cpp/targets/microbit-v2
 
 RUN python3 build.py
 
@@ -45,5 +45,5 @@ RUN python3 tools/emit-metadata.py
 # the flash + UICR regions and emits a uselessly padded multi-hundred-MB file;
 # DAPLink flashing takes the hex.)
 FROM scratch AS export-stage
-COPY --from=builder /opt/mindcraft-cpp/targets/microbit-v2/MICROBIT.hex .
-COPY --from=builder /opt/mindcraft-cpp/targets/microbit-v2/MICROBIT.metadata.json .
+COPY --from=builder /opt/wendoo-cpp/targets/microbit-v2/MICROBIT.hex .
+COPY --from=builder /opt/wendoo-cpp/targets/microbit-v2/MICROBIT.metadata.json .

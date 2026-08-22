@@ -1,5 +1,5 @@
-import embeddedExtensionBundles from "virtual:mindcraft-embedded-extensions";
-import type { EmbeddedExtension } from "@mindcraft-lang/bridge-app";
+import embeddedExtensionBundles from "virtual:wendoo-embedded-extensions";
+import type { EmbeddedExtension } from "@wendoo-lang/bridge-app";
 
 export {
   CODAL_LIB_COORDINATE,
@@ -17,11 +17,11 @@ export {
 /**
  * Extensions bundled with microbit-sim, resolved from `embedded:<owner>/<repo>`
  * references. Each bundle is assembled at build time from its own extension's
- * `mindcraft.json` `files` list; the app registers coordinates in its Vite
+ * `wendoo.json` `files` list; the app registers coordinates in its Vite
  * config and never enumerates an extension's files. The layer stack is
  * core <- wodal <- microbit-v2; seeding the micro:bit v2 target alone resolves
  * the target and all three layers transitively through their bundled
- * `mindcraft.json` edges. Feature libraries are not bundled: the catalog offers
+ * `wendoo.json` edges. Feature libraries are not bundled: the catalog offers
  * them at pinned `gh:` references and they are fetched at install time.
  */
 export const microbitEmbeddedExtensions: readonly EmbeddedExtension[] = embeddedExtensionBundles;

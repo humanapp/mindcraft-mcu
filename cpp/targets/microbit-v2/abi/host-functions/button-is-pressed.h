@@ -10,7 +10,7 @@
 #include "targets/microbit-v2/abi/microbit-field.h"
 #include "targets/microbit-v2/abi/type-atom-id.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 namespace detail
@@ -42,7 +42,7 @@ inline bool isButtonReceiver(const Value &value)
  * otherwise. Arg 0 is the button receiver; an unrecognized receiver reads 0.
  * `hostData` is the bound {@link DevicePorts}. Mirrors the `Button.isPressed` /
  * `TouchButton.isPressed` bodies in
- * packages/wodal/src/targets/microbit-v2/mindcraft/module.ts.
+ * packages/wodal/src/targets/microbit-v2/wendoo/module.ts.
  */
 inline Status execButtonIsPressed(void *hostData, Span<const Value> args, Value &result)
 {
@@ -56,4 +56,4 @@ inline Status execButtonIsPressed(void *hostData, Span<const Value> args, Value 
     return Status::ok();
 }
 
-} // namespace mindcraft
+} // namespace wendoo

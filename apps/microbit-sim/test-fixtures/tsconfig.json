@@ -9,13 +9,13 @@
     "types": [],
     "baseUrl": ".",
     "paths": {
-      "@lib/mindcraft-lang/lib-codal-position": ["./lib-codal-position/index.ts"]
+      "@lib/wendoo-lang/lib-codal-position": ["./lib-codal-position/index.ts"]
     }
   },
   "include": ["**/*.ts"],
   "files": [
-    "../../../external/mindcraft-lang/packages/core/lib/mindcraft.core.d.ts",
-    "../../../packages/wodal/lib/mindcraft.codal.d.ts",
-    "../../../packages/wodal/targets/microbit-v2/lib/mindcraft.microbit-v2.d.ts"
+    "../../../external/wendoo-lang/packages/core/lib/wendoo.core.d.ts",
+    "../../../packages/wodal/lib/wendoo.codal.d.ts",
+    "../../../packages/wodal/targets/microbit-v2/lib/wendoo.microbit-v2.d.ts"
   ]
 }

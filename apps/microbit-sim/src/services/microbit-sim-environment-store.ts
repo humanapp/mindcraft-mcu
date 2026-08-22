@@ -5,20 +5,20 @@ import {
   DEFAULT_PROJECT_NAME,
   type ImportResult,
   importProjectDocument,
-  MINDCRAFT_JSON_PATH,
   type ProjectFileSystem,
   ProjectManager,
   type ProjectManifest,
-} from "@mindcraft-lang/app-host";
-import type { AssistantConnect, EditedBrainWorkspaces, PersonActivity } from "@mindcraft-lang/assistant-panel";
+  WENDOO_JSON_PATH,
+} from "@wendoo-lang/app-host";
+import type { AssistantConnect, EditedBrainWorkspaces, PersonActivity } from "@wendoo-lang/assistant-panel";
 import {
   assistantSessionUrl,
   assistantToolManifest,
   createEditedBrainWorkspaces,
   createPersonActivity,
   createWebSocketConnect,
-} from "@mindcraft-lang/assistant-panel";
-import type { RelayToolManifest } from "@mindcraft-lang/assistant-relay";
+} from "@wendoo-lang/assistant-panel";
+import type { RelayToolManifest } from "@wendoo-lang/assistant-relay";
 import {
   type AppBridgeState,
   AppEnvironmentHost,
@@ -32,27 +32,27 @@ import {
   type UserTileApplyResult,
   type VfsAssetUrlProvider,
   type WorkspaceCompileDiagnostic,
-} from "@mindcraft-lang/bridge-app";
+} from "@wendoo-lang/bridge-app";
 import {
   BrainDef,
   coreModule,
   createEntropySeededRng,
-  createMindcraftEnvironment,
+  createWendooEnvironment,
   logger,
-  type MindcraftEnvironment,
-} from "@mindcraft-lang/core/app";
-import { createDefaultLocalizer } from "@mindcraft-lang/core/localization";
-import { createProfileNumerics } from "@mindcraft-lang/core/runtime";
-import { isCompilerControlledPath, type Mount } from "@mindcraft-lang/ts-compiler";
-import type { PrintTransport } from "@mindcraft-lang/ui";
+  type WendooEnvironment,
+} from "@wendoo-lang/core/app";
+import { createDefaultLocalizer } from "@wendoo-lang/core/localization";
+import { createProfileNumerics } from "@wendoo-lang/core/runtime";
+import { isCompilerControlledPath, type Mount } from "@wendoo-lang/ts-compiler";
+import type { PrintTransport } from "@wendoo-lang/ui";
 import {
   createWodalSharedModule,
   getWodalDeviceProfile,
   type WodalBuildInput,
   type WodalDeviceProfile,
   WodalDeviceProfileId,
-} from "@mindcraft-lang/wodal";
-import { createTargetAdapter } from "@mindcraft-lang/wodal/targets/microbit-v2/rehearsal";
+} from "@wendoo-lang/wodal";
+import { createTargetAdapter } from "@wendoo-lang/wodal/targets/microbit-v2/rehearsal";
 import { name as appName } from "../../package.json";
 import { type AppSettings, loadAppSettings, normalizeAppSettings, persistAppSettings } from "./app-settings";
 import { loadBindingToken, saveBindingToken } from "./binding-token-persistence";
@@ -185,7 +185,7 @@ export interface AssistantComposition {
 }
 
 /**
- * Owns the long-lived microbit-sim app state: the caller-owned Mindcraft
+ * Owns the long-lived microbit-sim app state: the caller-owned Wendoo
  * environment, the durable project lifecycle, and the user-managed brain list.
  *
  * Brains are a flat, dynamic list keyed by UUID with editable display names.
@@ -331,7 +331,7 @@ export class MicrobitSimEnvironmentStore {
         ...(folderSession ? {} : { lock: createWebLocksProjectLock(appName) }),
         defaultExtensions: microbitDefaultExtensions,
       }),
-      modules: [coreModule(), createWodalSharedModule(), activeProfile.createMindcraftModule()],
+      modules: [coreModule(), createWodalSharedModule(), activeProfile.createWendooModule()],
       numerics: createProfileNumerics(activeProfile.numberPrecision),
       localizer: createDefaultLocalizer(),
       mounts: microbitMounts,
@@ -368,7 +368,7 @@ export class MicrobitSimEnvironmentStore {
     if (this._folderSession) {
       this._folderSession.onExternalChange((change) => {
         this.host.applyExternalProjectFileChange(change);
-        if (change.action === "write" && change.path === MINDCRAFT_JSON_PATH) {
+        if (change.action === "write" && change.path === WENDOO_JSON_PATH) {
           void this.refreshFromExternalManifest();
         }
       });
@@ -410,8 +410,8 @@ export class MicrobitSimEnvironmentStore {
     });
   }
 
-  /** Caller-owned Mindcraft environment shared across the app. */
-  get env(): MindcraftEnvironment {
+  /** Caller-owned Wendoo environment shared across the app. */
+  get env(): WendooEnvironment {
     return this.host.env;
   }
 
@@ -482,7 +482,7 @@ export class MicrobitSimEnvironmentStore {
     return this.host.projectManager.listProjects();
   }
 
-  /** Imports a `.mindcraft` file as a new durable project and switches to it on success. */
+  /** Imports a `.wendoo` file as a new durable project and switches to it on success. */
   async importProject(file: File): Promise<ImportResult> {
     const result = await importProjectDocument(file, appName, this.host.projectManager, {
       appChunkCallback: translateMicrobitSimAppChunk,
@@ -493,7 +493,7 @@ export class MicrobitSimEnvironmentStore {
     return result;
   }
 
-  /** Exports the active project as a shared `.mindcraft` document string. */
+  /** Exports the active project as a shared `.wendoo` document string. */
   async exportProject(): Promise<string> {
     return buildMicrobitSimExportDocument(this.host.projectManager, {
       brainOrder: [...this._brainIds],
@@ -978,7 +978,7 @@ export class MicrobitSimEnvironmentStore {
   }
 
   /**
-   * Applies an external `mindcraft.json` edit to the live app state: the
+   * Applies an external `wendoo.json` edit to the live app state: the
    * brain cache reconciles against the stored brains chunk (changed brains
    * re-flash, removed brains unflash), the brain list reloads, and a changed
    * simulator chunk restores the fleet.

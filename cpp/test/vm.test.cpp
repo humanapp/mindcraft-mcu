@@ -18,36 +18,36 @@
 #include <string>
 #include <vector>
 
-using mindcraft::CoreTypeAtomId;
-using mindcraft::ErrorCode;
-using mindcraft::ExecutionState;
-using mindcraft::Frame;
-using mindcraft::FunctionBytecode;
-using mindcraft::Instr;
-using mindcraft::isTruthy;
-using mindcraft::kFalseValue;
-using mindcraft::kNilValue;
-using mindcraft::kNoCaptures;
-using mindcraft::kNoFuncId;
-using mindcraft::kNoTypeIdx;
-using mindcraft::kOperandSchema;
-using mindcraft::kTrueValue;
-using mindcraft::Op;
-using mindcraft::OperandEncoding;
-using mindcraft::operandSchemaFor;
-using mindcraft::OperandSpec;
-using mindcraft::OpOperandSchema;
-using mindcraft::ProgramImage;
-using mindcraft::RegionArena;
-using mindcraft::runExecution;
-using mindcraft::RunResult;
-using mindcraft::RunStatus;
-using mindcraft::Span;
-using mindcraft::startExecution;
-using mindcraft::Status;
-using mindcraft::Value;
-using mindcraft::ValueTag;
-using mindcraft::test::kDeviceProfileCaps;
+using wendoo::CoreTypeAtomId;
+using wendoo::ErrorCode;
+using wendoo::ExecutionState;
+using wendoo::Frame;
+using wendoo::FunctionBytecode;
+using wendoo::Instr;
+using wendoo::isTruthy;
+using wendoo::kFalseValue;
+using wendoo::kNilValue;
+using wendoo::kNoCaptures;
+using wendoo::kNoFuncId;
+using wendoo::kNoTypeIdx;
+using wendoo::kOperandSchema;
+using wendoo::kTrueValue;
+using wendoo::Op;
+using wendoo::OperandEncoding;
+using wendoo::operandSchemaFor;
+using wendoo::OperandSpec;
+using wendoo::OpOperandSchema;
+using wendoo::ProgramImage;
+using wendoo::RegionArena;
+using wendoo::runExecution;
+using wendoo::RunResult;
+using wendoo::RunStatus;
+using wendoo::Span;
+using wendoo::startExecution;
+using wendoo::Status;
+using wendoo::Value;
+using wendoo::ValueTag;
+using wendoo::test::kDeviceProfileCaps;
 
 namespace {
 
@@ -931,7 +931,7 @@ TEST_CASE("a suspended state survives while an independent state runs to complet
 namespace {
 
 /** Observer recording host-action dispatches and faults for assertions. */
-struct RecordingObserver : mindcraft::VmObserver {
+struct RecordingObserver : wendoo::VmObserver {
   struct ActionCall {
     uint32_t actionId;
     uint32_t callSiteId;
@@ -960,7 +960,7 @@ struct RecordingObserver : mindcraft::VmObserver {
 };
 
 /** Body summing its numeric args and stashing the call's arg count in callsite state. */
-Value execSumAction(void* hostData, mindcraft::ExecutionContext& ctx, Span<const Value> args) {
+Value execSumAction(void* hostData, wendoo::ExecutionContext& ctx, Span<const Value> args) {
   static_cast<void>(hostData);
   float sum = 0.0f;
   for (size_t i = 0; i < args.size(); i++) {
@@ -992,11 +992,11 @@ TEST_CASE("bindSlots seeds a variable slot from the program's starting value") {
 
   REQUIRE(image.variableInitValues.size() == 4);
   CHECK(image.variableInitValues[0] == 0);
-  CHECK(image.variableInitValues[3] == mindcraft::kNoVariableInit);
+  CHECK(image.variableInitValues[3] == wendoo::kNoVariableInit);
 
   std::array<uint8_t, 512> ctxStorage;
-  mindcraft::RegionArena ctxArena(Span<uint8_t>(ctxStorage.data(), ctxStorage.size()));
-  mindcraft::ExecutionContext ctx;
+  wendoo::RegionArena ctxArena(Span<uint8_t>(ctxStorage.data(), ctxStorage.size()));
+  wendoo::ExecutionContext ctx;
   REQUIRE(ctx.bindSlots(ctxArena, 4, 0, 0, 0, 0, image.variableInitValues, image.constValues));
 
   CHECK(ctx.variables[0].tag() == ValueTag::Number);
@@ -1007,7 +1007,7 @@ TEST_CASE("bindSlots seeds a variable slot from the program's starting value") {
   CHECK(ctx.variables[3].tag() == ValueTag::Nil);
 
   // The seeded value is what LOAD_VAR_SLOT observes before any store.
-  mindcraft::RuntimeSurface surface;
+  wendoo::RuntimeSurface surface;
   surface.context = &ctx;
   Machine machine;
   const RunResult loaded = runProgram(machine, image, {}, 1000, surface);
@@ -1032,10 +1032,10 @@ TEST_CASE("LOAD_VAR_SLOT and STORE_VAR_SLOT round-trip brain variables") {
   const ProgramImage image = b.build(storage);
 
   std::array<uint8_t, 256> ctxStorage;
-  mindcraft::RegionArena ctxArena(Span<uint8_t>(ctxStorage.data(), ctxStorage.size()));
-  mindcraft::ExecutionContext ctx;
+  wendoo::RegionArena ctxArena(Span<uint8_t>(ctxStorage.data(), ctxStorage.size()));
+  wendoo::ExecutionContext ctx;
   REQUIRE(ctx.bindSlots(ctxArena, 1, 0));
-  mindcraft::RuntimeSurface surface;
+  wendoo::RuntimeSurface surface;
   surface.context = &ctx;
 
   Machine machine;
@@ -1045,8 +1045,8 @@ TEST_CASE("LOAD_VAR_SLOT and STORE_VAR_SLOT round-trip brain variables") {
   CHECK(ctx.variables[0].asNumber() == 9.0f);
 
   std::array<uint8_t, 256> freshStorage;
-  mindcraft::RegionArena freshArena(Span<uint8_t>(freshStorage.data(), freshStorage.size()));
-  mindcraft::ExecutionContext fresh;
+  wendoo::RegionArena freshArena(Span<uint8_t>(freshStorage.data(), freshStorage.size()));
+  wendoo::ExecutionContext fresh;
   REQUIRE(fresh.bindSlots(freshArena, 1, 0));
   surface.context = &fresh;
   Machine unstored;
@@ -1071,10 +1071,10 @@ TEST_CASE("LOAD_SYSTEM_VAR and STORE_SYSTEM_VAR round-trip the System store") {
   const ProgramImage image = b.build(storage);
 
   std::array<uint8_t, 256> ctxStorage;
-  mindcraft::RegionArena ctxArena(Span<uint8_t>(ctxStorage.data(), ctxStorage.size()));
-  mindcraft::ExecutionContext ctx;
+  wendoo::RegionArena ctxArena(Span<uint8_t>(ctxStorage.data(), ctxStorage.size()));
+  wendoo::ExecutionContext ctx;
   REQUIRE(ctx.bindSlots(ctxArena, 0, 0, 0, 1));
-  mindcraft::RuntimeSurface surface;
+  wendoo::RuntimeSurface surface;
   surface.context = &ctx;
 
   Machine machine;
@@ -1085,8 +1085,8 @@ TEST_CASE("LOAD_SYSTEM_VAR and STORE_SYSTEM_VAR round-trip the System store") {
 
   // A context with no System slots reads nil for any slot (out of range).
   std::array<uint8_t, 256> freshStorage;
-  mindcraft::RegionArena freshArena(Span<uint8_t>(freshStorage.data(), freshStorage.size()));
-  mindcraft::ExecutionContext fresh;
+  wendoo::RegionArena freshArena(Span<uint8_t>(freshStorage.data(), freshStorage.size()));
+  wendoo::ExecutionContext fresh;
   REQUIRE(fresh.bindSlots(freshArena, 0, 0, 0, 0));
   surface.context = &fresh;
   Machine unstored;
@@ -1107,8 +1107,8 @@ TEST_CASE("var-slot opcodes fault ScriptError past the variable table") {
   std::vector<uint8_t> storage(16 * 1024);
   const ProgramImage image = b.build(storage);
 
-  mindcraft::ExecutionContext ctx;
-  mindcraft::RuntimeSurface surface;
+  wendoo::ExecutionContext ctx;
+  wendoo::RuntimeSurface surface;
   surface.context = &ctx;
 
   for (uint32_t funcId = 0; funcId < 2; funcId++) {
@@ -1149,15 +1149,15 @@ TEST_CASE("HOST_ACTION_CALL dispatches the registered body per the calling conve
   std::vector<uint8_t> storage(16 * 1024);
   const ProgramImage image = b.build(storage);
 
-  const mindcraft::HostActionBinding bindings[1] = {{7, &execSumAction, nullptr, nullptr}};
+  const wendoo::HostActionBinding bindings[1] = {{7, &execSumAction, nullptr, nullptr}};
   std::array<uint8_t, 256> ctxStorage;
-  mindcraft::RegionArena ctxArena(Span<uint8_t>(ctxStorage.data(), ctxStorage.size()));
-  mindcraft::ExecutionContext ctx;
+  wendoo::RegionArena ctxArena(Span<uint8_t>(ctxStorage.data(), ctxStorage.size()));
+  wendoo::ExecutionContext ctx;
   REQUIRE(ctx.bindSlots(ctxArena, 0, 6));
   RecordingObserver observer;
-  mindcraft::RuntimeSurface surface;
+  wendoo::RuntimeSurface surface;
   surface.context = &ctx;
-  surface.actions = Span<const mindcraft::HostActionBinding>(bindings, 1);
+  surface.actions = Span<const wendoo::HostActionBinding>(bindings, 1);
   surface.observer = &observer;
 
   Machine machine;
@@ -1182,7 +1182,7 @@ TEST_CASE("HOST_ACTION_CALL dispatches the registered body per the calling conve
   // after the dispatch returned.
   CHECK(ctx.callSiteStatePresent[5]);
   CHECK(ctx.callSiteStates[5].asNumber() == 3.0f);
-  CHECK(ctx.currentCallSiteId == mindcraft::kNoCallSiteId);
+  CHECK(ctx.currentCallSiteId == wendoo::kNoCallSiteId);
 }
 
 TEST_CASE("HOST_ACTION_CALL faults StackUnderflow when argc exceeds the stack") {
@@ -1195,11 +1195,11 @@ TEST_CASE("HOST_ACTION_CALL faults StackUnderflow when argc exceeds the stack") 
   std::vector<uint8_t> storage(16 * 1024);
   const ProgramImage image = b.build(storage);
 
-  const mindcraft::HostActionBinding bindings[1] = {{7, &execSumAction, nullptr, nullptr}};
-  mindcraft::ExecutionContext ctx;
-  mindcraft::RuntimeSurface surface;
+  const wendoo::HostActionBinding bindings[1] = {{7, &execSumAction, nullptr, nullptr}};
+  wendoo::ExecutionContext ctx;
+  wendoo::RuntimeSurface surface;
   surface.context = &ctx;
-  surface.actions = Span<const mindcraft::HostActionBinding>(bindings, 1);
+  surface.actions = Span<const wendoo::HostActionBinding>(bindings, 1);
 
   Machine machine;
   const RunResult result = runProgram(machine, image, {}, 1000, surface);
@@ -1214,9 +1214,9 @@ TEST_CASE("HOST_ACTION_CALL with a registered action but no context faults HostE
   std::vector<uint8_t> storage(16 * 1024);
   const ProgramImage image = b.build(storage);
 
-  const mindcraft::HostActionBinding bindings[1] = {{7, &execSumAction, nullptr, nullptr}};
-  mindcraft::RuntimeSurface surface;
-  surface.actions = Span<const mindcraft::HostActionBinding>(bindings, 1);
+  const wendoo::HostActionBinding bindings[1] = {{7, &execSumAction, nullptr, nullptr}};
+  wendoo::RuntimeSurface surface;
+  surface.actions = Span<const wendoo::HostActionBinding>(bindings, 1);
 
   Machine machine;
   const RunResult result = runProgram(machine, image, {}, 1000, surface);
@@ -1233,8 +1233,8 @@ namespace {
 struct HeapHarness {
   std::vector<uint8_t> storage = std::vector<uint8_t>(16 * 1024);
   RegionArena arena{Span<uint8_t>(storage.data(), storage.size())};
-  mindcraft::ManagedHeap heap{arena};
-  mindcraft::RuntimeSurface surface{nullptr, {}, nullptr, &heap};
+  wendoo::ManagedHeap heap{arena};
+  wendoo::RuntimeSurface surface{nullptr, {}, nullptr, &heap};
 };
 
 } // namespace
@@ -1519,7 +1519,7 @@ TEST_CASE("HOST_CALL dispatches a core numeric operator body") {
   b.beginFunction()
       .instr(Op::PUSH_CONST_NUM, 0)
       .instr(Op::PUSH_CONST_NUM, 1)
-      .instr(Op::HOST_CALL, static_cast<int32_t>(mindcraft::CoreFuncId::OpAddNumber), 2, 0)
+      .instr(Op::HOST_CALL, static_cast<int32_t>(wendoo::CoreFuncId::OpAddNumber), 2, 0)
       .instr(Op::RET);
   std::vector<uint8_t> storage(8 * 1024);
   const ProgramImage image = b.build(storage);
@@ -1536,7 +1536,7 @@ TEST_CASE("HOST_CALL produces a managed string from a core string body") {
   b.beginFunction()
       .instr(Op::PUSH_CONST_STR, 0)
       .instr(Op::PUSH_CONST_STR, 1)
-      .instr(Op::HOST_CALL, static_cast<int32_t>(mindcraft::CoreFuncId::OpAddString), 2, 0)
+      .instr(Op::HOST_CALL, static_cast<int32_t>(wendoo::CoreFuncId::OpAddString), 2, 0)
       .instr(Op::RET);
   std::vector<uint8_t> storage(8 * 1024);
   const ProgramImage image = b.build(storage);
@@ -1544,8 +1544,8 @@ TEST_CASE("HOST_CALL produces a managed string from a core string body") {
   std::vector<uint8_t> heapStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(heapStorage.data(), heapStorage.size()));
   // The heap resolves the borrowed operands' content through the program.
-  mindcraft::ManagedHeap heap(arena, &image);
-  mindcraft::RuntimeSurface surface{nullptr, {}, nullptr, &heap};
+  wendoo::ManagedHeap heap(arena, &image);
+  wendoo::RuntimeSurface surface{nullptr, {}, nullptr, &heap};
 
   Machine machine;
   const RunResult result = runProgram(machine, image, {}, 1000, surface);
@@ -1560,16 +1560,16 @@ TEST_CASE("HOST_CALL produces a managed string from a core string body") {
 TEST_CASE("HOST_CALL draws MathRandom from the VM-global RNG") {
   ProgramBuilder b;
   b.beginFunction()
-      .instr(Op::HOST_CALL, static_cast<int32_t>(mindcraft::CoreFuncId::MathRandom), 0, 0)
+      .instr(Op::HOST_CALL, static_cast<int32_t>(wendoo::CoreFuncId::MathRandom), 0, 0)
       .instr(Op::RET);
   std::vector<uint8_t> storage(8 * 1024);
   const ProgramImage image = b.build(storage);
 
-  mindcraft::VmRng rng;
-  mindcraft::RuntimeSurface surface;
+  wendoo::VmRng rng;
+  wendoo::RuntimeSurface surface;
   surface.rng = &rng;
 
-  mindcraft::VmRng expected;
+  wendoo::VmRng expected;
   const float expectedDraw = expected.next();
 
   Machine machine;
@@ -1584,7 +1584,7 @@ TEST_CASE("HOST_CALL host-call failures are ScriptError; absent capabilities are
     // through HOST_CALL hits the unserviceable-id path.
     ProgramBuilder b;
     b.beginFunction()
-        .instr(Op::HOST_CALL, static_cast<int32_t>(mindcraft::CoreFuncId::SensorCurrentPage), 0, 0)
+        .instr(Op::HOST_CALL, static_cast<int32_t>(wendoo::CoreFuncId::SensorCurrentPage), 0, 0)
         .instr(Op::RET);
     std::vector<uint8_t> storage(8 * 1024);
     const ProgramImage image = b.build(storage);
@@ -1598,7 +1598,7 @@ TEST_CASE("HOST_CALL host-call failures are ScriptError; absent capabilities are
   SUBCASE("a target funcId has no registered body and faults ScriptError") {
     ProgramBuilder b;
     b.beginFunction()
-        .instr(Op::HOST_CALL, static_cast<int32_t>(mindcraft::TARGET_FUNC_ID_BASE), 0, 0)
+        .instr(Op::HOST_CALL, static_cast<int32_t>(wendoo::TARGET_FUNC_ID_BASE), 0, 0)
         .instr(Op::RET);
     std::vector<uint8_t> storage(8 * 1024);
     const ProgramImage image = b.build(storage);
@@ -1613,7 +1613,7 @@ TEST_CASE("HOST_CALL host-call failures are ScriptError; absent capabilities are
     // MathRandom needs the rng; a surface without one cannot service it.
     ProgramBuilder b;
     b.beginFunction()
-        .instr(Op::HOST_CALL, static_cast<int32_t>(mindcraft::CoreFuncId::MathRandom), 0, 0)
+        .instr(Op::HOST_CALL, static_cast<int32_t>(wendoo::CoreFuncId::MathRandom), 0, 0)
         .instr(Op::RET);
     std::vector<uint8_t> storage(8 * 1024);
     const ProgramImage image = b.build(storage);

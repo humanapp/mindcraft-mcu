@@ -8,7 +8,7 @@
 #include "core/runtime/result.h"
 #include "core/runtime/value.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * Synchronous host-action body. `args` is an ephemeral view of the
@@ -74,4 +74,4 @@ inline const HostActionBinding* findHostActionById(Span<const HostActionBinding>
   return nullptr;
 }
 
-} // namespace mindcraft
+} // namespace wendoo

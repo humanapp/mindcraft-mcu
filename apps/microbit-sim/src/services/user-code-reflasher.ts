@@ -1,4 +1,4 @@
-import { type IBrainDef, mkActuatorTileId, mkSensorTileId } from "@mindcraft-lang/core/app";
+import { type IBrainDef, mkActuatorTileId, mkSensorTileId } from "@wendoo-lang/core/app";
 
 /** Default quiet period before a coalesced reflash runs, in milliseconds. */
 export const DEFAULT_USER_CODE_REFLASH_DEBOUNCE_MS = 250;

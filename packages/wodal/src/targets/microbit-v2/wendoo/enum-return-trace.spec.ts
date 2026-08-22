@@ -1,0 +1,316 @@
+/**
+ * Golden observable trace for enum-valued user tiles compiled from TS user
+ * code and executed by a cold-loaded VM (a fresh runtime that decodes the
+ * committed binary, with none of the compile session's registrations). The
+ * WHEN sensor's onExecute returns an enum imported from another module,
+ * derived through an enum `!==` comparison and an enum-typed ternary (enum
+ * values are always truthy, so the rule fires every think); the DO actuator
+ * imports the same enum and derives each probe byte from one enum surface:
+ * an enum `===` comparison, an enum `!==` comparison, an enum stored into a
+ * number variable with arithmetic on the result (the enum->number
+ * conversion), and a template literal embedding the enum value (the
+ * enum->string conversion). A conversion that faults or misevaluates
+ * changes the bytes written to the I2C address. Both conversions dispatch
+ * through the shared core funcIds (`ConvEnumToString` / `ConvEnumToNumber`),
+ * reading the symbol's declared value from the program type table; the spec
+ * asserts the binary carries those ids. The serialized binary and its
+ * rendered trace are pinned beside this spec as the cross-VM conformance
+ * fixture: the C++ VM parity test (cpp/test/trace-parity.test.cpp) loads the
+ * same binary, replays the schedule, and byte-compares.
+ */
+
+import assert from "node:assert/strict";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { test } from "node:test";
+import { fileURLToPath } from "node:url";
+import type { WendooEnvironment } from "@wendoo-lang/core/app";
+import type { IBrainTileDef } from "@wendoo-lang/core/brain";
+import { BrainDef } from "@wendoo-lang/core/brain/model";
+import { CoreFuncId, type LinkedBrainProgram, linkedBrainProgramToJson, Op } from "@wendoo-lang/core/runtime";
+import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@wendoo-lang/ts-compiler";
+import { TEST_PROJECT_NAMESPACE } from "@wendoo-lang/ts-compiler/testing";
+import { buildWodalProgramImage } from "../../../wendoo/build-kernel";
+import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../wendoo/device-profile";
+import { shouldWriteGolden } from "../../../wendoo/golden-regeneration";
+import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../../wendoo/program-image";
+import { parseWodalProgramImageBytes, wodalProgramBytes } from "../../../wendoo/program-image-binary";
+import { MicroBit } from "../microbit";
+import { createMicroBitV2Environment } from "./environment";
+import { ObservableTraceWriter, observableTraceVmEvents } from "./observable-trace";
+import { WodalMicroBitRuntime } from "./runtime";
+
+const JSON_PATH = fileURLToPath(new URL("./__fixtures__/user-tile-enum-return.mcprogram", import.meta.url));
+const BIN_PATH = fileURLToPath(new URL("./__fixtures__/user-tile-enum-return.mcprogram.bin", import.meta.url));
+const TRACE_PATH = fileURLToPath(new URL("./__fixtures__/user-tile-enum-return.ticks.trace", import.meta.url));
+
+/** I2C address the enum-comparison probe buffer is written to each think. */
+const PROBE_ADDRESS = 0x10;
+
+/**
+ * Bytes of the probe buffer written each time the enum WHEN result fires:
+ * byte 0 comes from a true enum `===`, byte 1 from a true enum `!==`,
+ * byte 2 from `Mode.Go` stored into a number variable plus one, and byte 3
+ * from a template literal embedding `Mode.Go` compared against "mode=2".
+ */
+const PROBE_HEX = "02010304";
+
+/** The registered identity of the shared enum, pinned inside the artifact. */
+const ENUM_QUALIFIED_NAME = `${TEST_PROJECT_NAMESPACE}:/mode-defs.ts::Mode`;
+
+// The module the sensor imports the enum from.
+const DEFS_SOURCE = `export enum Mode {
+  Stop = 0,
+  Go = 2,
+}
+`;
+
+// The WHEN trigger: derives the imported enum through a `!==` comparison and
+// an enum-typed ternary; enum values are truthy, so the rule fires every
+// think.
+const SENSOR_SOURCE = `import { Sensor, type Context } from "wendoo";
+import { Mode } from "./mode-defs";
+
+function advance(m: Mode): Mode {
+  return m !== Mode.Stop ? Mode.Go : Mode.Stop;
+}
+
+export default Sensor({
+  name: "user-mode",
+  onExecute(ctx: Context): Mode {
+    return advance(Mode.Go);
+  },
+});
+`;
+
+// Surfaces each firing of the enum-triggered rule via I2C; each probe byte is
+// decided by one enum surface: comparison, enum->number conversion, or
+// enum->string conversion.
+const ACTUATOR_SOURCE = `import { Actuator, type Context } from "wendoo";
+import { Mode } from "./mode-defs";
+
+function firstByte(m: Mode): number {
+  return m === Mode.Go ? 2 : 9;
+}
+
+function secondByte(m: Mode): number {
+  return m !== Mode.Stop ? 1 : 9;
+}
+
+function thirdByte(m: Mode): number {
+  let n: number = Mode.Stop;
+  n = m;
+  return n + 1;
+}
+
+function fourthByte(m: Mode): number {
+  const text = \`mode=\${m}\`;
+  return text === "mode=2" ? 4 : 9;
+}
+
+export default Actuator({
+  name: "user-enum-probe",
+  onExecute(ctx: Context): void {
+    ctx.microbit.i2c.writeBuffer(
+      0x10,
+      Buffer.from([firstByte(Mode.Go), secondByte(Mode.Go), thirdByte(Mode.Go), fourthByte(Mode.Go)])
+    );
+  },
+});
+`;
+
+/** One scheduled think per entry: only the time advance (the brain ignores all input). */
+const SCHEDULE: readonly number[] = [16, 16];
+
+function readText(relativePath: string): string {
+  return readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), "utf8");
+}
+
+function wodalAmbientFiles(): readonly AmbientFile[] {
+  return [
+    {
+      path: "wendoo.core.d.ts",
+      content: readText("../../../../../../external/wendoo-lang/packages/core/lib/wendoo.core.d.ts"),
+    },
+    { path: "wendoo.codal.d.ts", content: readText("../../../../lib/wendoo.codal.d.ts") },
+    {
+      path: "wendoo.microbit-v2.d.ts",
+      content: readText("../../../../targets/microbit-v2/lib/wendoo.microbit-v2.d.ts"),
+    },
+  ];
+}
+
+function findBundleTile(tiles: readonly IBrainTileDef[], kind: "actuator" | "sensor"): IBrainTileDef {
+  const tile = tiles.find((candidate) => candidate.kind === kind);
+  assert.ok(tile);
+  return tile;
+}
+
+/** Compiles the user tiles, installs them, and builds the enum-sensor -> enum-probe rule. */
+function buildImage(environment: WendooEnvironment): WodalProgramImage<LinkedBrainProgram> {
+  const project = new UserTileProject({
+    projectNamespace: TEST_PROJECT_NAMESPACE,
+    ambientFiles: wodalAmbientFiles(),
+    services: environment.brainServices,
+  });
+  project.setFiles(
+    new Map([
+      ["mode-defs.ts", DEFS_SOURCE],
+      ["user-mode.ts", SENSOR_SOURCE],
+      ["user-enum-probe.ts", ACTUATOR_SOURCE],
+    ])
+  );
+  const compileResult = project.compileAll();
+  assert.equal(
+    compileResult.tsErrors.size,
+    0,
+    `Unexpected TypeScript diagnostics: ${JSON.stringify([...compileResult.tsErrors])}`
+  );
+  const sensorProgram = compileResult.results.get("user-mode.ts")?.program;
+  assert.ok(sensorProgram, "the enum-returning sensor compiles");
+  assert.equal(
+    sensorProgram.outputType,
+    environment.brainServices.runtime.types.resolveByName(ENUM_QUALIFIED_NAME),
+    "the sensor's output type is the imported enum's registered type"
+  );
+  const bundle = buildCompiledActionBundle(compileResult, { services: environment.brainServices });
+  assert.ok(bundle);
+  environment.replaceActionBundle(bundle);
+
+  const brainDef = BrainDef.emptyBrainDef(environment.brainServices, "user-tile enum-return brain");
+  const rule = brainDef.pages().get(0)!.children().get(0)!;
+  rule.when().appendTile(findBundleTile(bundle.tiles, "sensor"));
+  rule.do().appendTile(findBundleTile(bundle.tiles, "actuator"));
+
+  const built = buildWodalProgramImage({
+    brainDef,
+    environment,
+    deviceProfile: getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2),
+  });
+  if (!built.ok) {
+    assert.fail(`expected a successful build: ${JSON.stringify(built.errors)}`);
+  }
+  return built.image;
+}
+
+/** Writes the JSON `.mcprogram` golden if missing, freezing the brain's generated id. */
+function ensureJsonGolden(): void {
+  if (existsSync(JSON_PATH)) {
+    return;
+  }
+  const environment = createMicroBitV2Environment();
+  const image = buildImage(environment);
+  writeFileSync(
+    JSON_PATH,
+    serializeWodalProgramImageJson({ ...image, program: linkedBrainProgramToJson(image.program) })
+  );
+}
+
+/** Every `HOST_CALL` / `HOST_CALL_ASYNC` funcId operand in the program's functions. */
+function collectHostCallFuncIds(program: LinkedBrainProgram): Set<number> {
+  const funcIds = new Set<number>();
+  program.program.functions.forEach((fn) => {
+    fn.code.forEach((instr) => {
+      if (instr.op === Op.HOST_CALL || instr.op === Op.HOST_CALL_ASYNC) {
+        funcIds.add(instr.a ?? 0);
+      }
+    });
+  });
+  return funcIds;
+}
+
+/** Runs the committed binary over the schedule with the I2C-port tap installed. */
+function runTrace(bin: Uint8Array): { trace: string; microbit: MicroBit } {
+  const environment = createMicroBitV2Environment();
+  const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
+  const decoded = parseWodalProgramImageBytes(
+    bin,
+    WodalDeviceProfileId.MICROBIT_V2,
+    environment.brainServices.runtime.types
+  );
+  const writer = new ObservableTraceWriter({ profileId: profile.numericProfileId, precision: profile.numberPrecision });
+
+  const microbit = new MicroBit();
+  const deviceWrite = microbit.i2c.write.bind(microbit.i2c);
+  microbit.i2c.write = (address, data) => {
+    writer.i2cWrite(address, data);
+    return deviceWrite(address, data);
+  };
+
+  const vmEvents = observableTraceVmEvents(writer);
+  const runtime = new WodalMicroBitRuntime({ environment, microbit, vmEvents });
+  assert.deepEqual(runtime.loadWodalProgramImage(profile.createProgramImage(decoded.program)), { ok: true });
+
+  let lastThinkTimeMs = 0;
+  for (const [index, advanceMs] of SCHEDULE.entries()) {
+    const timeMs = lastThinkTimeMs + advanceMs;
+    writer.tick(index + 1, timeMs, lastThinkTimeMs === 0 ? 0 : timeMs - lastThinkTimeMs);
+    runtime.tick(advanceMs);
+    lastThinkTimeMs = timeMs;
+  }
+  return { trace: writer.render(), microbit };
+}
+
+test("the committed user-tile-enum-return binary and observable trace golden are byte-stable", () => {
+  ensureJsonGolden();
+  const generated = wodalProgramBytes(new Uint8Array(readFileSync(JSON_PATH)));
+  if (shouldWriteGolden(BIN_PATH)) {
+    writeFileSync(BIN_PATH, generated);
+  }
+  const bin = new Uint8Array(readFileSync(BIN_PATH));
+  assert.deepEqual(bin, generated, "user-tile-enum-return.mcprogram.bin is not byte-stable");
+
+  // The artifact carries the enum under its module-qualified identity.
+  assert.ok(
+    readFileSync(JSON_PATH, "utf8").includes(ENUM_QUALIFIED_NAME),
+    "the golden program embeds the enum's qualified type name"
+  );
+
+  // The enum conversions dispatch through the shared core funcIds, and every
+  // host-call id in the binary resolves in a fresh runtime (no
+  // session-registered ids survive into the artifact).
+  const freshEnvironment = createMicroBitV2Environment();
+  const decodedProgram = parseWodalProgramImageBytes(
+    bin,
+    WodalDeviceProfileId.MICROBIT_V2,
+    freshEnvironment.brainServices.runtime.types
+  ).program;
+  const hostCallFuncIds = collectHostCallFuncIds(decodedProgram);
+  assert.ok(hostCallFuncIds.has(CoreFuncId.ConvEnumToString), "the binary dispatches enum->string via the shared id");
+  assert.ok(hostCallFuncIds.has(CoreFuncId.ConvEnumToNumber), "the binary dispatches enum->number via the shared id");
+  for (const funcId of hostCallFuncIds) {
+    const registered =
+      freshEnvironment.brainServices.runtime.functions.getSyncById(funcId) ??
+      freshEnvironment.brainServices.runtime.functions.getAsyncById(funcId);
+    assert.ok(registered, `host-call funcId ${funcId} is not registered in a fresh runtime`);
+  }
+
+  const first = runTrace(bin);
+  const second = runTrace(bin);
+  assert.equal(second.trace, first.trace, "two fresh runs must render byte-identical traces");
+
+  const lines = first.trace.split("\n");
+  assert.equal(lines.filter((line) => line.startsWith("tick ")).length, SCHEDULE.length);
+  // One probe buffer written per think (the enum WHEN result is truthy), no
+  // host-action lines, no faults.
+  assert.equal(lines.filter((line) => line.startsWith("port i2c write ")).length, SCHEDULE.length);
+  assert.equal(lines.filter((line) => line.startsWith("action ")).length, 0);
+  assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
+
+  // The injectable bus records the matching and non-matching enum comparisons.
+  const writes = first.microbit.i2c.recordedWrites();
+  assert.equal(writes.length, SCHEDULE.length);
+  for (const write of writes) {
+    assert.equal(write.address, PROBE_ADDRESS);
+    assert.equal(
+      Array.from(write.bytes)
+        .map((byte) => byte.toString(16).padStart(2, "0"))
+        .join(""),
+      PROBE_HEX
+    );
+  }
+
+  if (shouldWriteGolden(TRACE_PATH)) {
+    writeFileSync(TRACE_PATH, first.trace);
+  }
+  assert.equal(readFileSync(TRACE_PATH, "utf8"), first.trace, "user-tile-enum-return.ticks.trace is not byte-stable");
+});

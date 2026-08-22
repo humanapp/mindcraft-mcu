@@ -2,12 +2,12 @@
 
 #include <cstdint>
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * First funcId owned by the active target; core funcIds are below this.
  * Mirrors TARGET_FUNC_ID_BASE in
- * external/mindcraft-lang/packages/core/src/runtime/abi-ids.ts.
+ * external/wendoo-lang/packages/core/src/runtime/abi-ids.ts.
  */
 inline constexpr uint32_t TARGET_FUNC_ID_BASE = 1024;
 
@@ -15,7 +15,7 @@ inline constexpr uint32_t TARGET_FUNC_ID_BASE = 1024;
  * Stable funcIds of the core host functions: operator overloads, conversions,
  * builtins, context methods, and the sensor/actuator function entries.
  * Mirrors the CoreFuncId enum in
- * external/mindcraft-lang/packages/core/src/runtime/abi-ids.ts. Serialized
+ * external/wendoo-lang/packages/core/src/runtime/abi-ids.ts. Serialized
  * programs record these ids verbatim, so the values are wire-stable: never
  * renumber or reuse a value; append new members at the next free id.
  */
@@ -132,4 +132,4 @@ enum class CoreFuncId : uint32_t {
 /** Number of declared {@link CoreFuncId} members; ids are dense from 0. */
 inline constexpr uint32_t kCoreFuncIdCount = 107;
 
-} // namespace mindcraft
+} // namespace wendoo

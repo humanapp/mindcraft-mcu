@@ -6,7 +6,7 @@
 #include "core/platform/span.h"
 #include "core/runtime/result.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * The on-flash program region format: a reserved block of memory-mapped device
@@ -64,4 +64,4 @@ enum class RegionError : uint16_t {
  */
 Result<ByteSpan, RegionError> readRegionProgram(ByteSpan region);
 
-} // namespace mindcraft
+} // namespace wendoo

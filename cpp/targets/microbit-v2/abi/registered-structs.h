@@ -7,14 +7,14 @@
 #include "core/runtime/type-registry.h"
 #include "targets/microbit-v2/abi/type-atom-id.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 /**
  * Field storage slot count of the `PlaySoundOptions` and `ScrollTextOptions`
  * value structs: their `immediately` and `inBackground` fields (ids 0, 1), so
  * highest field id + 1. Mirrors the LeaseOptionsField layout in
- * packages/wodal/src/targets/microbit-v2/mindcraft/module.ts.
+ * packages/wodal/src/targets/microbit-v2/wendoo/module.ts.
  */
 inline constexpr uint32_t kLeaseOptionsSlotCount = 2;
 
@@ -22,7 +22,7 @@ inline constexpr uint32_t kLeaseOptionsSlotCount = 2;
  * Field storage slot count of the `DrawImageOptions` value struct: its
  * `duration`, `immediately`, and `inBackground` fields (ids 0, 1, 2), so highest
  * field id + 1. Mirrors the DrawImageOptionsField layout in
- * packages/wodal/src/targets/microbit-v2/mindcraft/module.ts.
+ * packages/wodal/src/targets/microbit-v2/wendoo/module.ts.
  */
 inline constexpr uint32_t kDrawImageOptionsSlotCount = 3;
 
@@ -52,4 +52,4 @@ makeMicroBitV2RegisteredStructSlotCounts()
     }};
 }
 
-} // namespace mindcraft
+} // namespace wendoo

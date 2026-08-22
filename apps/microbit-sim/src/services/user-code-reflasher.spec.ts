@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import type { CompiledActionBundle } from "@mindcraft-lang/core";
-import { BrainDef, type IBrainDef } from "@mindcraft-lang/core/app";
-import { linkedBrainProgramToJson } from "@mindcraft-lang/core/runtime";
-import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@mindcraft-lang/ts-compiler";
-import { TEST_PROJECT_NAMESPACE } from "@mindcraft-lang/ts-compiler/testing";
-import { buildWodalProgramImage, getWodalDeviceProfile, WodalDeviceProfileId } from "@mindcraft-lang/wodal";
-import { createMicroBitV2Environment } from "@mindcraft-lang/wodal/targets/microbit-v2";
+import type { CompiledActionBundle } from "@wendoo-lang/core";
+import { BrainDef, type IBrainDef } from "@wendoo-lang/core/app";
+import { linkedBrainProgramToJson } from "@wendoo-lang/core/runtime";
+import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@wendoo-lang/ts-compiler";
+import { TEST_PROJECT_NAMESPACE } from "@wendoo-lang/ts-compiler/testing";
+import { buildWodalProgramImage, getWodalDeviceProfile, WodalDeviceProfileId } from "@wendoo-lang/wodal";
+import { createMicroBitV2Environment } from "@wendoo-lang/wodal/targets/microbit-v2";
 import { UserCodeReflasher } from "./user-code-reflasher";
 
 type MicroBitV2Environment = ReturnType<typeof createMicroBitV2Environment>;
@@ -21,16 +21,16 @@ function readText(relativePath: string): string {
 function microbitAmbientFiles(): readonly AmbientFile[] {
   return [
     {
-      path: "mindcraft.core.d.ts",
-      content: readText("../../../../external/mindcraft-lang/packages/core/lib/mindcraft.core.d.ts"),
+      path: "wendoo.core.d.ts",
+      content: readText("../../../../external/wendoo-lang/packages/core/lib/wendoo.core.d.ts"),
     },
     {
-      path: "mindcraft.codal.d.ts",
-      content: readText("../../../../packages/wodal/lib/mindcraft.codal.d.ts"),
+      path: "wendoo.codal.d.ts",
+      content: readText("../../../../packages/wodal/lib/wendoo.codal.d.ts"),
     },
     {
-      path: "mindcraft.microbit-v2.d.ts",
-      content: readText("../../../../packages/wodal/targets/microbit-v2/lib/mindcraft.microbit-v2.d.ts"),
+      path: "wendoo.microbit-v2.d.ts",
+      content: readText("../../../../packages/wodal/targets/microbit-v2/lib/wendoo.microbit-v2.d.ts"),
     },
   ];
 }
@@ -39,7 +39,7 @@ function microbitAmbientFiles(): readonly AmbientFile[] {
 const SENSOR_ID = "senButtonPressed0";
 const ACTUATOR_ID = "actDisplayPixel00";
 
-const SENSOR_SOURCE = `import { Sensor, type Context } from "mindcraft";
+const SENSOR_SOURCE = `import { Sensor, type Context } from "wendoo";
 
 export default Sensor({
   id: "${SENSOR_ID}",
@@ -52,7 +52,7 @@ export default Sensor({
 
 /** An actuator that lights one pixel to `brightness`. */
 function actuatorSource(brightness: number): string {
-  return `import { Actuator, type Context } from "mindcraft";
+  return `import { Actuator, type Context } from "wendoo";
 
 export default Actuator({
   id: "${ACTUATOR_ID}",

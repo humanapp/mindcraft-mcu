@@ -54,7 +54,7 @@ Core fields:
 | Kind          | sensor \| actuator |
 | Stance        | poll sensor (sync read) \| sync actuator (instant) \| async/awaited actuator (temporal) -- note any deliberate exception + why |
 | Composability | inline (composable into conditions/expressions) \| non-inline (rule trigger only) |
-| Module        | e.g. microbit-v2 (`mindcraft.microbit-v2`) |
+| Module        | e.g. microbit-v2 (`wendoo.microbit-v2`) |
 | Label(s)      | the on-tile text the author sees |
 
 ### Authoring

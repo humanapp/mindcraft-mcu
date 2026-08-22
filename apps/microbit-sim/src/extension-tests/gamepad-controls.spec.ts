@@ -16,18 +16,18 @@
 
 import assert from "node:assert/strict";
 import { before, describe, test } from "node:test";
-import { List } from "@mindcraft-lang/core";
-import { BrainDef, BrainTileModifierDef, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
-import { type IBrainTileDef, mkAccessorTileId, mkVariableFactoryTileId, RuleSide } from "@mindcraft-lang/core/brain";
+import { List } from "@wendoo-lang/core";
+import { BrainDef, BrainTileModifierDef, type WendooEnvironment } from "@wendoo-lang/core/app";
+import { type IBrainTileDef, mkAccessorTileId, mkVariableFactoryTileId, RuleSide } from "@wendoo-lang/core/brain";
 import {
   type InsertionContext,
   parseTilesForSuggestions,
   suggestTiles,
-} from "@mindcraft-lang/core/brain/language-service";
-import { type BrainTileFactoryDef, BrainTileOperatorDef } from "@mindcraft-lang/core/brain/tiles";
-import type { LinkedBrainProgram, TypeId } from "@mindcraft-lang/core/runtime";
-import { buildWodalProgramImage, getWodalDeviceProfile, WodalDeviceProfileId } from "@mindcraft-lang/wodal";
-import { MicroBit, WodalMicroBitRuntime } from "@mindcraft-lang/wodal/targets/microbit-v2";
+} from "@wendoo-lang/core/brain/language-service";
+import { type BrainTileFactoryDef, BrainTileOperatorDef } from "@wendoo-lang/core/brain/tiles";
+import type { LinkedBrainProgram, TypeId } from "@wendoo-lang/core/runtime";
+import { buildWodalProgramImage, getWodalDeviceProfile, WodalDeviceProfileId } from "@wendoo-lang/wodal";
+import { MicroBit, WodalMicroBitRuntime } from "@wendoo-lang/wodal/targets/microbit-v2";
 import {
   buildExtensionTestHarness,
   type ExtensionTestHarness,
@@ -80,7 +80,7 @@ const MARK = {
 } as const;
 
 /** An always-true trigger, so a rule driving it fires every think its page is active. */
-const ALWAYS_SOURCE = `import { type Context, Sensor } from "mindcraft";
+const ALWAYS_SOURCE = `import { type Context, Sensor } from "wendoo";
 
 export default Sensor({
   name: "always",
@@ -92,7 +92,7 @@ export default Sensor({
 
 /** A test-only actuator that marks a firing by writing one byte to the observer address. */
 function observerSource(name: string, marker: number): string {
-  return `import { Actuator, type Context } from "mindcraft";
+  return `import { Actuator, type Context } from "wendoo";
 
 export default Actuator({
   name: ${JSON.stringify(name)},
@@ -109,7 +109,7 @@ export default Actuator({
  * unsigned byte.
  */
 function numberObserverSource(name: string, address: number): string {
-  return `import { Actuator, type Context, NumberType, param } from "mindcraft";
+  return `import { Actuator, type Context, NumberType, param } from "wendoo";
 
 export default Actuator({
   name: ${JSON.stringify(name)},
@@ -158,7 +158,7 @@ interface RunResult {
   readonly program: LinkedBrainProgram;
 }
 
-const environment = { current: undefined as MindcraftEnvironment | undefined };
+const environment = { current: undefined as WendooEnvironment | undefined };
 const bundleTiles = { current: [] as readonly IBrainTileDef[] };
 const harnessRef = { current: undefined as ExtensionTestHarness | undefined };
 
@@ -183,21 +183,21 @@ function sharedModifier(suffix: string): IBrainTileDef {
 }
 
 /** The registered TypeId of the position struct. */
-function positionTypeId(env: MindcraftEnvironment): TypeId {
+function positionTypeId(env: WendooEnvironment): TypeId {
   const typeId = env.brainServices.runtime.types.resolveByName(POSITION_IDENTITY);
   assert.ok(typeId, "expected the position struct type to be registered");
   return typeId;
 }
 
 /** The accessor tile reading field `field` off a position value. */
-function accessorTile(env: MindcraftEnvironment, field: string): IBrainTileDef {
+function accessorTile(env: WendooEnvironment, field: string): IBrainTileDef {
   const tileId = mkAccessorTileId(positionTypeId(env), field);
   const tile = bundleTiles.current.find((candidate) => candidate.tileId === tileId);
   assert.ok(tile, `expected the "${field}" accessor tile in the bundle`);
   return tile;
 }
 
-function run(env: MindcraftEnvironment, brainDef: BrainDef, schedule: readonly Step[]): RunResult {
+function run(env: WendooEnvironment, brainDef: BrainDef, schedule: readonly Step[]): RunResult {
   const built = buildWodalProgramImage({
     brainDef,
     environment: env,
@@ -259,7 +259,7 @@ interface RuleSpec {
 }
 
 /** A one-page brain with one rule per spec; the first fills the empty page's rule. */
-function brainWithRules(env: MindcraftEnvironment, name: string, rules: readonly RuleSpec[]): BrainDef {
+function brainWithRules(env: WendooEnvironment, name: string, rules: readonly RuleSpec[]): BrainDef {
   const brainDef = BrainDef.emptyBrainDef(env.brainServices, name);
   const page = brainDef.pages().get(0)!;
   for (const [index, spec] of rules.entries()) {
@@ -429,7 +429,7 @@ describe("Yahboom gamepad buttons", () => {
 
 describe("Yahboom gamepad stick position", () => {
   /** A brain that mirrors [stick position][x] and [stick position][y] through the accessors. */
-  function observeBrain(env: MindcraftEnvironment, name: string): BrainDef {
+  function observeBrain(env: WendooEnvironment, name: string): BrainDef {
     const brainDef = BrainDef.emptyBrainDef(env.brainServices, name);
     const page = brainDef.pages().get(0)!;
     const xRule = page.children().get(0)!;
@@ -477,7 +477,7 @@ describe("Yahboom gamepad position struct type", () => {
   });
 
   /** Manufactures and registers a fresh position variable tile named `name`. */
-  function positionVariable(env: MindcraftEnvironment, brainDef: BrainDef, name: string): IBrainTileDef {
+  function positionVariable(env: WendooEnvironment, brainDef: BrainDef, name: string): IBrainTileDef {
     const factory = bundleTiles.current.find((tile) => tile.tileId === mkVariableFactoryTileId(positionTypeId(env))) as
       | BrainTileFactoryDef
       | undefined;

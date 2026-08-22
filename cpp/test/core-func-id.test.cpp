@@ -4,9 +4,9 @@
 
 #include <cstdint>
 
-using mindcraft::CoreFuncId;
-using mindcraft::kCoreFuncIdCount;
-using mindcraft::TARGET_FUNC_ID_BASE;
+using wendoo::CoreFuncId;
+using wendoo::kCoreFuncIdCount;
+using wendoo::TARGET_FUNC_ID_BASE;
 
 TEST_CASE("funcId partition constants match the TS declarations") {
   CHECK(TARGET_FUNC_ID_BASE == 1024);

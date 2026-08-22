@@ -18,15 +18,15 @@ Deviations from the upstream commit, kept deliberately small:
 
 - `abi/`: added (not upstream). Hand-maintained C++ mirrors of the
   microbit-v2 device-ABI id declarations in
-  `packages/wodal/src/targets/microbit-v2/mindcraft/` (see "Mirror headers"
+  `packages/wodal/src/targets/microbit-v2/wendoo/` (see "Mirror headers"
   in `cpp/README.md`).
 - `codal.json`: target `branch` pinned to the `v0.3.4` release tag (upstream
   tracks `master`).
-- `source/`: upstream sample application replaced by the mindcraft boot
+- `source/`: upstream sample application replaced by the wendoo boot
   firmware (`source/main.cpp`).
 - `CMakeLists.txt`: removed the build-time copy of the target's `samples/`
   folder into this tree; added the block that compiles `cpp/core/` and
-  `cpp/codal/` into the firmware at C++17 (see the `mindcraft:` comment there);
+  `cpp/codal/` into the firmware at C++17 (see the `wendoo:` comment there);
   added the supplemental linker script (`-T mcprogram-region.ld`) that reserves
   the on-flash program region.
 - `source/`: the device firmware. `main.cpp` reads the brain from the reserved

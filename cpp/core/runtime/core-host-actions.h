@@ -4,12 +4,12 @@
 
 #include "core/runtime/core-func-id.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * First host-action id owned by the active target; core action ids are below
  * this. Mirrors TARGET_ACTION_ID_BASE in
- * external/mindcraft-lang/packages/core/src/runtime/abi-ids.ts.
+ * external/wendoo-lang/packages/core/src/runtime/abi-ids.ts.
  */
 inline constexpr uint32_t TARGET_ACTION_ID_BASE = 1024;
 
@@ -29,7 +29,7 @@ struct HostActionIds {
 /**
  * Identity records of the core sensors and actuators, one per host action.
  * Mirrors the CoreHostActions table in
- * external/mindcraft-lang/packages/core/src/runtime/abi-ids.ts. Action ids
+ * external/wendoo-lang/packages/core/src/runtime/abi-ids.ts. Action ids
  * are wire-stable: never renumber or reuse one; append new records at the
  * next free action id.
  */
@@ -55,4 +55,4 @@ inline constexpr HostActionIds kCoreHostActions[] = {
     CoreHostActions::CurrentPage, CoreHostActions::PreviousPage,  CoreHostActions::Otherwise,
 };
 
-} // namespace mindcraft
+} // namespace wendoo

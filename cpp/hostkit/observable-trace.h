@@ -9,7 +9,7 @@
 #include "core/runtime/value.h"
 #include "hostkit/text-render.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 class ManagedHeap;
 
@@ -20,7 +20,7 @@ inline constexpr uint32_t kObservableTraceFormatVersion = 1;
  * Renders one VM run's observable effects as the canonical observable
  * trace: format version 1, ASCII, LF line endings, byte-identical to the
  * rendering of wodal
- * `targets/microbit-v2/mindcraft/observable-trace.ts` (the format record)
+ * `targets/microbit-v2/wendoo/observable-trace.ts` (the format record)
  * for the same event sequence. Construction emits the three-line header;
  * each event method appends one line. Integer scalars render as minimal
  * lowercase hex of their unsigned 32-bit value; brain-observable numbers
@@ -188,4 +188,4 @@ private:
   const ManagedHeap* heap_ = nullptr;
 };
 
-} // namespace mindcraft
+} // namespace wendoo

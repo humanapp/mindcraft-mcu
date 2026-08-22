@@ -21,25 +21,25 @@
 #include <string>
 #include <vector>
 
-using mindcraft::BrainRuntime;
-using mindcraft::ByteSpan;
-using mindcraft::ErrorCode;
-using mindcraft::ExecutionContext;
-using mindcraft::FaultDomain;
-using mindcraft::FiberScheduler;
-using mindcraft::formatFaultCode;
-using mindcraft::HostLoop;
-using mindcraft::kFaultCodeSize;
-using mindcraft::kMicroBitV2TypeAtomIdCount;
-using mindcraft::LoadError;
-using mindcraft::ProgramImage;
-using mindcraft::ProgramReaderOptions;
-using mindcraft::RegionArena;
-using mindcraft::Result;
-using mindcraft::RuntimeSurface;
-using mindcraft::showFaultPass;
-using mindcraft::Span;
-using mindcraft::Value;
+using wendoo::BrainRuntime;
+using wendoo::ByteSpan;
+using wendoo::ErrorCode;
+using wendoo::ExecutionContext;
+using wendoo::FaultDomain;
+using wendoo::FiberScheduler;
+using wendoo::formatFaultCode;
+using wendoo::HostLoop;
+using wendoo::kFaultCodeSize;
+using wendoo::kMicroBitV2TypeAtomIdCount;
+using wendoo::LoadError;
+using wendoo::ProgramImage;
+using wendoo::ProgramReaderOptions;
+using wendoo::RegionArena;
+using wendoo::Result;
+using wendoo::RuntimeSurface;
+using wendoo::showFaultPass;
+using wendoo::Span;
+using wendoo::Value;
 
 namespace {
 
@@ -51,7 +51,7 @@ std::vector<uint8_t> readBinaryFile(const std::string& path) {
 }
 
 /** Fault display stub recording the policy's calls without rendering. */
-struct RecordingFaultDisplay : mindcraft::FaultDisplayPort {
+struct RecordingFaultDisplay : wendoo::FaultDisplayPort {
   int faceShown = 0;
   std::vector<std::string> scrolled;
 
@@ -60,45 +60,45 @@ struct RecordingFaultDisplay : mindcraft::FaultDisplayPort {
 };
 
 /** No-op display: the fault tests never reach the brain's display port. */
-struct NullDisplay : mindcraft::PixelDisplayPort {
+struct NullDisplay : wendoo::PixelDisplayPort {
   void setPixel(int16_t, int16_t, uint8_t) override {}
-  void scrollText(const uint8_t*, uint32_t, uint32_t, mindcraft::mc_number_t,
-                  mindcraft::AsyncHandle) override {}
-  void drawFrames(mindcraft::DrawFrameSource&, uint32_t, mindcraft::mc_number_t,
-                  mindcraft::AsyncHandle) override {}
+  void scrollText(const uint8_t*, uint32_t, uint32_t, wendoo::mc_number_t,
+                  wendoo::AsyncHandle) override {}
+  void drawFrames(wendoo::DrawFrameSource&, uint32_t, wendoo::mc_number_t,
+                  wendoo::AsyncHandle) override {}
   void preempt() override {}
   void clear() override {}
   int getLightLevel() override { return 128; }
 };
 
 /** No-op buttons: never pressed. */
-struct NullButtons : mindcraft::ButtonInputPort {
+struct NullButtons : wendoo::ButtonInputPort {
   bool isPressed(uint8_t) override { return false; }
 };
 
 /** No-op accelerometer: at rest, no gesture. */
-struct NullAccelerometer : mindcraft::AccelerometerInputPort {
+struct NullAccelerometer : wendoo::AccelerometerInputPort {
   uint16_t getGesture() override { return 0; }
   int32_t getX() override { return 0; }
   int32_t getY() override { return 0; }
   int32_t getZ() override { return 0; }
   int32_t getPitch() override { return 0; }
   int32_t getRoll() override { return 0; }
-  mindcraft::mc_number_t getPitchRadians() override { return 0; }
-  mindcraft::mc_number_t getRollRadians() override { return 0; }
+  wendoo::mc_number_t getPitchRadians() override { return 0; }
+  wendoo::mc_number_t getRollRadians() override { return 0; }
 };
 
 /** No-op thermometer: rests at the sim model's default reading. */
-struct NullThermometer : mindcraft::ThermometerInputPort {
+struct NullThermometer : wendoo::ThermometerInputPort {
   int32_t getTemperature() override { return 21; }
 };
 
-struct NullI2C : mindcraft::I2CPort {
+struct NullI2C : wendoo::I2CPort {
   int write(uint16_t, const uint8_t*, int) override { return 0; }
   int read(uint16_t, uint8_t*, int) override { return 0; }
 };
 
-struct NullGpio : mindcraft::GPIOPort {
+struct NullGpio : wendoo::GPIOPort {
   int digitalRead(int) override { return 0; }
   int digitalWrite(int, int) override { return 0; }
   int setPull(int, int) override { return 0; }
@@ -106,40 +106,40 @@ struct NullGpio : mindcraft::GPIOPort {
   int analogRead(int) override { return 0; }
 };
 
-struct NullSonar : mindcraft::SonarPort {
+struct NullSonar : wendoo::SonarPort {
   int distance(int, int) override { return 0; }
 };
 
 /** Radio port that drops sends and never receives. */
-struct NullRadio : mindcraft::RadioPort {
-  mindcraft::RadioPacketView empty{};
-  void send(const mindcraft::RadioSendView&) override {}
+struct NullRadio : wendoo::RadioPort {
+  wendoo::RadioPacketView empty{};
+  void send(const wendoo::RadioSendView&) override {}
   uint8_t group() override { return 0; }
   void setGroup(int) override {}
   void setTransmitPower(int) override {}
   void setFrequencyBand(int) override {}
   uint32_t ringSize() override { return 0; }
-  const mindcraft::RadioPacketView& ringAt(uint32_t) override { return empty; }
+  const wendoo::RadioPacketView& ringAt(uint32_t) override { return empty; }
   int headSequence() override { return 0; }
 };
 
 /** Speaker port that resolves every play at once and never leases. */
-struct NullSpeaker : mindcraft::SpeakerPort {
-  void playSoundEmoji(const uint8_t*, uint32_t, mindcraft::mc_number_t,
-                      mindcraft::AsyncHandle handle) override {
-    handle.resolve(mindcraft::kVoidValue);
+struct NullSpeaker : wendoo::SpeakerPort {
+  void playSoundEmoji(const uint8_t*, uint32_t, wendoo::mc_number_t,
+                      wendoo::AsyncHandle handle) override {
+    handle.resolve(wendoo::kVoidValue);
   }
   void preempt() override {}
 };
 
 /** Clock returning a fixed reading. */
-struct FixedClock : mindcraft::MonotonicClockPort {
+struct FixedClock : wendoo::MonotonicClockPort {
   uint32_t now = 0;
   uint32_t uptimeMillis() override { return now; }
 };
 
 std::string fixtureBase() {
-  return std::string(mindcraft::test::kWodalFixturesDir) + "/button-display";
+  return std::string(wendoo::test::kWodalFixturesDir) + "/button-display";
 }
 
 } // namespace
@@ -201,7 +201,7 @@ TEST_CASE("the host loop latches fault mode when startup fails") {
   // A surface with no execution context: BrainRuntime::startup faults
   // HostError before activating the page.
   RuntimeSurface surface{nullptr, {}, nullptr};
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   NullDisplay display;
@@ -215,11 +215,11 @@ TEST_CASE("the host loop latches fault mode when startup fails") {
   NullSonar sonar;
   NullRadio radio;
   NullSpeaker speaker;
-  mindcraft::DevicePorts ports{&display, &buttons, &faultDisplay, &clock,   &accelerometer, &i2c,
-                               &gpio,    &sonar,   &radio,        &speaker, &thermometer};
+  wendoo::DevicePorts ports{&display, &buttons, &faultDisplay, &clock,   &accelerometer, &i2c,
+                            &gpio,    &sonar,   &radio,        &speaker, &thermometer};
 
   HostLoop hostLoop(brain, ports);
-  const mindcraft::Status status = hostLoop.startup();
+  const wendoo::Status status = hostLoop.startup();
   CHECK_FALSE(status.isOk());
   REQUIRE(hostLoop.faulted());
   CHECK(hostLoop.faultCode() == ErrorCode::HostError);

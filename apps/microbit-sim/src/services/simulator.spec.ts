@@ -4,26 +4,26 @@ import {
   BrainDef,
   CoreTypeIds,
   coreModule,
-  createMindcraftEnvironment,
-  type MindcraftEnvironment,
+  createWendooEnvironment,
   mkActuatorTileId,
   mkModifierTileId,
   mkNumberValue,
   mkSensorTileId,
-} from "@mindcraft-lang/core/app";
-import { __test__appendTile } from "@mindcraft-lang/core/brain/__test__";
-import { ErrorCode, type LinkedBrainProgramJson, linkedBrainProgramFromJson, Op } from "@mindcraft-lang/core/runtime";
+  type WendooEnvironment,
+} from "@wendoo-lang/core/app";
+import { __test__appendTile } from "@wendoo-lang/core/brain/__test__";
+import { ErrorCode, type LinkedBrainProgramJson, linkedBrainProgramFromJson, Op } from "@wendoo-lang/core/runtime";
 import {
   buildWodalProgramImage,
   getWodalDeviceProfile,
   type WodalBuildInput,
   WodalDeviceProfileId,
-} from "@mindcraft-lang/wodal";
+} from "@wendoo-lang/wodal";
 import {
   createMicroBitV2Environment,
   MicroBitV2HostActions,
   WodalMicroBitV2ModifierId,
-} from "@mindcraft-lang/wodal/targets/microbit-v2";
+} from "@wendoo-lang/wodal/targets/microbit-v2";
 import { type InstanceFiberFault, MicrobitSimulator } from "./simulator";
 
 /**
@@ -68,12 +68,12 @@ function buildFaultingImage(message: string) {
   return profile.createProgramImage(linkedBrainProgramFromJson(json));
 }
 
-function microbitEnvironment(): MindcraftEnvironment {
+function microbitEnvironment(): WendooEnvironment {
   return createMicroBitV2Environment();
 }
 
 /** Builds a minimal, API-generated program image so a loaded instance has something to tick. */
-function buildMinimalImage(env: MindcraftEnvironment) {
+function buildMinimalImage(env: WendooEnvironment) {
   const brainDef = env.withServices((services) => BrainDef.emptyBrainDef(services, "test brain"));
   const built = buildWodalProgramImage({
     brainDef,
@@ -87,7 +87,7 @@ function buildMinimalImage(env: MindcraftEnvironment) {
 }
 
 /** Builds the button-A -> set-pixel brain as a WODAL build input, through the tile API. */
-function buttonDisplayInput(env: MindcraftEnvironment): WodalBuildInput {
+function buttonDisplayInput(env: WendooEnvironment): WodalBuildInput {
   const services = env.brainServices;
   const sensorTile = services.edit.tiles.get(mkSensorTileId(MicroBitV2HostActions.ButtonA.key))!;
   const actuatorTile = services.edit.tiles.get(mkActuatorTileId(MicroBitV2HostActions.DisplaySetPixel.key))!;
@@ -99,7 +99,7 @@ function buttonDisplayInput(env: MindcraftEnvironment): WodalBuildInput {
 }
 
 /** Builds a `WHEN button A held DO radio send <value>` sender brain through the tile API. */
-function radioSenderInput(env: MindcraftEnvironment, value: number): WodalBuildInput {
+function radioSenderInput(env: WendooEnvironment, value: number): WodalBuildInput {
   const services = env.brainServices;
   const sensorTile = services.edit.tiles.get(mkSensorTileId(MicroBitV2HostActions.ButtonA.key))!;
   const heldTile = services.edit.tiles.get(mkModifierTileId(WodalMicroBitV2ModifierId.Held))!;
@@ -119,7 +119,7 @@ function radioSenderInput(env: MindcraftEnvironment, value: number): WodalBuildI
 }
 
 /** Builds a `WHEN radio receive number DO set pixel (0,0)` receiver brain through the tile API. */
-function radioReceiverInput(env: MindcraftEnvironment): WodalBuildInput {
+function radioReceiverInput(env: WendooEnvironment): WodalBuildInput {
   const services = env.brainServices;
   const sensorTile = services.edit.tiles.get(mkSensorTileId(MicroBitV2HostActions.RadioReceiveNumber.key))!;
   const actuatorTile = services.edit.tiles.get(mkActuatorTileId(MicroBitV2HostActions.DisplaySetPixel.key))!;
@@ -274,7 +274,7 @@ describe("MicrobitSimulator flash", () => {
     // Build the brain against the microbit env, then link it in a core-only env (missing the
     // microbit actions) to force a link failure.
     const input = buttonDisplayInput(env);
-    const coreOnly = createMindcraftEnvironment({ modules: [coreModule()] });
+    const coreOnly = createWendooEnvironment({ modules: [coreModule()] });
     sim.flash(instance.id, { ...input, environment: coreOnly }, "brain-1");
 
     assert.equal(instance.flashState.status, "failed");
@@ -292,7 +292,7 @@ describe("MicrobitSimulator flash", () => {
     const instance = sim.getInstances()[0]!;
 
     // A link failure (core-only env lacks the microbit actions) leaves the instance failed.
-    const coreOnly = createMindcraftEnvironment({ modules: [coreModule()] });
+    const coreOnly = createWendooEnvironment({ modules: [coreModule()] });
     sim.flash(instance.id, { ...buttonDisplayInput(env), environment: coreOnly }, "brain-1");
     assert.equal(instance.flashState.status, "failed");
     assert.equal(instance.flashedBrainId, "brain-1");
@@ -322,7 +322,7 @@ describe("MicrobitSimulator flash", () => {
     assert.equal(instance.microbit.display.getPixelValue(0, 0), 255);
 
     // Reflashing with a broken build (core-only env lacks the microbit actions) fails.
-    const coreOnly = createMindcraftEnvironment({ modules: [coreModule()] });
+    const coreOnly = createWendooEnvironment({ modules: [coreModule()] });
     sim.reflash("brain-1", { ...buttonDisplayInput(env), environment: coreOnly });
 
     // The runtime is unloaded: device reset (display cleared, time back to zero), tick now a no-op.
@@ -338,7 +338,7 @@ describe("MicrobitSimulator flash", () => {
     const sim = new MicrobitSimulator(env);
     const instance = sim.getInstances()[0]!;
 
-    const coreOnly = createMindcraftEnvironment({ modules: [coreModule()] });
+    const coreOnly = createWendooEnvironment({ modules: [coreModule()] });
     sim.flash(instance.id, { ...buttonDisplayInput(env), environment: coreOnly }, "brain-1");
 
     const failed = instance.flashState;
@@ -369,7 +369,7 @@ describe("MicrobitSimulator flash", () => {
       linkBrain() {
         throw new Error("linker exploded");
       },
-    } as unknown as MindcraftEnvironment;
+    } as unknown as WendooEnvironment;
     assert.doesNotThrow(() => {
       sim.reflash("brain-1", { ...buttonDisplayInput(env), environment: throwingEnv });
     });

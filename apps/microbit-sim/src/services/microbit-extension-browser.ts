@@ -4,8 +4,8 @@ import type {
   ExtensionFetchError,
   ExtensionFetchErrorCode,
   ExtensionUpdateApplication,
-} from "@mindcraft-lang/app-host";
-import { parseExtensionReference, validateExtensionCatalogDocument } from "@mindcraft-lang/app-host";
+} from "@wendoo-lang/app-host";
+import { parseExtensionReference, validateExtensionCatalogDocument } from "@wendoo-lang/app-host";
 import {
   type AppEnvironmentHost,
   buildExtensionCatalog,
@@ -20,8 +20,8 @@ import {
   installEmbeddedExtension,
   installExtensionReference,
   uninstallExtension,
-} from "@mindcraft-lang/bridge-app";
-import type { ExtensionBrowserEntry } from "@mindcraft-lang/ui";
+} from "@wendoo-lang/bridge-app";
+import type { ExtensionBrowserEntry } from "@wendoo-lang/ui";
 import {
   CODAL_LIB_COORDINATE,
   CORE_LIB_COORDINATE,

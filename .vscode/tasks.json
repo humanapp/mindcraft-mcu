@@ -32,21 +32,21 @@
       "problemMatcher": []
     },
     {
-      "label": "mindcraft-ext: build",
+      "label": "wendoo-ext: build",
       "type": "shell",
       "command": "npm run build",
       "options": {
-        "cwd": "${workspaceFolder}/external/mindcraft-lang/apps/vscode-extension"
+        "cwd": "${workspaceFolder}/external/wendoo-lang/apps/vscode-extension"
       },
       "group": "build",
       "problemMatcher": []
     },
     {
-      "label": "mindcraft-ext: dev",
+      "label": "wendoo-ext: dev",
       "type": "shell",
       "command": "npm run dev",
       "options": {
-        "cwd": "${workspaceFolder}/external/mindcraft-lang/apps/vscode-extension"
+        "cwd": "${workspaceFolder}/external/wendoo-lang/apps/vscode-extension"
       },
       "isBackground": true,
       "problemMatcher": {
@@ -66,7 +66,7 @@
       "type": "shell",
       "command": "npm run build",
       "options": {
-        "cwd": "${workspaceFolder}/external/mindcraft-lang/apps/vscode-bridge"
+        "cwd": "${workspaceFolder}/external/wendoo-lang/apps/vscode-bridge"
       },
       "group": "build",
       "problemMatcher": []

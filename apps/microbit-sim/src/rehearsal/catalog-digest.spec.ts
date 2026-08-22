@@ -5,9 +5,9 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import type { TargetAdapter } from "@mindcraft-lang/assistant-bridge";
-import { catalogDigest } from "@mindcraft-lang/assistant-bridge";
-import { installedTiles } from "@mindcraft-lang/assistant-panel";
+import type { TargetAdapter } from "@wendoo-lang/assistant-bridge";
+import { catalogDigest } from "@wendoo-lang/assistant-bridge";
+import { installedTiles } from "@wendoo-lang/assistant-panel";
 import { build } from "esbuild";
 import { MICROBIT_V2_TARGET_COORDINATE } from "../services/microbit-extension-coordinates";
 
@@ -16,11 +16,11 @@ const APP_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 /** The identity this target's own manifest declares. */
 const targetIdentity = (
-  JSON.parse(readFileSync(join(APP_DIR, "target-package", "mindcraft.json"), "utf8")) as { identity: string }
+  JSON.parse(readFileSync(join(APP_DIR, "target-package", "wendoo.json"), "utf8")) as { identity: string }
 ).identity;
 
 /** Device-runtime entry publishing this device's adapter factory. */
-const ADAPTER_ENTRY = "@mindcraft-lang/wodal/targets/microbit-v2/rehearsal";
+const ADAPTER_ENTRY = "@wendoo-lang/wodal/targets/microbit-v2/rehearsal";
 
 /** The headless adapter artifact `npm run build:headless` produces. */
 const artifactPath = join(APP_DIR, "dist-headless", "rehearsal", "adapter.js");

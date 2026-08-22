@@ -4,7 +4,7 @@ import { describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import type { Plugin } from "esbuild";
 import { build } from "esbuild";
-import { MICROBIT_V2_TILE_DOCS } from "../mindcraft/tile-docs";
+import { MICROBIT_V2_TILE_DOCS } from "../wendoo/tile-docs";
 
 /** The module a host imports to construct this target's adapter. */
 const ENTRY = fileURLToPath(new URL("./adapter.ts", import.meta.url));

@@ -1,6 +1,6 @@
 {
-  "name": "mindcraft-mcu",
-  "description": "Portable embedded runtime and platform targets for the Mindcraft bytecode VM.",
+  "name": "wendoo-mcu",
+  "description": "Portable embedded runtime and platform targets for the Wendoo bytecode VM.",
   "private": true,
   "license": "MIT",
   "scripts": {

@@ -8,7 +8,7 @@
 #include "core/runtime/load-error.h"
 #include "core/runtime/result.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * Bounds-checked forward read cursor over a read-only byte buffer. Every read
@@ -17,7 +17,7 @@ namespace mindcraft {
  * after the first failure. The viewed buffer must outlive the cursor.
  *
  * Wire encodings match the TS `MemoryStream` in
- * external/mindcraft-lang/packages/core/src/platform/stream.node.ts:
+ * external/wendoo-lang/packages/core/src/platform/stream.node.ts:
  * var-uints are ULEB128 limited to 32 bits (at most 5 bytes; the 5th byte
  * carries at most 4 payload bits and no continuation flag), var-ints are
  * zigzag-mapped var-uints, and f32 payloads are 4 little-endian bytes of the
@@ -122,4 +122,4 @@ private:
   size_t offset_;
 };
 
-} // namespace mindcraft
+} // namespace wendoo

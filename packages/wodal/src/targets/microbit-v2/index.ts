@@ -31,27 +31,6 @@ export {
   type SpeakerPlayingSnapshot,
 } from "./microbit-speaker";
 export {
-  BUILT_IN_SOUNDS,
-  type BuiltInSoundDef,
-  DEFAULT_BUILT_IN_SOUND_NAME,
-  SOUND_EMOJI_TYPE_ID,
-} from "./mindcraft/built-in-sounds";
-export { createMicroBitV2Environment } from "./mindcraft/environment";
-export { createMicroBitV2Module } from "./mindcraft/module";
-export {
-  WodalMicroBitRuntime,
-  type WodalMicroBitRuntimeOptions,
-} from "./mindcraft/runtime";
-export {
-  MICROBIT_V2_TILE_DOCS,
-  type MicroBitV2TileDocEntry,
-} from "./mindcraft/tile-docs";
-export {
-  MicroBitV2HostActions,
-  WodalMicroBitV2ModifierId,
-  WodalMicroBitV2ParameterId,
-} from "./mindcraft/tile-ids";
-export {
   type DecodedSoundSegment,
   decodeAllBuiltInSounds,
   decodeBuiltInSound,
@@ -71,3 +50,24 @@ export {
   renderSoundToPcm,
   SYNTH_SAMPLE_RATE,
 } from "./sound-synthesis";
+export {
+  BUILT_IN_SOUNDS,
+  type BuiltInSoundDef,
+  DEFAULT_BUILT_IN_SOUND_NAME,
+  SOUND_EMOJI_TYPE_ID,
+} from "./wendoo/built-in-sounds";
+export { createMicroBitV2Environment } from "./wendoo/environment";
+export { createMicroBitV2Module } from "./wendoo/module";
+export {
+  WodalMicroBitRuntime,
+  type WodalMicroBitRuntimeOptions,
+} from "./wendoo/runtime";
+export {
+  MICROBIT_V2_TILE_DOCS,
+  type MicroBitV2TileDocEntry,
+} from "./wendoo/tile-docs";
+export {
+  MicroBitV2HostActions,
+  WodalMicroBitV2ModifierId,
+  WodalMicroBitV2ParameterId,
+} from "./wendoo/tile-ids";

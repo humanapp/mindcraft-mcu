@@ -9,7 +9,7 @@
 
 namespace {
 
-struct RecordingDisplay : mindcraft::PixelDisplayPort {
+struct RecordingDisplay : wendoo::PixelDisplayPort {
   struct Call {
     int16_t x;
     int16_t y;
@@ -21,11 +21,11 @@ struct RecordingDisplay : mindcraft::PixelDisplayPort {
     calls.push_back({x, y, brightness});
   }
 
-  void scrollText(const uint8_t*, uint32_t, uint32_t, mindcraft::mc_number_t,
-                  mindcraft::AsyncHandle) override {}
+  void scrollText(const uint8_t*, uint32_t, uint32_t, wendoo::mc_number_t,
+                  wendoo::AsyncHandle) override {}
 
-  void drawFrames(mindcraft::DrawFrameSource&, uint32_t, mindcraft::mc_number_t,
-                  mindcraft::AsyncHandle) override {}
+  void drawFrames(wendoo::DrawFrameSource&, uint32_t, wendoo::mc_number_t,
+                  wendoo::AsyncHandle) override {}
 
   void preempt() override {}
 
@@ -36,7 +36,7 @@ struct RecordingDisplay : mindcraft::PixelDisplayPort {
   int lightLevel = 128;
 };
 
-struct FixedButtons : mindcraft::ButtonInputPort {
+struct FixedButtons : wendoo::ButtonInputPort {
   bool pressed[2] = {false, false};
 
   bool isPressed(uint8_t buttonIndex) override { return pressed[buttonIndex]; }
@@ -44,18 +44,18 @@ struct FixedButtons : mindcraft::ButtonInputPort {
 
 // Whole degrees for a radian orientation, matching CODAL's
 // int getPitch() { return (int)((360.0f*radians)/(2.0f*(float)PI)); }.
-int32_t degreesFromRadians(mindcraft::mc_number_t radians) {
+int32_t degreesFromRadians(wendoo::mc_number_t radians) {
   const float twoPi = 2.0f * static_cast<float>(3.141592653589793);
   return static_cast<int32_t>((360.0f * radians) / twoPi);
 }
 
-struct SettableAccelerometer : mindcraft::AccelerometerInputPort {
+struct SettableAccelerometer : wendoo::AccelerometerInputPort {
   uint16_t gesture = 0;
   int32_t x = 0;
   int32_t y = 0;
   int32_t z = 0;
-  mindcraft::mc_number_t pitchRadians = 0;
-  mindcraft::mc_number_t rollRadians = 0;
+  wendoo::mc_number_t pitchRadians = 0;
+  wendoo::mc_number_t rollRadians = 0;
 
   uint16_t getGesture() override { return gesture; }
   int32_t getX() override { return x; }
@@ -63,17 +63,17 @@ struct SettableAccelerometer : mindcraft::AccelerometerInputPort {
   int32_t getZ() override { return z; }
   int32_t getPitch() override { return degreesFromRadians(pitchRadians); }
   int32_t getRoll() override { return degreesFromRadians(rollRadians); }
-  mindcraft::mc_number_t getPitchRadians() override { return pitchRadians; }
-  mindcraft::mc_number_t getRollRadians() override { return rollRadians; }
+  wendoo::mc_number_t getPitchRadians() override { return pitchRadians; }
+  wendoo::mc_number_t getRollRadians() override { return rollRadians; }
 };
 
-struct SettableThermometer : mindcraft::ThermometerInputPort {
+struct SettableThermometer : wendoo::ThermometerInputPort {
   int32_t temperature = 21;
 
   int32_t getTemperature() override { return temperature; }
 };
 
-struct RecordingFaultDisplay : mindcraft::FaultDisplayPort {
+struct RecordingFaultDisplay : wendoo::FaultDisplayPort {
   int faceShown = 0;
   std::vector<std::string> scrolled;
 
@@ -81,7 +81,7 @@ struct RecordingFaultDisplay : mindcraft::FaultDisplayPort {
   void scrollFaultCode(const char* code) override { scrolled.push_back(code); }
 };
 
-struct RecordingI2C : mindcraft::I2CPort {
+struct RecordingI2C : wendoo::I2CPort {
   struct Write {
     uint16_t address;
     std::vector<uint8_t> bytes;
@@ -102,13 +102,13 @@ struct RecordingI2C : mindcraft::I2CPort {
   }
 };
 
-struct SteppingClock : mindcraft::MonotonicClockPort {
+struct SteppingClock : wendoo::MonotonicClockPort {
   uint32_t now = 0;
 
   uint32_t uptimeMillis() override { return now; }
 };
 
-struct RecordingGpio : mindcraft::GPIOPort {
+struct RecordingGpio : wendoo::GPIOPort {
   struct DigitalWrite {
     int pin;
     int value;
@@ -153,7 +153,7 @@ struct RecordingGpio : mindcraft::GPIOPort {
   }
 };
 
-struct RecordingSonar : mindcraft::SonarPort {
+struct RecordingSonar : wendoo::SonarPort {
   int reported = 0;
   int lastTrig = -1;
   int lastEcho = -1;
@@ -165,34 +165,34 @@ struct RecordingSonar : mindcraft::SonarPort {
   }
 };
 
-struct RecordingSpeaker : mindcraft::SpeakerPort {
+struct RecordingSpeaker : wendoo::SpeakerPort {
   struct Play {
     std::string name;
-    mindcraft::mc_number_t requestTimeMs;
+    wendoo::mc_number_t requestTimeMs;
   };
   std::vector<Play> plays;
   int preempts = 0;
 
-  void playSoundEmoji(const uint8_t* name, uint32_t length, mindcraft::mc_number_t requestTimeMs,
-                      mindcraft::AsyncHandle) override {
+  void playSoundEmoji(const uint8_t* name, uint32_t length, wendoo::mc_number_t requestTimeMs,
+                      wendoo::AsyncHandle) override {
     plays.push_back({std::string(reinterpret_cast<const char*>(name), length), requestTimeMs});
   }
 
   void preempt() override { preempts++; }
 };
 
-struct RecordingRadio : mindcraft::RadioPort {
+struct RecordingRadio : wendoo::RadioPort {
   int sentType = -2;
   uint8_t groupValue = 0;
-  mindcraft::RadioPacketView empty{};
+  wendoo::RadioPacketView empty{};
 
-  void send(const mindcraft::RadioSendView& packet) override { sentType = packet.type; }
+  void send(const wendoo::RadioSendView& packet) override { sentType = packet.type; }
   uint8_t group() override { return groupValue; }
   void setGroup(int g) override { groupValue = static_cast<uint8_t>(g); }
   void setTransmitPower(int) override {}
   void setFrequencyBand(int) override {}
   uint32_t ringSize() override { return 0; }
-  const mindcraft::RadioPacketView& ringAt(uint32_t) override { return empty; }
+  const wendoo::RadioPacketView& ringAt(uint32_t) override { return empty; }
   int headSequence() override { return 0; }
 };
 
@@ -211,8 +211,8 @@ TEST_CASE("a host stub can implement every device port") {
   RecordingRadio radio;
   RecordingSpeaker speaker;
 
-  mindcraft::DevicePorts ports{&display, &buttons, &faultDisplay, &clock,   &accelerometer, &i2c,
-                               &gpio,    &sonar,   &radio,        &speaker, &thermometer};
+  wendoo::DevicePorts ports{&display, &buttons, &faultDisplay, &clock,   &accelerometer, &i2c,
+                            &gpio,    &sonar,   &radio,        &speaker, &thermometer};
 
   ports.display->setPixel(2, 3, 255);
   REQUIRE(display.calls.size() == 1);
@@ -233,7 +233,7 @@ TEST_CASE("a host stub can implement every device port") {
   clock.now = 1000;
   CHECK(ports.clock->uptimeMillis() == 1000);
 
-  accelerometer.gesture = static_cast<uint16_t>(mindcraft::AccelerometerGesture::Shake);
+  accelerometer.gesture = static_cast<uint16_t>(wendoo::AccelerometerGesture::Shake);
   accelerometer.x = 1024;
   accelerometer.y = -512;
   accelerometer.z = -1000;
@@ -291,13 +291,13 @@ TEST_CASE("a host stub can implement every device port") {
 
   ports.radio->setGroup(7);
   CHECK(ports.radio->group() == 7);
-  mindcraft::RadioSendView packet{};
+  wendoo::RadioSendView packet{};
   packet.type = 0;
   ports.radio->send(packet);
   CHECK(radio.sentType == 0);
 
   const uint8_t soundName[5] = {'h', 'e', 'l', 'l', 'o'};
-  ports.speaker->playSoundEmoji(soundName, 5, 250, mindcraft::AsyncHandle{});
+  ports.speaker->playSoundEmoji(soundName, 5, 250, wendoo::AsyncHandle{});
   REQUIRE(speaker.plays.size() == 1);
   CHECK(speaker.plays[0].name == "hello");
   CHECK(speaker.plays[0].requestTimeMs == 250);
@@ -306,7 +306,7 @@ TEST_CASE("a host stub can implement every device port") {
 }
 
 TEST_CASE("AccelerometerGesture codes match the CODAL accelerometer gesture values") {
-  using mindcraft::AccelerometerGesture;
+  using wendoo::AccelerometerGesture;
   CHECK(static_cast<uint16_t>(AccelerometerGesture::None) == 0);
   CHECK(static_cast<uint16_t>(AccelerometerGesture::TiltUp) == 1);
   CHECK(static_cast<uint16_t>(AccelerometerGesture::TiltDown) == 2);

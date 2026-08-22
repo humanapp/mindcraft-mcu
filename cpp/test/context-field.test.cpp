@@ -4,8 +4,8 @@
 
 #include <cstdint>
 
-using mindcraft::ContextField;
-using mindcraft::kContextFieldCount;
+using wendoo::ContextField;
+using wendoo::kContextFieldCount;
 
 TEST_CASE("ContextField values are wire-stable") {
   CHECK(static_cast<uint8_t>(ContextField::Time) == 0);

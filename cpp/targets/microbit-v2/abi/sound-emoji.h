@@ -2,12 +2,12 @@
 
 #include <cstdint>
 
-namespace mindcraft
+namespace wendoo
 {
 
 /**
  * Pinned built-in sound-emoji table for the microbit-v2 speaker. Mirrors
- * packages/wodal/src/targets/microbit-v2/mindcraft/built-in-sounds.ts; the
+ * packages/wodal/src/targets/microbit-v2/wendoo/built-in-sounds.ts; the
  * observable-trace goldens hold the two sides equal. Each nominal duration is
  * the sum of the sound's encoded CODAL segment durations (codal-microbit-v2
  * `SoundExpressions.cpp`) with every randomized contribution read as zero;
@@ -57,4 +57,4 @@ inline bool soundEmojiDurationMs(const uint8_t *name, uint32_t length, uint32_t 
     return false;
 }
 
-} // namespace mindcraft
+} // namespace wendoo

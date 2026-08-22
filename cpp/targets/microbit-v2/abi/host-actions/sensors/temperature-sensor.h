@@ -6,7 +6,7 @@
 #include "core/runtime/mc-number.h"
 #include "core/runtime/value.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 /**
@@ -24,4 +24,4 @@ inline Value execTemperatureSensor(void *hostData, ExecutionContext &ctx, Span<c
     return Value::number(static_cast<mc_number_t>(ports.thermometer->getTemperature()));
 }
 
-} // namespace mindcraft
+} // namespace wendoo

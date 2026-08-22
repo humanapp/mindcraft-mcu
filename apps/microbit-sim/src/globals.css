@@ -1,8 +1,8 @@
 @import "tailwindcss";
-@import "../../../external/mindcraft-lang/packages/ui/src/ui.css";
-@source "../../../external/mindcraft-lang/packages/ui/src";
-@source "../../../external/mindcraft-lang/packages/docs/src";
-@source "../../../external/mindcraft-lang/packages/assistant-panel/src";
+@import "../../../external/wendoo-lang/packages/ui/src/ui.css";
+@source "../../../external/wendoo-lang/packages/ui/src";
+@source "../../../external/wendoo-lang/packages/docs/src";
+@source "../../../external/wendoo-lang/packages/assistant-panel/src";
 
 @layer base {
   body {

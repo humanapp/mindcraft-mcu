@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 const packageDir = fileURLToPath(new URL("..", import.meta.url));
 
 /** Path to the platform's compiler-project partition guard. */
-const guard = fileURLToPath(new URL("../../../external/mindcraft-lang/scripts/tsconfig-partition.js", import.meta.url));
+const guard = fileURLToPath(new URL("../../../external/wendoo-lang/scripts/tsconfig-partition.js", import.meta.url));
 
 describe("this app's compiler projects", () => {
   test("claim every source file exactly as tsconfig.projects.json declares", () => {

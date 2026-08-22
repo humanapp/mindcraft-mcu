@@ -6,7 +6,7 @@
 #include "core/runtime/host-actions/core-host-action-env.h"
 #include "core/runtime/value.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * Sensor body: the stable id of the most recently deactivated page as a string,
@@ -20,4 +20,4 @@ inline Value execPreviousPage(void* hostData, ExecutionContext& ctx, Span<const 
   return env.brain->getPreviousPageId();
 }
 
-} // namespace mindcraft
+} // namespace wendoo

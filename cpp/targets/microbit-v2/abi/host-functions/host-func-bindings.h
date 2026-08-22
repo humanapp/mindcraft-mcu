@@ -21,7 +21,7 @@
 #include "targets/microbit-v2/abi/host-functions/sonar.h"
 #include "targets/microbit-v2/abi/host-functions/thermometer-read.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 /** Number of microbit-v2 target host-function bindings the slice registers. */
@@ -119,4 +119,4 @@ makeMicroBitV2HostFuncBindings(DevicePorts &ports, MicroBitV2DrawImageEnv *drawE
     }};
 }
 
-} // namespace mindcraft
+} // namespace wendoo

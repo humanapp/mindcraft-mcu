@@ -1,0 +1,148 @@
+/**
+ * Golden observable trace for the temperature sensor tile: a brain pairing the
+ * temperature sensor in a rule's when() with the set-pixel actuator in its do().
+ * The sensor returns the die temperature as a signed Celsius number, which
+ * becomes the WHEN result (truthy while nonzero), so the rule fires on each tick
+ * the injected reading is nonzero. The scripted schedule covers a zero tick (0,
+ * no fire), a positive reading, and a NEGATIVE reading (each fires), so the
+ * committed trace pins the signed sensor result crossing the host-binding
+ * surface. The serialized binary and the rendered trace are pinned beside this
+ * spec as the cross-VM conformance fixtures: the C++ VM parity test
+ * (cpp/test/trace-parity.test.cpp) loads the binary, replays the same schedule,
+ * and byte-compares the trace.
+ */
+
+import assert from "node:assert/strict";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { test } from "node:test";
+import { fileURLToPath } from "node:url";
+import { mkActuatorTileId, mkSensorTileId, type WendooEnvironment } from "@wendoo-lang/core/app";
+import { BrainDef } from "@wendoo-lang/core/brain/model";
+import { type LinkedBrainProgram, linkedBrainProgramToJson } from "@wendoo-lang/core/runtime";
+import { buildWodalProgramImage } from "../../../wendoo/build-kernel";
+import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../wendoo/device-profile";
+import { shouldWriteGolden } from "../../../wendoo/golden-regeneration";
+import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../../wendoo/program-image";
+import { parseWodalProgramImageBytes, wodalProgramBytes } from "../../../wendoo/program-image-binary";
+import { MicroBit } from "../microbit";
+import { createMicroBitV2Environment } from "./environment";
+import { ObservableTraceWriter, observableTraceVmEvents } from "./observable-trace";
+import { WodalMicroBitRuntime } from "./runtime";
+import { MicroBitV2HostActions } from "./tile-ids";
+
+/** One scheduled think: the injected temperature applied before the time advance. */
+interface ScheduleStep {
+  readonly advanceMs: number;
+  readonly temperature: number;
+}
+
+// A zero tick (no fire), a positive reading (fires), and a negative reading
+// (fires): the sensor's number is truthy while nonzero.
+const SCHEDULE: readonly ScheduleStep[] = [
+  { advanceMs: 16, temperature: 0 },
+  { advanceMs: 16, temperature: 22 },
+  { advanceMs: 16, temperature: -5 },
+];
+
+const JSON_PATH = fileURLToPath(new URL("./__fixtures__/temperature-sensor.mcprogram", import.meta.url));
+const BIN_PATH = fileURLToPath(new URL("./__fixtures__/temperature-sensor.mcprogram.bin", import.meta.url));
+const TRACE_PATH = fileURLToPath(new URL("./__fixtures__/temperature-sensor.ticks.trace", import.meta.url));
+
+/** Builds the temperature-sensor -> set-pixel brain image through the tile API. */
+function buildFixtureImage(environment: WendooEnvironment): WodalProgramImage<LinkedBrainProgram> {
+  const tiles = environment.brainServices.edit.tiles;
+  const sensorTile = tiles.get(mkSensorTileId(MicroBitV2HostActions.Temperature.key));
+  const actuatorTile = tiles.get(mkActuatorTileId(MicroBitV2HostActions.DisplaySetPixel.key));
+  assert.ok(sensorTile);
+  assert.ok(actuatorTile);
+
+  const brainDef = BrainDef.emptyBrainDef(environment.brainServices, "temperature-sensor brain");
+  const rule = brainDef.pages().get(0)!.children().get(0)!;
+  rule.when().appendTile(sensorTile);
+  rule.do().appendTile(actuatorTile);
+
+  const built = buildWodalProgramImage({
+    brainDef,
+    environment,
+    deviceProfile: getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2),
+  });
+  if (!built.ok) {
+    assert.fail("expected a successful build");
+  }
+  return built.image;
+}
+
+/** Writes the JSON `.mcprogram` golden if missing, freezing the brain's generated id. */
+function ensureJsonGolden(): void {
+  if (existsSync(JSON_PATH)) {
+    return;
+  }
+  const environment = createMicroBitV2Environment();
+  const image = buildFixtureImage(environment);
+  writeFileSync(
+    JSON_PATH,
+    serializeWodalProgramImageJson({ ...image, program: linkedBrainProgramToJson(image.program) })
+  );
+}
+
+/** Runs the committed binary over the schedule with the observable-trace observers installed. */
+function runFixtureTrace(bin: Uint8Array): { trace: string; microbit: MicroBit } {
+  const environment = createMicroBitV2Environment();
+  const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
+  const decoded = parseWodalProgramImageBytes(
+    bin,
+    WodalDeviceProfileId.MICROBIT_V2,
+    environment.brainServices.runtime.types
+  );
+  const writer = new ObservableTraceWriter({
+    profileId: profile.numericProfileId,
+    precision: profile.numberPrecision,
+  });
+
+  const microbit = new MicroBit();
+  const deviceSetPixelValue = microbit.display.setPixelValue.bind(microbit.display);
+  microbit.display.setPixelValue = (x, y, brightness) => {
+    writer.displaySetPixel(x, y, brightness);
+    deviceSetPixelValue(x, y, brightness);
+  };
+
+  const vmEvents = observableTraceVmEvents(writer);
+  const runtime = new WodalMicroBitRuntime({ environment, microbit, vmEvents });
+  assert.deepEqual(runtime.loadWodalProgramImage(profile.createProgramImage(decoded.program)), { ok: true });
+
+  let lastThinkTimeMs = 0;
+  for (const [index, step] of SCHEDULE.entries()) {
+    microbit.setTemperature(step.temperature);
+    const timeMs = lastThinkTimeMs + step.advanceMs;
+    writer.tick(index + 1, timeMs, lastThinkTimeMs === 0 ? 0 : timeMs - lastThinkTimeMs);
+    runtime.tick(step.advanceMs);
+    lastThinkTimeMs = timeMs;
+  }
+  return { trace: writer.render(), microbit };
+}
+
+test("the committed temperature-sensor binary and observable trace golden are byte-stable", () => {
+  ensureJsonGolden();
+  const generated = wodalProgramBytes(new Uint8Array(readFileSync(JSON_PATH)));
+  if (shouldWriteGolden(BIN_PATH)) {
+    writeFileSync(BIN_PATH, generated);
+  }
+  const bin = new Uint8Array(readFileSync(BIN_PATH));
+  assert.deepEqual(bin, generated, "temperature-sensor.mcprogram.bin is not byte-stable");
+
+  const first = runFixtureTrace(bin);
+  const second = runFixtureTrace(bin);
+  assert.equal(second.trace, first.trace, "two fresh runs must render byte-identical traces");
+
+  const lines = first.trace.split("\n");
+  assert.equal(lines.filter((line) => line.startsWith("tick ")).length, SCHEDULE.length);
+  assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
+  // The positive and negative ticks fire, lighting pixel (0,0); the zero tick does not.
+  assert.equal(lines.filter((line) => line.startsWith("port display set-pixel ")).length, 2);
+  assert.equal(first.microbit.display.getPixelValue(0, 0), 255);
+
+  if (shouldWriteGolden(TRACE_PATH)) {
+    writeFileSync(TRACE_PATH, first.trace);
+  }
+  assert.equal(readFileSync(TRACE_PATH, "utf8"), first.trace, "temperature-sensor.ticks.trace is not byte-stable");
+});

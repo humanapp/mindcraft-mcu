@@ -13,26 +13,26 @@
 #include <cstdint>
 #include <vector>
 
-using mindcraft::ErrorCode;
-using mindcraft::ExecutionContext;
-using mindcraft::FiberRecord;
-using mindcraft::FiberScheduler;
-using mindcraft::FiberState;
-using mindcraft::Frame;
-using mindcraft::HostActionBinding;
-using mindcraft::kNoTypeIdx;
-using mindcraft::ManagedHeap;
-using mindcraft::MapKey;
-using mindcraft::Op;
-using mindcraft::ProgramImage;
-using mindcraft::RegionArena;
-using mindcraft::Result;
-using mindcraft::RuntimeSurface;
-using mindcraft::Span;
-using mindcraft::Value;
-using mindcraft::ValueTag;
-using mindcraft::VmObserver;
-using mindcraft::test::kDeviceProfileCaps;
+using wendoo::ErrorCode;
+using wendoo::ExecutionContext;
+using wendoo::FiberRecord;
+using wendoo::FiberScheduler;
+using wendoo::FiberState;
+using wendoo::Frame;
+using wendoo::HostActionBinding;
+using wendoo::kNoTypeIdx;
+using wendoo::ManagedHeap;
+using wendoo::MapKey;
+using wendoo::Op;
+using wendoo::ProgramImage;
+using wendoo::RegionArena;
+using wendoo::Result;
+using wendoo::RuntimeSurface;
+using wendoo::Span;
+using wendoo::Value;
+using wendoo::ValueTag;
+using wendoo::VmObserver;
+using wendoo::test::kDeviceProfileCaps;
 
 namespace {
 
@@ -43,7 +43,7 @@ namespace {
  * caps, so this is far below the retired per-fiber workspace size; it stays an
  * over-estimate so the count guard, not memory, governs the spawn tests.
  */
-constexpr size_t kPerFiberArenaBytes = 2048 + sizeof(mindcraft::FiberRecord);
+constexpr size_t kPerFiberArenaBytes = 2048 + sizeof(wendoo::FiberRecord);
 
 /** One shared region with room for several fibers' regions and records; tests spawn a few. */
 struct SchedulerStorage {
@@ -68,7 +68,7 @@ struct OrderObserver : VmObserver {
   }
 };
 
-Value execNoop(void*, ExecutionContext&, Span<const Value>) { return mindcraft::kVoidValue; }
+Value execNoop(void*, ExecutionContext&, Span<const Value>) { return wendoo::kVoidValue; }
 
 /** A number-keyed map key. */
 MapKey numKey(float n) { return MapKey{true, false, n, 0}; }
@@ -310,7 +310,7 @@ TEST_CASE("a reachable rule-variable store survives collection") {
   CHECK(heap.list(heap.mapGet(heap.map(inner), numKey(0.0f)))->size == 1);
 
   // Dropping the store from the context makes the whole structure unreachable.
-  ctx.ruleVarStores = mindcraft::kNilValue;
+  ctx.ruleVarStores = wendoo::kNilValue;
   heap.collect(scheduler);
   CHECK(heap.liveMapCount() == 0);
   CHECK(heap.liveListCount() == 0);
@@ -341,7 +341,7 @@ TEST_CASE("a container in a callsite-var slot survives collection") {
   CHECK(heap.list(ctx.callSiteSlot(0, 1))->size == 1);
 
   // Clearing the slot makes the list unreachable.
-  ctx.setCallSiteSlot(0, 1, mindcraft::kNilValue);
+  ctx.setCallSiteSlot(0, 1, wendoo::kNilValue);
   heap.collect(scheduler);
   CHECK(heap.liveListCount() == 0);
 }

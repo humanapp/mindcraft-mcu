@@ -1,4 +1,4 @@
-import { Button } from "@mindcraft-lang/ui";
+import { Button } from "@wendoo-lang/ui";
 import { Plus } from "lucide-react";
 import { useEffect, useId, useSyncExternalStore } from "react";
 import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";

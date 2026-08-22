@@ -1,4 +1,4 @@
-import { type Context, System } from "mindcraft";
+import { type Context, System } from "wendoo";
 
 /** Cutebot STM8 motor-driver I2C address (7-bit). */
 const CUTEBOT_ADDRESS = 0x10;

@@ -6,7 +6,7 @@
 #include "core/runtime/mc-number.h"
 #include "core/runtime/value.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 /**
@@ -23,4 +23,4 @@ inline Value execLightLevelSensor(void *hostData, ExecutionContext &ctx, Span<co
     return Value::number(static_cast<mc_number_t>(ports.display->getLightLevel()));
 }
 
-} // namespace mindcraft
+} // namespace wendoo

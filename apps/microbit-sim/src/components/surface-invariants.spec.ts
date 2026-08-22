@@ -105,9 +105,9 @@ describe("the header menu exposes a Learn more submenu with external links", () 
     assert.ok(source.includes('data-testid="homepage-link"'), "expected a homepage-link menu item");
     assert.ok(source.includes('data-testid="github-link"'), "expected a github-link menu item");
 
-    assert.ok(source.includes('href="https://mindcraft-lang.org"'), "expected the homepage link's exact href");
+    assert.ok(source.includes('href="https://wendoo-lang.org"'), "expected the homepage link's exact href");
     assert.ok(
-      source.includes('href="https://github.com/humanapp/mindcraft-lang"'),
+      source.includes('href="https://github.com/humanapp/wendoo-lang"'),
       "expected the github link's exact href"
     );
   });

@@ -7,7 +7,7 @@
 #include "core/runtime/bytecode.h"
 #include "core/runtime/value.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /** Sentinel funcId marking an absent optional function reference. */
 inline constexpr uint32_t kNoFuncId = 0xffffffffu;
@@ -69,7 +69,7 @@ struct StringRef {
 /**
  * Kind discriminant of a program type-table entry. The values are the wire
  * TYPS entry tags of the binary `.mcprogram` format (see
- * external/mindcraft-lang/packages/core/src/runtime/brain-program-binary-codec.ts)
+ * external/wendoo-lang/packages/core/src/runtime/brain-program-binary-codec.ts)
  * and are wire-stable: never renumber.
  */
 enum class TypeTag : uint8_t {
@@ -541,4 +541,4 @@ static_assert(std::is_trivially_copyable_v<ProgramImage>,
  */
 bool constValueToRuntime(const ConstValue& constant, Value& out);
 
-} // namespace mindcraft
+} // namespace wendoo

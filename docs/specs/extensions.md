@@ -1,6 +1,6 @@
 # Extensions
 
-Extensions let a Mindcraft project depend on other Mindcraft projects. An
+Extensions let a Wendoo project depend on other Wendoo projects. An
 extension is not a distinct artifact kind: it is an ordinary project, added to
 another project as a dependency. Extension support lives in the core project
 model; host applications surface it.
@@ -9,7 +9,7 @@ model; host applications surface it.
 
 - **Project.** The only unit of authorship and packaging. A project carries a
   content manifest holding its display name, semantic version, and its own
-  extensions list. The project interchange document (`.mindcraft`) embeds
+  extensions list. The project interchange document (`.wendoo`) embeds
   that manifest verbatim alongside the contents of the project's files --
   the manifest is the one schema, and the document adds only what a
   single-file container requires: a format marker and the file contents.
@@ -24,7 +24,7 @@ model; host applications surface it.
 ## Identity and namespacing
 
 **An extension's identity is its `<owner>/<repo>` coordinate**: a name in a
-namespace Mindcraft defines, independent of how the content is delivered. The
+namespace Wendoo defines, independent of how the content is delivered. The
 transports below (remote, app-embedded) are delivery mechanisms, not
 identity schemes -- GitHub is where remote content is fetched from, not what an
 identity is; no identity carries a transport prefix. For remotely fetched
@@ -510,7 +510,7 @@ with the manifest version authoritative and matching the tag. A published
 repository carries the whole project: the manifest's `files` entries
 expanded as individual files on disk, and the manifest itself, which
 carries everything else the project comprises -- brains and
-application-specific content travel inside `mindcraft.json`, preserved
+application-specific content travel inside `wendoo.json`, preserved
 verbatim whether or not the reading application recognizes them. The
 published tree also carries a `README.md` for the repository's human
 readers: the author's own when the project provides one, otherwise a
@@ -535,7 +535,7 @@ bundle -- belong to the published checkout, and a project bound for
 publication acquires them through rehydration, which reconstructs the
 project directory from the document.
 
-Publishing is performed with the Mindcraft command-line tool -- against a
+Publishing is performed with the Wendoo command-line tool -- against a
 repository checkout or a project directory -- or by any ordinary git
 workflow that satisfies the contract. The web editor does not publish: it
 is a credential-free surface. A project authored in a host application
@@ -570,7 +570,7 @@ working, for anyone else. It proceeds only on explicit consent. Published extens
 repositories are public (the CDN transport serves public repositories).
 
 Separately, a host application can offer publishing a project to the
-Mindcraft community feed: users submit project snapshots from within the
+Wendoo community feed: users submit project snapshots from within the
 application and browse and download other users' projects, with no repository
 hosting required of the user.
 
@@ -578,7 +578,7 @@ hosting required of the user.
 
 - No code executes at install time. Installation fetches, resolves, and
   registers; nothing in an extension runs until a brain runs.
-- Extension code executes as Mindcraft VM bytecode inside the sandbox, under
+- Extension code executes as Wendoo VM bytecode inside the sandbox, under
   the same budgets and host-call surface as the host project's own code. An
   extension has no JavaScript execution in the host page.
 - Catalog content-hash pinning, where present, binds an approved version to

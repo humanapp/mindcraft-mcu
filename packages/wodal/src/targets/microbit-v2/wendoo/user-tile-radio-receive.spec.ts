@@ -1,0 +1,217 @@
+/**
+ * Golden for the TS user-code radio drain-all receive (`ctx.microbit.radio.receive()`):
+ * a user-tile brain whose actuator drains every packet new since its cursor and
+ * echoes each packet's numeric value to the I2C bus, proving the Device-API
+ * drain returns the full batch in one think (versus the tile's one-per-think).
+ * Packets are injected into the receive ring between thinks. The serialized
+ * binary and the rendered trace are pinned beside this spec; the C++ VM parity
+ * test loads the same binary, replays the schedule, and byte-compares.
+ */
+
+import assert from "node:assert/strict";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { test } from "node:test";
+import { fileURLToPath } from "node:url";
+import type { WendooEnvironment } from "@wendoo-lang/core/app";
+import type { IBrainTileDef } from "@wendoo-lang/core/brain";
+import { BrainDef } from "@wendoo-lang/core/brain/model";
+import { type LinkedBrainProgram, linkedBrainProgramToJson } from "@wendoo-lang/core/runtime";
+import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@wendoo-lang/ts-compiler";
+import { TEST_PROJECT_NAMESPACE } from "@wendoo-lang/ts-compiler/testing";
+import { type IncomingRadioPacket, RadioPacketType } from "../../../core/radio";
+import { buildWodalProgramImage } from "../../../wendoo/build-kernel";
+import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../wendoo/device-profile";
+import { shouldWriteGolden } from "../../../wendoo/golden-regeneration";
+import { serializeWodalProgramImageJson, type WodalProgramImage } from "../../../wendoo/program-image";
+import { parseWodalProgramImageBytes, wodalProgramBytes } from "../../../wendoo/program-image-binary";
+import { MicroBit } from "../microbit";
+import { createMicroBitV2Environment } from "./environment";
+import { ObservableTraceWriter, observableTraceVmEvents } from "./observable-trace";
+import { WodalMicroBitRuntime } from "./runtime";
+
+const JSON_PATH = fileURLToPath(new URL("./__fixtures__/user-tile-radio-receive.mcprogram", import.meta.url));
+const BIN_PATH = fileURLToPath(new URL("./__fixtures__/user-tile-radio-receive.mcprogram.bin", import.meta.url));
+const TRACE_PATH = fileURLToPath(new URL("./__fixtures__/user-tile-radio-receive.ticks.trace", import.meta.url));
+
+const ECHO_ADDRESS = 0x10;
+
+const SENSOR_SOURCE = `import { Sensor, type Context } from "wendoo";
+
+export default Sensor({
+  name: "user-always",
+  onExecute(ctx: Context): boolean {
+    return ctx.microbit.buttonA.isPressed() >= 0;
+  },
+});
+`;
+
+const ACTUATOR_SOURCE = `import { Actuator, type Context } from "wendoo";
+
+let cursor = 0;
+
+export default Actuator({
+  name: "user-radio-drain",
+  onExecute(ctx: Context): void {
+    const packets = ctx.microbit.radio.receive(cursor);
+    for (const packet of packets) {
+      ctx.microbit.i2c.writeBuffer(0x10, Buffer.from([packet.value]));
+      cursor = packet.seq;
+    }
+  },
+});
+`;
+
+function numberPacket(value: number): IncomingRadioPacket {
+  return {
+    type: RadioPacketType.Number,
+    group: 0,
+    value,
+    name: "",
+    text: "",
+    bytes: new Uint8Array(0),
+    rssi: -42,
+    serial: 0,
+    time: 0,
+  };
+}
+
+/** Inject 3 packets in the gap before think 2; drain returns the whole batch then. */
+const SCHEDULE: readonly { advanceMs: number; inject?: readonly IncomingRadioPacket[] }[] = [
+  { advanceMs: 16 },
+  { advanceMs: 16, inject: [numberPacket(10), numberPacket(20), numberPacket(30)] },
+  { advanceMs: 16 },
+];
+
+function readText(relativePath: string): string {
+  return readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), "utf8");
+}
+
+function wodalAmbientFiles(): readonly AmbientFile[] {
+  return [
+    {
+      path: "wendoo.core.d.ts",
+      content: readText("../../../../../../external/wendoo-lang/packages/core/lib/wendoo.core.d.ts"),
+    },
+    { path: "wendoo.codal.d.ts", content: readText("../../../../lib/wendoo.codal.d.ts") },
+    {
+      path: "wendoo.microbit-v2.d.ts",
+      content: readText("../../../../targets/microbit-v2/lib/wendoo.microbit-v2.d.ts"),
+    },
+  ];
+}
+
+function findBundleTile(tiles: readonly IBrainTileDef[], kind: "actuator" | "sensor"): IBrainTileDef {
+  const tile = tiles.find((candidate) => candidate.kind === kind);
+  assert.ok(tile);
+  return tile;
+}
+
+function buildImage(environment: WendooEnvironment): WodalProgramImage<LinkedBrainProgram> {
+  const project = new UserTileProject({
+    projectNamespace: TEST_PROJECT_NAMESPACE,
+    ambientFiles: wodalAmbientFiles(),
+    services: environment.brainServices,
+  });
+  project.setFiles(
+    new Map([
+      ["user-always.ts", SENSOR_SOURCE],
+      ["user-radio-drain.ts", ACTUATOR_SOURCE],
+    ])
+  );
+  const compileResult = project.compileAll();
+  assert.equal(
+    compileResult.tsErrors.size,
+    0,
+    `Unexpected TypeScript diagnostics: ${JSON.stringify([...compileResult.tsErrors])}`
+  );
+  const bundle = buildCompiledActionBundle(compileResult, { services: environment.brainServices });
+  assert.ok(bundle);
+  environment.replaceActionBundle(bundle);
+
+  const brainDef = BrainDef.emptyBrainDef(environment.brainServices, "user-tile radio drain brain");
+  const rule = brainDef.pages().get(0)!.children().get(0)!;
+  rule.when().appendTile(findBundleTile(bundle.tiles, "sensor"));
+  rule.do().appendTile(findBundleTile(bundle.tiles, "actuator"));
+
+  const built = buildWodalProgramImage({
+    brainDef,
+    environment,
+    deviceProfile: getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2),
+  });
+  if (!built.ok) {
+    assert.fail(`expected a successful build: ${JSON.stringify(built.errors)}`);
+  }
+  return built.image;
+}
+
+function ensureJsonGolden(): void {
+  if (existsSync(JSON_PATH)) {
+    return;
+  }
+  const environment = createMicroBitV2Environment();
+  const image = buildImage(environment);
+  writeFileSync(
+    JSON_PATH,
+    serializeWodalProgramImageJson({ ...image, program: linkedBrainProgramToJson(image.program) })
+  );
+}
+
+function runTrace(bin: Uint8Array): string {
+  const environment = createMicroBitV2Environment();
+  const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
+  const decoded = parseWodalProgramImageBytes(
+    bin,
+    WodalDeviceProfileId.MICROBIT_V2,
+    environment.brainServices.runtime.types
+  );
+  const writer = new ObservableTraceWriter({ profileId: profile.numericProfileId, precision: profile.numberPrecision });
+
+  const microbit = new MicroBit();
+  const deviceWrite = microbit.i2c.write.bind(microbit.i2c);
+  microbit.i2c.write = (address, data) => {
+    writer.i2cWrite(address, data);
+    return deviceWrite(address, data);
+  };
+
+  const vmEvents = observableTraceVmEvents(writer);
+  const runtime = new WodalMicroBitRuntime({ environment, microbit, vmEvents });
+  assert.deepEqual(runtime.loadWodalProgramImage(profile.createProgramImage(decoded.program)), { ok: true });
+
+  let lastThinkTimeMs = 0;
+  for (const [index, step] of SCHEDULE.entries()) {
+    for (const packet of step.inject ?? []) {
+      microbit.radio.deliver(packet);
+    }
+    const timeMs = lastThinkTimeMs + step.advanceMs;
+    writer.tick(index + 1, timeMs, lastThinkTimeMs === 0 ? 0 : timeMs - lastThinkTimeMs);
+    runtime.tick(step.advanceMs);
+    lastThinkTimeMs = timeMs;
+  }
+  return writer.render();
+}
+
+test("the committed user-tile radio-receive binary and observable trace golden are byte-stable", () => {
+  ensureJsonGolden();
+  const generated = wodalProgramBytes(new Uint8Array(readFileSync(JSON_PATH)));
+  if (shouldWriteGolden(BIN_PATH)) {
+    writeFileSync(BIN_PATH, generated);
+  }
+  const bin = new Uint8Array(readFileSync(BIN_PATH));
+  assert.deepEqual(bin, generated, "user-tile-radio-receive.mcprogram.bin is not byte-stable");
+
+  const first = runTrace(bin);
+  const second = runTrace(bin);
+  assert.equal(second, first, "two fresh runs must render byte-identical traces");
+
+  const lines = first.split("\n");
+  assert.equal(lines.filter((line) => line.startsWith("fault ")).length, 0);
+  // The drain returns all 3 packets in the one think after they were injected.
+  assert.equal(lines.filter((line) => line === `port i2c write ${ECHO_ADDRESS.toString(16)} 0a`).length, 1);
+  assert.equal(lines.filter((line) => line === `port i2c write ${ECHO_ADDRESS.toString(16)} 14`).length, 1);
+  assert.equal(lines.filter((line) => line === `port i2c write ${ECHO_ADDRESS.toString(16)} 1e`).length, 1);
+
+  if (shouldWriteGolden(TRACE_PATH)) {
+    writeFileSync(TRACE_PATH, first);
+  }
+  assert.equal(readFileSync(TRACE_PATH, "utf8"), first, "user-tile-radio-receive.ticks.trace is not byte-stable");
+});

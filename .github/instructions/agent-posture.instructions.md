@@ -2,11 +2,11 @@
 applyTo: "**"
 ---
 
-# Agent Posture for Mindcraft MCU
+# Agent Posture for Wendoo MCU
 
 This file captures the working temperament and decision style expected of agents
 in this repository, especially for ambiguous work touching WODAL,
-`apps/microbit-sim`, the C++ on-hardware VM (`cpp/`), or Mindcraft bytecode
+`apps/microbit-sim`, the C++ on-hardware VM (`cpp/`), or Wendoo bytecode
 compatibility.
 
 It complements the enforceable rules; it does not restate them. The active
@@ -121,7 +121,7 @@ Be critical about where code belongs.
 
 `cpp/` owns:
 
-- The native C++ on-hardware Mindcraft VM and the micro:bit v2 device firmware.
+- The native C++ on-hardware Wendoo VM and the micro:bit v2 device firmware.
 - Bytecode-compatible mirroring of the TypeScript reference VM's observable
   semantics. The reference VM is the executable spec; `cpp/` must not diverge
   from it.
@@ -132,14 +132,14 @@ Be critical about where code belongs.
 - The native memory model: one region arena plus typed pools, no pre-sized
   buffers, no process-global mutable state.
 
-Shared Mindcraft packages own:
+Shared Wendoo packages own:
 
 - Product-level document contracts.
 - Shared service APIs.
-- Compiler/runtime contracts that apply across Mindcraft targets.
+- Compiler/runtime contracts that apply across Wendoo targets.
 
-Shared Mindcraft packages have two first-class, co-equal consumers:
-`apps/microbit-sim` and `external/mindcraft-lang/apps/ecosim`. The binding rule
+Shared Wendoo packages have two first-class, co-equal consumers:
+`apps/microbit-sim` and `external/wendoo-lang/apps/ecosim`. The binding rule
 (sweep and gate both apps, design for both platforms) is stated once, in
 "Repo-Specific Scope" in `AGENTS.md`.
 
@@ -149,17 +149,17 @@ not bury it in WODAL just because WODAL is the first consumer.
 
 ## WODAL Direction
 
-WODAL is the CODAL-inspired web device runtime for Mindcraft MCU. It should
+WODAL is the CODAL-inspired web device runtime for Wendoo MCU. It should
 remain adapter-shaped: it exposes runtime/device behavior that app layers
 consume, but it must not know about app UI or project screens.
 
 Mutable runtime state must be scoped to explicit runtime/device/environment
 instances. Do not introduce process-global mutable state or singletons. A
-process may host multiple Mindcraft platforms and multiple WODAL runtimes.
+process may host multiple Wendoo platforms and multiple WODAL runtimes.
 
 ## Project Contract Posture
 
-Treat shared project documents and artifact formats as Mindcraft product
+Treat shared project documents and artifact formats as Wendoo product
 contracts, not one-package implementation details. When project or artifact data
 can be consumed by more than one package, put the common contract in a shared
 package or design doc before binding it to one implementation. WODAL can own
@@ -182,7 +182,7 @@ When adding a new error family, follow the existing repo convention:
 
 ## API Surface Posture
 
-Be conservative when adding public API. Permanent WODAL APIs, Mindcraft
+Be conservative when adding public API. Permanent WODAL APIs, Wendoo
 builtins, tiles, ambient declarations, and target document fields are external
 contracts. Add them only when the confirmed implementation slice needs them or
 when the design has been explicitly reviewed.
@@ -219,6 +219,6 @@ First verify the current repo state. Do not implement immediately.
 Read the relevant instructions and files, summarize the current shape, identify
 one narrow next slice, and wait for confirmation before editing. Keep the slice
 small enough to review, but complete enough to be useful. Preserve WODAL,
-microbit-sim, the C++ VM (cpp/), shared Mindcraft package, and VM/runtime
+microbit-sim, the C++ VM (cpp/), shared Wendoo package, and VM/runtime
 boundaries.
 ```

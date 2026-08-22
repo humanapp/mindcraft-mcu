@@ -7,7 +7,7 @@
 #include "core/runtime/rule-var-store.h"
 #include "core/runtime/value.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * Reserved rule-variable key under which the VM stores each rule's WHEN result
@@ -24,7 +24,7 @@ inline constexpr mc_number_t kWhenResultRuleVarKey = -1.0f;
  * WHEN condition (which captures no result) falls through to the nearest
  * enclosing rule that has one. Returns nil when no rule is in scope or no rule on
  * the chain has captured a result. Mirrors `getWhenResult` in
- * external/mindcraft-lang/packages/core/src/runtime/context.ts, which reads the
+ * external/wendoo-lang/packages/core/src/runtime/context.ts, which reads the
  * same reserved key through the rule-variable getter `getByName`.
  */
 inline Value getWhenResult(const ExecutionContext& ctx, const ManagedHeap& heap) {
@@ -32,4 +32,4 @@ inline Value getWhenResult(const ExecutionContext& ctx, const ManagedHeap& heap)
   return ruleVarGet(ctx, heap, ctx.currentRuleFuncId, nameKey);
 }
 
-} // namespace mindcraft
+} // namespace wendoo

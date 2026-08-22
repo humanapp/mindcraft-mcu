@@ -2,9 +2,9 @@
 
 #include "core/runtime/result.h"
 
-using mindcraft::ErrorCode;
-using mindcraft::Result;
-using mindcraft::Status;
+using wendoo::ErrorCode;
+using wendoo::Result;
+using wendoo::Status;
 
 TEST_CASE("Status reports success") {
   Status status = Status::ok();

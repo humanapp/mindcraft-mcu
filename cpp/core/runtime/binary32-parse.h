@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace mindcraft {
+namespace wendoo {
 namespace binary32 {
 
 /**
@@ -34,4 +34,4 @@ namespace binary32 {
 float parseNumber(const char* bytes, uint32_t length);
 
 } // namespace binary32
-} // namespace mindcraft
+} // namespace wendoo

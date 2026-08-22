@@ -14,28 +14,20 @@
 import assert from "node:assert/strict";
 import { before, describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { fileContentText } from "@mindcraft-lang/app-host";
-import type { EmbeddedExtension } from "@mindcraft-lang/bridge-app";
-import {
-  applyCompiledUserTiles,
-  collectMetadataFromCompile,
-  resolveProjectExtensions,
-} from "@mindcraft-lang/bridge-app";
-import { buildEmbeddedExtensionFromDir } from "@mindcraft-lang/bridge-app/node";
-import type { MindcraftEnvironment } from "@mindcraft-lang/core/app";
-import { mkActuatorTileId, mkSensorTileId } from "@mindcraft-lang/core/app";
-import type { IBrainTileDef } from "@mindcraft-lang/core/brain";
-import {
-  createWorkspaceCompiler,
-  type WorkspaceCompileResult,
-  type WorkspaceSnapshot,
-} from "@mindcraft-lang/ts-compiler";
-import { createMicroBitV2Environment } from "@mindcraft-lang/wodal/targets/microbit-v2";
+import { fileContentText } from "@wendoo-lang/app-host";
+import type { EmbeddedExtension } from "@wendoo-lang/bridge-app";
+import { applyCompiledUserTiles, collectMetadataFromCompile, resolveProjectExtensions } from "@wendoo-lang/bridge-app";
+import { buildEmbeddedExtensionFromDir } from "@wendoo-lang/bridge-app/node";
+import type { WendooEnvironment } from "@wendoo-lang/core/app";
+import { mkActuatorTileId, mkSensorTileId } from "@wendoo-lang/core/app";
+import type { IBrainTileDef } from "@wendoo-lang/core/brain";
+import { createWorkspaceCompiler, type WorkspaceCompileResult, type WorkspaceSnapshot } from "@wendoo-lang/ts-compiler";
+import { createMicroBitV2Environment } from "@wendoo-lang/wodal/targets/microbit-v2";
 import {
   groupTilesByLibrary,
   type TileSourceLibrary,
   tileSourceNamespace,
-} from "../../../../external/mindcraft-lang/packages/ui/src/brain-editor/tile-library-groups.js";
+} from "../../../../external/wendoo-lang/packages/ui/src/brain-editor/tile-library-groups.js";
 import { createMicrobitTileVisualResolver } from "../brain/editor-config.js";
 import { createMicrobitDocsRegistry } from "../docs/docs-registry.js";
 import { microbitLibraryCatalogMoves } from "../services/microbit-extension-browser.js";
@@ -68,7 +60,7 @@ function embedRecord(): EmbeddedExtension[] {
     ),
     buildEmbeddedExtensionFromDir(extensionDir("../../../../packages/wodal/lib"), CODAL_LIB_COORDINATE),
     buildEmbeddedExtensionFromDir(
-      extensionDir("../../../../external/mindcraft-lang/packages/core/lib"),
+      extensionDir("../../../../external/wendoo-lang/packages/core/lib"),
       CORE_LIB_COORDINATE
     ),
   ];
@@ -82,7 +74,7 @@ const projectExtensions: Record<string, string> = {
 };
 
 /** Compile the gamepad + Cutebot libraries into a fresh micro:bit v2 environment via the real transitive resolver. */
-function compileGamepadAndCutebot(env: MindcraftEnvironment): WorkspaceCompileResult {
+function compileGamepadAndCutebot(env: WendooEnvironment): WorkspaceCompileResult {
   const resolved = resolveProjectExtensions(projectExtensions, {
     embedded: embedRecord(),
     fetched: publishedLibraryFetched,
@@ -109,7 +101,7 @@ function compileGamepadAndCutebot(env: MindcraftEnvironment): WorkspaceCompileRe
 }
 
 /** Whether a tile with the given display label is registered in the environment. */
-function envHasTile(env: MindcraftEnvironment, label: string): boolean {
+function envHasTile(env: WendooEnvironment, label: string): boolean {
   for (const catalog of env.tileCatalogs()) {
     for (const tile of catalog.getAll().toArray()) {
       if (tile.metadata?.label === label) {
@@ -121,7 +113,7 @@ function envHasTile(env: MindcraftEnvironment, label: string): boolean {
 }
 
 describe("cross-extension user-tile metadata", () => {
-  let env: MindcraftEnvironment;
+  let env: WendooEnvironment;
   let result: WorkspaceCompileResult;
 
   before(() => {
@@ -230,8 +222,8 @@ describe("cross-extension user-tile metadata", () => {
 
     const cutebotContent = publishedLibraryFetched.get(CUTEBOT_GH_REF);
     assert.ok(cutebotContent, "the Cutebot published snapshot is served by the fixture");
-    const cutebotManifestFile = cutebotContent.get("/mindcraft.json");
-    assert.ok(cutebotManifestFile, "the Cutebot snapshot carries a mindcraft.json");
+    const cutebotManifestFile = cutebotContent.get("/wendoo.json");
+    assert.ok(cutebotManifestFile, "the Cutebot snapshot carries a wendoo.json");
     const cutebotManifest = JSON.parse(fileContentText(cutebotManifestFile) ?? "") as { name: string };
     const cutebotOrigin = resolved.origins.find((origin) => origin.origin === CUTEBOT_EXT_COORDINATE);
     assert.equal(cutebotOrigin?.name, cutebotManifest.name, "the origin display name comes from the library manifest");

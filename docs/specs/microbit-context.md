@@ -14,7 +14,7 @@ which feature spec owns each `ctx.microbit.*` sub-interface.
   is the raw pressed level; the click/hold/double-click derivation lives only in the button
   *sensor tile*, not here.
 - The TS-author-facing type surface is the ambient
-  `packages/wodal/ambient/mindcraft.microbit-v2.d.ts` (the `Context.microbit: MicroBit`
+  `packages/wodal/ambient/wendoo.microbit-v2.d.ts` (the `Context.microbit: MicroBit`
   interface). **The feature specs are the design intent; that `.d.ts` is its maintained mirror** -
   keep them in lockstep.
 - **Reads share the underlying poll with the tiles:** one poll per input, consumed by both

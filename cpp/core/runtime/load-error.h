@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * Diagnostic codes for failures while decoding a device-bound binary payload.
@@ -10,7 +10,7 @@ namespace mindcraft {
  * append new members at the next free value when a new decode failure mode
  * is added. The members from `InvalidMagic` through `UnknownTypeAtom` carry
  * the decode-side names of `BrainProgramBinaryCodecErrorCode` in
- * external/mindcraft-lang/packages/core/src/runtime/brain-program-binary-codec.ts;
+ * external/wendoo-lang/packages/core/src/runtime/brain-program-binary-codec.ts;
  * keep the names aligned when that family changes.
  */
 enum class LoadError : uint16_t {
@@ -85,4 +85,4 @@ inline constexpr LoadErrorName kLoadErrorNames[] = {
  */
 const char* loadErrorName(LoadError code);
 
-} // namespace mindcraft
+} // namespace wendoo

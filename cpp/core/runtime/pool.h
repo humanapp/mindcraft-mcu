@@ -6,7 +6,7 @@
 
 #include "core/runtime/region-arena.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * Object pool of `T` slots over a {@link RegionArena}. A slot is carved from
@@ -87,4 +87,4 @@ private:
   uint32_t liveCount_ = 0;
 };
 
-} // namespace mindcraft
+} // namespace wendoo

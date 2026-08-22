@@ -1,4 +1,4 @@
-import { type Context, System } from "mindcraft";
+import { type Context, System } from "wendoo";
 
 /**
  * Cutebot line-tracking sensor as a shared System. It samples the two

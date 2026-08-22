@@ -2,14 +2,14 @@
 
 #include <cstdint>
 
-namespace mindcraft
+namespace wendoo
 {
 
 /**
  * Stable numeric funcIds for the microbit-v2 host functions: the native
  * struct methods and the sensor/actuator function entries. Mirrors the
  * MicroBitV2HostFuncId enum in
- * packages/wodal/src/targets/microbit-v2/mindcraft/tile-ids.ts. `HOST_CALL`
+ * packages/wodal/src/targets/microbit-v2/wendoo/tile-ids.ts. `HOST_CALL`
  * dispatches by these values and serialized programs record them verbatim,
  * so the values are wire-stable: never renumber or reuse a value; append new
  * members at the next free id. All values are at or above core's
@@ -82,4 +82,4 @@ enum class MicroBitV2HostFuncId : uint32_t
  */
 inline constexpr uint32_t kMicroBitV2HostFuncIdCount = 57;
 
-} // namespace mindcraft
+} // namespace wendoo

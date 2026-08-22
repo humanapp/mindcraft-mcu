@@ -1,4 +1,4 @@
-import { DocsPage as SharedDocsPage } from "@mindcraft-lang/docs";
+import { DocsPage as SharedDocsPage } from "@wendoo-lang/docs";
 import { useMemo, useSyncExternalStore } from "react";
 import { createMicrobitTileVisualResolver, microbitDataTypeIcons, microbitDataTypeNames } from "./brain/editor-config";
 import { useMicrobitSimEnvironment } from "./contexts/microbit-sim-environment";

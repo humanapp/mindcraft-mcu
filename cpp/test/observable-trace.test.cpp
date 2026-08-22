@@ -14,19 +14,19 @@
 #include <string>
 #include <vector>
 
-using mindcraft::BrainRuntime;
-using mindcraft::ErrorCode;
-using mindcraft::ExecutionContext;
-using mindcraft::FiberScheduler;
-using mindcraft::Frame;
-using mindcraft::ObservableTraceWriter;
-using mindcraft::Op;
-using mindcraft::ProgramImage;
-using mindcraft::RegionArena;
-using mindcraft::RuntimeSurface;
-using mindcraft::Span;
-using mindcraft::Value;
-using mindcraft::VmObserver;
+using wendoo::BrainRuntime;
+using wendoo::ErrorCode;
+using wendoo::ExecutionContext;
+using wendoo::FiberScheduler;
+using wendoo::Frame;
+using wendoo::ObservableTraceWriter;
+using wendoo::Op;
+using wendoo::ProgramImage;
+using wendoo::RegionArena;
+using wendoo::RuntimeSurface;
+using wendoo::Span;
+using wendoo::Value;
+using wendoo::VmObserver;
 
 namespace {
 
@@ -100,7 +100,7 @@ TEST_CASE("action lines render every defined value token") {
 
   StringTextSink sink;
   ObservableTraceWriter writer(sink, image);
-  const Value args[5] = {mindcraft::kVoidValue, mindcraft::kNilValue, Value::boolean(true),
+  const Value args[5] = {wendoo::kVoidValue, wendoo::kNilValue, Value::boolean(true),
                          Value::number(-7.25f), Value::borrowedString(0)};
   writer.hostActionCall(0x400, 3, Span<const Value>(args, 5), Value::boolean(false));
   const std::string expected =
@@ -192,9 +192,9 @@ TEST_CASE("a faulting rule traces the fault line shape and respawns next think")
   FaultTraceTap tap(writer);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {}, &tap};
-  std::array<uint8_t, 4 * (2048 + sizeof(mindcraft::FiberRecord) + 64) + 256> arenaBytes;
+  std::array<uint8_t, 4 * (2048 + sizeof(wendoo::FiberRecord) + 64) + 256> arenaBytes;
   RegionArena arena(Span<uint8_t>(arenaBytes.data(), arenaBytes.size()));
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   REQUIRE(brain.startup().isOk());
 
@@ -238,9 +238,9 @@ TEST_CASE("a synchronous bytecode-action call traces at the body's hand-back") {
   BytecodeActionTraceTap tap(writer);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {}, &tap};
-  std::array<uint8_t, 4 * (2048 + sizeof(mindcraft::FiberRecord) + 64) + 256> arenaBytes;
+  std::array<uint8_t, 4 * (2048 + sizeof(wendoo::FiberRecord) + 64) + 256> arenaBytes;
   RegionArena arena(Span<uint8_t>(arenaBytes.data(), arenaBytes.size()));
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   REQUIRE(brain.startup().isOk());
 
@@ -281,9 +281,9 @@ TEST_CASE("an asynchronous bytecode-action call traces at the dispatch") {
   BytecodeActionTraceTap tap(writer);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {}, &tap};
-  std::array<uint8_t, 4 * (2048 + sizeof(mindcraft::FiberRecord) + 64) + 256> arenaBytes;
+  std::array<uint8_t, 4 * (2048 + sizeof(wendoo::FiberRecord) + 64) + 256> arenaBytes;
   RegionArena arena(Span<uint8_t>(arenaBytes.data(), arenaBytes.size()));
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   REQUIRE(brain.startup().isOk());
 

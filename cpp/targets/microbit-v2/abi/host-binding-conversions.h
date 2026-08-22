@@ -6,7 +6,7 @@
 #include "core/runtime/mc-number.h"
 #include "core/runtime/value.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 namespace detail
@@ -59,4 +59,4 @@ inline uint8_t brightnessToPort(mc_number_t value)
 
 } // namespace detail
 
-} // namespace mindcraft
+} // namespace wendoo

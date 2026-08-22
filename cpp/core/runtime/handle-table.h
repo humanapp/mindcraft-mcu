@@ -8,14 +8,14 @@
 #include "core/runtime/region-arena.h"
 #include "core/runtime/value.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /** Sentinel handle id; real ids start at 1. */
 inline constexpr uint32_t kNoHandleId = 0;
 
 /**
  * Lifecycle state of an async {@link Handle}. Mirrors `HandleState` in
- * external/mindcraft-lang/packages/core/src/runtime/vm-types.ts.
+ * external/wendoo-lang/packages/core/src/runtime/vm-types.ts.
  */
 enum class HandleState : uint8_t {
   /** The async operation is in flight; the handle may still settle. */
@@ -37,7 +37,7 @@ struct HandleWaiter {
 /**
  * One async operation handle: its id, lifecycle state, settled value/error, the
  * list of waiting fibers, and the intrusive completed-queue link. Mirrors
- * `Handle` in external/mindcraft-lang/packages/core/src/runtime/vm-types.ts.
+ * `Handle` in external/wendoo-lang/packages/core/src/runtime/vm-types.ts.
  */
 struct Handle {
   /** Stable handle id, unique for the table's lifetime. */
@@ -58,7 +58,7 @@ struct Handle {
  * settles them (resolve/reject/cancel) only from `Pending`, records the fibers
  * waiting on each, and enqueues every settled handle onto a completed queue the
  * scheduler drains. Mirrors `HandleTable` in
- * external/mindcraft-lang/packages/core/src/runtime/vm-types.ts under the
+ * external/wendoo-lang/packages/core/src/runtime/vm-types.ts under the
  * enqueue->drain resolution model: a settle only flips state and enqueues, so a
  * host callback may settle a handle from outside the single-entry loop; the
  * scheduler resumes its waiters on a later drain.
@@ -283,7 +283,7 @@ private:
  * {@link reject}, or {@link cancel} when the work completes. Settling a handle
  * that is no longer pending -- already settled, cancelled with its fiber, or
  * freed -- is a no-op. Mirrors `AsyncHandle` in
- * external/mindcraft-lang/packages/core/src/runtime/value.ts.
+ * external/wendoo-lang/packages/core/src/runtime/value.ts.
  */
 struct AsyncHandle {
   /** The handle table the bound handle lives in. */
@@ -302,4 +302,4 @@ struct AsyncHandle {
   void cancel() const { table->cancel(id); }
 };
 
-} // namespace mindcraft
+} // namespace wendoo

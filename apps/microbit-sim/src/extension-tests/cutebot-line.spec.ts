@@ -17,17 +17,17 @@
 
 import assert from "node:assert/strict";
 import { before, describe, test } from "node:test";
-import { List } from "@mindcraft-lang/core";
-import { BrainDef, BrainTileModifierDef, type MindcraftEnvironment, mkActuatorTileId } from "@mindcraft-lang/core/app";
-import { type IBrainPageDef, type IBrainTileDef, mkPageTileId, RuleSide } from "@mindcraft-lang/core/brain";
+import { List } from "@wendoo-lang/core";
+import { BrainDef, BrainTileModifierDef, mkActuatorTileId, type WendooEnvironment } from "@wendoo-lang/core/app";
+import { type IBrainPageDef, type IBrainTileDef, mkPageTileId, RuleSide } from "@wendoo-lang/core/brain";
 import {
   type InsertionContext,
   parseTilesForSuggestions,
   suggestTiles,
-} from "@mindcraft-lang/core/brain/language-service";
-import { CoreHostActions, type LinkedBrainProgram, mkModifierTileId } from "@mindcraft-lang/core/runtime";
-import { buildWodalProgramImage, getWodalDeviceProfile, WodalDeviceProfileId } from "@mindcraft-lang/wodal";
-import { MicroBit, WodalMicroBitRuntime } from "@mindcraft-lang/wodal/targets/microbit-v2";
+} from "@wendoo-lang/core/brain/language-service";
+import { CoreHostActions, type LinkedBrainProgram, mkModifierTileId } from "@wendoo-lang/core/runtime";
+import { buildWodalProgramImage, getWodalDeviceProfile, WodalDeviceProfileId } from "@wendoo-lang/wodal";
+import { MicroBit, WodalMicroBitRuntime } from "@wendoo-lang/wodal/targets/microbit-v2";
 import { buildExtensionTestHarness, CUTEBOT_EXT_COORDINATE, type ExtensionTestHarness } from "./extension-test-harness";
 
 /** GPIO pins the Cutebot line sensors are wired to; a line reads LOW. */
@@ -57,7 +57,7 @@ const MARK = {
 
 /** Source of a test-only actuator that marks a rule firing by writing one byte to the observer address. */
 function observerSource(name: string, marker: number): string {
-  return `import { Actuator, type Context } from "mindcraft";
+  return `import { Actuator, type Context } from "wendoo";
 
 export default Actuator({
   name: ${JSON.stringify(name)},
@@ -69,7 +69,7 @@ export default Actuator({
 }
 
 /** An always-true trigger, so a rule driving it fires every think its page is active. */
-const ALWAYS_SOURCE = `import { type Context, Sensor } from "mindcraft";
+const ALWAYS_SOURCE = `import { type Context, Sensor } from "wendoo";
 
 export default Sensor({
   name: "always",
@@ -120,7 +120,7 @@ interface RunResult {
   readonly program: LinkedBrainProgram;
 }
 
-const environment = { current: undefined as MindcraftEnvironment | undefined };
+const environment = { current: undefined as WendooEnvironment | undefined };
 const harnessRef = { current: undefined as ExtensionTestHarness | undefined };
 
 before(() => {
@@ -143,7 +143,7 @@ function lineModifier(modId: string): IBrainTileDef {
 }
 
 /** Resolves a registered core host tile (e.g. switch page) from the environment. */
-function coreTile(env: MindcraftEnvironment, tileId: string): IBrainTileDef {
+function coreTile(env: WendooEnvironment, tileId: string): IBrainTileDef {
   const tile = env.brainServices.edit.tiles.get(tileId);
   assert.ok(tile, `core tile ${tileId} should be registered`);
   return tile;
@@ -162,7 +162,7 @@ function pageArgTile(brainDef: BrainDef, page: IBrainPageDef): IBrainTileDef {
  * System's startup `init` (which runs during load) is recorded under the init
  * stage.
  */
-function run(env: MindcraftEnvironment, brainDef: BrainDef, schedule: readonly Step[]): RunResult {
+function run(env: WendooEnvironment, brainDef: BrainDef, schedule: readonly Step[]): RunResult {
   const built = buildWodalProgramImage({
     brainDef,
     environment: env,
@@ -230,7 +230,7 @@ function systemCount(result: RunResult): number {
 }
 
 /** A one-page brain whose first rule is `when [+ modifier] -> do`; extra rules append at page level. */
-function brainWithRules(env: MindcraftEnvironment, name: string, rules: readonly RuleSpec[]): BrainDef {
+function brainWithRules(env: WendooEnvironment, name: string, rules: readonly RuleSpec[]): BrainDef {
   const brainDef = BrainDef.emptyBrainDef(env.brainServices, name);
   const page = brainDef.pages().get(0)!;
   for (const [index, spec] of rules.entries()) {

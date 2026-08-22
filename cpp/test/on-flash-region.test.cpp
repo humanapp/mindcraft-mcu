@@ -13,19 +13,19 @@
 #include <string>
 #include <vector>
 
-using mindcraft::ByteSpan;
-using mindcraft::kMicroBitV2TypeAtomIdCount;
-using mindcraft::kOnFlashFormatVersion;
-using mindcraft::kRegionHeaderSize;
-using mindcraft::kRegionMagicBytes;
-using mindcraft::LoadError;
-using mindcraft::ProgramImage;
-using mindcraft::ProgramReaderOptions;
-using mindcraft::readRegionProgram;
-using mindcraft::RegionArena;
-using mindcraft::RegionError;
-using mindcraft::Result;
-using mindcraft::Span;
+using wendoo::ByteSpan;
+using wendoo::kMicroBitV2TypeAtomIdCount;
+using wendoo::kOnFlashFormatVersion;
+using wendoo::kRegionHeaderSize;
+using wendoo::kRegionMagicBytes;
+using wendoo::LoadError;
+using wendoo::ProgramImage;
+using wendoo::ProgramReaderOptions;
+using wendoo::readRegionProgram;
+using wendoo::RegionArena;
+using wendoo::RegionError;
+using wendoo::Result;
+using wendoo::Span;
 
 namespace {
 
@@ -53,8 +53,8 @@ std::vector<uint8_t> buildRegion(ByteSpan payload, size_t regionSize) {
 } // namespace
 
 TEST_CASE("a valid region yields a payload the program reader decodes") {
-  const std::vector<uint8_t> payload = readBinaryFile(
-      std::string(mindcraft::test::kWodalFixturesDir) + "/button-display.mcprogram.bin");
+  const std::vector<uint8_t> payload = readBinaryFile(std::string(wendoo::test::kWodalFixturesDir) +
+                                                      "/button-display.mcprogram.bin");
   REQUIRE_FALSE(payload.empty());
   const std::vector<uint8_t> region =
       buildRegion(ByteSpan(payload.data(), payload.size()), 32 * 1024);

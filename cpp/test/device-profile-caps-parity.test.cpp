@@ -7,12 +7,12 @@
 #include "fixture-paths.h"
 #include "targets/microbit-v2/abi/device-profile.h"
 
-using mindcraft::kMicroBitV2DeviceProfileCaps;
+using wendoo::kMicroBitV2DeviceProfileCaps;
 
 namespace {
 
 // Decodes the committed device-profile cap table emitted by
-// packages/wodal/src/targets/microbit-v2/mindcraft/device-profile-caps-vectors.spec.ts:
+// packages/wodal/src/targets/microbit-v2/wendoo/device-profile-caps-vectors.spec.ts:
 //   magic 'M' 'C' 'C' '1' | varuint count | count * (varuint nameLen, name
 //   bytes, varuint value)
 struct Cursor {
@@ -86,7 +86,7 @@ int64_t capValue(const std::string& name) {
 
 TEST_CASE("microbit-v2 caps equal the wodal device profile") {
   const std::string path =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/device-profile-caps-vectors.bin";
+      std::string(wendoo::test::kWodalFixturesDir) + "/device-profile-caps-vectors.bin";
   const std::vector<uint8_t> buf = readFile(path);
   Cursor cursor{buf};
 

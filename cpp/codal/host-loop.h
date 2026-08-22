@@ -6,7 +6,7 @@
 #include "core/runtime/error-code.h"
 #include "core/runtime/result.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * The board-agnostic on-device host loop: the single VM entry point that
@@ -68,4 +68,4 @@ private:
   char faultCodeText_[kFaultCodeSize] = {};
 };
 
-} // namespace mindcraft
+} // namespace wendoo

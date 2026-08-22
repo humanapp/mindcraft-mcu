@@ -6,12 +6,12 @@
 #include "core/runtime/error-code.h"
 #include "core/runtime/mc-number.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * Runtime type tag of a {@link Value}. The visible-type members mirror the
  * NativeType enum in
- * external/mindcraft-lang/packages/core/src/runtime/type-defs.ts and are
+ * external/wendoo-lang/packages/core/src/runtime/type-defs.ts and are
  * contract-stable: `TYPE_CHECK` compares a value's tag against a `NativeType`
  * instruction operand, so these numbers must match the TS values exactly.
  * `Handle` and `Err` are VM-internal values; their tags sit outside the
@@ -61,7 +61,7 @@ inline constexpr uint32_t kBufferRefIndexMask = 0x7fffffffu;
 
 /**
  * Brain runtime value: a small trivially-copyable tagged union. Mirrors the
- * Value union in external/mindcraft-lang/packages/core/src/runtime/value.ts.
+ * Value union in external/wendoo-lang/packages/core/src/runtime/value.ts.
  * Inline kinds (numbers, booleans, the singletons, enum ordinals, function
  * references) carry their payload directly; reference kinds carry a pool
  * index or handle, never a pointer. Construct values through the static
@@ -349,4 +349,4 @@ inline constexpr Value kFalseValue = Value::boolean(false);
 static_assert(std::is_trivially_copyable_v<Value>, "Value stays trivially copyable");
 static_assert(sizeof(Value) <= 16, "Value stays within the locked layout budget");
 
-} // namespace mindcraft
+} // namespace wendoo

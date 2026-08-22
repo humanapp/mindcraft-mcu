@@ -4,7 +4,7 @@
 
 #include "core/runtime/mc-number.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * Truncates a brain number toward zero to a non-negative integer: non-finite
@@ -18,4 +18,4 @@ inline uint32_t toNonNegativeInteger(mc_number_t value) {
   return static_cast<uint32_t>(value);
 }
 
-} // namespace mindcraft
+} // namespace wendoo

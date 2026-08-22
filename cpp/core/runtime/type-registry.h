@@ -7,7 +7,7 @@
 #include "core/runtime/program.h"
 #include "core/runtime/value.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /** Reads a native struct field by id, returning the field value. */
 using NativeStructFieldGetter = Value (*)(const Value& source, uint32_t fieldId);
@@ -52,7 +52,7 @@ struct RegisteredStructSlotCount {
  * struct field names and slot counts, the instantiated container types the core
  * builtins produce, and the optional native field getter/setter of a struct
  * type. Mirrors the role of `runtime.types` in
- * external/mindcraft-lang/packages/core/src/runtime/vm.ts on the device.
+ * external/wendoo-lang/packages/core/src/runtime/vm.ts on the device.
  *
  * A program-local struct has no native getter/setter; its fields are managed
  * slab slots indexed by field id.
@@ -215,4 +215,4 @@ private:
   Span<const RegisteredStructSlotCount> registeredStructs_;
 };
 
-} // namespace mindcraft
+} // namespace wendoo

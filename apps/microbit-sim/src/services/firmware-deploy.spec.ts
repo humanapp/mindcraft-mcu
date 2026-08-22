@@ -5,8 +5,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { BrainDef, type MindcraftEnvironment, mkActuatorTileId, mkSensorTileId } from "@mindcraft-lang/core/app";
-import type { LinkedBrainProgram } from "@mindcraft-lang/core/runtime";
+import { BrainDef, mkActuatorTileId, mkSensorTileId, type WendooEnvironment } from "@wendoo-lang/core/app";
+import type { LinkedBrainProgram } from "@wendoo-lang/core/runtime";
 import {
   buildWodalProgramImage,
   type FirmwareMetadata,
@@ -15,8 +15,8 @@ import {
   WodalDeviceProfileId,
   type WodalProgramImage,
   wodalProgramBytes,
-} from "@mindcraft-lang/wodal";
-import { createMicroBitV2Environment, MicroBitV2HostActions } from "@mindcraft-lang/wodal/targets/microbit-v2";
+} from "@wendoo-lang/wodal";
+import { createMicroBitV2Environment, MicroBitV2HostActions } from "@wendoo-lang/wodal/targets/microbit-v2";
 import { patchFirmwareForImage, programBytesFromImage } from "./firmware-deploy";
 
 const ASSET_DIR = fileURLToPath(new URL("../assets/firmware/", import.meta.url));
@@ -29,7 +29,7 @@ const FIRMWARE_METADATA = JSON.parse(readFileSync(FIRMWARE_METADATA_PATH, "utf8"
 const CLI_BUNDLE = fileURLToPath(new URL("../../../../packages/wodal/dist/cli/wodal.js", import.meta.url));
 
 /** Authors the button-A -> set-pixel brain through the tile API, as the wodal golden does. */
-function buildButtonDisplayBrainDef(env: MindcraftEnvironment): BrainDef {
+function buildButtonDisplayBrainDef(env: WendooEnvironment): BrainDef {
   const tiles = env.brainServices.edit.tiles;
   const sensorTile = tiles.get(mkSensorTileId(MicroBitV2HostActions.ButtonA.key));
   const actuatorTile = tiles.get(mkActuatorTileId(MicroBitV2HostActions.DisplaySetPixel.key));
@@ -43,7 +43,7 @@ function buildButtonDisplayBrainDef(env: MindcraftEnvironment): BrainDef {
   return brainDef;
 }
 
-function buildButtonDisplayImage(env: MindcraftEnvironment): WodalProgramImage<LinkedBrainProgram> {
+function buildButtonDisplayImage(env: WendooEnvironment): WodalProgramImage<LinkedBrainProgram> {
   const built = buildWodalProgramImage({
     brainDef: buildButtonDisplayBrainDef(env),
     environment: env,

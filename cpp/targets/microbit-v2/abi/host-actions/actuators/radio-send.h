@@ -11,7 +11,7 @@
 #include "core/runtime/when-result.h"
 #include "targets/microbit-v2/abi/host-binding-conversions.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 /**
@@ -130,4 +130,4 @@ inline Value execRadioSend(void *hostData, ExecutionContext &ctx, Span<const Val
     return kVoidValue;
 }
 
-} // namespace mindcraft
+} // namespace wendoo

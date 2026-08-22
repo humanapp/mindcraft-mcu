@@ -3,19 +3,19 @@ import type {
   ScenarioInput,
   ScenarioInputKind,
   SubjectStateChannel,
-} from "@mindcraft-lang/assistant-bridge";
-import { DispatchOutcome } from "@mindcraft-lang/assistant-bridge";
-import type { RehearsalWorld, WorldStaging } from "@mindcraft-lang/assistant-bridge/kit";
+} from "@wendoo-lang/assistant-bridge";
+import { DispatchOutcome } from "@wendoo-lang/assistant-bridge";
+import type { RehearsalWorld, WorldStaging } from "@wendoo-lang/assistant-bridge/kit";
 import { AccelerometerGesture } from "../../../core/accelerometer";
 import { GestureInjector } from "../../../core/gesture-injector";
 import { OperationEnd } from "../../../core/operation-end";
 import { decodeRadioFrame, encodeRadioFrame, RadioPacketType, radioNumberIsInteger } from "../../../core/radio";
-import { buildWodalProgramImage } from "../../../mindcraft/build-kernel";
-import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
+import { buildWodalProgramImage } from "../../../wendoo/build-kernel";
+import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../wendoo/device-profile";
 import { MicroBit } from "../microbit";
-import type { DeviceOperationEnding } from "../mindcraft/context";
-import { getMicroBitContextDevice } from "../mindcraft/context";
-import { WodalMicroBitRuntime } from "../mindcraft/runtime";
+import type { DeviceOperationEnding } from "../wendoo/context";
+import { getMicroBitContextDevice } from "../wendoo/context";
+import { WodalMicroBitRuntime } from "../wendoo/runtime";
 
 /** Simulated milliseconds one think advances the device. */
 const THINK_STEP_MS = 16;

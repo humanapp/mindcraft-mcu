@@ -11,7 +11,7 @@
 #include "targets/microbit-v2/abi/host-functions/native-receiver.h"
 #include "targets/microbit-v2/abi/type-atom-id.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 namespace detail
@@ -46,7 +46,7 @@ inline int gpioIntArg(Span<const Value> args, uint32_t slot)
  * argument (0-20) through the GPIO port and pushes it back (0 low, 1 high). Arg
  * 0 is the GPIO receiver, arg 1 the pin; an unrecognized receiver reads 0.
  * `hostData` is the bound {@link DevicePorts}. Mirrors the `GPIO.digitalRead`
- * host function in packages/wodal/src/targets/microbit-v2/mindcraft/module.ts.
+ * host function in packages/wodal/src/targets/microbit-v2/wendoo/module.ts.
  */
 inline Status execGpioDigitalRead(void *hostData, Span<const Value> args, Value &result)
 {
@@ -62,7 +62,7 @@ inline Status execGpioDigitalRead(void *hostData, Span<const Value> args, Value 
  * status (0 on success). Arg 0 is the GPIO receiver, arg 1 the pin, arg 2 the
  * value; an unrecognized receiver pushes 0 without touching a pin. `hostData` is
  * the bound {@link DevicePorts}. Mirrors the `GPIO.digitalWrite` host function
- * in packages/wodal/src/targets/microbit-v2/mindcraft/module.ts.
+ * in packages/wodal/src/targets/microbit-v2/wendoo/module.ts.
  */
 inline Status execGpioDigitalWrite(void *hostData, Span<const Value> args, Value &result)
 {
@@ -79,7 +79,7 @@ inline Status execGpioDigitalWrite(void *hostData, Span<const Value> args, Value
  * success). Arg 0 is the GPIO receiver, arg 1 the pin, arg 2 the mode; an
  * unrecognized receiver pushes 0 without touching a pin. `hostData` is the bound
  * {@link DevicePorts}. Mirrors the `GPIO.setPull` host function in
- * packages/wodal/src/targets/microbit-v2/mindcraft/module.ts.
+ * packages/wodal/src/targets/microbit-v2/wendoo/module.ts.
  */
 inline Status execGpioSetPull(void *hostData, Span<const Value> args, Value &result)
 {
@@ -96,7 +96,7 @@ inline Status execGpioSetPull(void *hostData, Span<const Value> args, Value &res
  * on success). Arg 0 is the GPIO receiver, arg 1 the pin, arg 2 the angle; an
  * unrecognized receiver pushes 0 without touching a pin. `hostData` is the bound
  * {@link DevicePorts}. Mirrors the `GPIO.servoWrite` host function in
- * packages/wodal/src/targets/microbit-v2/mindcraft/module.ts.
+ * packages/wodal/src/targets/microbit-v2/wendoo/module.ts.
  */
 inline Status execGpioServoWrite(void *hostData, Span<const Value> args, Value &result)
 {
@@ -112,7 +112,7 @@ inline Status execGpioServoWrite(void *hostData, Span<const Value> args, Value &
  * argument (0-20) through the GPIO port and pushes it back (0-1023). Arg 0 is
  * the GPIO receiver, arg 1 the pin; an unrecognized receiver reads 0.
  * `hostData` is the bound {@link DevicePorts}. Mirrors the `GPIO.analogRead`
- * host function in packages/wodal/src/targets/microbit-v2/mindcraft/module.ts.
+ * host function in packages/wodal/src/targets/microbit-v2/wendoo/module.ts.
  */
 inline Status execGpioAnalogRead(void *hostData, Span<const Value> args, Value &result)
 {
@@ -122,4 +122,4 @@ inline Status execGpioAnalogRead(void *hostData, Span<const Value> args, Value &
     return Status::ok();
 }
 
-} // namespace mindcraft
+} // namespace wendoo

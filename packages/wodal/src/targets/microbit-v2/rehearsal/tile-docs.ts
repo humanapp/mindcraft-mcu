@@ -1,6 +1,6 @@
-import { pairTileDocs } from "@mindcraft-lang/assistant-bridge/kit";
-import { MICROBIT_V2_TILE_DOC_CONTENT } from "../mindcraft/_generated/tile-doc-content";
-import { MICROBIT_V2_TILE_DOCS } from "../mindcraft/tile-docs";
+import { pairTileDocs } from "@wendoo-lang/assistant-bridge/kit";
+import { MICROBIT_V2_TILE_DOC_CONTENT } from "../wendoo/_generated/tile-doc-content";
+import { MICROBIT_V2_TILE_DOCS } from "../wendoo/tile-docs";
 
 /**
  * The English documentation this target ships for its own tiles, as raw

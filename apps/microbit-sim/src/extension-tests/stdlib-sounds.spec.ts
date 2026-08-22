@@ -7,14 +7,14 @@
 
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { BrainDef } from "@mindcraft-lang/core/app";
-import { buildWodalProgramImage, getWodalDeviceProfile, WodalDeviceProfileId } from "@mindcraft-lang/wodal";
-import { MicroBit, WodalMicroBitRuntime } from "@mindcraft-lang/wodal/targets/microbit-v2";
+import { BrainDef } from "@wendoo-lang/core/app";
+import { buildWodalProgramImage, getWodalDeviceProfile, WodalDeviceProfileId } from "@wendoo-lang/wodal";
+import { MicroBit, WodalMicroBitRuntime } from "@wendoo-lang/wodal/targets/microbit-v2";
 import { MICROBIT_V2_LIB_COORDINATE } from "../services/microbit-extension-coordinates";
 import { buildExtensionTestHarness } from "./extension-test-harness";
 
 /** An always-true trigger, so the rule driving it fires every think. */
-const ALWAYS_SOURCE = `import { type Context, Sensor } from "mindcraft";
+const ALWAYS_SOURCE = `import { type Context, Sensor } from "wendoo";
 
 export default Sensor({
   name: "always",
@@ -25,7 +25,7 @@ export default Sensor({
 `;
 
 /** An async actuator that names a built-in sound through the stdlib's `sounds` const object. */
-const PLAY_TWINKLE_SOURCE = `import { Actuator, type Context } from "mindcraft";
+const PLAY_TWINKLE_SOURCE = `import { Actuator, type Context } from "wendoo";
 import { sounds } from "@lib/${MICROBIT_V2_LIB_COORDINATE}";
 
 export default Actuator({

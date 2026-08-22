@@ -4,10 +4,10 @@ import type {
   ExtensionFetchFileResult,
   ExtensionFetchTransport,
   ExtensionVersionListResult,
-} from "@mindcraft-lang/app-host";
-import { MINDCRAFT_JSON_PATH, parseExtensionReference } from "@mindcraft-lang/app-host";
-import type { FetchedExtensionContentMap } from "@mindcraft-lang/bridge-app";
-import { buildEmbeddedExtensionFromDir } from "@mindcraft-lang/bridge-app/node";
+} from "@wendoo-lang/app-host";
+import { parseExtensionReference, WENDOO_JSON_PATH } from "@wendoo-lang/app-host";
+import type { FetchedExtensionContentMap } from "@wendoo-lang/bridge-app";
+import { buildEmbeddedExtensionFromDir } from "@wendoo-lang/bridge-app/node";
 import { microbitCatalogEntryRef, microbitLibraryCatalogMoves } from "../services/microbit-extension-browser";
 import {
   CODAL_POSITION_EXT_COORDINATE,
@@ -40,7 +40,7 @@ function requireCodalPositionMoveRef(): string {
 /**
  * A published library's on-disk snapshot, assembled from its fixture directory
  * through the shared manifest-driven loader: exactly the files its
- * `mindcraft.json` `files` list names, plus the manifest itself, keyed by
+ * `wendoo.json` `files` list names, plus the manifest itself, keyed by
  * extension-relative path with no leading slash.
  */
 function fixtureFiles(dirName: string, coordinate: string): ReadonlyMap<string, string> {
@@ -56,9 +56,9 @@ function mounted(files: ReadonlyMap<string, string>): ReadonlyMap<string, string
 
 /** The declared manifest version of a fixture's content. */
 function fixtureVersion(files: ReadonlyMap<string, string>): string {
-  const manifest = files.get(MINDCRAFT_JSON_PATH);
+  const manifest = files.get(WENDOO_JSON_PATH);
   if (manifest === undefined) {
-    throw new Error("the fixture snapshot carries no mindcraft.json");
+    throw new Error("the fixture snapshot carries no wendoo.json");
   }
   return (JSON.parse(manifest) as { version: string }).version;
 }
@@ -79,15 +79,15 @@ const CODAL_POSITION_FILES = fixtureFiles("lib-codal-position", CODAL_POSITION_E
 /**
  * The version-form pinned `gh:` reference the published chassis manifests
  * declare their Position dependency as, read from the Cutebot snapshot's
- * `mindcraft.json`. Its pin is the bare release version; the GitHub tag it
+ * `wendoo.json`. Its pin is the bare release version; the GitHub tag it
  * resolves against is v-prefixed, a mapping jsDelivr performs.
  */
 export const CODAL_POSITION_VERSION_REF: string = requireCodalPositionVersionRef();
 
 function requireCodalPositionVersionRef(): string {
-  const manifest = CUTEBOT_FILES.get(MINDCRAFT_JSON_PATH);
+  const manifest = CUTEBOT_FILES.get(WENDOO_JSON_PATH);
   if (manifest === undefined) {
-    throw new Error("the Cutebot fixture snapshot carries no mindcraft.json");
+    throw new Error("the Cutebot fixture snapshot carries no wendoo.json");
   }
   const declared = (JSON.parse(manifest) as { extensions?: Record<string, string> }).extensions?.[
     CODAL_POSITION_EXT_COORDINATE

@@ -1,6 +1,6 @@
 #include "core/runtime/bytecode.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 const OpOperandSchema* operandSchemaFor(Op op) {
   for (const OpOperandSchema& row : kOperandSchema) {
@@ -11,4 +11,4 @@ const OpOperandSchema* operandSchemaFor(Op op) {
   return nullptr;
 }
 
-} // namespace mindcraft
+} // namespace wendoo

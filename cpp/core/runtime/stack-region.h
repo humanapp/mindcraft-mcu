@@ -6,7 +6,7 @@
 #include "core/runtime/managed-heap.h"
 #include "core/runtime/region-arena.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * Grow-on-demand backing for a fiber's execution regions (operand stack,
@@ -83,4 +83,4 @@ private:
   SlabAllocator slabs_;
 };
 
-} // namespace mindcraft
+} // namespace wendoo

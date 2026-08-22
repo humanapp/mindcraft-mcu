@@ -38,9 +38,9 @@ The device holds:
 
 ## Wire format (MakeCode interop - the on-air contract)
 
-Radio mirrors the **MakeCode radio packet format** byte-for-byte, so a Mindcraft brain and a MakeCode
+Radio mirrors the **MakeCode radio packet format** byte-for-byte, so a Wendoo brain and a MakeCode
 program on the same group interoperate seamlessly (the motivating case: a MakeCode-flashed controller
-talking to a Mindcraft robot, or vice versa). The format is copied from `pxt-common-packages`
+talking to a Wendoo robot, or vice versa). The format is copied from `pxt-common-packages`
 `libs/radio`; this section is the eternal contract.
 
 Each datagram payload (inside CODAL's 4-byte frame header) is:
@@ -66,7 +66,7 @@ The fixed prefix is 9 bytes (`PACKET_PREFIX_LENGTH`); the frame is 32 bytes
 - **Metadata:** the **system time** is the sender's running time; the **serial number** is the
   sender's device serial, or 0 unless the sender enabled transmit-serial. Both, plus the **RSSI**, are
   carried on the received packet (see Receive).
-- **f32 boundary nuance.** Mindcraft numbers are f32 but the wire carries Int32 or Float64: a received
+- **f32 boundary nuance.** Wendoo numbers are f32 but the wire carries Int32 or Float64: a received
   Float64 narrows to f32, and an Int32 above 2^24 cannot round-trip through f32. The conversion happens
   at the radio boundary; the micro:bit-v2 section pins it. (For the controller-state consumer - small
   integers and short strings - this never bites.)

@@ -13,9 +13,9 @@
  */
 
 import { readFileSync, writeFileSync } from "node:fs";
-import type { FirmwareMetadata } from "../mindcraft/firmware-metadata";
-import { patchFirmwareHex } from "../mindcraft/firmware-patcher";
-import { wodalProgramBytes } from "../mindcraft/program-image-binary";
+import type { FirmwareMetadata } from "../wendoo/firmware-metadata";
+import { patchFirmwareHex } from "../wendoo/firmware-patcher";
+import { wodalProgramBytes } from "../wendoo/program-image-binary";
 
 const USAGE =
   "usage: wodal patch --firmware <firmware.hex> --metadata <metadata.json> --program <brain.mcprogram[.bin]> --out <patched.hex>";

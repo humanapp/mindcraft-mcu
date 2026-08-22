@@ -341,13 +341,13 @@ see below); a hex digit `0`-`f` is a brightness level. Reflections:
 
 ## Image editing in VS Code for Web (CodeLens)
 
-TS user code is authored in **VS Code for Web** via the existing Mindcraft extension
-(`external/mindcraft-lang/apps/vscode-extension`, a browser web extension). An image literal in a
+TS user code is authored in **VS Code for Web** via the existing Wendoo extension
+(`external/wendoo-lang/apps/vscode-extension`, a browser web extension). An image literal in a
 TS file gets an in-editor pixel editor through a **CodeLens** - the always-visible affordance the
 construct deserves, since VS Code does not expose a clickable gutter widget to extensions.
 
 - **CodeLens.** A provider places an "edit image" lens on each image literal, following the
-  extension's existing CodeLens pattern (its `mindcraft.json` lock/unlock provider is the model:
+  extension's existing CodeLens pattern (its `wendoo.json` lock/unlock provider is the model:
   register a provider, bind the lens to a command, re-render via `onDidChangeCodeLenses`).
   Clicking the lens opens the editor.
 - **The editor is a webview** (the extension's first), so it must be **browser-only** - Canvas /
@@ -357,7 +357,7 @@ construct deserves, since VS Code does not expose a clickable gutter widget to e
 - **The literal text is the source of truth** - there is no separate asset file. Saving
   round-trips the literal: the literal's backtick-string range is replaced in the document (a
   `WorkspaceEdit` on the open document, or the extension's bridge full-file write through the
-  `mindcraft://` filesystem). This authors the same `Image` value as the image editor.
+  `wendoo://` filesystem). This authors the same `Image` value as the image editor.
 - **Literal locations come from the compiler, not regex.** The bridge compiler has the AST and
   reports the source ranges of editable asset literals; the extension places the lenses from
   those. This is a **general asset-literal-location facility**, not image-specific: each location
@@ -393,7 +393,7 @@ construct deserves, since VS Code does not expose a clickable gutter widget to e
   entry tagged by asset kind), which keeps diagnostics clean and lets the sound-effect editor
   reuse it. The facility is cross-asset and broader than display; this spec consumes it for
   images.
-- This tooling lives in the `mindcraft-lang` extension (the reference checkout), distinct from the
+- This tooling lives in the `wendoo-lang` extension (the reference checkout), distinct from the
   wodal / cpp / microbit-sim display work; it is editor-only and off the parity path.
 
 ## micro:bit-v2 target

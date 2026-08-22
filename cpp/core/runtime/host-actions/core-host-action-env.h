@@ -1,6 +1,6 @@
 #pragma once
 
-namespace mindcraft {
+namespace wendoo {
 
 class BrainRuntime;
 class GcRoots;
@@ -30,4 +30,4 @@ struct CoreHostActionEnv {
   const ProgramImage* program = nullptr;
 };
 
-} // namespace mindcraft
+} // namespace wendoo

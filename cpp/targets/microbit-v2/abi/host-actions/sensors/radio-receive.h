@@ -9,7 +9,7 @@
 #include "core/runtime/value.h"
 #include "core/runtime/vm.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 /**
@@ -216,4 +216,4 @@ inline void radioReceivePageEntered(void *hostData, ExecutionContext &ctx)
     ctx.clearCallSiteState();
 }
 
-} // namespace mindcraft
+} // namespace wendoo

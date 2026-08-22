@@ -6,9 +6,9 @@
 #include <cstring>
 #include <vector>
 
-using mindcraft::ByteCursor;
-using mindcraft::ByteSpan;
-using mindcraft::LoadError;
+using wendoo::ByteCursor;
+using wendoo::ByteSpan;
+using wendoo::LoadError;
 
 namespace {
 

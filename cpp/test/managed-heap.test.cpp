@@ -13,26 +13,26 @@
 #include <limits>
 #include <vector>
 
-using mindcraft::CapturesObject;
-using mindcraft::CoreFuncId;
-using mindcraft::GcMarker;
-using mindcraft::GcRoots;
-using mindcraft::HostCallEnv;
-using mindcraft::isTruthy;
-using mindcraft::kNoCaptures;
-using mindcraft::kStringRefIndexMask;
-using mindcraft::ListObject;
-using mindcraft::ManagedHeap;
-using mindcraft::MapKey;
-using mindcraft::MapObject;
-using mindcraft::ProgramImage;
-using mindcraft::RegionArena;
-using mindcraft::Span;
-using mindcraft::Status;
-using mindcraft::StringObject;
-using mindcraft::StringRef;
-using mindcraft::StructObject;
-using mindcraft::Value;
+using wendoo::CapturesObject;
+using wendoo::CoreFuncId;
+using wendoo::GcMarker;
+using wendoo::GcRoots;
+using wendoo::HostCallEnv;
+using wendoo::isTruthy;
+using wendoo::kNoCaptures;
+using wendoo::kStringRefIndexMask;
+using wendoo::ListObject;
+using wendoo::ManagedHeap;
+using wendoo::MapKey;
+using wendoo::MapObject;
+using wendoo::ProgramImage;
+using wendoo::RegionArena;
+using wendoo::Span;
+using wendoo::Status;
+using wendoo::StringObject;
+using wendoo::StringRef;
+using wendoo::StructObject;
+using wendoo::Value;
 
 namespace {
 
@@ -645,7 +645,7 @@ TEST_CASE("string equality and map keys unify borrowed and managed content") {
   // A one-string constant pool so a borrowed reference resolves to "hello".
   const char* pool = "hello";
   ProgramImage program{};
-  program.stringData = mindcraft::ByteSpan(reinterpret_cast<const uint8_t*>(pool), 5);
+  program.stringData = wendoo::ByteSpan(reinterpret_cast<const uint8_t*>(pool), 5);
   const StringRef refs[] = {{0, 5}};
   program.strings = Span<const StringRef>(refs, 1);
 
@@ -795,7 +795,7 @@ TEST_CASE("a managed buffer survives collection through a list element") {
 TEST_CASE("buffer content-equality holds across borrowed and managed references") {
   const uint8_t pool[] = {0x10, 0x20, 0x30};
   ProgramImage program{};
-  program.stringData = mindcraft::ByteSpan(pool, 3);
+  program.stringData = wendoo::ByteSpan(pool, 3);
 
   std::vector<uint8_t> storage(16 * 1024);
   RegionArena arena(Span<uint8_t>(storage.data(), storage.size()));

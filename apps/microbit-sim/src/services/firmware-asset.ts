@@ -5,7 +5,7 @@
  * place a compiled brain into the firmware's reserved on-flash region.
  */
 
-import type { FirmwareMetadata } from "@mindcraft-lang/wodal";
+import type { FirmwareMetadata } from "@wendoo-lang/wodal";
 import firmwareHex from "../assets/firmware/microbit-v2.hex?raw";
 import firmwareMetadataJson from "../assets/firmware/microbit-v2.metadata.json";
 

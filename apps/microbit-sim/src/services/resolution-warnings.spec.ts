@@ -1,19 +1,19 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { CatalogMoveWarningCode, type ExtensionResolutionWarning } from "@mindcraft-lang/bridge-app";
+import { CatalogMoveWarningCode, type ExtensionResolutionWarning } from "@wendoo-lang/bridge-app";
 import { unresolvedLibraryCoordinates } from "./resolution-warnings";
 
 const MOVE_FAILED_WARNING: ExtensionResolutionWarning = {
   kind: "catalog-move-failed",
-  origin: "mindcraft-lang/lib-codal-position",
-  reference: "embedded:mindcraft-lang/lib-codal-position",
+  origin: "wendoo-lang/lib-codal-position",
+  reference: "embedded:wendoo-lang/lib-codal-position",
   code: CatalogMoveWarningCode.FETCH_FAILED,
   message: "moved content is not available",
 };
 
 const UNRESOLVED_TARGET_WARNING: ExtensionResolutionWarning = {
   kind: "unresolved-target",
-  origin: "mindcraft-lang/trg-arcade",
+  origin: "wendoo-lang/trg-arcade",
   message: "target resolves to no content",
 };
 
@@ -53,7 +53,7 @@ describe("unresolvedLibraryCoordinates", () => {
   test("collects the origins of unresolved-kind warnings, unique, in encounter order", () => {
     const duplicate: ExtensionResolutionWarning = {
       ...MOVE_FAILED_WARNING,
-      reference: "gh:mindcraft-lang/lib-codal-position@0000000000000000000000000000000000000000",
+      reference: "gh:wendoo-lang/lib-codal-position@0000000000000000000000000000000000000000",
     };
     assert.deepEqual(unresolvedLibraryCoordinates([MOVE_FAILED_WARNING, duplicate, UNRESOLVED_TARGET_WARNING]), [
       MOVE_FAILED_WARNING.origin,

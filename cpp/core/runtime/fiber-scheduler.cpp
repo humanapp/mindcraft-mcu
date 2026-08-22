@@ -2,7 +2,7 @@
 
 #include "core/runtime/execution-context.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 FiberScheduler::FiberScheduler(const ProgramImage& program, const RuntimeSurface& surface,
                                RegionArena& arena, const DeviceProfileCaps& caps)
@@ -539,4 +539,4 @@ void FiberScheduler::enqueueSpawn(FiberRecord* record) {
   spawnTail_ = record;
 }
 
-} // namespace mindcraft
+} // namespace wendoo

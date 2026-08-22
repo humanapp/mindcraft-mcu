@@ -19,23 +19,23 @@
 #include <string>
 #include <vector>
 
-using mindcraft::ByteSpan;
-using mindcraft::CoreFuncId;
-using mindcraft::CoreHostActionEnv;
-using mindcraft::findHostActionById;
-using mindcraft::HostActionBinding;
-using mindcraft::kMicroBitV2TypeAtomIdCount;
-using mindcraft::kOperandSchema;
-using mindcraft::kSharedTypeAtomIdCount;
-using mindcraft::LoadError;
-using mindcraft::Op;
-using mindcraft::OpOperandSchema;
-using mindcraft::ProgramImage;
-using mindcraft::ProgramReaderOptions;
-using mindcraft::readProgramImage;
-using mindcraft::RegionArena;
-using mindcraft::Result;
-using mindcraft::Span;
+using wendoo::ByteSpan;
+using wendoo::CoreFuncId;
+using wendoo::CoreHostActionEnv;
+using wendoo::findHostActionById;
+using wendoo::HostActionBinding;
+using wendoo::kMicroBitV2TypeAtomIdCount;
+using wendoo::kOperandSchema;
+using wendoo::kSharedTypeAtomIdCount;
+using wendoo::LoadError;
+using wendoo::Op;
+using wendoo::OpOperandSchema;
+using wendoo::ProgramImage;
+using wendoo::ProgramReaderOptions;
+using wendoo::readProgramImage;
+using wendoo::RegionArena;
+using wendoo::Result;
+using wendoo::Span;
 
 namespace {
 
@@ -188,7 +188,7 @@ TEST_CASE(
   // Surface (a) of the carve-out gate: no contract CoreFuncId falls to
   // HOST_CALL's default -> unsupported() path. The set of unsupported lowering
   // targets must equal the empty allow-list.
-  for (uint32_t i = 0; i < mindcraft::kCoreFuncIdCount; i++) {
+  for (uint32_t i = 0; i < wendoo::kCoreFuncIdCount; i++) {
     CAPTURE(i);
     CHECK(coreFuncDispatch(static_cast<CoreFuncId>(i)) != CoreFuncDispatch::Unsupported);
   }
@@ -200,11 +200,11 @@ TEST_CASE("every dispatchable core host-action id has a registered binding") {
   // action table. A binding "exists" means a body is present, not merely an id
   // declared.
   CoreHostActionEnv env;
-  const std::array<HostActionBinding, mindcraft::kCoreHostActionBindingCount> bindings =
-      mindcraft::makeCoreHostActionBindings(env);
-  const mindcraft::Span<const HostActionBinding> table(bindings.data(), bindings.size());
+  const std::array<HostActionBinding, wendoo::kCoreHostActionBindingCount> bindings =
+      wendoo::makeCoreHostActionBindings(env);
+  const wendoo::Span<const HostActionBinding> table(bindings.data(), bindings.size());
 
-  for (const mindcraft::HostActionIds& action : mindcraft::kCoreHostActions) {
+  for (const wendoo::HostActionIds& action : wendoo::kCoreHostActions) {
     CAPTURE(action.actionId);
     const HostActionBinding* binding = findHostActionById(table, action.actionId);
     REQUIRE(binding != nullptr);
@@ -238,7 +238,7 @@ TEST_CASE("the golden program set exercises every contract opcode") {
   bool seen[256] = {};
   std::vector<uint8_t> arenaStorage(256 * 1024);
 
-  const std::filesystem::path fixtures(mindcraft::test::kWodalFixturesDir);
+  const std::filesystem::path fixtures(wendoo::test::kWodalFixturesDir);
   uint32_t programs = 0;
   for (const std::filesystem::directory_entry& entry :
        std::filesystem::directory_iterator(fixtures)) {

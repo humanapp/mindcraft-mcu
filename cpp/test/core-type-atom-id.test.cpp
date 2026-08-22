@@ -4,9 +4,9 @@
 
 #include <cstdint>
 
-using mindcraft::CoreTypeAtomId;
-using mindcraft::kCoreTypeAtomIdCount;
-using mindcraft::TARGET_TYPE_ATOM_BASE;
+using wendoo::CoreTypeAtomId;
+using wendoo::kCoreTypeAtomIdCount;
+using wendoo::TARGET_TYPE_ATOM_BASE;
 
 TEST_CASE("type-atom partition constant matches the TS declaration") {
   CHECK(TARGET_TYPE_ATOM_BASE == 1024);

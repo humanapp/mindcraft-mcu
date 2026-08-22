@@ -16,7 +16,7 @@
 #include "doctest/doctest.h"
 #include "fixture-paths.h"
 
-using namespace mindcraft;
+using namespace wendoo;
 
 namespace {
 
@@ -283,7 +283,7 @@ std::string hex(const uint8_t* bytes, size_t length) {
 
 TEST_CASE("every committed CoreFuncId vector byte-matches the C++ host-function body") {
   const std::string path =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/core-host-fn-vectors.bin";
+      std::string(wendoo::test::kWodalFixturesDir) + "/core-host-fn-vectors.bin";
   const std::vector<uint8_t> buf = readFile(path);
 
   Cursor cur{buf, 0};

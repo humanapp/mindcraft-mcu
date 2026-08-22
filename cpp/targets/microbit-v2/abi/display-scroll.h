@@ -2,12 +2,12 @@
 
 #include <cstdint>
 
-namespace mindcraft
+namespace wendoo
 {
 
 /**
  * Pinned scroll completion-time spec for the microbit-v2 display. Mirrors
- * packages/wodal/src/targets/microbit-v2/mindcraft/display-scroll.ts; the
+ * packages/wodal/src/targets/microbit-v2/wendoo/display-scroll.ts; the
  * observable-trace goldens hold the two sides equal. The animation advances one
  * step every per-step delay (CODAL `AnimatedDisplay::updateScrollText`); a
  * character occupies {@link kScrollDisplayWidth} columns plus
@@ -55,4 +55,4 @@ inline constexpr uint32_t scrollDurationMs(uint32_t characterCount, uint32_t del
     return scrollStepCount(characterCount) * delayMs;
 }
 
-} // namespace mindcraft
+} // namespace wendoo

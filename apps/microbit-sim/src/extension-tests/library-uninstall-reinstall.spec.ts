@@ -4,24 +4,24 @@ import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import { describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import type { ExtensionFetchTransport } from "@mindcraft-lang/app-host";
-import { createIdbProjectStore, DEFAULT_PROJECT_NAME, ProjectManager } from "@mindcraft-lang/app-host";
-import type { EmbeddedExtension, UserTileApplyResult } from "@mindcraft-lang/bridge-app";
-import { AppEnvironmentHost } from "@mindcraft-lang/bridge-app";
-import { buildEmbeddedExtensionFromDir } from "@mindcraft-lang/bridge-app/node";
-import { type BrainDef, coreModule, mkVariableFactoryTileId } from "@mindcraft-lang/core/app";
-import type { IBrainDef } from "@mindcraft-lang/core/brain";
-import { TypeDiagCode } from "@mindcraft-lang/core/brain/compiler";
-import { BrainRuleDef } from "@mindcraft-lang/core/brain/model";
-import type { BrainTileFactoryDef } from "@mindcraft-lang/core/brain/tiles";
-import { createProfileNumerics } from "@mindcraft-lang/core/runtime";
-import { isCompilerControlledPath, type WorkspaceCompileResult } from "@mindcraft-lang/ts-compiler";
+import type { ExtensionFetchTransport } from "@wendoo-lang/app-host";
+import { createIdbProjectStore, DEFAULT_PROJECT_NAME, ProjectManager } from "@wendoo-lang/app-host";
+import type { EmbeddedExtension, UserTileApplyResult } from "@wendoo-lang/bridge-app";
+import { AppEnvironmentHost } from "@wendoo-lang/bridge-app";
+import { buildEmbeddedExtensionFromDir } from "@wendoo-lang/bridge-app/node";
+import { type BrainDef, coreModule, mkVariableFactoryTileId } from "@wendoo-lang/core/app";
+import type { IBrainDef } from "@wendoo-lang/core/brain";
+import { TypeDiagCode } from "@wendoo-lang/core/brain/compiler";
+import { BrainRuleDef } from "@wendoo-lang/core/brain/model";
+import type { BrainTileFactoryDef } from "@wendoo-lang/core/brain/tiles";
+import { createProfileNumerics } from "@wendoo-lang/core/runtime";
+import { isCompilerControlledPath, type WorkspaceCompileResult } from "@wendoo-lang/ts-compiler";
 import {
   createWodalSharedModule,
   getWodalDeviceProfile,
   type WodalDeviceProfile,
   WodalDeviceProfileId,
-} from "@mindcraft-lang/wodal";
+} from "@wendoo-lang/wodal";
 import {
   buildMicrobitExtensionEntries,
   installMicrobitReference,
@@ -46,12 +46,12 @@ import {
   YAHBOOM_GAMEPAD_GH_REF,
 } from "./published-library-fixtures";
 
-// The store module imports the Vite-provided `virtual:mindcraft-embedded-extensions`
+// The store module imports the Vite-provided `virtual:wendoo-embedded-extensions`
 // bundle module, which Node's loader cannot resolve. The tests never call
 // `MicrobitSimEnvironmentStore.create()` (the only consumer of that bundle);
 // map the virtual specifier to an empty stub bundle and load the store module
 // dynamically after the hook is registered.
-const VIRTUAL_EMBEDDED_EXTENSIONS = "virtual:mindcraft-embedded-extensions";
+const VIRTUAL_EMBEDDED_EXTENSIONS = "virtual:wendoo-embedded-extensions";
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === VIRTUAL_EMBEDDED_EXTENSIONS) {
@@ -100,7 +100,7 @@ function appEmbedRecord(): EmbeddedExtension[] {
     ),
     buildEmbeddedExtensionFromDir(extensionDir("../../../../packages/wodal/lib"), CODAL_LIB_COORDINATE),
     buildEmbeddedExtensionFromDir(
-      extensionDir("../../../../external/mindcraft-lang/packages/core/lib"),
+      extensionDir("../../../../external/wendoo-lang/packages/core/lib"),
       CORE_LIB_COORDINATE
     ),
   ];
@@ -185,7 +185,7 @@ async function makeProductionShapedStore(
       },
       defaultExtensions: microbitDefaultExtensions,
     }),
-    modules: [coreModule(), createWodalSharedModule(), activeProfile.createMindcraftModule()],
+    modules: [coreModule(), createWodalSharedModule(), activeProfile.createWendooModule()],
     numerics: createProfileNumerics(activeProfile.numberPrecision),
     mounts: [],
     embeddedExtensions: embedRecord,
@@ -564,7 +564,7 @@ describe("library uninstall -> offer reinstall -- production store wiring", () =
   // a reload to show or clear badges.
   test("the imported user project's badges track uninstall and reinstall exactly like a reload would", async () => {
     const documentText = readFileSync(
-      fileURLToPath(new URL("../../test-fixtures/cuterbot-user-report.mindcraft", import.meta.url)),
+      fileURLToPath(new URL("../../test-fixtures/cuterbot-user-report.wendoo", import.meta.url)),
       "utf8"
     );
     let live: MicrobitSimEnvironmentStore | undefined;
@@ -574,7 +574,7 @@ describe("library uninstall -> offer reinstall -- production store wiring", () =
       await first.store.initialize();
       await settle(200);
 
-      const imported = await first.store.importProject(new File([documentText], "cuterbot (1).mindcraft"));
+      const imported = await first.store.importProject(new File([documentText], "cuterbot (1).wendoo"));
       assert.equal(imported.success, true, "the user document imports");
       await settle(300);
       const brainIds = first.store.getBrains().map((brain) => brain.id);

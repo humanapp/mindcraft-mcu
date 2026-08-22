@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
-import type { ExtensionCatalogMoveEntry } from "@mindcraft-lang/app-host";
-import { CATALOG_ENTRY_KIND_EXTENSION, validateExtensionCatalogDocument } from "@mindcraft-lang/app-host";
-import type { EmbeddedExtension, FetchedExtensionContentMap } from "@mindcraft-lang/bridge-app";
-import { ExtensionActionResultCode } from "@mindcraft-lang/bridge-app";
+import type { ExtensionCatalogMoveEntry } from "@wendoo-lang/app-host";
+import { CATALOG_ENTRY_KIND_EXTENSION, validateExtensionCatalogDocument } from "@wendoo-lang/app-host";
+import type { EmbeddedExtension, FetchedExtensionContentMap } from "@wendoo-lang/bridge-app";
+import { ExtensionActionResultCode } from "@wendoo-lang/bridge-app";
 import {
   buildMicrobitCatalogOffers,
   buildMicrobitExtensionEntries,
@@ -24,15 +24,15 @@ import {
 } from "./microbit-extension-coordinates";
 import microbitLibraryCatalogDocument from "./microbit-library-catalog.json";
 
-const POSITION = "mindcraft-lang/lib-codal-position";
+const POSITION = "wendoo-lang/lib-codal-position";
 
 /** The retired embedded coordinates the catalog moves migrate away from. */
-const RETIRED_CUTEBOT = "mindcraft-lang/lib-microbit-cutebot";
-const RETIRED_YAHBOOM = "mindcraft-lang/lib-microbit-yahboom-gamepad";
+const RETIRED_CUTEBOT = "wendoo-lang/lib-microbit-cutebot";
+const RETIRED_YAHBOOM = "wendoo-lang/lib-microbit-yahboom-gamepad";
 
 /** Read a published library fixture's manifest from its snapshot directory. */
 function publishedManifest(dir: string): { name: string; version: string; description: string } {
-  const url = new URL(`../../test-fixtures/${dir}/mindcraft.json`, import.meta.url);
+  const url = new URL(`../../test-fixtures/${dir}/wendoo.json`, import.meta.url);
   return JSON.parse(readFileSync(url, "utf8"));
 }
 
@@ -102,7 +102,7 @@ describe("microbit library catalog document", () => {
     const [move] = entries;
     // A default-selector flip: no `from`, and the destination keeps the source coordinate.
     assert.equal(move.from, undefined);
-    assert.match(move.ref, /^gh:mindcraft-lang\/lib-codal-position@[0-9a-f]{40}$/);
+    assert.match(move.ref, /^gh:wendoo-lang\/lib-codal-position@[0-9a-f]{40}$/);
   });
 
   test("each retired chassis coordinate declares a default-selector rename move onto its catalog entry's pin", () => {
@@ -127,7 +127,7 @@ describe("microbit library catalog document", () => {
     assert.throws(
       () =>
         loadMicrobitLibraryCatalog({
-          format: "mindcraft.catalog/1",
+          format: "wendoo.catalog/1",
           entries: [],
           moves: { "example-org/moved": { ref: "not-a-reference" } },
         }),
@@ -141,7 +141,7 @@ describe("buildMicrobitCatalogOffers -- compatibility-filtered against the micro
     canonicalOrigin: MICROBIT_V2_LIB_COORDINATE,
     files: [
       { path: "index.ts", content: "export {};" },
-      { path: "mindcraft.json", content: JSON.stringify({ name: "Micro:bit v2", version: "0.2.1" }) },
+      { path: "wendoo.json", content: JSON.stringify({ name: "Micro:bit v2", version: "0.2.1" }) },
     ],
   };
   const embedRecord: readonly EmbeddedExtension[] = [layer];
@@ -188,12 +188,12 @@ describe("buildMicrobitExtensionEntries -- manifest-map membership drives gh: ca
     canonicalOrigin: MICROBIT_V2_LIB_COORDINATE,
     files: [
       { path: "index.ts", content: "export {};" },
-      { path: "mindcraft.json", content: JSON.stringify({ name: "Micro:bit v2", version: "0.2.1" }) },
+      { path: "wendoo.json", content: JSON.stringify({ name: "Micro:bit v2", version: "0.2.1" }) },
     ],
   };
 
   function manifestFiles(name: string): ReadonlyMap<string, string> {
-    return new Map([["/mindcraft.json", JSON.stringify({ name, version: "1.0.0" })]]);
+    return new Map([["/wendoo.json", JSON.stringify({ name, version: "1.0.0" })]]);
   }
 
   test("lists a top-level gh: install from the map and omits a transitive gh: dep held only in the snapshot store", () => {
@@ -226,7 +226,7 @@ describe("target/stdlib split -- browser representation of the seeded target and
       files: [
         { path: "index.ts", content: "export {};" },
         {
-          path: "mindcraft.json",
+          path: "wendoo.json",
           content: JSON.stringify({
             name: coordinate,
             version: manifest.version ?? "0.2.1",
@@ -259,7 +259,7 @@ describe("target/stdlib split -- browser representation of the seeded target and
   const yahboomRef = `gh:${YAHBOOM_GAMEPAD_EXT_COORDINATE}@${YAHBOOM_SHA}`;
   /** The installed gamepad's fetched snapshot content, as the store holds it after the install transaction. */
   const yahboomContent: FetchedExtensionContentMap = new Map([
-    [yahboomRef, new Map([["/mindcraft.json", JSON.stringify({ name: "Yahboom Gamepad", version: "0.2.0" })]])],
+    [yahboomRef, new Map([["/wendoo.json", JSON.stringify({ name: "Yahboom Gamepad", version: "0.2.0" })]])],
   ]);
   // A fresh project seeds only the target; the user has then installed the
   // yahboom catalog offer at its pinned gh: reference.

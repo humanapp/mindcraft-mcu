@@ -9,15 +9,15 @@
 
 import assert from "node:assert/strict";
 import { before, describe, test } from "node:test";
-import type { BrainServices, IBrainPageDef, IBrainTileDef } from "@mindcraft-lang/core/brain";
+import type { BrainServices, IBrainPageDef, IBrainTileDef } from "@wendoo-lang/core/brain";
 import {
   mkActuatorTileId,
   mkModifierTileId,
   mkOperatorTileId,
   mkParameterTileId,
   mkSensorTileId,
-} from "@mindcraft-lang/core/brain";
-import { __test__appendTile } from "@mindcraft-lang/core/brain/__test__";
+} from "@wendoo-lang/core/brain";
+import { __test__appendTile } from "@wendoo-lang/core/brain/__test__";
 import {
   paragraphText,
   projectPageParagraph,
@@ -25,19 +25,19 @@ import {
   segmentDisplayText,
   sentenceText,
   whenTriggerWord,
-} from "@mindcraft-lang/core/brain/language-service";
-import { BrainDef, type BrainPageDef, type BrainRuleDef } from "@mindcraft-lang/core/brain/model";
-import { BrainTileLiteralDef } from "@mindcraft-lang/core/brain/tiles";
-import type { Localizer } from "@mindcraft-lang/core/localization";
-import { createDefaultLocalizer } from "@mindcraft-lang/core/localization";
-import { CoreHostActions, CoreOpId, CoreTypeIds } from "@mindcraft-lang/core/runtime";
-import { composePivotReading, composeSentenceReading } from "@mindcraft-lang/ui/brain-editor/sentence-composer";
+} from "@wendoo-lang/core/brain/language-service";
+import { BrainDef, type BrainPageDef, type BrainRuleDef } from "@wendoo-lang/core/brain/model";
+import { BrainTileLiteralDef } from "@wendoo-lang/core/brain/tiles";
+import type { Localizer } from "@wendoo-lang/core/localization";
+import { createDefaultLocalizer } from "@wendoo-lang/core/localization";
+import { CoreHostActions, CoreOpId, CoreTypeIds } from "@wendoo-lang/core/runtime";
+import { composePivotReading, composeSentenceReading } from "@wendoo-lang/ui/brain-editor/sentence-composer";
 import {
   createMicroBitV2Environment,
   MicroBitV2HostActions,
   WodalMicroBitV2ModifierId as Mod,
   WodalMicroBitV2ParameterId as Param,
-} from "@mindcraft-lang/wodal/targets/microbit-v2";
+} from "@wendoo-lang/wodal/targets/microbit-v2";
 
 let services: BrainServices;
 let localizer: Localizer;

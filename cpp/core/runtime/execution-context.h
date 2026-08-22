@@ -9,7 +9,7 @@
 #include "core/runtime/region-arena.h"
 #include "core/runtime/value.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /** Sentinel call-site id marking execution outside any host-call dispatch. */
 inline constexpr uint32_t kNoCallSiteId = 0xffffffffu;
@@ -17,7 +17,7 @@ inline constexpr uint32_t kNoCallSiteId = 0xffffffffu;
 /**
  * Outcome of a rule's most recent WHEN evaluation, recorded by the VM at the
  * WHEN boundary opcodes. Mirrors `RuleFiringState` in
- * external/mindcraft-lang/packages/core/src/runtime/rule-services.ts.
+ * external/wendoo-lang/packages/core/src/runtime/rule-services.ts.
  */
 enum class RuleFiringState : uint8_t {
   /** The rule's most recent completed WHEN evaluation passed its gate. */
@@ -33,7 +33,7 @@ enum class RuleFiringState : uint8_t {
  * stamps, the bound call site of an in-flight host dispatch, per-callsite
  * host state, and the brain variable slots. Mirrors the runtime-state surface
  * of `ExecutionContext` in
- * external/mindcraft-lang/packages/core/src/runtime/context.ts for the
+ * external/wendoo-lang/packages/core/src/runtime/context.ts for the
  * implemented opcode subset.
  *
  * The slot tables are sized to the loaded program and drawn from the shared
@@ -280,4 +280,4 @@ struct ExecutionContext {
   }
 };
 
-} // namespace mindcraft
+} // namespace wendoo

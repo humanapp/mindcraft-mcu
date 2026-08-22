@@ -8,7 +8,7 @@
 #include "core/runtime/region-arena.h"
 #include "core/runtime/result.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /** Binary `.mcprogram` envelope/format version this reader decodes. */
 inline constexpr uint8_t kBinaryProgramFormatVersion = 4;
@@ -34,7 +34,7 @@ struct ProgramReaderOptions {
  * Decodes a binary `.mcprogram` buffer into a {@link ProgramImage} whose
  * pools are allocated from `arena`. The wire layout is the format-version-3
  * encoding of
- * external/mindcraft-lang/packages/core/src/runtime/brain-program-binary-codec.ts:
+ * external/wendoo-lang/packages/core/src/runtime/brain-program-binary-codec.ts:
  * a 4-byte magic, a format version byte, the profileId var-uint, a presence
  * bitmask, then the positional sections `CSTR`, `TYPS`, `CNUM`, `CVAL`,
  * `FUNC`, `VARS`, the present optional sections (`ACTS`, `RULF`, `RANC`,
@@ -56,4 +56,4 @@ struct ProgramReaderOptions {
 Result<ProgramImage, LoadError> readProgramImage(ByteSpan wire, RegionArena& arena,
                                                  const ProgramReaderOptions& options);
 
-} // namespace mindcraft
+} // namespace wendoo

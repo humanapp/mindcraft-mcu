@@ -3,7 +3,7 @@ import { toInt32, toUint8 } from "./numeric";
 /**
  * MakeCode radio packet types, mirrored byte-for-byte from
  * `pxt-common-packages` `libs/radio`. The numeric value is the packet's first
- * on-air byte; a Mindcraft brain and a MakeCode program on the same group
+ * on-air byte; a Wendoo brain and a MakeCode program on the same group
  * interoperate because both encode and decode these identically.
  */
 export enum RadioPacketType {

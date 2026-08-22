@@ -2,7 +2,7 @@
 
 #include <cstring>
 
-namespace mindcraft {
+namespace wendoo {
 namespace binary32 {
 
 namespace {
@@ -560,4 +560,4 @@ float parseNumber(const char* bytes, uint32_t length) {
 }
 
 } // namespace binary32
-} // namespace mindcraft
+} // namespace wendoo

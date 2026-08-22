@@ -18,7 +18,7 @@
 #include "targets/microbit-v2/abi/host-actions/sensors/radio-receive.h"
 #include "targets/microbit-v2/abi/host-actions/sensors/temperature-sensor.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 /** Number of microbit-v2 host-action bindings the slice registers. */
@@ -74,4 +74,4 @@ makeMicroBitV2HostActionBindings(DevicePorts &ports,
     }};
 }
 
-} // namespace mindcraft
+} // namespace wendoo

@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-
-import { BUILT_IN_SOUNDS } from "./mindcraft/built-in-sounds";
 import { decodeAllBuiltInSounds, decodeBuiltInSound, decodeSoundExpression } from "./sound-expression";
+import { BUILT_IN_SOUNDS } from "./wendoo/built-in-sounds";
 
 describe("sound-expression decoder", () => {
   test("each built-in's decoded segment durations sum to its pinned nominal duration", () => {

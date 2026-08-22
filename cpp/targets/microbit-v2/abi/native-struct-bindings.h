@@ -10,7 +10,7 @@
 #include "targets/microbit-v2/abi/microbit-field.h"
 #include "targets/microbit-v2/abi/type-atom-id.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 /**
@@ -22,7 +22,7 @@ namespace mindcraft
  * `MicroBitField` id, and the host-function bodies decode it back to the button
  * port index. All mutable state lives in the device ports, so these values
  * carry no heap reference. Mirrors mkNativeStructValue in
- * packages/wodal/src/targets/microbit-v2/mindcraft/module.ts, where the live
+ * packages/wodal/src/targets/microbit-v2/wendoo/module.ts, where the live
  * device reference plays the discriminator's role.
  */
 inline constexpr uint32_t kNativeStructSingleton = 0;
@@ -114,4 +114,4 @@ makeMicroBitV2NativeStructBindings(const TypeRegistry &registry)
     }};
 }
 
-} // namespace mindcraft
+} // namespace wendoo

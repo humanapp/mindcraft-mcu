@@ -11,7 +11,7 @@
 #include "targets/microbit-v2/abi/host-functions/native-receiver.h"
 #include "targets/microbit-v2/abi/type-atom-id.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 namespace detail
@@ -48,7 +48,7 @@ inline int sonarIntArg(Span<const Value> args, uint32_t slot)
  * pin; an unrecognized receiver reads 0. The first reference to a pin pair
  * registers that sonar with the background driver. `hostData` is the bound
  * {@link DevicePorts}. Mirrors the `Sonar.distance` host function in
- * packages/wodal/src/targets/microbit-v2/mindcraft/module.ts.
+ * packages/wodal/src/targets/microbit-v2/wendoo/module.ts.
  */
 inline Status execSonarDistance(void *hostData, Span<const Value> args, Value &result)
 {
@@ -59,4 +59,4 @@ inline Status execSonarDistance(void *hostData, Span<const Value> args, Value &r
     return Status::ok();
 }
 
-} // namespace mindcraft
+} // namespace wendoo

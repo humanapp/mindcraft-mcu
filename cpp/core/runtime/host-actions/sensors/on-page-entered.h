@@ -4,7 +4,7 @@
 #include "core/runtime/execution-context.h"
 #include "core/runtime/value.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * Page-activation hook of the on-page-entered sensor: arms the call site to fire
@@ -31,4 +31,4 @@ inline Value execOnPageEntered(void* hostData, ExecutionContext& ctx, Span<const
   return kFalseValue;
 }
 
-} // namespace mindcraft
+} // namespace wendoo

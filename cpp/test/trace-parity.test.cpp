@@ -36,24 +36,24 @@
 #include <string>
 #include <vector>
 
-using mindcraft::BrainRuntime;
-using mindcraft::ByteSpan;
-using mindcraft::ErrorCode;
-using mindcraft::ExecutionContext;
-using mindcraft::FiberScheduler;
-using mindcraft::HostLoop;
-using mindcraft::kMicroBitV2TypeAtomIdCount;
-using mindcraft::kSharedTypeAtomIdCount;
-using mindcraft::LoadError;
-using mindcraft::ObservableTraceWriter;
-using mindcraft::ProgramImage;
-using mindcraft::ProgramReaderOptions;
-using mindcraft::RegionArena;
-using mindcraft::Result;
-using mindcraft::RuntimeSurface;
-using mindcraft::Span;
-using mindcraft::Value;
-using mindcraft::VmObserver;
+using wendoo::BrainRuntime;
+using wendoo::ByteSpan;
+using wendoo::ErrorCode;
+using wendoo::ExecutionContext;
+using wendoo::FiberScheduler;
+using wendoo::HostLoop;
+using wendoo::kMicroBitV2TypeAtomIdCount;
+using wendoo::kSharedTypeAtomIdCount;
+using wendoo::LoadError;
+using wendoo::ObservableTraceWriter;
+using wendoo::ProgramImage;
+using wendoo::ProgramReaderOptions;
+using wendoo::RegionArena;
+using wendoo::Result;
+using wendoo::RuntimeSurface;
+using wendoo::Span;
+using wendoo::Value;
+using wendoo::VmObserver;
 
 namespace {
 
@@ -72,7 +72,7 @@ std::string readTextFile(const std::string& path) {
 
 // Whole degrees for a radian orientation, matching CODAL's
 // int getPitch() { return (int)((360.0f*radians)/(2.0f*(float)PI)); }.
-int32_t degreesFromRadians(mindcraft::mc_number_t radians) {
+int32_t degreesFromRadians(wendoo::mc_number_t radians) {
   const float twoPi = 2.0f * static_cast<float>(3.141592653589793);
   return static_cast<int32_t>((360.0f * radians) / twoPi);
 }
@@ -83,7 +83,7 @@ int32_t degreesFromRadians(mindcraft::mc_number_t radians) {
  * observable trace before it lands.
  */
 struct HostMicroBit {
-  struct TracingDisplay : mindcraft::PixelDisplayPort {
+  struct TracingDisplay : wendoo::PixelDisplayPort {
     ObservableTraceWriter* writer = nullptr;
     uint8_t pixels[5][5] = {};
     // The display lease, shared by the scroll and the timed draw: busy until
@@ -91,7 +91,7 @@ struct HostMicroBit {
     // dropped; a zero-duration draw pastes and settles without taking it.
     bool busy = false;
     float completionTime = 0;
-    mindcraft::AsyncHandle active{};
+    wendoo::AsyncHandle active{};
     // A held image-sequence draw: its frames (each row-major brightness bytes),
     // their sizes, and the playback cursor. Empty while a scroll holds the lease.
     std::vector<std::vector<uint8_t>> seqFrames;
@@ -129,9 +129,9 @@ struct HostMicroBit {
     // scroll requested while the lease is held is dropped (settled at once, no
     // port line).
     void scrollText(const uint8_t* bytes, uint32_t length, uint32_t delayMs, float requestTimeMs,
-                    mindcraft::AsyncHandle handle) override {
+                    wendoo::AsyncHandle handle) override {
       if (busy) {
-        handle.resolve(mindcraft::kVoidValue);
+        handle.resolve(wendoo::kVoidValue);
         return;
       }
       if (writer != nullptr) {
@@ -139,7 +139,7 @@ struct HostMicroBit {
       }
       busy = true;
       completionTime =
-          requestTimeMs + static_cast<float>(mindcraft::scrollDurationMs(length, delayMs));
+          requestTimeMs + static_cast<float>(wendoo::scrollDurationMs(length, delayMs));
       active = handle;
     }
 
@@ -148,10 +148,10 @@ struct HostMicroBit {
     // once, no port line, nothing pasted); a positive per-frame duration holds
     // the lease for the whole sequence; a zero-duration draw paints only the last
     // frame and settles at dispatch without holding it.
-    void drawFrames(mindcraft::DrawFrameSource& frames, uint32_t perFrameDurationMs,
-                    float requestTimeMs, mindcraft::AsyncHandle handle) override {
+    void drawFrames(wendoo::DrawFrameSource& frames, uint32_t perFrameDurationMs,
+                    float requestTimeMs, wendoo::AsyncHandle handle) override {
       if (busy) {
-        handle.resolve(mindcraft::kVoidValue);
+        handle.resolve(wendoo::kVoidValue);
         return;
       }
       const uint32_t frameCount = frames.frameCount();
@@ -161,7 +161,7 @@ struct HostMicroBit {
         uint32_t height = 0;
         frames.writeFrame(frameCount - 1, buf, width, height);
         pasteFrame(buf, width, height);
-        handle.resolve(mindcraft::kVoidValue);
+        handle.resolve(wendoo::kVoidValue);
         return;
       }
       seqFrames.clear();
@@ -210,7 +210,7 @@ struct HostMicroBit {
       seqFrames.clear();
       seqWidths.clear();
       seqHeights.clear();
-      active.resolve(mindcraft::kVoidValue);
+      active.resolve(wendoo::kVoidValue);
     }
 
     // Release the current lease at once, resolving the held op's handle.
@@ -218,12 +218,12 @@ struct HostMicroBit {
       if (!busy) {
         return;
       }
-      const mindcraft::AsyncHandle held = active;
+      const wendoo::AsyncHandle held = active;
       busy = false;
       seqFrames.clear();
       seqWidths.clear();
       seqHeights.clear();
-      held.resolve(mindcraft::kVoidValue);
+      held.resolve(wendoo::kVoidValue);
     }
 
     // Cancel any held lease and blank the matrix (no per-pixel port lines).
@@ -245,7 +245,7 @@ struct HostMicroBit {
     int getLightLevel() override { return lightLevel; }
   };
 
-  struct SettableButtons : mindcraft::ButtonInputPort {
+  struct SettableButtons : wendoo::ButtonInputPort {
     // Index 0 is button A, 1 is button B, 2 is the touch logo.
     bool pressed[3] = {false, false, false};
 
@@ -257,13 +257,13 @@ struct HostMicroBit {
   // Injectable accelerometer: radians are the primary orientation reading and
   // degrees derive from them, mirroring CODAL and the wodal Accelerometer model;
   // the other reads return their held field. Resting defaults are zero.
-  struct SettableAccelerometer : mindcraft::AccelerometerInputPort {
+  struct SettableAccelerometer : wendoo::AccelerometerInputPort {
     int32_t gesture = 0;
     int32_t x = 0;
     int32_t y = 0;
     int32_t z = 0;
-    mindcraft::mc_number_t pitchRadians = 0;
-    mindcraft::mc_number_t rollRadians = 0;
+    wendoo::mc_number_t pitchRadians = 0;
+    wendoo::mc_number_t rollRadians = 0;
 
     uint16_t getGesture() override { return static_cast<uint16_t>(gesture); }
     int32_t getX() override { return x; }
@@ -271,14 +271,14 @@ struct HostMicroBit {
     int32_t getZ() override { return z; }
     int32_t getPitch() override { return degreesFromRadians(pitchRadians); }
     int32_t getRoll() override { return degreesFromRadians(rollRadians); }
-    mindcraft::mc_number_t getPitchRadians() override { return pitchRadians; }
-    mindcraft::mc_number_t getRollRadians() override { return rollRadians; }
+    wendoo::mc_number_t getPitchRadians() override { return pitchRadians; }
+    wendoo::mc_number_t getRollRadians() override { return rollRadians; }
   };
 
   // Injectable thermometer: serves the held die temperature (signed whole
   // degrees Celsius), resting at the sim model's default. Mirrors the wodal
   // Thermometer model.
-  struct SettableThermometer : mindcraft::ThermometerInputPort {
+  struct SettableThermometer : wendoo::ThermometerInputPort {
     int32_t temperature = 21;
 
     int32_t getTemperature() override { return temperature; }
@@ -287,7 +287,7 @@ struct HostMicroBit {
   // Injectable I2C bus: records each write and serves reads from a per-address
   // response a test injects, emitting the port trace line at each transaction.
   // Holds no real hardware; mirrors the wodal I2CBus sim model.
-  struct TracingI2C : mindcraft::I2CPort {
+  struct TracingI2C : wendoo::I2CPort {
     struct Write {
       uint16_t address;
       std::vector<uint8_t> bytes;
@@ -330,7 +330,7 @@ struct HostMicroBit {
   // reads from a per-pin level a test injects, emitting the port trace line at
   // each call. A pin outside 0-20 is a no-op (a read returns 0) but still traces,
   // mirroring the wodal Gpio sim model.
-  struct TracingGpio : mindcraft::GPIOPort {
+  struct TracingGpio : wendoo::GPIOPort {
     struct DigitalWrite {
       int pin;
       int value;
@@ -412,7 +412,7 @@ struct HostMicroBit {
   // reference to its (trig, echo) pins, serves the cached distance, and refreshes
   // each registered sonar's cache from an injected echo width once per cycle()
   // with a fixed one-cycle lag. Mirrors the wodal SensorDriver model.
-  struct TracingSonar : mindcraft::SonarPort {
+  struct TracingSonar : wendoo::SonarPort {
     static constexpr int kMaxDistanceCm = 200;
     static constexpr int kNoEcho = -1;
     struct Sonar {
@@ -466,12 +466,12 @@ struct HostMicroBit {
     }
   };
 
-  struct TracingRadio : mindcraft::RadioPort {
+  struct TracingRadio : wendoo::RadioPort {
     struct Packet {
       int seq;
       int type;
       uint32_t group;
-      mindcraft::mc_number_t value;
+      wendoo::mc_number_t value;
       std::string name;
       std::string text;
       std::vector<uint8_t> bytes;
@@ -485,9 +485,9 @@ struct HostMicroBit {
     int powerValue = 6;
     int bandValue = 7;
     int lastSeq = 0;
-    mindcraft::RadioPacketView scratch{};
+    wendoo::RadioPacketView scratch{};
 
-    void send(const mindcraft::RadioSendView& packet) override {
+    void send(const wendoo::RadioSendView& packet) override {
       if (writer != nullptr) {
         writer->radioSend(packet.type, packet.group, packet.value, packet.name, packet.nameLen,
                           packet.text, packet.textLen, packet.bytes, packet.bytesLen);
@@ -498,7 +498,7 @@ struct HostMicroBit {
     void setTransmitPower(int p) override { powerValue = p; }
     void setFrequencyBand(int b) override { bandValue = b; }
     uint32_t ringSize() override { return static_cast<uint32_t>(ring.size()); }
-    const mindcraft::RadioPacketView& ringAt(uint32_t index) override {
+    const wendoo::RadioPacketView& ringAt(uint32_t index) override {
       const Packet& pk = ring[index];
       scratch.seq = pk.seq;
       scratch.type = pk.type;
@@ -519,7 +519,7 @@ struct HostMicroBit {
 
     // Inject a received packet (the golden-injection path): drop a wrong-group
     // packet, assign the next sequence, overflow-evict the oldest.
-    void deliver(int type, mindcraft::mc_number_t value, const std::string& text,
+    void deliver(int type, wendoo::mc_number_t value, const std::string& text,
                  std::vector<uint8_t> bytes = {}) {
       if (groupValue != 0) {
         return;
@@ -536,21 +536,21 @@ struct HostMicroBit {
   // table against logical time. An accepted play emits the port line and holds
   // the lease to its nominal completion; a play requested while busy, or an
   // unknown name, is settled at once with no port line. Mirrors pollSpeaker.
-  struct TracingSpeaker : mindcraft::SpeakerPort {
+  struct TracingSpeaker : wendoo::SpeakerPort {
     ObservableTraceWriter* writer = nullptr;
     bool busy = false;
     float completionTime = 0;
-    mindcraft::AsyncHandle active{};
+    wendoo::AsyncHandle active{};
 
     void playSoundEmoji(const uint8_t* name, uint32_t length, float requestTimeMs,
-                        mindcraft::AsyncHandle handle) override {
+                        wendoo::AsyncHandle handle) override {
       if (busy) {
-        handle.resolve(mindcraft::kVoidValue);
+        handle.resolve(wendoo::kVoidValue);
         return;
       }
       uint32_t durationMs = 0;
-      if (!mindcraft::soundEmojiDurationMs(name, length, durationMs)) {
-        handle.resolve(mindcraft::kVoidValue);
+      if (!wendoo::soundEmojiDurationMs(name, length, durationMs)) {
+        handle.resolve(wendoo::kVoidValue);
         return;
       }
       if (writer != nullptr) {
@@ -567,7 +567,7 @@ struct HostMicroBit {
         return;
       }
       busy = false;
-      active.resolve(mindcraft::kVoidValue);
+      active.resolve(wendoo::kVoidValue);
     }
 
     // Release the current lease at once, resolving the held play's handle.
@@ -575,18 +575,18 @@ struct HostMicroBit {
       if (!busy) {
         return;
       }
-      const mindcraft::AsyncHandle held = active;
+      const wendoo::AsyncHandle held = active;
       busy = false;
-      held.resolve(mindcraft::kVoidValue);
+      held.resolve(wendoo::kVoidValue);
     }
   };
 
-  struct NullFaultDisplay : mindcraft::FaultDisplayPort {
+  struct NullFaultDisplay : wendoo::FaultDisplayPort {
     void showFaultFace() override {}
     void scrollFaultCode(const char*) override {}
   };
 
-  struct FixedClock : mindcraft::MonotonicClockPort {
+  struct FixedClock : wendoo::MonotonicClockPort {
     uint32_t now = 0;
 
     uint32_t uptimeMillis() override { return now; }
@@ -604,8 +604,8 @@ struct HostMicroBit {
   NullFaultDisplay faultDisplay;
   FixedClock clock;
 
-  mindcraft::DevicePorts ports{&display, &buttons, &faultDisplay, &clock,   &accelerometer, &i2c,
-                               &gpio,    &sonar,   &radio,        &speaker, &thermometer};
+  wendoo::DevicePorts ports{&display, &buttons, &faultDisplay, &clock,   &accelerometer, &i2c,
+                            &gpio,    &sonar,   &radio,        &speaker, &thermometer};
 };
 
 /** Forwards the VM's host-binding events into the observable trace. */
@@ -647,7 +647,7 @@ struct ScheduleStep {
 };
 
 // Mirrors PRESS_CYCLES_SCHEDULE in wodal
-// packages/wodal/src/targets/microbit-v2/mindcraft/observable-trace.spec.ts,
+// packages/wodal/src/targets/microbit-v2/wendoo/observable-trace.spec.ts,
 // the generator of the committed golden trace. The two copies are kept in
 // sync by hand; a divergence fails the byte comparison below.
 constexpr ScheduleStep kPressCyclesSchedule[10] = {
@@ -667,7 +667,7 @@ constexpr ScheduleStep kPressCyclesSchedule[10] = {
  * One scheduled think for a button-sensor fixture: button/logo levels applied
  * before the time advance (1 pressed, 0 released, -1 unchanged). Mirrors the
  * ScheduleStep of wodal
- * packages/wodal/src/targets/microbit-v2/mindcraft/button-sensor-trace.spec.ts.
+ * packages/wodal/src/targets/microbit-v2/wendoo/button-sensor-trace.spec.ts.
  */
 struct ButtonScheduleStep {
   float advanceMs;
@@ -682,7 +682,7 @@ struct ButtonScheduleStep {
  * committed golden.
  */
 void runButtonSensorParity(const std::string& name, const ButtonScheduleStep* schedule, int steps) {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/" + name;
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/" + name;
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -702,13 +702,13 @@ void runButtonSensorParity(const std::string& name, const ButtonScheduleStep* sc
 
   // The button sensor backs its per-callsite derivation state on a managed
   // heap; the env hands the body the button port, heap, and roots.
-  mindcraft::ManagedHeap heap(arena);
-  mindcraft::MicroBitV2ButtonSensorEnv buttonEnv{&microbit.buttons, &heap, nullptr};
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports, nullptr, &buttonEnv);
+  wendoo::ManagedHeap heap(arena);
+  wendoo::MicroBitV2ButtonSensorEnv buttonEnv{&microbit.buttons, &heap, nullptr};
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports, nullptr, &buttonEnv);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   buttonEnv.roots = &scheduler;
   BrainRuntime brain(image, scheduler, surface);
 
@@ -743,10 +743,10 @@ void runButtonSensorParity(const std::string& name, const ButtonScheduleStep* sc
 
 /** One scheduled think for a gesture fixture: the gesture code injected before the
  * time advance. Mirrors the ScheduleStep of wodal
- * packages/wodal/src/targets/microbit-v2/mindcraft/gesture-sensor-trace.spec.ts. */
+ * packages/wodal/src/targets/microbit-v2/wendoo/gesture-sensor-trace.spec.ts. */
 struct GestureScheduleStep {
   float advanceMs;
-  mindcraft::AccelerometerGesture gesture;
+  wendoo::AccelerometerGesture gesture;
 };
 
 /**
@@ -757,7 +757,7 @@ struct GestureScheduleStep {
  */
 void runGestureSensorParity(const std::string& name, const GestureScheduleStep* schedule,
                             int steps) {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/" + name;
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/" + name;
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -775,12 +775,12 @@ void runGestureSensorParity(const std::string& name, const GestureScheduleStep* 
   microbit.display.writer = &writer;
   TraceTap tap(writer);
 
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
   ExecutionContext ctx;
-  mindcraft::ManagedHeap heap(arena);
+  wendoo::ManagedHeap heap(arena);
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
@@ -807,7 +807,7 @@ void runGestureSensorParity(const std::string& name, const GestureScheduleStep* 
 } // namespace
 
 TEST_CASE("the button-display fixture byte-matches the golden observable trace") {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/button-display";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/button-display";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".press-cycles.trace");
 
@@ -829,13 +829,13 @@ TEST_CASE("the button-display fixture byte-matches the golden observable trace")
 
   // The button sensor backs its per-callsite derivation state on a managed
   // heap; the env hands the body the button port, heap, and roots.
-  mindcraft::ManagedHeap heap(arena);
-  mindcraft::MicroBitV2ButtonSensorEnv buttonEnv{&microbit.buttons, &heap, nullptr};
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports, nullptr, &buttonEnv);
+  wendoo::ManagedHeap heap(arena);
+  wendoo::MicroBitV2ButtonSensorEnv buttonEnv{&microbit.buttons, &heap, nullptr};
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports, nullptr, &buttonEnv);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   buttonEnv.roots = &scheduler;
   BrainRuntime brain(image, scheduler, surface);
 
@@ -910,7 +910,7 @@ TEST_CASE("the button-logo fixture byte-matches the golden observable trace") {
 }
 
 TEST_CASE("the gesture-shake fixture byte-matches the golden observable trace") {
-  using mindcraft::AccelerometerGesture;
+  using wendoo::AccelerometerGesture;
   const GestureScheduleStep schedule[3] = {{16, AccelerometerGesture::None},
                                            {16, AccelerometerGesture::Shake},
                                            {16, AccelerometerGesture::TiltUp}};
@@ -918,7 +918,7 @@ TEST_CASE("the gesture-shake fixture byte-matches the golden observable trace") 
 }
 
 TEST_CASE("the gesture-tilt-up fixture byte-matches the golden observable trace") {
-  using mindcraft::AccelerometerGesture;
+  using wendoo::AccelerometerGesture;
   const GestureScheduleStep schedule[3] = {{16, AccelerometerGesture::None},
                                            {16, AccelerometerGesture::TiltUp},
                                            {16, AccelerometerGesture::Shake}};
@@ -926,7 +926,7 @@ TEST_CASE("the gesture-tilt-up fixture byte-matches the golden observable trace"
 }
 
 TEST_CASE("the gesture-tilt-down fixture byte-matches the golden observable trace") {
-  using mindcraft::AccelerometerGesture;
+  using wendoo::AccelerometerGesture;
   const GestureScheduleStep schedule[3] = {{16, AccelerometerGesture::None},
                                            {16, AccelerometerGesture::TiltDown},
                                            {16, AccelerometerGesture::TiltUp}};
@@ -934,7 +934,7 @@ TEST_CASE("the gesture-tilt-down fixture byte-matches the golden observable trac
 }
 
 TEST_CASE("the gesture-tilt-left fixture byte-matches the golden observable trace") {
-  using mindcraft::AccelerometerGesture;
+  using wendoo::AccelerometerGesture;
   const GestureScheduleStep schedule[3] = {{16, AccelerometerGesture::None},
                                            {16, AccelerometerGesture::TiltLeft},
                                            {16, AccelerometerGesture::TiltRight}};
@@ -942,7 +942,7 @@ TEST_CASE("the gesture-tilt-left fixture byte-matches the golden observable trac
 }
 
 TEST_CASE("the gesture-tilt-right fixture byte-matches the golden observable trace") {
-  using mindcraft::AccelerometerGesture;
+  using wendoo::AccelerometerGesture;
   const GestureScheduleStep schedule[3] = {{16, AccelerometerGesture::None},
                                            {16, AccelerometerGesture::TiltRight},
                                            {16, AccelerometerGesture::TiltLeft}};
@@ -950,7 +950,7 @@ TEST_CASE("the gesture-tilt-right fixture byte-matches the golden observable tra
 }
 
 TEST_CASE("the gesture-face-up fixture byte-matches the golden observable trace") {
-  using mindcraft::AccelerometerGesture;
+  using wendoo::AccelerometerGesture;
   const GestureScheduleStep schedule[3] = {{16, AccelerometerGesture::None},
                                            {16, AccelerometerGesture::FaceUp},
                                            {16, AccelerometerGesture::FaceDown}};
@@ -958,7 +958,7 @@ TEST_CASE("the gesture-face-up fixture byte-matches the golden observable trace"
 }
 
 TEST_CASE("the gesture-face-down fixture byte-matches the golden observable trace") {
-  using mindcraft::AccelerometerGesture;
+  using wendoo::AccelerometerGesture;
   const GestureScheduleStep schedule[3] = {{16, AccelerometerGesture::None},
                                            {16, AccelerometerGesture::FaceDown},
                                            {16, AccelerometerGesture::FaceUp}};
@@ -966,7 +966,7 @@ TEST_CASE("the gesture-face-down fixture byte-matches the golden observable trac
 }
 
 TEST_CASE("the gesture-freefall fixture byte-matches the golden observable trace") {
-  using mindcraft::AccelerometerGesture;
+  using wendoo::AccelerometerGesture;
   const GestureScheduleStep schedule[3] = {{16, AccelerometerGesture::None},
                                            {16, AccelerometerGesture::Freefall},
                                            {16, AccelerometerGesture::Shake}};
@@ -974,7 +974,7 @@ TEST_CASE("the gesture-freefall fixture byte-matches the golden observable trace
 }
 
 TEST_CASE("the gesture-default fixture byte-matches the golden observable trace") {
-  using mindcraft::AccelerometerGesture;
+  using wendoo::AccelerometerGesture;
   const GestureScheduleStep schedule[3] = {{16, AccelerometerGesture::None},
                                            {16, AccelerometerGesture::Shake},
                                            {16, AccelerometerGesture::TiltUp}};
@@ -984,7 +984,7 @@ TEST_CASE("the gesture-default fixture byte-matches the golden observable trace"
 /** One injected packet: a MakeCode packet type and its numeric, string, or byte payload. */
 struct RadioInject {
   int type;
-  mindcraft::mc_number_t value;
+  wendoo::mc_number_t value;
   std::string text;
   std::vector<uint8_t> bytes;
 };
@@ -996,7 +996,7 @@ struct RadioReceiveStep {
 };
 
 /** A number packet (NUMBER) carrying `value`. */
-RadioInject radioNumber(mindcraft::mc_number_t value) { return RadioInject{0, value, "", {}}; }
+RadioInject radioNumber(wendoo::mc_number_t value) { return RadioInject{0, value, "", {}}; }
 
 /** A string packet (STRING) carrying `text`. */
 RadioInject radioString(const std::string& text) { return RadioInject{2, 0, text, {}}; }
@@ -1013,12 +1013,12 @@ RadioInject radioBuffer(std::vector<uint8_t> bytes) {
  * managed string results render through the heap bound on the writer. Also
  * serves the receive-output fixtures, whose do() sends an output tile's value
  * back out through `radio send`. Mirrors the ScheduleStep of wodal
- * packages/wodal/src/targets/microbit-v2/mindcraft/radio-receive-trace.spec.ts
+ * packages/wodal/src/targets/microbit-v2/wendoo/radio-receive-trace.spec.ts
  * and the schedules of radio-receive-output-trace.spec.ts and
  * radio-receive-output-multi-provider-trace.spec.ts.
  */
 void runRadioReceiveParity(const std::string& name, const std::vector<RadioReceiveStep>& schedule) {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/" + name;
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/" + name;
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -1041,16 +1041,16 @@ void runRadioReceiveParity(const std::string& name, const std::vector<RadioRecei
   // it through the bound heap when rendering the action's result token. The
   // heap carries the program image so the sensors' managed output-key strings
   // compare equal to the fixtures' borrowed read keys.
-  mindcraft::ManagedHeap heap(arena, &image);
+  wendoo::ManagedHeap heap(arena, &image);
   writer.setHeap(&heap);
-  mindcraft::MicroBitV2RadioSensorEnv radioSensorEnv{&microbit.radio, &heap, nullptr};
-  mindcraft::MicroBitV2RadioSendEnv radioSendEnv{&microbit.radio, &heap};
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(
-      microbit.ports, nullptr, nullptr, nullptr, &radioSendEnv, &radioSensorEnv);
+  wendoo::MicroBitV2RadioSensorEnv radioSensorEnv{&microbit.radio, &heap, nullptr};
+  wendoo::MicroBitV2RadioSendEnv radioSendEnv{&microbit.radio, &heap};
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports, nullptr, nullptr,
+                                                           nullptr, &radioSendEnv, &radioSensorEnv);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   radioSensorEnv.roots = &scheduler;
   BrainRuntime brain(image, scheduler, surface);
 
@@ -1177,10 +1177,10 @@ TEST_CASE("the radio-receive-output-buffer-rssi fixture byte-matches the golden 
  * Loads a `radio send` tile fixture binary (button when() -> radio send do()),
  * replays the scripted button schedule, and byte-compares the rendered trace.
  * Mirrors the schedule of wodal
- * packages/wodal/src/targets/microbit-v2/mindcraft/radio-send-tile-trace.spec.ts.
+ * packages/wodal/src/targets/microbit-v2/wendoo/radio-send-tile-trace.spec.ts.
  */
 void runRadioSendTileParity(const std::string& name) {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/" + name;
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/" + name;
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -1198,16 +1198,16 @@ void runRadioSendTileParity(const std::string& name) {
   microbit.radio.writer = &writer;
   TraceTap tap(writer);
 
-  mindcraft::ManagedHeap heap(arena, &image);
+  wendoo::ManagedHeap heap(arena, &image);
   writer.setHeap(&heap);
-  mindcraft::MicroBitV2ButtonSensorEnv buttonEnv{&microbit.buttons, &heap, nullptr};
-  mindcraft::MicroBitV2RadioSendEnv radioSendEnv{&microbit.radio, &heap};
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports, nullptr, &buttonEnv,
-                                                              nullptr, &radioSendEnv, nullptr);
+  wendoo::MicroBitV2ButtonSensorEnv buttonEnv{&microbit.buttons, &heap, nullptr};
+  wendoo::MicroBitV2RadioSendEnv radioSendEnv{&microbit.radio, &heap};
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports, nullptr, &buttonEnv,
+                                                           nullptr, &radioSendEnv, nullptr);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   buttonEnv.roots = &scheduler;
   BrainRuntime brain(image, scheduler, surface);
 
@@ -1242,7 +1242,7 @@ TEST_CASE("the radio-send-explicit fixture byte-matches the golden observable tr
 }
 
 TEST_CASE("the radio-send-position fixture byte-matches the golden observable trace") {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/radio-send-position";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/radio-send-position";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -1263,22 +1263,22 @@ TEST_CASE("the radio-send-position fixture byte-matches the golden observable tr
   // The inline user sensor builds a position struct directly in the send
   // slot; the compiled position -> Buffer conversion encodes it to the state
   // packet before the host radio-send action transmits.
-  mindcraft::ManagedHeap heap(arena, &image);
+  wendoo::ManagedHeap heap(arena, &image);
   writer.setHeap(&heap);
-  mindcraft::MicroBitV2ButtonSensorEnv buttonEnv{&microbit.buttons, &heap, nullptr};
-  mindcraft::MicroBitV2RadioSendEnv radioSendEnv{&microbit.radio, &heap};
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports, nullptr, &buttonEnv,
-                                                              nullptr, &radioSendEnv, nullptr);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  wendoo::MicroBitV2ButtonSensorEnv buttonEnv{&microbit.buttons, &heap, nullptr};
+  wendoo::MicroBitV2RadioSendEnv radioSendEnv{&microbit.radio, &heap};
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports, nullptr, &buttonEnv,
+                                                           nullptr, &radioSendEnv, nullptr);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports);
   ExecutionContext ctx;
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   buttonEnv.roots = &scheduler;
   BrainRuntime brain(image, scheduler, surface);
 
@@ -1286,7 +1286,7 @@ TEST_CASE("the radio-send-position fixture byte-matches the golden observable tr
   REQUIRE(hostLoop.startup().isOk());
 
   // Button A pressed at tick 2, released at tick 3, mirroring the schedule in
-  // wodal packages/wodal/src/targets/microbit-v2/mindcraft/radio-send-position.spec.ts.
+  // wodal packages/wodal/src/targets/microbit-v2/wendoo/radio-send-position.spec.ts.
   const ButtonScheduleStep schedule[3] = {{16, -1, -1, -1}, {16, 1, -1, -1}, {16, 0, -1, -1}};
   float lastThinkTimeMs = 0;
   for (int i = 0; i < 3; i++) {
@@ -1306,8 +1306,7 @@ TEST_CASE("the radio-send-position fixture byte-matches the golden observable tr
 }
 
 TEST_CASE("the user-tile radio-send fixture byte-matches the golden observable trace") {
-  const std::string base =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-radio-send";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/user-tile-radio-send";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -1327,21 +1326,21 @@ TEST_CASE("the user-tile radio-send fixture byte-matches the golden observable t
 
   // The user-code actuator sends each packet form through ctx.microbit.radio;
   // the heap (with image) resolves the string and Buffer.fromHex arguments.
-  mindcraft::ManagedHeap heap(arena, &image);
+  wendoo::ManagedHeap heap(arena, &image);
   writer.setHeap(&heap);
-  mindcraft::MicroBitV2RadioEnv radioEnv{&microbit.radio, &heap};
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, nullptr,
-                                                             nullptr, &radioEnv, nullptr);
+  wendoo::MicroBitV2RadioEnv radioEnv{&microbit.radio, &heap};
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, nullptr, nullptr,
+                                                          &radioEnv, nullptr);
   ExecutionContext ctx;
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
@@ -1357,7 +1356,7 @@ TEST_CASE("the user-tile radio-send fixture byte-matches the golden observable t
 
 TEST_CASE("the user-tile radio-receive fixture byte-matches the golden observable trace") {
   const std::string base =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-radio-receive";
+      std::string(wendoo::test::kWodalFixturesDir) + "/user-tile-radio-receive";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -1378,22 +1377,22 @@ TEST_CASE("the user-tile radio-receive fixture byte-matches the golden observabl
   // The user-code actuator drains every packet new since the cursor and echoes
   // each packet's value to I2C; the receive env builds the managed RadioPacket[]
   // and the i2c-write env surfaces the bytes.
-  mindcraft::ManagedHeap heap(arena, &image);
+  wendoo::ManagedHeap heap(arena, &image);
   writer.setHeap(&heap);
-  mindcraft::MicroBitV2I2CWriteEnv i2cEnv{&microbit.i2c, &heap, &image};
+  wendoo::MicroBitV2I2CWriteEnv i2cEnv{&microbit.i2c, &heap, &image};
   ExecutionContext ctx;
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
-  mindcraft::MicroBitV2RadioReceiveEnv radioReceiveEnv{&microbit.radio, &heap, nullptr, &types};
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cEnv,
-                                                             nullptr, nullptr, &radioReceiveEnv);
+  wendoo::MicroBitV2RadioReceiveEnv radioReceiveEnv{&microbit.radio, &heap, nullptr, &types};
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cEnv, nullptr,
+                                                          nullptr, &radioReceiveEnv);
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   radioReceiveEnv.roots = &scheduler;
   BrainRuntime brain(image, scheduler, surface);
 
@@ -1422,7 +1421,7 @@ TEST_CASE("the user-tile radio-receive fixture byte-matches the golden observabl
 
 TEST_CASE("the user-tile radio-current-seq fixture byte-matches the golden observable trace") {
   const std::string base =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-radio-current-seq";
+      std::string(wendoo::test::kWodalFixturesDir) + "/user-tile-radio-current-seq";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -1442,23 +1441,23 @@ TEST_CASE("the user-tile radio-current-seq fixture byte-matches the golden obser
 
   // The user-code actuator arms its cursor to currentSeq() on the first think,
   // then drains with receive(since); the pre-arm packet is never delivered.
-  mindcraft::ManagedHeap heap(arena, &image);
+  wendoo::ManagedHeap heap(arena, &image);
   writer.setHeap(&heap);
-  mindcraft::MicroBitV2I2CWriteEnv i2cEnv{&microbit.i2c, &heap, &image};
+  wendoo::MicroBitV2I2CWriteEnv i2cEnv{&microbit.i2c, &heap, &image};
   ExecutionContext ctx;
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
-  mindcraft::MicroBitV2RadioEnv radioEnv{&microbit.radio, &heap};
-  mindcraft::MicroBitV2RadioReceiveEnv radioReceiveEnv{&microbit.radio, &heap, nullptr, &types};
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cEnv,
-                                                             nullptr, &radioEnv, &radioReceiveEnv);
+  wendoo::MicroBitV2RadioEnv radioEnv{&microbit.radio, &heap};
+  wendoo::MicroBitV2RadioReceiveEnv radioReceiveEnv{&microbit.radio, &heap, nullptr, &types};
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cEnv, nullptr,
+                                                          &radioEnv, &radioReceiveEnv);
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   radioReceiveEnv.roots = &scheduler;
   BrainRuntime brain(image, scheduler, surface);
 
@@ -1485,7 +1484,7 @@ TEST_CASE("the user-tile radio-current-seq fixture byte-matches the golden obser
 }
 
 TEST_CASE("the exceptions-yield fixture byte-matches the golden observable trace") {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/exceptions-yield";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/exceptions-yield";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -1503,13 +1502,13 @@ TEST_CASE("the exceptions-yield fixture byte-matches the golden observable trace
   microbit.display.writer = &writer;
   TraceTap tap(writer);
 
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
   ExecutionContext ctx;
   // TRY/THROW/YIELD and the cross-frame CALL touch no managed heap, so the
   // scheduler runs without one - exercising the no-heap grow-on-demand path.
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
@@ -1532,7 +1531,7 @@ TEST_CASE("the exceptions-yield fixture byte-matches the golden observable trace
 }
 
 TEST_CASE("the container-ops fixture byte-matches the golden observable trace") {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/container-ops";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/container-ops";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -1553,26 +1552,26 @@ TEST_CASE("the container-ops fixture byte-matches the golden observable trace") 
   // The actuator exercises the list/map opcodes, packs the computed scalars into
   // a managed buffer, and surfaces it through the writeBuffer host function; the
   // env resolves the buffer's bytes through the heap.
-  mindcraft::ManagedHeap heap(arena, &image);
-  mindcraft::MicroBitV2I2CWriteEnv i2cEnv{&microbit.i2c, &heap, &image};
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cEnv);
+  wendoo::ManagedHeap heap(arena, &image);
+  wendoo::MicroBitV2I2CWriteEnv i2cEnv{&microbit.i2c, &heap, &image};
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cEnv);
   ExecutionContext ctx;
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 
   // Two 16ms thinks mirror SCHEDULE in wodal
-  // packages/wodal/src/targets/microbit-v2/mindcraft/container-ops-trace.spec.ts.
+  // packages/wodal/src/targets/microbit-v2/wendoo/container-ops-trace.spec.ts.
   float lastThinkTimeMs = 0;
   for (int i = 0; i < 2; i++) {
     const float timeMs = lastThinkTimeMs + 16;
@@ -1594,7 +1593,7 @@ TEST_CASE("the container-ops fixture byte-matches the golden observable trace") 
 }
 
 TEST_CASE("the buffer-ops fixture byte-matches the golden observable trace") {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/buffer-ops";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/buffer-ops";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -1615,26 +1614,26 @@ TEST_CASE("the buffer-ops fixture byte-matches the golden observable trace") {
   // The actuator constructs managed buffers through the buffer builtins and
   // surfaces each by writing it to an I2C address through the writeBuffer host
   // function; the env resolves each buffer's bytes through the heap.
-  mindcraft::ManagedHeap heap(arena, &image);
-  mindcraft::MicroBitV2I2CWriteEnv i2cEnv{&microbit.i2c, &heap, &image};
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cEnv);
+  wendoo::ManagedHeap heap(arena, &image);
+  wendoo::MicroBitV2I2CWriteEnv i2cEnv{&microbit.i2c, &heap, &image};
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cEnv);
   ExecutionContext ctx;
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 
   // Two 16ms thinks mirror SCHEDULE in wodal
-  // packages/wodal/src/targets/microbit-v2/mindcraft/buffer-ops-trace.spec.ts.
+  // packages/wodal/src/targets/microbit-v2/wendoo/buffer-ops-trace.spec.ts.
   float lastThinkTimeMs = 0;
   for (int i = 0; i < 2; i++) {
     const float timeMs = lastThinkTimeMs + 16;
@@ -1663,8 +1662,7 @@ TEST_CASE("the buffer-ops fixture byte-matches the golden observable trace") {
 }
 
 TEST_CASE("the dynamic-field-access fixture byte-matches the golden observable trace") {
-  const std::string base =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/dynamic-field-access";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/dynamic-field-access";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -1682,16 +1680,16 @@ TEST_CASE("the dynamic-field-access fixture byte-matches the golden observable t
   microbit.display.writer = &writer;
   TraceTap tap(writer);
 
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
   ExecutionContext ctx;
   // The dynamic computed-key opcodes resolve field names through the type
   // registry over the decoded image; the struct slots draw from a managed heap.
-  mindcraft::ManagedHeap heap(arena);
-  const mindcraft::TypeRegistry types(image);
+  wendoo::ManagedHeap heap(arena);
+  const wendoo::TypeRegistry types(image);
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
@@ -1712,7 +1710,7 @@ TEST_CASE("the dynamic-field-access fixture byte-matches the golden observable t
 }
 
 TEST_CASE("the sync-action-yield fixture byte-matches the golden observable trace") {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/sync-action-yield";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/sync-action-yield";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -1730,12 +1728,12 @@ TEST_CASE("the sync-action-yield fixture byte-matches the golden observable trac
   microbit.display.writer = &writer;
   TraceTap tap(writer);
 
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
   ExecutionContext ctx;
   // ACTION_CALL and the YIELD-in-sync-action fault touch no managed heap.
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
@@ -1759,8 +1757,7 @@ TEST_CASE("the sync-action-yield fixture byte-matches the golden observable trac
 }
 
 TEST_CASE("the action-page-lifecycle fixture byte-matches the golden observable trace") {
-  const std::string base =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/action-page-lifecycle";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/action-page-lifecycle";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -1778,12 +1775,12 @@ TEST_CASE("the action-page-lifecycle fixture byte-matches the golden observable 
   microbit.display.writer = &writer;
   TraceTap tap(writer);
 
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
   ExecutionContext ctx;
   // The bytecode actions and lifecycle hooks touch no managed heap.
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
@@ -1811,7 +1808,7 @@ TEST_CASE("the action-page-lifecycle fixture byte-matches the golden observable 
 }
 
 TEST_CASE("the context-variables fixture byte-matches the golden observable trace") {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/context-variables";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/context-variables";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -1829,14 +1826,14 @@ TEST_CASE("the context-variables fixture byte-matches the golden observable trac
   microbit.display.writer = &writer;
   TraceTap tap(writer);
 
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
   ExecutionContext ctx;
   // Rule variables are per-rule managed maps; the heap is configured with the
   // image so the borrowed-string variable-name keys compare by content.
-  mindcraft::ManagedHeap heap(arena, &image);
+  wendoo::ManagedHeap heap(arena, &image);
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
@@ -1859,8 +1856,7 @@ TEST_CASE("the context-variables fixture byte-matches the golden observable trac
 }
 
 TEST_CASE("the rule-helper-variables fixture byte-matches the golden observable trace") {
-  const std::string base =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/rule-helper-variables";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/rule-helper-variables";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -1881,26 +1877,26 @@ TEST_CASE("the rule-helper-variables fixture byte-matches the golden observable 
   // The root rule's actuator calls a plain helper that reads and writes rule
   // variables through the calling rule's store, then packs both reads into a
   // managed buffer surfaced through the writeBuffer host function.
-  mindcraft::ManagedHeap heap(arena, &image);
-  mindcraft::MicroBitV2I2CWriteEnv i2cEnv{&microbit.i2c, &heap, &image};
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cEnv);
+  wendoo::ManagedHeap heap(arena, &image);
+  wendoo::MicroBitV2I2CWriteEnv i2cEnv{&microbit.i2c, &heap, &image};
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cEnv);
   ExecutionContext ctx;
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 
   // Two 16ms thinks mirror SCHEDULE in wodal
-  // packages/wodal/src/targets/microbit-v2/mindcraft/rule-helper-variables-trace.spec.ts.
+  // packages/wodal/src/targets/microbit-v2/wendoo/rule-helper-variables-trace.spec.ts.
   float lastThinkTimeMs = 0;
   for (int i = 0; i < 2; i++) {
     const float timeMs = lastThinkTimeMs + 16;
@@ -1922,7 +1918,7 @@ TEST_CASE("the rule-helper-variables fixture byte-matches the golden observable 
 }
 
 TEST_CASE("the struct-closure fixture byte-matches the golden observable trace") {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/struct-closure";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/struct-closure";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -1943,26 +1939,26 @@ TEST_CASE("the struct-closure fixture byte-matches the golden observable trace")
   // The actuator builds a struct and a capturing closure, packs the reads and
   // call results into a managed buffer, and surfaces it through the writeBuffer
   // host function; the env resolves the buffer's bytes through the heap.
-  mindcraft::ManagedHeap heap(arena, &image);
-  mindcraft::MicroBitV2I2CWriteEnv i2cEnv{&microbit.i2c, &heap, &image};
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cEnv);
+  wendoo::ManagedHeap heap(arena, &image);
+  wendoo::MicroBitV2I2CWriteEnv i2cEnv{&microbit.i2c, &heap, &image};
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cEnv);
   ExecutionContext ctx;
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 
   // Two 16ms thinks mirror SCHEDULE in wodal
-  // packages/wodal/src/targets/microbit-v2/mindcraft/struct-closure-trace.spec.ts.
+  // packages/wodal/src/targets/microbit-v2/wendoo/struct-closure-trace.spec.ts.
   float lastThinkTimeMs = 0;
   for (int i = 0; i < 2; i++) {
     const float timeMs = lastThinkTimeMs + 16;
@@ -1984,7 +1980,7 @@ TEST_CASE("the struct-closure fixture byte-matches the golden observable trace")
 }
 
 TEST_CASE("the helper-below-class fixture byte-matches the golden observable trace") {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/helper-below-class";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/helper-below-class";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -2006,26 +2002,26 @@ TEST_CASE("the helper-below-class fixture byte-matches the golden observable tra
   // the method and the helper directly, packs the results into a managed
   // buffer, and surfaces it through the writeBuffer host function; the env
   // resolves the buffer's bytes through the heap.
-  mindcraft::ManagedHeap heap(arena, &image);
-  mindcraft::MicroBitV2I2CWriteEnv i2cEnv{&microbit.i2c, &heap, &image};
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cEnv);
+  wendoo::ManagedHeap heap(arena, &image);
+  wendoo::MicroBitV2I2CWriteEnv i2cEnv{&microbit.i2c, &heap, &image};
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cEnv);
   ExecutionContext ctx;
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 
   // Two 16ms thinks mirror SCHEDULE in wodal
-  // packages/wodal/src/targets/microbit-v2/mindcraft/helper-below-class-trace.spec.ts.
+  // packages/wodal/src/targets/microbit-v2/wendoo/helper-below-class-trace.spec.ts.
   float lastThinkTimeMs = 0;
   for (int i = 0; i < 2; i++) {
     const float timeMs = lastThinkTimeMs + 16;
@@ -2048,8 +2044,7 @@ TEST_CASE("the helper-below-class fixture byte-matches the golden observable tra
 }
 
 TEST_CASE("the user-tile enum-return fixture byte-matches the golden observable trace") {
-  const std::string base =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-enum-return";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/user-tile-enum-return";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -2073,26 +2068,26 @@ TEST_CASE("the user-tile enum-return fixture byte-matches the golden observable 
   // one enum surface: `===`, `!==`, the enum->number conversion (stored into
   // a number variable, plus one), and the enum->string conversion (a template
   // literal compared against its expected text).
-  mindcraft::ManagedHeap heap(arena, &image);
-  mindcraft::MicroBitV2I2CWriteEnv i2cEnv{&microbit.i2c, &heap, &image};
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cEnv);
+  wendoo::ManagedHeap heap(arena, &image);
+  wendoo::MicroBitV2I2CWriteEnv i2cEnv{&microbit.i2c, &heap, &image};
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cEnv);
   ExecutionContext ctx;
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 
   // Two 16ms thinks mirror SCHEDULE in wodal
-  // packages/wodal/src/targets/microbit-v2/mindcraft/enum-return-trace.spec.ts.
+  // packages/wodal/src/targets/microbit-v2/wendoo/enum-return-trace.spec.ts.
   float lastThinkTimeMs = 0;
   for (int i = 0; i < 2; i++) {
     const float timeMs = lastThinkTimeMs + 16;
@@ -2115,7 +2110,7 @@ TEST_CASE("the user-tile enum-return fixture byte-matches the golden observable 
 
 TEST_CASE("the user-tile button-display fixture byte-matches the golden observable trace") {
   const std::string base =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-button-display";
+      std::string(wendoo::test::kWodalFixturesDir) + "/user-tile-button-display";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -2133,31 +2128,31 @@ TEST_CASE("the user-tile button-display fixture byte-matches the golden observab
   microbit.display.writer = &writer;
   TraceTap tap(writer);
 
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
   // The injected context reaches the device through native struct field getters
   // (ctx.microbit, microbit.display/buttonA) and the button read / pixel write
   // dispatch through the target host-function table; both reach the same device
   // ports the host-action path uses, so the pixel write emits the same port line.
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports);
   ExecutionContext ctx;
   // STRUCT_GET_FIELD requires a heap even though native struct values carry no
   // managed slab; the brain allocates nothing on it.
-  mindcraft::ManagedHeap heap(arena);
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::ManagedHeap heap(arena);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 
   // Mirrors HELD_PIXEL_SCHEDULE in wodal
-  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-observable-trace.spec.ts.
+  // packages/wodal/src/targets/microbit-v2/wendoo/user-tile-observable-trace.spec.ts.
   // The level-triggered rule lights the pixel on the two held ticks. -1 leaves
   // the button level unchanged before the think.
   constexpr int kButtonSchedule[4] = {-1, 1, -1, 0};
@@ -2182,7 +2177,7 @@ TEST_CASE("the user-tile button-display fixture byte-matches the golden observab
 
 TEST_CASE("the user-tile button-states fixture byte-matches the golden observable trace") {
   const std::string base =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-button-states";
+      std::string(wendoo::test::kWodalFixturesDir) + "/user-tile-button-states";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -2204,25 +2199,25 @@ TEST_CASE("the user-tile button-states fixture byte-matches the golden observabl
   // and writes each level to a pixel; the three reads dispatch through the target
   // host-function table (Button.isPressed and TouchButton.isPressed share one
   // body, keyed by the receiver discriminator).
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports);
   ExecutionContext ctx;
-  mindcraft::ManagedHeap heap(arena);
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::ManagedHeap heap(arena);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 
   // Mirrors SCHEDULE in wodal
-  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-button-states.spec.ts:
+  // packages/wodal/src/targets/microbit-v2/wendoo/user-tile-button-states.spec.ts:
   // released, A only, A+B, then logo only. Index 0 is A, 1 is B, 2 is the logo;
   // -1 leaves a level unchanged before the think.
   const ButtonScheduleStep schedule[4] = {
@@ -2259,7 +2254,7 @@ namespace {
 /** One scheduled think for the accelerometer user-tile fixture: the inputs set
  * before the time advance, each guarded by a present flag so an unset input
  * holds its last value. Mirrors the ScheduleStep of wodal
- * packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-accelerometer-reads.spec.ts. */
+ * packages/wodal/src/targets/microbit-v2/wendoo/user-tile-accelerometer-reads.spec.ts. */
 struct AccelerometerScheduleStep {
   float advanceMs;
   bool setSample;
@@ -2278,7 +2273,7 @@ struct AccelerometerScheduleStep {
 
 TEST_CASE("the user-tile accelerometer-reads fixture byte-matches the golden observable trace") {
   const std::string base =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-accelerometer-reads";
+      std::string(wendoo::test::kWodalFixturesDir) + "/user-tile-accelerometer-reads";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -2300,25 +2295,25 @@ TEST_CASE("the user-tile accelerometer-reads fixture byte-matches the golden obs
   // field getter and the eight accelerometer host-function bodies, then writes
   // each value to a pixel; the reads reach the same accelerometer port the A1
   // read-back vectors exercise.
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports);
   ExecutionContext ctx;
-  mindcraft::ManagedHeap heap(arena);
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::ManagedHeap heap(arena);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 
   // Mirrors SCHEDULE in wodal
-  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-accelerometer-reads.spec.ts:
+  // packages/wodal/src/targets/microbit-v2/wendoo/user-tile-accelerometer-reads.spec.ts:
   // tick 3 sets nothing (all reads hold), ticks 2 and 4 set only some inputs.
   const AccelerometerScheduleStep schedule[4] = {
       {16, true, 10, 20, 30, true, 11, true, 1.0f, true, 2.0f},
@@ -2361,7 +2356,7 @@ TEST_CASE("the user-tile accelerometer-reads fixture byte-matches the golden obs
 }
 
 TEST_CASE("the light-level-sensor fixture byte-matches the golden observable trace") {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/light-level-sensor";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/light-level-sensor";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -2381,19 +2376,19 @@ TEST_CASE("the light-level-sensor fixture byte-matches the golden observable tra
 
   // The light-level sensor is stateless and reads the display port off the
   // device ports; the set-pixel actuator lights pixel (0,0) each firing tick.
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
   ExecutionContext ctx;
-  mindcraft::ManagedHeap heap(arena);
+  wendoo::ManagedHeap heap(arena);
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 
   // Mirrors SCHEDULE in wodal
-  // packages/wodal/src/targets/microbit-v2/mindcraft/light-level-sensor-trace.spec.ts:
+  // packages/wodal/src/targets/microbit-v2/wendoo/light-level-sensor-trace.spec.ts:
   // a dark tick (0, no fire) then two distinct positive levels (each fires).
   const int schedule[3] = {0, 200, 40};
   float lastThinkTimeMs = 0;
@@ -2414,8 +2409,7 @@ TEST_CASE("the light-level-sensor fixture byte-matches the golden observable tra
 }
 
 TEST_CASE("the user-tile light-level fixture byte-matches the golden observable trace") {
-  const std::string base =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-light-level";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/user-tile-light-level";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -2436,25 +2430,25 @@ TEST_CASE("the user-tile light-level fixture byte-matches the golden observable 
   // The actuator reads ctx.microbit.display.getLightLevel() through the native
   // struct field getter and the Device-API host-function body, then writes the
   // value to a pixel; the read reaches the same display port the tile sensor does.
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports);
   ExecutionContext ctx;
-  mindcraft::ManagedHeap heap(arena);
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::ManagedHeap heap(arena);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 
   // Mirrors SCHEDULE in wodal
-  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-light-level.spec.ts:
+  // packages/wodal/src/targets/microbit-v2/wendoo/user-tile-light-level.spec.ts:
   // two distinct levels then a hold tick (sets nothing, the reading holds 40).
   struct Step {
     bool set;
@@ -2481,7 +2475,7 @@ TEST_CASE("the user-tile light-level fixture byte-matches the golden observable 
 }
 
 TEST_CASE("the temperature-sensor fixture byte-matches the golden observable trace") {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/temperature-sensor";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/temperature-sensor";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -2501,19 +2495,19 @@ TEST_CASE("the temperature-sensor fixture byte-matches the golden observable tra
 
   // The temperature sensor is stateless and reads the thermometer port off the
   // device ports; the set-pixel actuator lights pixel (0,0) each firing tick.
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
   ExecutionContext ctx;
-  mindcraft::ManagedHeap heap(arena);
+  wendoo::ManagedHeap heap(arena);
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 
   // Mirrors SCHEDULE in wodal
-  // packages/wodal/src/targets/microbit-v2/mindcraft/temperature-sensor-trace.spec.ts:
+  // packages/wodal/src/targets/microbit-v2/wendoo/temperature-sensor-trace.spec.ts:
   // a zero tick (no fire), a positive reading (fires), and a negative reading (fires).
   const int32_t schedule[3] = {0, 22, -5};
   float lastThinkTimeMs = 0;
@@ -2534,8 +2528,7 @@ TEST_CASE("the temperature-sensor fixture byte-matches the golden observable tra
 }
 
 TEST_CASE("the user-tile temperature fixture byte-matches the golden observable trace") {
-  const std::string base =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-temperature";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/user-tile-temperature";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -2557,25 +2550,25 @@ TEST_CASE("the user-tile temperature fixture byte-matches the golden observable 
   // native struct field getter and the Device-API host-function body, then writes
   // the value to a pixel; the read reaches the same thermometer port the tile
   // sensor does.
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports);
   ExecutionContext ctx;
-  mindcraft::ManagedHeap heap(arena);
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::ManagedHeap heap(arena);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 
   // Mirrors SCHEDULE in wodal
-  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-temperature.spec.ts:
+  // packages/wodal/src/targets/microbit-v2/wendoo/user-tile-temperature.spec.ts:
   // a positive reading, a negative reading, then a hold tick (sets nothing, holds -5).
   struct Step {
     bool set;
@@ -2602,7 +2595,7 @@ TEST_CASE("the user-tile temperature fixture byte-matches the golden observable 
 }
 
 TEST_CASE("the user-tile i2c-write fixture byte-matches the golden observable trace") {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-i2c-write";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/user-tile-i2c-write";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -2623,26 +2616,26 @@ TEST_CASE("the user-tile i2c-write fixture byte-matches the golden observable tr
   // The actuator reads ctx.microbit.i2c through the native struct field getter
   // and writes a Buffer.fromHex constant (a managed buffer) through the
   // writeBuffer host function; the env resolves that buffer through the heap.
-  mindcraft::ManagedHeap heap(arena, &image);
-  mindcraft::MicroBitV2I2CWriteEnv i2cEnv{&microbit.i2c, &heap, &image};
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cEnv);
+  wendoo::ManagedHeap heap(arena, &image);
+  wendoo::MicroBitV2I2CWriteEnv i2cEnv{&microbit.i2c, &heap, &image};
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cEnv);
   ExecutionContext ctx;
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 
   // Two 16ms thinks mirror SCHEDULE in wodal
-  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-i2c-write.spec.ts.
+  // packages/wodal/src/targets/microbit-v2/wendoo/user-tile-i2c-write.spec.ts.
   float lastThinkTimeMs = 0;
   for (int i = 0; i < 2; i++) {
     const float timeMs = lastThinkTimeMs + 16;
@@ -2664,7 +2657,7 @@ TEST_CASE("the user-tile i2c-write fixture byte-matches the golden observable tr
 }
 
 TEST_CASE("the user-tile system fixture byte-matches the golden observable trace") {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-system";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/user-tile-system";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -2685,26 +2678,26 @@ TEST_CASE("the user-tile system fixture byte-matches the golden observable trace
   // The System's startup-init latches count = 10; each think the rule bumps it
   // through the bump method (LOAD/STORE_SYSTEM_VAR), then the System's think
   // writes the running count to the I2C device through writeBuffer.
-  mindcraft::ManagedHeap heap(arena, &image);
-  mindcraft::MicroBitV2I2CWriteEnv i2cEnv{&microbit.i2c, &heap, &image};
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cEnv);
+  wendoo::ManagedHeap heap(arena, &image);
+  wendoo::MicroBitV2I2CWriteEnv i2cEnv{&microbit.i2c, &heap, &image};
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cEnv);
   ExecutionContext ctx;
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 
   // Three 16ms thinks mirror SCHEDULE in wodal
-  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-system.spec.ts.
+  // packages/wodal/src/targets/microbit-v2/wendoo/user-tile-system.spec.ts.
   float lastThinkTimeMs = 0;
   for (int i = 0; i < 3; i++) {
     const float timeMs = lastThinkTimeMs + 16;
@@ -2728,7 +2721,7 @@ TEST_CASE("the user-tile system fixture byte-matches the golden observable trace
 
 TEST_CASE("the user-tile system struct state fixture byte-matches the golden observable trace") {
   const std::string base =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-system-struct-state";
+      std::string(wendoo::test::kWodalFixturesDir) + "/user-tile-system-struct-state";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -2750,25 +2743,25 @@ TEST_CASE("the user-tile system struct state fixture byte-matches the golden obs
   // factory; each think the rule mirrors pos.x to pin 8 and pos.y to pin 9,
   // then the System's think replaces the struct with an advanced copy. The
   // struct value lives in the GC-rooted System store across thinks.
-  mindcraft::ManagedHeap heap(arena, &image);
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  wendoo::ManagedHeap heap(arena, &image);
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports);
   ExecutionContext ctx;
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 
   // Three 16ms thinks mirror SCHEDULE in wodal
-  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-system-struct-state.spec.ts.
+  // packages/wodal/src/targets/microbit-v2/wendoo/user-tile-system-struct-state.spec.ts.
   float lastThinkTimeMs = 0;
   for (int i = 0; i < 3; i++) {
     const float timeMs = lastThinkTimeMs + 16;
@@ -2793,7 +2786,7 @@ TEST_CASE("the user-tile system struct state fixture byte-matches the golden obs
 }
 
 TEST_CASE("the user-tile i2c-read fixture byte-matches the golden observable trace") {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-i2c-read";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/user-tile-i2c-read";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -2811,7 +2804,7 @@ TEST_CASE("the user-tile i2c-read fixture byte-matches the golden observable tra
   microbit.i2c.writer = &writer;
   // The responder address returns three bytes; the absent address is a no-device
   // read. Mirrors the injected responses in wodal
-  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-i2c-read.spec.ts.
+  // packages/wodal/src/targets/microbit-v2/wendoo/user-tile-i2c-read.spec.ts.
   microbit.i2c.readResponses[0x42] = {0xaa, 0xbb, 0xcc};
   TraceTap tap(writer);
 
@@ -2819,21 +2812,21 @@ TEST_CASE("the user-tile i2c-read fixture byte-matches the golden observable tra
   // and echoes each read (a managed Buffer the readBuffer host function
   // allocates) straight back through writeBuffer; the read body allocates its
   // buffer through the heap with the scheduler as its collection roots.
-  mindcraft::ManagedHeap heap(arena, &image);
-  mindcraft::MicroBitV2I2CWriteEnv i2cWriteEnv{&microbit.i2c, &heap, &image};
-  mindcraft::MicroBitV2I2CReadEnv i2cReadEnv{&microbit.i2c, &heap, nullptr};
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  wendoo::ManagedHeap heap(arena, &image);
+  wendoo::MicroBitV2I2CWriteEnv i2cWriteEnv{&microbit.i2c, &heap, &image};
+  wendoo::MicroBitV2I2CReadEnv i2cReadEnv{&microbit.i2c, &heap, nullptr};
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
   auto hostFuncs =
-      mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cWriteEnv, &i2cReadEnv);
+      wendoo::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cWriteEnv, &i2cReadEnv);
   ExecutionContext ctx;
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   i2cReadEnv.roots = &scheduler;
   BrainRuntime brain(image, scheduler, surface);
 
@@ -2841,7 +2834,7 @@ TEST_CASE("the user-tile i2c-read fixture byte-matches the golden observable tra
   REQUIRE(hostLoop.startup().isOk());
 
   // Two 16ms thinks mirror SCHEDULE in wodal
-  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-i2c-read.spec.ts.
+  // packages/wodal/src/targets/microbit-v2/wendoo/user-tile-i2c-read.spec.ts.
   float lastThinkTimeMs = 0;
   for (int i = 0; i < 2; i++) {
     const float timeMs = lastThinkTimeMs + 16;
@@ -2866,7 +2859,7 @@ TEST_CASE("the user-tile i2c-read fixture byte-matches the golden observable tra
 }
 
 TEST_CASE("the user-tile gpio fixture byte-matches the golden observable trace") {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-gpio";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/user-tile-gpio";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -2883,31 +2876,31 @@ TEST_CASE("the user-tile gpio fixture byte-matches the golden observable trace")
   HostMicroBit microbit;
   microbit.gpio.writer = &writer;
   // Inject the line-sensor level the actuator reads. Mirrors the injected level
-  // in wodal packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-gpio.spec.ts.
+  // in wodal packages/wodal/src/targets/microbit-v2/wendoo/user-tile-gpio.spec.ts.
   microbit.gpio.levels[13] = 1;
   TraceTap tap(writer);
 
   // The actuator reads ctx.microbit.gpio through the native struct field getter
   // and drives the four pin ops; the gpio bodies bind over the port in ports.
-  mindcraft::ManagedHeap heap(arena, &image);
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  wendoo::ManagedHeap heap(arena, &image);
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports);
   ExecutionContext ctx;
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 
   // Two 16ms thinks mirror SCHEDULE in wodal
-  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-gpio.spec.ts.
+  // packages/wodal/src/targets/microbit-v2/wendoo/user-tile-gpio.spec.ts.
   float lastThinkTimeMs = 0;
   for (int i = 0; i < 2; i++) {
     const float timeMs = lastThinkTimeMs + 16;
@@ -2941,7 +2934,7 @@ TEST_CASE("the user-tile gpio fixture byte-matches the golden observable trace")
 
 TEST_CASE("the user-tile buffer-narrowing fixture byte-matches the golden observable trace") {
   const std::string base =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-buffer-narrowing";
+      std::string(wendoo::test::kWodalFixturesDir) + "/user-tile-buffer-narrowing";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -2960,30 +2953,30 @@ TEST_CASE("the user-tile buffer-narrowing fixture byte-matches the golden observ
   TraceTap tap(writer);
 
   // The actuator stores a managed buffer and a number in rule variables, reads
-  // each back as a MindcraftValue union, and discriminates them with
+  // each back as a WendooValue union, and discriminates them with
   // Buffer.isBuffer through the tag-general TYPE_CHECK op: the buffer branch
   // drives buffer.get(0) (42) onto pin 2; the number branch typeof-narrows the
   // stored 7 onto pin 3. The managed buffer is built through the buffer builtins
   // and round-trips through the rule-variable store on the managed heap.
-  mindcraft::ManagedHeap heap(arena, &image);
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  wendoo::ManagedHeap heap(arena, &image);
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports);
   ExecutionContext ctx;
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 
   // Two 16ms thinks mirror SCHEDULE in wodal
-  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-buffer-narrowing.spec.ts.
+  // packages/wodal/src/targets/microbit-v2/wendoo/user-tile-buffer-narrowing.spec.ts.
   float lastThinkTimeMs = 0;
   for (int i = 0; i < 2; i++) {
     const float timeMs = lastThinkTimeMs + 16;
@@ -3023,7 +3016,7 @@ TEST_CASE("the user-tile buffer-narrowing fixture byte-matches the golden observ
 // HOST_CALL binds ctx.currentRuleFuncId from the frame before the accessor runs,
 // so both sites resolve the same rule store the reference VM does.
 static void checkWhenResultFixture(const std::string& name, uint32_t expected) {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/" + name;
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/" + name;
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -3041,26 +3034,26 @@ static void checkWhenResultFixture(const std::string& name, uint32_t expected) {
   microbit.gpio.writer = &writer;
   TraceTap tap(writer);
 
-  mindcraft::ManagedHeap heap(arena, &image);
+  wendoo::ManagedHeap heap(arena, &image);
   writer.setHeap(&heap);
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports);
   ExecutionContext ctx;
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 
   // Two 16ms thinks mirror SCHEDULE in wodal
-  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-when-result.spec.ts.
+  // packages/wodal/src/targets/microbit-v2/wendoo/user-tile-when-result.spec.ts.
   float lastThinkTimeMs = 0;
   for (int i = 0; i < 2; i++) {
     const float timeMs = lastThinkTimeMs + 16;
@@ -3110,7 +3103,7 @@ TEST_CASE("the user-tile when-result buffer fixture byte-matches the golden obse
 // it is the parent's result, reached by walking the ancestor chain -- the same
 // rule-variable resolution the reference VM performs.
 static void checkNestedWhenResultFixture(const std::string& name, uint32_t expected) {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/" + name;
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/" + name;
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -3128,26 +3121,26 @@ static void checkNestedWhenResultFixture(const std::string& name, uint32_t expec
   microbit.gpio.writer = &writer;
   TraceTap tap(writer);
 
-  mindcraft::ManagedHeap heap(arena, &image);
+  wendoo::ManagedHeap heap(arena, &image);
   writer.setHeap(&heap);
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports);
   ExecutionContext ctx;
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 
   // Two 16ms thinks mirror SCHEDULE in wodal
-  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-when-result.spec.ts.
+  // packages/wodal/src/targets/microbit-v2/wendoo/user-tile-when-result.spec.ts.
   float lastThinkTimeMs = 0;
   for (int i = 0; i < 2; i++) {
     const float timeMs = lastThinkTimeMs + 16;
@@ -3189,8 +3182,7 @@ TEST_CASE(
 }
 
 TEST_CASE("the user-tile gpio analog fixture byte-matches the golden observable trace") {
-  const std::string base =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-gpio-analog";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/user-tile-gpio-analog";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -3208,32 +3200,32 @@ TEST_CASE("the user-tile gpio analog fixture byte-matches the golden observable 
   microbit.gpio.writer = &writer;
   // Inject the boundary axis values the actuator reads on the first think.
   // Mirrors the injection schedule in wodal
-  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-gpio-analog.spec.ts.
+  // packages/wodal/src/targets/microbit-v2/wendoo/user-tile-gpio-analog.spec.ts.
   microbit.gpio.analogLevels[1] = 0;
   microbit.gpio.analogLevels[2] = 1023;
   TraceTap tap(writer);
 
   // The actuator reads ctx.microbit.gpio through the native struct field getter,
   // reads both analog pins, and mirrors their sum to a digital write.
-  mindcraft::ManagedHeap heap(arena, &image);
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  wendoo::ManagedHeap heap(arena, &image);
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports);
   ExecutionContext ctx;
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 
   // Three 16ms thinks mirror SCHEDULE in wodal
-  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-gpio-analog.spec.ts:
+  // packages/wodal/src/targets/microbit-v2/wendoo/user-tile-gpio-analog.spec.ts:
   // before think 2 the vertical axis moves to a mid value while the horizontal
   // axis holds its injected boundary value.
   float lastThinkTimeMs = 0;
@@ -3263,8 +3255,7 @@ TEST_CASE("the user-tile gpio analog fixture byte-matches the golden observable 
 }
 
 TEST_CASE("the user-tile conversion fixture byte-matches the golden observable trace") {
-  const std::string base =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-conversion";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/user-tile-conversion";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -3286,26 +3277,26 @@ TEST_CASE("the user-tile conversion fixture byte-matches the golden observable t
   // compiler emitted the user conversion (byte recipe [7, n, n+1]) as a
   // bytecode action call, and the actuator mirrors the folded packet bytes
   // to a digital write.
-  mindcraft::ManagedHeap heap(arena, &image);
+  wendoo::ManagedHeap heap(arena, &image);
   writer.setHeap(&heap);
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports);
   ExecutionContext ctx;
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 
   // Two 16ms thinks mirror SCHEDULE in wodal
-  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-conversion.spec.ts.
+  // packages/wodal/src/targets/microbit-v2/wendoo/user-tile-conversion.spec.ts.
   float lastThinkTimeMs = 0;
   for (int i = 0; i < 2; i++) {
     const float timeMs = lastThinkTimeMs + 16;
@@ -3328,7 +3319,7 @@ TEST_CASE("the user-tile conversion fixture byte-matches the golden observable t
 }
 
 TEST_CASE("the user-tile struct fixture byte-matches the golden observable trace") {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-struct";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/user-tile-struct";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -3350,26 +3341,26 @@ TEST_CASE("the user-tile struct fixture byte-matches the golden observable trace
   // position, a struct variable stores a deep copy, one actuator receives the
   // struct through an anonymous param and packs its fields (pin 8), and a
   // brain-side accessor read feeds a number actuator (pin 9).
-  mindcraft::ManagedHeap heap(arena, &image);
+  wendoo::ManagedHeap heap(arena, &image);
   writer.setHeap(&heap);
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports);
   ExecutionContext ctx;
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 
   // Two 16ms thinks mirror SCHEDULE in wodal
-  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-struct.spec.ts.
+  // packages/wodal/src/targets/microbit-v2/wendoo/user-tile-struct.spec.ts.
   float lastThinkTimeMs = 0;
   for (int i = 0; i < 2; i++) {
     const float timeMs = lastThinkTimeMs + 16;
@@ -3395,7 +3386,7 @@ TEST_CASE("the user-tile struct fixture byte-matches the golden observable trace
 }
 
 TEST_CASE("the variable-zero-init fixture byte-matches the golden observable trace") {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/variable-zero-init";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/variable-zero-init";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -3410,7 +3401,7 @@ TEST_CASE("the variable-zero-init fixture byte-matches the golden observable tra
   // The slot's starting value travels in the program image.
   REQUIRE(image.variableNames.size() == 1);
   REQUIRE(image.variableInitValues.size() == 1);
-  CHECK(image.variableInitValues[0] != mindcraft::kNoVariableInit);
+  CHECK(image.variableInitValues[0] != wendoo::kNoVariableInit);
 
   StringTextSink sink;
   ObservableTraceWriter writer(sink, image);
@@ -3418,18 +3409,18 @@ TEST_CASE("the variable-zero-init fixture byte-matches the golden observable tra
   microbit.display.writer = &writer;
   TraceTap tap(writer);
 
-  mindcraft::ManagedHeap heap(arena, &image);
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  wendoo::ManagedHeap heap(arena, &image);
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports);
   ExecutionContext ctx;
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
@@ -3438,11 +3429,11 @@ TEST_CASE("the variable-zero-init fixture byte-matches the golden observable tra
   // Startup binds the slot tables. The unwritten count holds its starting value
   // of 0 before the first think, so the WHEN comparison holds from tick 1.
   REQUIRE(ctx.variables.size() == 1);
-  CHECK(ctx.variables[0].tag() == mindcraft::ValueTag::Number);
+  CHECK(ctx.variables[0].tag() == wendoo::ValueTag::Number);
   CHECK(ctx.variables[0].asNumber() == 0.0f);
 
   // Six 16ms thinks mirror the schedule in wodal
-  // packages/wodal/src/targets/microbit-v2/mindcraft/variable-zero-init-trace.spec.ts.
+  // packages/wodal/src/targets/microbit-v2/wendoo/variable-zero-init-trace.spec.ts.
   float lastThinkTimeMs = 0;
   for (int i = 0; i < 6; i++) {
     const float timeMs = lastThinkTimeMs + 16;
@@ -3460,8 +3451,7 @@ TEST_CASE("the variable-zero-init fixture byte-matches the golden observable tra
 }
 
 TEST_CASE("the assignment-conversion fixture byte-matches the golden observable trace") {
-  const std::string base =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/assignment-conversion";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/assignment-conversion";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -3483,26 +3473,26 @@ TEST_CASE("the assignment-conversion fixture byte-matches the golden observable 
   // assigned to a Number variable (pin 9), a String literal assigned to a
   // struct's Number field (pin 10), and [not] over a Number literal whose
   // Boolean result feeds a Number arg slot (pin 11).
-  mindcraft::ManagedHeap heap(arena, &image);
+  wendoo::ManagedHeap heap(arena, &image);
   writer.setHeap(&heap);
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports);
   ExecutionContext ctx;
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 
   // Two 16ms thinks mirror SCHEDULE in wodal
-  // packages/wodal/src/targets/microbit-v2/mindcraft/assignment-conversion-trace.spec.ts.
+  // packages/wodal/src/targets/microbit-v2/wendoo/assignment-conversion-trace.spec.ts.
   float lastThinkTimeMs = 0;
   for (int i = 0; i < 2; i++) {
     const float timeMs = lastThinkTimeMs + 16;
@@ -3531,7 +3521,7 @@ TEST_CASE("the assignment-conversion fixture byte-matches the golden observable 
 
 TEST_CASE("the user-tile nested struct fixture byte-matches the golden observable trace") {
   const std::string base =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-struct-nested";
+      std::string(wendoo::test::kWodalFixturesDir) + "/user-tile-struct-nested";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -3554,26 +3544,26 @@ TEST_CASE("the user-tile nested struct fixture byte-matches the golden observabl
   // variable stores a deep copy at both levels, a chained accessor read
   // [sprite][pos][x] feeds pin 8, and a flat accessor read [sprite][hp]
   // feeds pin 9.
-  mindcraft::ManagedHeap heap(arena, &image);
+  wendoo::ManagedHeap heap(arena, &image);
   writer.setHeap(&heap);
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports);
   ExecutionContext ctx;
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 
   // Two 16ms thinks mirror SCHEDULE in wodal
-  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-struct-nested.spec.ts.
+  // packages/wodal/src/targets/microbit-v2/wendoo/user-tile-struct-nested.spec.ts.
   float lastThinkTimeMs = 0;
   for (int i = 0; i < 2; i++) {
     const float timeMs = lastThinkTimeMs + 16;
@@ -3600,7 +3590,7 @@ TEST_CASE("the user-tile nested struct fixture byte-matches the golden observabl
 
 TEST_CASE("the user-tile presence-guard fixture byte-matches the golden observable trace") {
   const std::string base =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-presence-guard";
+      std::string(wendoo::test::kWodalFixturesDir) + "/user-tile-presence-guard";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -3623,22 +3613,22 @@ TEST_CASE("the user-tile presence-guard fixture byte-matches the golden observab
   // WHEN holds false. Rule 1 fills it with the [42, 7, 9] constant: the guard
   // passes and the decoded 7*256+9 flows as the WHEN-result into a bare radio
   // send. The golden pins one send of 1801 per think and no sentinel send.
-  mindcraft::ManagedHeap heap(arena, &image);
+  wendoo::ManagedHeap heap(arena, &image);
   writer.setHeap(&heap);
-  mindcraft::MicroBitV2RadioSendEnv radioSendEnv{&microbit.radio, &heap};
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports, nullptr, nullptr,
-                                                              nullptr, &radioSendEnv, nullptr);
+  wendoo::MicroBitV2RadioSendEnv radioSendEnv{&microbit.radio, &heap};
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports, nullptr, nullptr,
+                                                           nullptr, &radioSendEnv, nullptr);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 
   // Two 16ms thinks mirror SCHEDULE in wodal
-  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-presence-guard.spec.ts.
+  // packages/wodal/src/targets/microbit-v2/wendoo/user-tile-presence-guard.spec.ts.
   float lastThinkTimeMs = 0;
   for (int i = 0; i < 2; i++) {
     const float timeMs = lastThinkTimeMs + 16;
@@ -3654,7 +3644,7 @@ TEST_CASE("the user-tile presence-guard fixture byte-matches the golden observab
 }
 
 TEST_CASE("the user-tile sonar fixture byte-matches the golden observable trace") {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-sonar";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/user-tile-sonar";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -3671,31 +3661,31 @@ TEST_CASE("the user-tile sonar fixture byte-matches the golden observable trace"
   HostMicroBit microbit;
   microbit.sonar.writer = &writer;
   // Inject the echo width the background driver measures. Mirrors the injected
-  // width in wodal packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-sonar.spec.ts.
+  // width in wodal packages/wodal/src/targets/microbit-v2/wendoo/user-tile-sonar.spec.ts.
   microbit.sonar.setEchoMicros(8, 12, 5000);
   TraceTap tap(writer);
 
   // The actuator reads ctx.microbit.sonar through the native struct field getter
   // and reads the same sonar twice; the sonar body binds over the port in ports.
-  mindcraft::ManagedHeap heap(arena, &image);
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  wendoo::ManagedHeap heap(arena, &image);
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports);
   ExecutionContext ctx;
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
   REQUIRE(hostLoop.startup().isOk());
 
   // Two 16ms thinks mirror SCHEDULE in wodal
-  // packages/wodal/src/targets/microbit-v2/mindcraft/user-tile-sonar.spec.ts. The
+  // packages/wodal/src/targets/microbit-v2/wendoo/user-tile-sonar.spec.ts. The
   // driver cycle runs after each think (mirroring the wodal runtime), so the next
   // think reads the previous cycle's measurement (the fixed one-cycle lag).
   float lastThinkTimeMs = 0;
@@ -3720,7 +3710,7 @@ TEST_CASE("the user-tile sonar fixture byte-matches the golden observable trace"
 
 TEST_CASE("the user-tile pixel-conversion fixture byte-matches the golden observable trace") {
   const std::string base =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-pixel-conversion";
+      std::string(wendoo::test::kWodalFixturesDir) + "/user-tile-pixel-conversion";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -3741,18 +3731,18 @@ TEST_CASE("the user-tile pixel-conversion fixture byte-matches the golden observ
   // The actuator writes fractional / negative / over-range / out-of-matrix values
   // through the display setPixel host-function, which narrows each to the port's
   // int16 coordinate / uint8 brightness before the write crosses the port.
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports);
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports);
   ExecutionContext ctx;
-  mindcraft::ManagedHeap heap(arena);
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::ManagedHeap heap(arena);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
@@ -3781,14 +3771,14 @@ namespace {
  * followed by the microbit-v2 host actions. Mirrors the table assembled in
  * targets/microbit-v2/source/main.cpp.
  */
-std::array<mindcraft::HostActionBinding,
-           mindcraft::kCoreHostActionBindingCount + mindcraft::kMicroBitV2HostActionBindingCount>
+std::array<wendoo::HostActionBinding,
+           wendoo::kCoreHostActionBindingCount + wendoo::kMicroBitV2HostActionBindingCount>
 combineActionTable(
-    const std::array<mindcraft::HostActionBinding, mindcraft::kCoreHostActionBindingCount>& core,
-    const std::array<mindcraft::HostActionBinding, mindcraft::kMicroBitV2HostActionBindingCount>&
+    const std::array<wendoo::HostActionBinding, wendoo::kCoreHostActionBindingCount>& core,
+    const std::array<wendoo::HostActionBinding, wendoo::kMicroBitV2HostActionBindingCount>&
         microbit) {
-  std::array<mindcraft::HostActionBinding,
-             mindcraft::kCoreHostActionBindingCount + mindcraft::kMicroBitV2HostActionBindingCount>
+  std::array<wendoo::HostActionBinding,
+             wendoo::kCoreHostActionBindingCount + wendoo::kMicroBitV2HostActionBindingCount>
       table{};
   for (size_t i = 0; i < core.size(); i++) {
     table[i] = core[i];
@@ -3805,7 +3795,7 @@ combineActionTable(
 // draw env reaches the display, heap, and program; the writer's heap renders the
 // Image struct argument's slots in the async dispatch line.
 void checkDrawFixture(const std::string& name, int tickCount, float tickMs) {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/" + name;
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/" + name;
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -3823,20 +3813,20 @@ void checkDrawFixture(const std::string& name, int tickCount, float tickMs) {
   microbit.display.writer = &writer;
   TraceTap tap(writer);
 
-  mindcraft::CoreHostActionEnv coreEnv;
-  mindcraft::VmRng rng;
-  mindcraft::ManagedHeap heap(arena, &image);
+  wendoo::CoreHostActionEnv coreEnv;
+  wendoo::VmRng rng;
+  wendoo::ManagedHeap heap(arena, &image);
   writer.setHeap(&heap);
-  mindcraft::MicroBitV2DrawImageEnv drawEnv{&microbit.display, &heap, &image};
-  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
+  wendoo::MicroBitV2DrawImageEnv drawEnv{&microbit.display, &heap, &image};
+  auto coreBindings = wendoo::makeCoreHostActionBindings(coreEnv);
   auto mbBindings =
-      mindcraft::makeMicroBitV2HostActionBindings(microbit.ports, nullptr, nullptr, &drawEnv);
+      wendoo::makeMicroBitV2HostActionBindings(microbit.ports, nullptr, nullptr, &drawEnv);
   auto actions = combineActionTable(coreBindings, mbBindings);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
   surface.rng = &rng;
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   coreEnv.brain = &brain;
   coreEnv.rng = &rng;
@@ -3868,7 +3858,7 @@ void checkDrawFixture(const std::string& name, int tickCount, float tickMs) {
 // through the image-backed heap; the speaker lease settles on the pinned
 // nominal-duration table before each think, as pollSpeaker does on device.
 void checkPlaySoundFixture(const std::string& name, int tickCount, float tickMs) {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/" + name;
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/" + name;
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -3887,20 +3877,20 @@ void checkPlaySoundFixture(const std::string& name, int tickCount, float tickMs)
   microbit.speaker.writer = &writer;
   TraceTap tap(writer);
 
-  mindcraft::CoreHostActionEnv coreEnv;
-  mindcraft::VmRng rng;
-  mindcraft::ManagedHeap heap(arena, &image);
+  wendoo::CoreHostActionEnv coreEnv;
+  wendoo::VmRng rng;
+  wendoo::ManagedHeap heap(arena, &image);
   writer.setHeap(&heap);
-  mindcraft::MicroBitV2PlaySoundEnv playSoundEnv{&microbit.speaker, &heap};
-  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
-  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(
+  wendoo::MicroBitV2PlaySoundEnv playSoundEnv{&microbit.speaker, &heap};
+  auto coreBindings = wendoo::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = wendoo::makeMicroBitV2HostActionBindings(
       microbit.ports, nullptr, nullptr, nullptr, nullptr, nullptr, &playSoundEnv);
   auto actions = combineActionTable(coreBindings, mbBindings);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
   surface.rng = &rng;
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   coreEnv.brain = &brain;
   coreEnv.rng = &rng;
@@ -3935,7 +3925,7 @@ void checkPlaySoundFixture(const std::string& name, int tickCount, float tickMs)
 // pollDisplay does), and byte-compares the rendered trace against the committed
 // golden.
 void checkUserTileDrawFixture(const std::string& name, int tickCount, float tickMs) {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/" + name;
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/" + name;
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -3953,21 +3943,21 @@ void checkUserTileDrawFixture(const std::string& name, int tickCount, float tick
   microbit.display.writer = &writer;
   TraceTap tap(writer);
 
-  mindcraft::CoreHostActionEnv coreEnv;
-  mindcraft::VmRng rng;
-  mindcraft::ManagedHeap heap(arena, &image);
+  wendoo::CoreHostActionEnv coreEnv;
+  wendoo::VmRng rng;
+  wendoo::ManagedHeap heap(arena, &image);
   writer.setHeap(&heap);
-  mindcraft::MicroBitV2DrawImageEnv drawEnv{&microbit.display, &heap, &image};
-  mindcraft::MicroBitV2DisplayScrollEnv scrollEnv{&microbit.display, &heap};
-  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
-  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  wendoo::MicroBitV2DrawImageEnv drawEnv{&microbit.display, &heap, &image};
+  wendoo::MicroBitV2DisplayScrollEnv scrollEnv{&microbit.display, &heap};
+  auto coreBindings = wendoo::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
   auto actions = combineActionTable(coreBindings, mbBindings);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports, &drawEnv, nullptr,
-                                                             nullptr, nullptr, nullptr, &scrollEnv);
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports, &drawEnv, nullptr,
+                                                          nullptr, nullptr, nullptr, &scrollEnv);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
-  auto registeredStructs = mindcraft::makeMicroBitV2RegisteredStructSlotCounts();
+  auto registeredStructs = wendoo::makeMicroBitV2RegisteredStructSlotCounts();
   types.setRegisteredStructSlotCounts({registeredStructs.data(), registeredStructs.size()});
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
@@ -3975,7 +3965,7 @@ void checkUserTileDrawFixture(const std::string& name, int tickCount, float tick
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   coreEnv.brain = &brain;
   coreEnv.rng = &rng;
@@ -4012,7 +4002,7 @@ void checkUserTileDrawFixture(const std::string& name, int tickCount, float tick
 // settles the wodal runtime's after-think poll does), and byte-compares the
 // rendered trace against the committed golden.
 void checkUserTilePlaySoundFixture(const std::string& name, int tickCount, float tickMs) {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/" + name;
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/" + name;
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -4031,20 +4021,20 @@ void checkUserTilePlaySoundFixture(const std::string& name, int tickCount, float
   microbit.speaker.writer = &writer;
   TraceTap tap(writer);
 
-  mindcraft::CoreHostActionEnv coreEnv;
-  mindcraft::VmRng rng;
-  mindcraft::ManagedHeap heap(arena, &image);
+  wendoo::CoreHostActionEnv coreEnv;
+  wendoo::VmRng rng;
+  wendoo::ManagedHeap heap(arena, &image);
   writer.setHeap(&heap);
-  mindcraft::MicroBitV2PlaySoundEnv playSoundEnv{&microbit.speaker, &heap};
-  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
-  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  wendoo::MicroBitV2PlaySoundEnv playSoundEnv{&microbit.speaker, &heap};
+  auto coreBindings = wendoo::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
   auto actions = combineActionTable(coreBindings, mbBindings);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(
-      microbit.ports, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, &playSoundEnv);
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, nullptr, nullptr,
+                                                          nullptr, nullptr, nullptr, &playSoundEnv);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
-  auto registeredStructs = mindcraft::makeMicroBitV2RegisteredStructSlotCounts();
+  auto registeredStructs = wendoo::makeMicroBitV2RegisteredStructSlotCounts();
   types.setRegisteredStructSlotCounts({registeredStructs.data(), registeredStructs.size()});
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
@@ -4052,7 +4042,7 @@ void checkUserTilePlaySoundFixture(const std::string& name, int tickCount, float
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   coreEnv.brain = &brain;
   coreEnv.rng = &rng;
@@ -4081,7 +4071,7 @@ void checkUserTilePlaySoundFixture(const std::string& name, int tickCount, float
 } // namespace
 
 TEST_CASE("the timer-brain fixture byte-matches the golden observable trace") {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/timer-brain";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/timer-brain";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -4101,17 +4091,17 @@ TEST_CASE("the timer-brain fixture byte-matches the golden observable trace") {
 
   // The core sensor/actuator surface reaches the brain, RNG, and heap; the
   // timeout sensor's per-callsite state list draws from the managed heap.
-  mindcraft::CoreHostActionEnv coreEnv;
-  mindcraft::VmRng rng;
-  mindcraft::ManagedHeap heap(arena, &image);
-  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
-  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  wendoo::CoreHostActionEnv coreEnv;
+  wendoo::VmRng rng;
+  wendoo::ManagedHeap heap(arena, &image);
+  auto coreBindings = wendoo::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
   auto actions = combineActionTable(coreBindings, mbBindings);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
   surface.rng = &rng;
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   coreEnv.brain = &brain;
   coreEnv.rng = &rng;
@@ -4140,7 +4130,7 @@ TEST_CASE("the timer-brain fixture byte-matches the golden observable trace") {
 }
 
 TEST_CASE("the timeout-bounce fixture byte-matches the golden observable trace") {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/timeout-bounce";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/timeout-bounce";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -4158,17 +4148,17 @@ TEST_CASE("the timeout-bounce fixture byte-matches the golden observable trace")
   microbit.display.writer = &writer;
   TraceTap tap(writer);
 
-  mindcraft::CoreHostActionEnv coreEnv;
-  mindcraft::VmRng rng;
-  mindcraft::ManagedHeap heap(arena, &image);
-  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
-  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  wendoo::CoreHostActionEnv coreEnv;
+  wendoo::VmRng rng;
+  wendoo::ManagedHeap heap(arena, &image);
+  auto coreBindings = wendoo::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
   auto actions = combineActionTable(coreBindings, mbBindings);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
   surface.rng = &rng;
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   coreEnv.brain = &brain;
   coreEnv.rng = &rng;
@@ -4197,8 +4187,7 @@ TEST_CASE("the timeout-bounce fixture byte-matches the golden observable trace")
 }
 
 TEST_CASE("a multi-rule page switching mid-round runs fault-free") {
-  const std::string base =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/multi-rule-page-switch";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/multi-rule-page-switch";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
 
   std::vector<uint8_t> arenaStorage(64 * 1024);
@@ -4215,17 +4204,17 @@ TEST_CASE("a multi-rule page switching mid-round runs fault-free") {
   microbit.display.writer = &writer;
   TraceTap tap(writer);
 
-  mindcraft::CoreHostActionEnv coreEnv;
-  mindcraft::VmRng rng;
-  mindcraft::ManagedHeap heap(arena, &image);
-  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
-  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  wendoo::CoreHostActionEnv coreEnv;
+  wendoo::VmRng rng;
+  wendoo::ManagedHeap heap(arena, &image);
+  auto coreBindings = wendoo::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
   auto actions = combineActionTable(coreBindings, mbBindings);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
   surface.rng = &rng;
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   coreEnv.brain = &brain;
   coreEnv.rng = &rng;
@@ -4254,7 +4243,7 @@ TEST_CASE("a multi-rule page switching mid-round runs fault-free") {
 }
 
 TEST_CASE("the restart-interrupt fixture byte-matches the golden observable trace") {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/restart-interrupt";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/restart-interrupt";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -4272,17 +4261,17 @@ TEST_CASE("the restart-interrupt fixture byte-matches the golden observable trac
   microbit.display.writer = &writer;
   TraceTap tap(writer);
 
-  mindcraft::CoreHostActionEnv coreEnv;
-  mindcraft::VmRng rng;
-  mindcraft::ManagedHeap heap(arena, &image);
-  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
-  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  wendoo::CoreHostActionEnv coreEnv;
+  wendoo::VmRng rng;
+  wendoo::ManagedHeap heap(arena, &image);
+  auto coreBindings = wendoo::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
   auto actions = combineActionTable(coreBindings, mbBindings);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
   surface.rng = &rng;
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   coreEnv.brain = &brain;
   coreEnv.rng = &rng;
@@ -4312,7 +4301,7 @@ TEST_CASE("the restart-interrupt fixture byte-matches the golden observable trac
 }
 
 TEST_CASE("the core-host-actions fixture byte-matches the golden observable trace") {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/core-host-actions";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/core-host-actions";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -4332,17 +4321,17 @@ TEST_CASE("the core-host-actions fixture byte-matches the golden observable trac
 
   // The switch-page-by-id actuator resolves the borrowed page-id string through
   // the heap configured with the image.
-  mindcraft::CoreHostActionEnv coreEnv;
-  mindcraft::VmRng rng;
-  mindcraft::ManagedHeap heap(arena, &image);
-  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
-  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  wendoo::CoreHostActionEnv coreEnv;
+  wendoo::VmRng rng;
+  wendoo::ManagedHeap heap(arena, &image);
+  auto coreBindings = wendoo::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
   auto actions = combineActionTable(coreBindings, mbBindings);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
   surface.rng = &rng;
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   coreEnv.brain = &brain;
   coreEnv.rng = &rng;
@@ -4371,7 +4360,7 @@ TEST_CASE("the core-host-actions fixture byte-matches the golden observable trac
 }
 
 TEST_CASE("the display-scroll fixture byte-matches the golden observable trace") {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/display-scroll";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/display-scroll";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -4393,18 +4382,18 @@ TEST_CASE("the display-scroll fixture byte-matches the golden observable trace")
   // set-pixel are microbit actions. The scroll body reads its borrowed text
   // string through the image-backed heap; the scroll env hands the body that
   // heap and the display port.
-  mindcraft::CoreHostActionEnv coreEnv;
-  mindcraft::VmRng rng;
-  mindcraft::ManagedHeap heap(arena, &image);
-  mindcraft::MicroBitV2DisplayScrollEnv scrollEnv{&microbit.display, &heap};
-  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
-  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports, &scrollEnv);
+  wendoo::CoreHostActionEnv coreEnv;
+  wendoo::VmRng rng;
+  wendoo::ManagedHeap heap(arena, &image);
+  wendoo::MicroBitV2DisplayScrollEnv scrollEnv{&microbit.display, &heap};
+  auto coreBindings = wendoo::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports, &scrollEnv);
   auto actions = combineActionTable(coreBindings, mbBindings);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
   surface.rng = &rng;
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   coreEnv.brain = &brain;
   coreEnv.rng = &rng;
@@ -4443,7 +4432,7 @@ TEST_CASE("the display-scroll fixture byte-matches the golden observable trace")
 // captured __whenResult: a numeric WHEN scrolls its number, a boolean WHEN keeps
 // the default text.
 static void checkScrollWhenResultFixture(const std::string& name) {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/" + name;
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/" + name;
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -4461,18 +4450,18 @@ static void checkScrollWhenResultFixture(const std::string& name) {
   microbit.display.writer = &writer;
   TraceTap tap(writer);
 
-  mindcraft::CoreHostActionEnv coreEnv;
-  mindcraft::VmRng rng;
-  mindcraft::ManagedHeap heap(arena, &image);
-  mindcraft::MicroBitV2DisplayScrollEnv scrollEnv{&microbit.display, &heap};
-  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
-  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports, &scrollEnv);
+  wendoo::CoreHostActionEnv coreEnv;
+  wendoo::VmRng rng;
+  wendoo::ManagedHeap heap(arena, &image);
+  wendoo::MicroBitV2DisplayScrollEnv scrollEnv{&microbit.display, &heap};
+  auto coreBindings = wendoo::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports, &scrollEnv);
   auto actions = combineActionTable(coreBindings, mbBindings);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
   surface.rng = &rng;
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   coreEnv.brain = &brain;
   coreEnv.rng = &rng;
@@ -4645,7 +4634,7 @@ TEST_CASE("the display-clear-preempts fixture byte-matches the golden observable
 }
 
 TEST_CASE("the display-scroll-drop fixture byte-matches the golden observable trace") {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/display-scroll-drop";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/display-scroll-drop";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -4663,18 +4652,18 @@ TEST_CASE("the display-scroll-drop fixture byte-matches the golden observable tr
   microbit.display.writer = &writer;
   TraceTap tap(writer);
 
-  mindcraft::CoreHostActionEnv coreEnv;
-  mindcraft::VmRng rng;
-  mindcraft::ManagedHeap heap(arena, &image);
-  mindcraft::MicroBitV2DisplayScrollEnv scrollEnv{&microbit.display, &heap};
-  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
-  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports, &scrollEnv);
+  wendoo::CoreHostActionEnv coreEnv;
+  wendoo::VmRng rng;
+  wendoo::ManagedHeap heap(arena, &image);
+  wendoo::MicroBitV2DisplayScrollEnv scrollEnv{&microbit.display, &heap};
+  auto coreBindings = wendoo::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports, &scrollEnv);
   auto actions = combineActionTable(coreBindings, mbBindings);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
   surface.rng = &rng;
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   coreEnv.brain = &brain;
   coreEnv.rng = &rng;
@@ -4706,7 +4695,7 @@ TEST_CASE("the display-scroll-drop fixture byte-matches the golden observable tr
 
 TEST_CASE("the display-scroll-background fixture byte-matches the golden observable trace") {
   const std::string base =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/display-scroll-background";
+      std::string(wendoo::test::kWodalFixturesDir) + "/display-scroll-background";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -4724,18 +4713,18 @@ TEST_CASE("the display-scroll-background fixture byte-matches the golden observa
   microbit.display.writer = &writer;
   TraceTap tap(writer);
 
-  mindcraft::CoreHostActionEnv coreEnv;
-  mindcraft::VmRng rng;
-  mindcraft::ManagedHeap heap(arena, &image);
-  mindcraft::MicroBitV2DisplayScrollEnv scrollEnv{&microbit.display, &heap};
-  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
-  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports, &scrollEnv);
+  wendoo::CoreHostActionEnv coreEnv;
+  wendoo::VmRng rng;
+  wendoo::ManagedHeap heap(arena, &image);
+  wendoo::MicroBitV2DisplayScrollEnv scrollEnv{&microbit.display, &heap};
+  auto coreBindings = wendoo::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports, &scrollEnv);
   auto actions = combineActionTable(coreBindings, mbBindings);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
   surface.rng = &rng;
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   coreEnv.brain = &brain;
   coreEnv.rng = &rng;
@@ -4766,7 +4755,7 @@ TEST_CASE("the display-scroll-background fixture byte-matches the golden observa
 }
 
 TEST_CASE("the async-action fixture byte-matches the golden observable trace") {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/async-action";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/async-action";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -4786,17 +4775,17 @@ TEST_CASE("the async-action fixture byte-matches the golden observable trace") {
 
   // The rule awaits a bytecode action (ACTION_CALL_ASYNC) and then reads the
   // current page id, a device-free core action; no microbit ports are written.
-  mindcraft::CoreHostActionEnv coreEnv;
-  mindcraft::VmRng rng;
-  mindcraft::ManagedHeap heap(arena, &image);
-  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
-  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  wendoo::CoreHostActionEnv coreEnv;
+  wendoo::VmRng rng;
+  wendoo::ManagedHeap heap(arena, &image);
+  auto coreBindings = wendoo::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
   auto actions = combineActionTable(coreBindings, mbBindings);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
   surface.rng = &rng;
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   coreEnv.brain = &brain;
   coreEnv.rng = &rng;
@@ -4826,7 +4815,7 @@ TEST_CASE("the async-action fixture byte-matches the golden observable trace") {
 }
 
 TEST_CASE("the sibling-rule-fibers fixture byte-matches the golden observable trace") {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/sibling-rule-fibers";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/sibling-rule-fibers";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -4846,12 +4835,12 @@ TEST_CASE("the sibling-rule-fibers fixture byte-matches the golden observable tr
 
   // The root rule spawns two child rules (SPAWN_RULE); each awaits a bytecode
   // action (ACTION_CALL_ASYNC) and surfaces a set-pixel before and after.
-  mindcraft::ManagedHeap heap(arena, &image);
-  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  wendoo::ManagedHeap heap(arena, &image);
+  auto mbBindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {mbBindings.data(), mbBindings.size()}, &tap, &heap};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
@@ -4874,7 +4863,7 @@ TEST_CASE("the sibling-rule-fibers fixture byte-matches the golden observable tr
 }
 
 TEST_CASE("the parent-quiesce fixture byte-matches the golden observable trace") {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/parent-quiesce";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/parent-quiesce";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -4894,12 +4883,12 @@ TEST_CASE("the parent-quiesce fixture byte-matches the golden observable trace")
 
   // The parent rule lights a marker pixel and spawns one child rule that awaits
   // a bytecode action; the parent must not re-fire while the child is in flight.
-  mindcraft::ManagedHeap heap(arena, &image);
-  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  wendoo::ManagedHeap heap(arena, &image);
+  auto mbBindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {mbBindings.data(), mbBindings.size()}, &tap, &heap};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
@@ -4921,7 +4910,7 @@ TEST_CASE("the parent-quiesce fixture byte-matches the golden observable trace")
 
 TEST_CASE("the async-parent-sequencing fixture byte-matches the golden observable trace") {
   const std::string base =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/async-parent-sequencing";
+      std::string(wendoo::test::kWodalFixturesDir) + "/async-parent-sequencing";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -4941,18 +4930,18 @@ TEST_CASE("the async-parent-sequencing fixture byte-matches the golden observabl
 
   // The parent rule fires once on page entry, scrolls (async), and parks; its
   // child rule lights a pixel after the scroll resolves (SPAWN_RULE at the tail).
-  mindcraft::CoreHostActionEnv coreEnv;
-  mindcraft::VmRng rng;
-  mindcraft::ManagedHeap heap(arena, &image);
-  mindcraft::MicroBitV2DisplayScrollEnv scrollEnv{&microbit.display, &heap};
-  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
-  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports, &scrollEnv);
+  wendoo::CoreHostActionEnv coreEnv;
+  wendoo::VmRng rng;
+  wendoo::ManagedHeap heap(arena, &image);
+  wendoo::MicroBitV2DisplayScrollEnv scrollEnv{&microbit.display, &heap};
+  auto coreBindings = wendoo::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports, &scrollEnv);
   auto actions = combineActionTable(coreBindings, mbBindings);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
   surface.rng = &rng;
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   coreEnv.brain = &brain;
   coreEnv.rng = &rng;
@@ -4980,7 +4969,7 @@ TEST_CASE("the async-parent-sequencing fixture byte-matches the golden observabl
 
 TEST_CASE("the async-handle-backpressure fixture byte-matches the golden observable trace") {
   const std::string base =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/async-handle-backpressure";
+      std::string(wendoo::test::kWodalFixturesDir) + "/async-handle-backpressure";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -5001,19 +4990,19 @@ TEST_CASE("the async-handle-backpressure fixture byte-matches the golden observa
   // A parent rule fires once on page entry, lights a pixel, and spawns eight
   // child rules that each scroll (async) in the same think. Under a four-handle
   // cap the breadth backpressures and spills across thinks in bounded waves.
-  mindcraft::CoreHostActionEnv coreEnv;
-  mindcraft::VmRng rng;
-  mindcraft::ManagedHeap heap(arena, &image);
-  mindcraft::MicroBitV2DisplayScrollEnv scrollEnv{&microbit.display, &heap};
-  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
-  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports, &scrollEnv);
+  wendoo::CoreHostActionEnv coreEnv;
+  wendoo::VmRng rng;
+  wendoo::ManagedHeap heap(arena, &image);
+  wendoo::MicroBitV2DisplayScrollEnv scrollEnv{&microbit.display, &heap};
+  auto coreBindings = wendoo::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports, &scrollEnv);
   auto actions = combineActionTable(coreBindings, mbBindings);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
   surface.rng = &rng;
 
   FiberScheduler scheduler(image, surface, arena,
-                           mindcraft::test::withMaxHandles(mindcraft::test::kDeviceProfileCaps, 4));
+                           wendoo::test::withMaxHandles(wendoo::test::kDeviceProfileCaps, 4));
   BrainRuntime brain(image, scheduler, surface);
   coreEnv.brain = &brain;
   coreEnv.rng = &rng;
@@ -5040,7 +5029,7 @@ TEST_CASE("the async-handle-backpressure fixture byte-matches the golden observa
 }
 
 TEST_CASE("the non-firing-parent fixture byte-matches the golden observable trace") {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/non-firing-parent";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/non-firing-parent";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -5061,15 +5050,14 @@ TEST_CASE("the non-firing-parent fixture byte-matches the golden observable trac
   // A control rule lights a pixel every think; a parent rule gated on button A
   // (never pressed) has a child rule that scrolls. The parent never fires, so
   // its child never runs and no scroll crosses the trace.
-  mindcraft::ManagedHeap heap(arena, &image);
-  mindcraft::MicroBitV2DisplayScrollEnv scrollEnv{&microbit.display, &heap};
-  mindcraft::MicroBitV2ButtonSensorEnv buttonEnv{&microbit.buttons, &heap, nullptr};
-  auto bindings =
-      mindcraft::makeMicroBitV2HostActionBindings(microbit.ports, &scrollEnv, &buttonEnv);
+  wendoo::ManagedHeap heap(arena, &image);
+  wendoo::MicroBitV2DisplayScrollEnv scrollEnv{&microbit.display, &heap};
+  wendoo::MicroBitV2ButtonSensorEnv buttonEnv{&microbit.buttons, &heap, nullptr};
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports, &scrollEnv, &buttonEnv);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, &tap, &heap};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   buttonEnv.roots = &scheduler;
   BrainRuntime brain(image, scheduler, surface);
 
@@ -5093,7 +5081,7 @@ TEST_CASE("the non-firing-parent fixture byte-matches the golden observable trac
 
 TEST_CASE("the sync-cascade-depth-first fixture byte-matches the golden observable trace") {
   const std::string base =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/sync-cascade-depth-first";
+      std::string(wendoo::test::kWodalFixturesDir) + "/sync-cascade-depth-first";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -5113,17 +5101,17 @@ TEST_CASE("the sync-cascade-depth-first fixture byte-matches the golden observab
 
   // A synchronous parent -> child -> grandchild plus a second child, all lighting
   // pixels in one think in depth-first order (x = 0, 1, 2, 3).
-  mindcraft::CoreHostActionEnv coreEnv;
-  mindcraft::VmRng rng;
-  mindcraft::ManagedHeap heap(arena, &image);
-  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
-  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  wendoo::CoreHostActionEnv coreEnv;
+  wendoo::VmRng rng;
+  wendoo::ManagedHeap heap(arena, &image);
+  auto coreBindings = wendoo::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
   auto actions = combineActionTable(coreBindings, mbBindings);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
   surface.rng = &rng;
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   coreEnv.brain = &brain;
   coreEnv.rng = &rng;
@@ -5149,8 +5137,7 @@ TEST_CASE("the sync-cascade-depth-first fixture byte-matches the golden observab
 }
 
 TEST_CASE("the mixed-sync-async-child fixture byte-matches the golden observable trace") {
-  const std::string base =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/mixed-sync-async-child";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/mixed-sync-async-child";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -5171,18 +5158,18 @@ TEST_CASE("the mixed-sync-async-child fixture byte-matches the golden observable
   // A synchronous parent lights a pixel; its synchronous child drains same-think,
   // while its asynchronous child parks on a scroll and its grandchild lights a
   // pixel only after the scroll completes (cross-think).
-  mindcraft::CoreHostActionEnv coreEnv;
-  mindcraft::VmRng rng;
-  mindcraft::ManagedHeap heap(arena, &image);
-  mindcraft::MicroBitV2DisplayScrollEnv scrollEnv{&microbit.display, &heap};
-  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
-  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports, &scrollEnv);
+  wendoo::CoreHostActionEnv coreEnv;
+  wendoo::VmRng rng;
+  wendoo::ManagedHeap heap(arena, &image);
+  wendoo::MicroBitV2DisplayScrollEnv scrollEnv{&microbit.display, &heap};
+  auto coreBindings = wendoo::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports, &scrollEnv);
   auto actions = combineActionTable(coreBindings, mbBindings);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
   surface.rng = &rng;
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   coreEnv.brain = &brain;
   coreEnv.rng = &rng;
@@ -5209,7 +5196,7 @@ TEST_CASE("the mixed-sync-async-child fixture byte-matches the golden observable
 }
 
 TEST_CASE("the pixel-conversion fixture byte-matches the golden observable trace") {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/pixel-conversion";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/pixel-conversion";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -5231,17 +5218,17 @@ TEST_CASE("the pixel-conversion fixture byte-matches the golden observable trace
   // and over-bright/fractional brightness; the pinned f32->u8 conversion at the
   // port must discard the same writes and clamp the same values as the wodal
   // oracle.
-  mindcraft::CoreHostActionEnv coreEnv;
-  mindcraft::VmRng rng;
-  mindcraft::ManagedHeap heap(arena, &image);
-  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
-  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  wendoo::CoreHostActionEnv coreEnv;
+  wendoo::VmRng rng;
+  wendoo::ManagedHeap heap(arena, &image);
+  auto coreBindings = wendoo::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
   auto actions = combineActionTable(coreBindings, mbBindings);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
   surface.rng = &rng;
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   coreEnv.brain = &brain;
   coreEnv.rng = &rng;
@@ -5266,7 +5253,7 @@ TEST_CASE("the pixel-conversion fixture byte-matches the golden observable trace
 }
 
 TEST_CASE("the opcode-coverage fixture byte-matches the golden observable trace") {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/opcode-coverage";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/opcode-coverage";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -5287,17 +5274,17 @@ TEST_CASE("the opcode-coverage fixture byte-matches the golden observable trace"
   // The rule exercises the list-mutation and stack opcodes no other golden
   // reaches, then writes a pixel reading back the final list state. The managed
   // list lives on the heap.
-  mindcraft::CoreHostActionEnv coreEnv;
-  mindcraft::VmRng rng;
-  mindcraft::ManagedHeap heap(arena, &image);
-  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
-  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
+  wendoo::CoreHostActionEnv coreEnv;
+  wendoo::VmRng rng;
+  wendoo::ManagedHeap heap(arena, &image);
+  auto coreBindings = wendoo::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
   auto actions = combineActionTable(coreBindings, mbBindings);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
   surface.rng = &rng;
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   coreEnv.brain = &brain;
   coreEnv.rng = &rng;
@@ -5319,8 +5306,7 @@ TEST_CASE("the opcode-coverage fixture byte-matches the golden observable trace"
 }
 
 TEST_CASE("the managed-string-scroll fixture byte-matches the golden observable trace") {
-  const std::string base =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/managed-string-scroll";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/managed-string-scroll";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -5341,21 +5327,21 @@ TEST_CASE("the managed-string-scroll fixture byte-matches the golden observable 
   // The scrolled text is a managed string built by the string-concat host
   // function; the scroll body reads its bytes from the heap, the same path the
   // borrowed-string scroll exercises.
-  mindcraft::CoreHostActionEnv coreEnv;
-  mindcraft::VmRng rng;
-  mindcraft::ManagedHeap heap(arena, &image);
+  wendoo::CoreHostActionEnv coreEnv;
+  wendoo::VmRng rng;
+  wendoo::ManagedHeap heap(arena, &image);
   // The async scroll arg is a managed string; the trace writer resolves its
   // bytes through the heap.
   writer.setHeap(&heap);
-  mindcraft::MicroBitV2DisplayScrollEnv scrollEnv{&microbit.display, &heap};
-  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
-  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports, &scrollEnv);
+  wendoo::MicroBitV2DisplayScrollEnv scrollEnv{&microbit.display, &heap};
+  auto coreBindings = wendoo::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports, &scrollEnv);
   auto actions = combineActionTable(coreBindings, mbBindings);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
   surface.rng = &rng;
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   coreEnv.brain = &brain;
   coreEnv.rng = &rng;
@@ -5391,7 +5377,7 @@ TEST_CASE("the managed-string-scroll fixture byte-matches the golden observable 
  * run.
  */
 TEST_CASE("a heap collection during a System think skips native receiver values") {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/user-tile-system";
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/user-tile-system";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
 
   std::vector<uint8_t> arenaStorage(16 * 1024);
@@ -5403,19 +5389,19 @@ TEST_CASE("a heap collection during a System think skips native receiver values"
   const ProgramImage& image = decoded.value();
 
   HostMicroBit microbit;
-  mindcraft::ManagedHeap heap(arena, &image);
-  mindcraft::MicroBitV2I2CWriteEnv i2cEnv{&microbit.i2c, &heap, &image};
-  auto bindings = mindcraft::makeMicroBitV2HostActionBindings(microbit.ports);
-  auto hostFuncs = mindcraft::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cEnv);
+  wendoo::ManagedHeap heap(arena, &image);
+  wendoo::MicroBitV2I2CWriteEnv i2cEnv{&microbit.i2c, &heap, &image};
+  auto bindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports);
+  auto hostFuncs = wendoo::makeMicroBitV2HostFuncBindings(microbit.ports, nullptr, &i2cEnv);
   ExecutionContext ctx;
-  mindcraft::TypeRegistry types(image);
-  auto nativeStructs = mindcraft::makeMicroBitV2NativeStructBindings(types);
+  wendoo::TypeRegistry types(image);
+  auto nativeStructs = wendoo::makeMicroBitV2NativeStructBindings(types);
   types.setNativeStructBindings({nativeStructs.data(), nativeStructs.size()});
   RuntimeSurface surface{&ctx, {bindings.data(), bindings.size()}, nullptr, &heap};
   surface.types = &types;
   surface.hostFunctions = {hostFuncs.data(), hostFuncs.size()};
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
 
   HostLoop hostLoop(brain, microbit.ports);
@@ -5459,10 +5445,10 @@ struct OtherwiseStep {
  * brains reach the core sensor table (the `otherwise` sensor and the page-switch
  * actuator) plus the microbit buttons, radio, display scroll, and set-pixel.
  * Mirrors the schedules of wodal
- * packages/wodal/src/targets/microbit-v2/mindcraft/otherwise-trace.spec.ts.
+ * packages/wodal/src/targets/microbit-v2/wendoo/otherwise-trace.spec.ts.
  */
 void runOtherwiseParity(const std::string& name, const std::vector<OtherwiseStep>& schedule) {
-  const std::string base = std::string(mindcraft::test::kWodalFixturesDir) + "/" + name;
+  const std::string base = std::string(wendoo::test::kWodalFixturesDir) + "/" + name;
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
   const std::string golden = readTextFile(base + ".ticks.trace");
 
@@ -5481,22 +5467,22 @@ void runOtherwiseParity(const std::string& name, const std::vector<OtherwiseStep
   microbit.radio.writer = &writer;
   TraceTap tap(writer);
 
-  mindcraft::ManagedHeap heap(arena, &image);
+  wendoo::ManagedHeap heap(arena, &image);
   writer.setHeap(&heap);
-  mindcraft::CoreHostActionEnv coreEnv;
-  mindcraft::VmRng rng;
-  mindcraft::MicroBitV2DisplayScrollEnv scrollEnv{&microbit.display, &heap};
-  mindcraft::MicroBitV2ButtonSensorEnv buttonEnv{&microbit.buttons, &heap, nullptr};
-  mindcraft::MicroBitV2RadioSensorEnv radioSensorEnv{&microbit.radio, &heap, nullptr};
-  auto coreBindings = mindcraft::makeCoreHostActionBindings(coreEnv);
-  auto mbBindings = mindcraft::makeMicroBitV2HostActionBindings(
-      microbit.ports, &scrollEnv, &buttonEnv, nullptr, nullptr, &radioSensorEnv);
+  wendoo::CoreHostActionEnv coreEnv;
+  wendoo::VmRng rng;
+  wendoo::MicroBitV2DisplayScrollEnv scrollEnv{&microbit.display, &heap};
+  wendoo::MicroBitV2ButtonSensorEnv buttonEnv{&microbit.buttons, &heap, nullptr};
+  wendoo::MicroBitV2RadioSensorEnv radioSensorEnv{&microbit.radio, &heap, nullptr};
+  auto coreBindings = wendoo::makeCoreHostActionBindings(coreEnv);
+  auto mbBindings = wendoo::makeMicroBitV2HostActionBindings(microbit.ports, &scrollEnv, &buttonEnv,
+                                                             nullptr, nullptr, &radioSensorEnv);
   auto actions = combineActionTable(coreBindings, mbBindings);
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {actions.data(), actions.size()}, &tap, &heap};
   surface.rng = &rng;
 
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   buttonEnv.roots = &scheduler;
   radioSensorEnv.roots = &scheduler;
   BrainRuntime brain(image, scheduler, surface);

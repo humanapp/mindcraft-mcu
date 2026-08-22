@@ -1,6 +1,6 @@
 # The desktop host test harness. Builds with exceptions enabled (doctest's
 # assertion machinery requires them) while linking the exception-free core.
-add_executable(mindcraft-tests
+add_executable(wendoo-tests
   main.cpp
   accelerometer-read-parity.test.cpp
   async-handles.test.cpp
@@ -45,21 +45,21 @@ add_executable(mindcraft-tests
   vm.test.cpp
 )
 
-# mindcraft-codal links mindcraft-core PUBLIC, so the core library and its
-# include paths reach the tests transitively. mindcraft-hostkit supplies the
+# wendoo-codal links wendoo-core PUBLIC, so the core library and its
+# include paths reach the tests transitively. wendoo-hostkit supplies the
 # host-only trace and dump emitters the parity tests render against.
-target_link_libraries(mindcraft-tests PRIVATE mindcraft-codal mindcraft-hostkit)
+target_link_libraries(wendoo-tests PRIVATE wendoo-codal wendoo-hostkit)
 
-target_include_directories(mindcraft-tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_include_directories(mindcraft-tests SYSTEM PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/vendor)
+target_include_directories(wendoo-tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(wendoo-tests SYSTEM PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/vendor)
 
-target_compile_options(mindcraft-tests PRIVATE -Wall -Wextra -Werror)
+target_compile_options(wendoo-tests PRIVATE -Wall -Wextra -Werror)
 
 # Fixture roots for parity tests, resolved relative to cpp/ inside the repo.
 get_filename_component(MC_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
-target_compile_definitions(mindcraft-tests PRIVATE
-  MC_CORE_FIXTURES_DIR="${MC_REPO_ROOT}/external/mindcraft-lang/packages/core/src/runtime/__fixtures__"
-  MC_WODAL_FIXTURES_DIR="${MC_REPO_ROOT}/packages/wodal/src/targets/microbit-v2/mindcraft/__fixtures__"
+target_compile_definitions(wendoo-tests PRIVATE
+  MC_CORE_FIXTURES_DIR="${MC_REPO_ROOT}/external/wendoo-lang/packages/core/src/runtime/__fixtures__"
+  MC_WODAL_FIXTURES_DIR="${MC_REPO_ROOT}/packages/wodal/src/targets/microbit-v2/wendoo/__fixtures__"
 )
 
-add_test(NAME mindcraft-tests COMMAND mindcraft-tests)
+add_test(NAME wendoo-tests COMMAND wendoo-tests)

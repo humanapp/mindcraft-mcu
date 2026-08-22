@@ -3,7 +3,7 @@
 A general brain-language mechanism so a **value-bearing event sensor** can fire its rule on a valid
 but *falsy* value (0, "", false, empty collection). This is a language/VM-contract concern, not a
 device feature; the bytecode contract lives in the VM contract
-(`external/mindcraft-lang/docs/specs/contracts/vm-contract.md` until this repo owns a local copy).
+(`external/wendoo-lang/docs/specs/contracts/vm-contract.md` until this repo owns a local copy).
 
 ## Problem
 

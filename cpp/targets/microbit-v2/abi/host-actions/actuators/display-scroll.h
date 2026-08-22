@@ -13,13 +13,13 @@
 #include "core/runtime/when-result.h"
 #include "targets/microbit-v2/abi/display-scroll.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 /**
  * Positional arg slot of the display scroll actuator, mirroring the flattened
  * call-definition arg slots of the wodal action source
- * (packages/wodal/src/targets/microbit-v2/mindcraft/actions/display-scroll.ts).
+ * (packages/wodal/src/targets/microbit-v2/wendoo/actions/display-scroll.ts).
  * Slot order is the call spec's declaration order and is wire-stable with the
  * compiler's emitted arg buffers.
  */
@@ -122,4 +122,4 @@ inline Status execScrollText(void *hostData, ExecutionContext &ctx, Span<const V
     return Status::ok();
 }
 
-} // namespace mindcraft
+} // namespace wendoo

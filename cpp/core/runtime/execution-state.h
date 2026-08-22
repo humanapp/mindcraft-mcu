@@ -8,7 +8,7 @@
 #include "core/runtime/program.h"
 #include "core/runtime/value.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 class StackRegionAllocator;
 
@@ -16,7 +16,7 @@ class StackRegionAllocator;
  * State recorded when a fiber parks on a pending async handle (`AWAIT`), used
  * to restore its frame and operand stacks and resume at the instruction past
  * the await. Mirrors `AwaitSite` in
- * external/mindcraft-lang/packages/core/src/runtime/vm-types.ts.
+ * external/wendoo-lang/packages/core/src/runtime/vm-types.ts.
  */
 struct AwaitSite {
   /** Absolute pc within the awaiting frame's function to resume at. */
@@ -32,7 +32,7 @@ struct AwaitSite {
 /**
  * Per-frame binding describing the action call and call site whose state
  * slots back the frame. Mirrors `ActionFrameBinding` in
- * external/mindcraft-lang/packages/core/src/runtime/vm-types.ts with the
+ * external/wendoo-lang/packages/core/src/runtime/vm-types.ts with the
  * action identified by stable id.
  */
 struct ActionFrameBinding {
@@ -46,7 +46,7 @@ struct ActionFrameBinding {
 
 /**
  * Single call frame on an execution state's frame stack. Mirrors `Frame` in
- * external/mindcraft-lang/packages/core/src/runtime/vm-types.ts. `captures`,
+ * external/wendoo-lang/packages/core/src/runtime/vm-types.ts. `captures`,
  * `ruleFuncId`, and the action binding are carried for the closure, rule
  * bookkeeping, and action-dispatch opcodes.
  */
@@ -73,7 +73,7 @@ struct Frame {
 
 /**
  * One try-handler on a fiber's handler stack. Mirrors `Handler` in
- * external/mindcraft-lang/packages/core/src/runtime/vm-types.ts. A handler
+ * external/wendoo-lang/packages/core/src/runtime/vm-types.ts. A handler
  * carries only indices and a pc - no `Value`s - so the handler stack is never
  * a garbage-collection root.
  */
@@ -182,7 +182,7 @@ struct ExecutionState {
    * sentinel) otherwise. The scheduler settles it when the child completes
    * (resolve on `Done`, reject on `Fault`, cancel on cancellation). Mirrors
    * `Fiber.asyncResultHandleId` in
-   * external/mindcraft-lang/packages/core/src/runtime/vm-types.ts.
+   * external/wendoo-lang/packages/core/src/runtime/vm-types.ts.
    */
   uint32_t asyncResultHandleId = 0;
 
@@ -199,4 +199,4 @@ static_assert(std::is_trivially_copyable_v<Handler>, "execution state stays triv
 static_assert(std::is_trivially_copyable_v<ExecutionState>,
               "execution state stays trivially copyable");
 
-} // namespace mindcraft
+} // namespace wendoo

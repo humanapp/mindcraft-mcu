@@ -46,7 +46,7 @@ public:
     return *this;
   }
 
-  WireBuilder& raw(mindcraft::ByteSpan bytes) {
+  WireBuilder& raw(wendoo::ByteSpan bytes) {
     for (size_t i = 0; i < bytes.size(); i++) {
       bytes_.push_back(bytes[i]);
     }
@@ -62,7 +62,7 @@ public:
     return *this;
   }
 
-  mindcraft::ByteSpan span() const { return mindcraft::ByteSpan(bytes_.data(), bytes_.size()); }
+  wendoo::ByteSpan span() const { return wendoo::ByteSpan(bytes_.data(), bytes_.size()); }
 
 private:
   std::vector<uint8_t> bytes_;
@@ -75,7 +75,7 @@ inline WireBuilder programHeader(uint8_t presence = 0, uint32_t profileId = 0) {
       .u8('M')
       .u8('B')
       .u8('P')
-      .u8(mindcraft::kBinaryProgramFormatVersion)
+      .u8(wendoo::kBinaryProgramFormatVersion)
       .varUint(profileId)
       .u8(presence);
   return w;
@@ -100,15 +100,15 @@ inline void emptyRequiredSectionsThroughVars(WireBuilder& w) {
 }
 
 /** Decodes `wire` into `storage` with the microbit-v2 atom-table options. */
-inline mindcraft::Result<mindcraft::ProgramImage, mindcraft::LoadError>
+inline wendoo::Result<wendoo::ProgramImage, wendoo::LoadError>
 decode(const WireBuilder& wire, std::vector<uint8_t>& storage) {
-  constexpr mindcraft::ProgramReaderOptions options{mindcraft::kMicroBitV2TypeAtomIdCount};
-  mindcraft::RegionArena arena(mindcraft::Span<uint8_t>(storage.data(), storage.size()));
-  return mindcraft::readProgramImage(wire.span(), arena, options);
+  constexpr wendoo::ProgramReaderOptions options{wendoo::kMicroBitV2TypeAtomIdCount};
+  wendoo::RegionArena arena(wendoo::Span<uint8_t>(storage.data(), storage.size()));
+  return wendoo::readProgramImage(wire.span(), arena, options);
 }
 
 /** Decodes `wire`, requiring failure, and returns the load error. */
-inline mindcraft::LoadError decodeError(const WireBuilder& wire) {
+inline wendoo::LoadError decodeError(const WireBuilder& wire) {
   std::vector<uint8_t> storage(16 * 1024);
   const auto result = decode(wire, storage);
   REQUIRE(!result.isOk());
@@ -116,7 +116,7 @@ inline mindcraft::LoadError decodeError(const WireBuilder& wire) {
 }
 
 /** Decodes `wire`, requiring success, and returns the image backed by `storage`. */
-inline mindcraft::ProgramImage decodeOk(const WireBuilder& wire, std::vector<uint8_t>& storage) {
+inline wendoo::ProgramImage decodeOk(const WireBuilder& wire, std::vector<uint8_t>& storage) {
   const auto result = decode(wire, storage);
   REQUIRE(result.isOk());
   return result.value();

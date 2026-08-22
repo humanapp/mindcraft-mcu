@@ -1,4 +1,4 @@
-import { type Context, choice, modifier, optional, Sensor } from "mindcraft";
+import { type Context, choice, modifier, optional, Sensor } from "wendoo";
 import { CutebotLine } from "./line-sensor";
 
 /**

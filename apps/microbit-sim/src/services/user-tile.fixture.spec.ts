@@ -3,19 +3,19 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import { createIdbProjectStore, importProjectDocument, ProjectManager } from "@mindcraft-lang/app-host";
-import { AppEnvironmentHost } from "@mindcraft-lang/bridge-app";
-import { BrainDef, coreModule } from "@mindcraft-lang/core/app";
-import { createProfileNumerics } from "@mindcraft-lang/core/runtime";
-import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@mindcraft-lang/ts-compiler";
-import { TEST_PROJECT_NAMESPACE } from "@mindcraft-lang/ts-compiler/testing";
+import { createIdbProjectStore, importProjectDocument, ProjectManager } from "@wendoo-lang/app-host";
+import { AppEnvironmentHost } from "@wendoo-lang/bridge-app";
+import { BrainDef, coreModule } from "@wendoo-lang/core/app";
+import { createProfileNumerics } from "@wendoo-lang/core/runtime";
+import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@wendoo-lang/ts-compiler";
+import { TEST_PROJECT_NAMESPACE } from "@wendoo-lang/ts-compiler/testing";
 import {
   buildWodalProgramImage,
   createWodalSharedModule,
   getWodalDeviceProfile,
   WodalDeviceProfileId,
-} from "@mindcraft-lang/wodal";
-import { createMicroBitV2Environment } from "@mindcraft-lang/wodal/targets/microbit-v2";
+} from "@wendoo-lang/wodal";
+import { createMicroBitV2Environment } from "@wendoo-lang/wodal/targets/microbit-v2";
 import { name as appName } from "../../package.json";
 import { buildMicrobitSimExportDocument, translateMicrobitSimAppChunk } from "./project-io";
 
@@ -51,21 +51,21 @@ function readText(relativePath: string): string {
 function microbitAmbientFiles(): readonly AmbientFile[] {
   return [
     {
-      path: "mindcraft.core.d.ts",
-      content: readText("../../../../external/mindcraft-lang/packages/core/lib/mindcraft.core.d.ts"),
+      path: "wendoo.core.d.ts",
+      content: readText("../../../../external/wendoo-lang/packages/core/lib/wendoo.core.d.ts"),
     },
     {
-      path: "mindcraft.codal.d.ts",
-      content: readText("../../../../packages/wodal/lib/mindcraft.codal.d.ts"),
+      path: "wendoo.codal.d.ts",
+      content: readText("../../../../packages/wodal/lib/wendoo.codal.d.ts"),
     },
     {
-      path: "mindcraft.microbit-v2.d.ts",
-      content: readText("../../../../packages/wodal/targets/microbit-v2/lib/mindcraft.microbit-v2.d.ts"),
+      path: "wendoo.microbit-v2.d.ts",
+      content: readText("../../../../packages/wodal/targets/microbit-v2/lib/wendoo.microbit-v2.d.ts"),
     },
   ];
 }
 
-const SENSOR_SOURCE = `import { Sensor, type Context } from "mindcraft";
+const SENSOR_SOURCE = `import { Sensor, type Context } from "wendoo";
 
 export default Sensor({
   name: "button-a-pressed",
@@ -75,7 +75,7 @@ export default Sensor({
 });
 `;
 
-const ACTUATOR_SOURCE = `import { Actuator, type Context } from "mindcraft";
+const ACTUATOR_SOURCE = `import { Actuator, type Context } from "wendoo";
 
 export default Actuator({
   name: "set-display-pixel",
@@ -149,12 +149,12 @@ describe("user-tile bytecode in microbit-v2 program images", () => {
   });
 });
 
-describe("user-tile source round-trips through .mindcraft", () => {
+describe("user-tile source round-trips through .wendoo", () => {
   it("preserves the tile source across export and re-import", async () => {
     const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
     const host = new AppEnvironmentHost({
       projectManager: new ProjectManager(await createIdbProjectStore(`user-tile-export-${storeCounter++}`)),
-      modules: [coreModule(), createWodalSharedModule(), profile.createMindcraftModule()],
+      modules: [coreModule(), createWodalSharedModule(), profile.createWendooModule()],
       numerics: createProfileNumerics(profile.numberPrecision),
       mounts: [],
     });
@@ -180,7 +180,7 @@ describe("user-tile source round-trips through .mindcraft", () => {
     const importStore = await createIdbProjectStore(`user-tile-import-${storeCounter++}`);
     const importPm = new ProjectManager(importStore);
     await importPm.init();
-    const file = new File([document], "tile-project.mindcraft");
+    const file = new File([document], "tile-project.wendoo");
     const result = await importProjectDocument(file, appName, importPm, {
       appChunkCallback: translateMicrobitSimAppChunk,
     });

@@ -7,7 +7,7 @@
 #include "core/runtime/program.h"
 #include "core/runtime/value.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * Resolve a borrowed buffer value to its bytes inside `image`. Returns the
@@ -41,4 +41,4 @@ inline bool buffersEqual(const ProgramImage& image, const Value& a, const Value&
   return aBytes.size() == 0 || memcmp(aBytes.data(), bBytes.data(), aBytes.size()) == 0;
 }
 
-} // namespace mindcraft
+} // namespace wendoo

@@ -6,12 +6,12 @@
 #include "core/runtime/core-type-atom-id.h"
 #include "core/runtime/type-registry.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * Stable type-atom ids of the shared nominal types: structs common to every
  * target. Mirrors the WodalSharedTypeAtomId enum in
- * packages/wodal/src/mindcraft/shared-type-ids.ts. Serialized programs
+ * packages/wodal/src/wendoo/shared-type-ids.ts. Serialized programs
  * reference nominal types by these values, so the values are wire-stable:
  * never renumber or reuse a value; append new members at the next free id.
  * All values are at or above {@link SHARED_TYPE_ATOM_BASE}.
@@ -29,7 +29,7 @@ inline constexpr uint32_t kSharedTypeAtomIdCount = 1;
 /**
  * Field storage slot count of the `Image` value struct: its `width`, `height`,
  * and `pixels` fields (ids 0, 1, 2), so highest field id + 1. Mirrors ImageField
- * in packages/wodal/src/mindcraft/shared-type-ids.ts.
+ * in packages/wodal/src/wendoo/shared-type-ids.ts.
  */
 inline constexpr uint32_t kSharedImageSlotCount = 3;
 
@@ -50,4 +50,4 @@ makeSharedRegisteredStructSlotCounts() {
   }};
 }
 
-} // namespace mindcraft
+} // namespace wendoo

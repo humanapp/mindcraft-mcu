@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import type { FileContent } from "@mindcraft-lang/app-host";
-import type { EmbeddedExtension, ResolvedExtensions } from "@mindcraft-lang/bridge-app";
-import { resolveProjectExtensions } from "@mindcraft-lang/bridge-app";
-import { buildEmbeddedExtensionFromDir } from "@mindcraft-lang/bridge-app/node";
-import { createWorkspaceCompiler, type Mount, type WorkspaceSnapshot } from "@mindcraft-lang/ts-compiler";
-import { createMicroBitV2Environment } from "@mindcraft-lang/wodal/targets/microbit-v2";
+import type { FileContent } from "@wendoo-lang/app-host";
+import type { EmbeddedExtension, ResolvedExtensions } from "@wendoo-lang/bridge-app";
+import { resolveProjectExtensions } from "@wendoo-lang/bridge-app";
+import { buildEmbeddedExtensionFromDir } from "@wendoo-lang/bridge-app/node";
+import { createWorkspaceCompiler, type Mount, type WorkspaceSnapshot } from "@wendoo-lang/ts-compiler";
+import { createMicroBitV2Environment } from "@wendoo-lang/wodal/targets/microbit-v2";
 import {
   CODAL_LIB_COORDINATE,
   CORE_LIB_COORDINATE,
@@ -19,7 +19,7 @@ function extensionDir(relativePath: string): string {
 }
 
 /**
- * The three platform layers assembled from their on-disk `mindcraft.json`
+ * The three platform layers assembled from their on-disk `wendoo.json`
  * files. Post-migration these chain through `targets`: micro:bit v2 --targets-->
  * wodal --targets--> core.
  */
@@ -31,22 +31,22 @@ function platformLayers(): EmbeddedExtension[] {
     ),
     buildEmbeddedExtensionFromDir(extensionDir("../../../../packages/wodal/lib"), CODAL_LIB_COORDINATE),
     buildEmbeddedExtensionFromDir(
-      extensionDir("../../../../external/mindcraft-lang/packages/core/lib"),
+      extensionDir("../../../../external/wendoo-lang/packages/core/lib"),
       CORE_LIB_COORDINATE
     ),
   ];
 }
 
 /** Compiler-controlled path the core ambient declaration materializes under. */
-const CORE_AMBIENT_CONTROLLED_PATH = `.libraries/${CORE_LIB_COORDINATE}/mindcraft.core.d.ts`;
+const CORE_AMBIENT_CONTROLLED_PATH = `.libraries/${CORE_LIB_COORDINATE}/wendoo.core.d.ts`;
 
 /**
  * A workspace source that resolves only when the core ambient (its
- * `declare module "mindcraft"` surface) is in scope: it imports `NumberType`
- * and `StructType` from `"mindcraft"`.
+ * `declare module "wendoo"` surface) is in scope: it imports `NumberType`
+ * and `StructType` from `"wendoo"`.
  */
 const PROBE_SOURCE =
-  'import { NumberType, StructType } from "mindcraft";\n' +
+  'import { NumberType, StructType } from "wendoo";\n' +
   'export const Point = StructType({ name: "Point", fields: { x: NumberType, y: NumberType } });\n';
 
 /**
@@ -54,7 +54,7 @@ const PROBE_SOURCE =
  * layer; it compiles only when that layer is one of the project's own
  * importable dependencies.
  */
-const MY_ACTUATOR_SOURCE = `import { Actuator } from "mindcraft";
+const MY_ACTUATOR_SOURCE = `import { Actuator } from "wendoo";
 import { heart } from "@lib/${MICROBIT_V2_LIB_COORDINATE}"
 const icon = heart();
 export default Actuator({ id: "fbkHu4V3tO8EQ8Bd", name: "my actuator", onExecute(ctx, params) {}, });
@@ -95,13 +95,13 @@ describe("target-driven materialization -- a targets-only project resolves its p
   test("RED: without target-driven materialization the closure is empty and the core ambient is absent", () => {
     // The same targets-only project, resolved with no project targets supplied:
     // the closure is empty, the core ambient never materializes, and the probe
-    // source cannot resolve the "mindcraft" module.
+    // source cannot resolve the "wendoo" module.
     const resolved = resolveProjectExtensions(undefined, { embedded: platformLayers() }, undefined);
     assert.deepEqual(resolved.dependencyMounts, [], "no platform layers materialize");
 
     const { tsErrorCount, controlledFiles } = compileProbe(resolved);
     assert.equal(controlledFiles.has(CORE_AMBIENT_CONTROLLED_PATH), false, "the core ambient file is not materialized");
-    assert.ok(tsErrorCount > 0, "the probe source reports an unresolved 'mindcraft' module");
+    assert.ok(tsErrorCount > 0, "the probe source reports an unresolved 'wendoo' module");
   });
 
   test("GREEN: a project declaring only a target resolves the full platform stack and its ambient", () => {
@@ -116,7 +116,7 @@ describe("target-driven materialization -- a targets-only project resolves its p
 
     const { tsErrorCount, controlledFiles } = compileProbe(resolved);
     assert.equal(controlledFiles.has(CORE_AMBIENT_CONTROLLED_PATH), true, "the core ambient file materializes");
-    assert.equal(tsErrorCount, 0, "the probe source resolves the 'mindcraft' module with no diagnostics");
+    assert.equal(tsErrorCount, 0, "the probe source resolves the 'wendoo' module with no diagnostics");
   });
 
   test("recurse-both: a project reaching the platform through the old extensions edge still resolves the full stack", () => {

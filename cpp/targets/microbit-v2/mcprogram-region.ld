@@ -17,4 +17,4 @@ PROVIDE(__mcprogram_region_start = ALIGN(__etext + SIZEOF(.data), 0x1000));
 PROVIDE(__mcprogram_region_end   = 0x00073000);
 
 ASSERT(__mcprogram_region_start + 0x1000 <= __mcprogram_region_end,
-       "mindcraft: firmware image leaves no room for the .mcprogram region");
+       "wendoo: firmware image leaves no room for the .mcprogram region");

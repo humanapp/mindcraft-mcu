@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { before, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import { createIdbProjectStore, importProjectDocument, ProjectManager } from "@mindcraft-lang/app-host";
-import { AppEnvironmentHost } from "@mindcraft-lang/bridge-app";
-import { BrainDef, coreModule } from "@mindcraft-lang/core/app";
-import { createWodalSharedModule, getWodalDeviceProfile, WodalDeviceProfileId } from "@mindcraft-lang/wodal";
+import { createIdbProjectStore, importProjectDocument, ProjectManager } from "@wendoo-lang/app-host";
+import { AppEnvironmentHost } from "@wendoo-lang/bridge-app";
+import { BrainDef, coreModule } from "@wendoo-lang/core/app";
+import { createWodalSharedModule, getWodalDeviceProfile, WodalDeviceProfileId } from "@wendoo-lang/wodal";
 import { name as appName } from "../../package.json";
 import {
   BRAINS_INDEX_KEY,
@@ -16,18 +16,18 @@ import {
   translateMicrobitSimAppChunk,
 } from "./project-io";
 
-const FIXTURE_PATH = fileURLToPath(new URL("./__fixtures__/sample-project.mindcraft", import.meta.url));
+const FIXTURE_PATH = fileURLToPath(new URL("./__fixtures__/sample-project.wendoo", import.meta.url));
 
 /** Extension dependencies seeded into the sample project, coordinate-keyed, one per reference form. */
 const FIXTURE_EXTENSIONS = {
-  "example-org/mindcraft-position": "gh:example-org/mindcraft-position@v1.2.0",
+  "example-org/wendoo-position": "gh:example-org/wendoo-position@v1.2.0",
   "example-org/steering": "gh:example-org/steering#main",
-  "mindcraft-lang/lib-codal": "embedded:mindcraft-lang/lib-codal",
+  "wendoo-lang/lib-codal": "embedded:wendoo-lang/lib-codal",
 };
 
 /** User-tile source seeded into the sample project's workspace. */
 const FIXTURE_TILE_PATH = "tiles/button-a-pressed.ts";
-const FIXTURE_TILE_SOURCE = `import { Sensor, type Context } from "mindcraft";
+const FIXTURE_TILE_SOURCE = `import { Sensor, type Context } from "wendoo";
 
 export default Sensor({
   name: "button-a-pressed",
@@ -76,7 +76,7 @@ function seededRandom(): () => number {
 }
 
 /**
- * Builds a sample `.mindcraft` document through the real export path, from a seeded environment so the
+ * Builds a sample `.wendoo` document through the real export path, from a seeded environment so the
  * brain ids are reproducible. Drives `buildMicrobitSimExportDocument` - the code the store exports
  * through - so the committed fixture is provably code-generated.
  */
@@ -84,7 +84,7 @@ async function generateFixtureDocument(): Promise<string> {
   const profile = getWodalDeviceProfile(WodalDeviceProfileId.MICROBIT_V2);
   const host = new AppEnvironmentHost({
     projectManager: new ProjectManager(await createIdbProjectStore(`fixture-gen-${storeCounter++}`)),
-    modules: [coreModule(), createWodalSharedModule(), profile.createMindcraftModule()],
+    modules: [coreModule(), createWodalSharedModule(), profile.createWendooModule()],
     mounts: [],
     rng: { next: seededRandom() },
   });
@@ -118,7 +118,7 @@ async function generateFixtureDocument(): Promise<string> {
   return document;
 }
 
-describe("sample .mindcraft fixture", () => {
+describe("sample .wendoo fixture", () => {
   let generated: string;
 
   before(async () => {
@@ -166,7 +166,7 @@ describe("sample .mindcraft fixture", () => {
     const projectManager = new ProjectManager(projectStore);
     await projectManager.init();
 
-    const file = new File([readFileSync(FIXTURE_PATH, "utf8")], "sample-project.mindcraft");
+    const file = new File([readFileSync(FIXTURE_PATH, "utf8")], "sample-project.wendoo");
     const result = await importProjectDocument(file, appName, projectManager, {
       // The store's import callback: seed microbit-sim's session chunk into app-data.
       appChunkCallback: translateMicrobitSimAppChunk,

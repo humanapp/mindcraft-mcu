@@ -12,27 +12,27 @@
 #include <cstdint>
 #include <vector>
 
-using mindcraft::BrainRuntime;
-using mindcraft::ErrorCode;
-using mindcraft::ExecutionContext;
-using mindcraft::FiberScheduler;
-using mindcraft::Frame;
-using mindcraft::HostActionBinding;
-using mindcraft::kNoCallSiteId;
-using mindcraft::Op;
-using mindcraft::ProgramImage;
-using mindcraft::RegionArena;
-using mindcraft::RuntimeSurface;
-using mindcraft::Span;
-using mindcraft::Status;
-using mindcraft::Value;
-using mindcraft::VmObserver;
+using wendoo::BrainRuntime;
+using wendoo::ErrorCode;
+using wendoo::ExecutionContext;
+using wendoo::FiberScheduler;
+using wendoo::Frame;
+using wendoo::HostActionBinding;
+using wendoo::kNoCallSiteId;
+using wendoo::Op;
+using wendoo::ProgramImage;
+using wendoo::RegionArena;
+using wendoo::RuntimeSurface;
+using wendoo::Span;
+using wendoo::Status;
+using wendoo::Value;
+using wendoo::VmObserver;
 
 namespace {
 
 /** One shared region with room for several fibers' regions and records; tests spawn a few. */
 struct SchedulerStorage {
-  static constexpr size_t kArenaBytes = 8 * (2048 + sizeof(mindcraft::FiberRecord) + 64) + 256;
+  static constexpr size_t kArenaBytes = 8 * (2048 + sizeof(wendoo::FiberRecord) + 64) + 256;
   std::array<uint8_t, kArenaBytes> bytes;
   RegionArena arena{Span<uint8_t>(bytes.data(), bytes.size())};
 };
@@ -53,7 +53,7 @@ struct CountingObserver : VmObserver {
   }
 };
 
-Value execNoop(void*, ExecutionContext&, Span<const Value>) { return mindcraft::kVoidValue; }
+Value execNoop(void*, ExecutionContext&, Span<const Value>) { return wendoo::kVoidValue; }
 
 /** Host-action env carrying the brain so an action body can restart its page. */
 struct RestartEnv {
@@ -63,7 +63,7 @@ struct RestartEnv {
 /** A host action that restarts the active page mid-round (cancels its fibers). */
 Value execRestartPage(void* hostData, ExecutionContext&, Span<const Value>) {
   static_cast<RestartEnv*>(hostData)->brain->requestPageRestart();
-  return mindcraft::kVoidValue;
+  return wendoo::kVoidValue;
 }
 
 void markStateOnPageEntered(void*, ExecutionContext& ctx) {
@@ -90,7 +90,7 @@ TEST_CASE("think stamps time, the dt rule, and the tick counter") {
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {bindings, 1}, nullptr};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, pools.arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   REQUIRE(brain.startup().isOk());
 
@@ -116,7 +116,7 @@ TEST_CASE("a completed rule fiber respawns and re-evaluates every think") {
   CountingObserver observer;
   RuntimeSurface surface{&ctx, {bindings, 1}, &observer};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, pools.arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   REQUIRE(brain.startup().isOk());
 
@@ -139,7 +139,7 @@ TEST_CASE("a fault kills the fiber, not the rule: it respawns next think") {
   CountingObserver observer;
   RuntimeSurface surface{&ctx, {}, &observer};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, pools.arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   REQUIRE(brain.startup().isOk());
 
@@ -166,7 +166,7 @@ TEST_CASE("an unregistered action id faults the fiber and the rule respawns") {
   CountingObserver observer;
   RuntimeSurface surface{&ctx, {}, &observer};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, pools.arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   // Activation skips the unregistered call site; the existence check faults
   // at dispatch instead.
@@ -193,7 +193,7 @@ TEST_CASE("page activation runs each call site's page-entered hook bound to it")
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {bindings, 1}, nullptr};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, pools.arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   REQUIRE(brain.startup().isOk());
 
@@ -214,7 +214,7 @@ struct ReentryProbe {
 Value execReenterThink(void* hostData, ExecutionContext&, Span<const Value>) {
   ReentryProbe* probe = static_cast<ReentryProbe*>(hostData);
   probe->reentry = probe->brain->think(999.0f);
-  return mindcraft::kVoidValue;
+  return wendoo::kVoidValue;
 }
 
 } // namespace
@@ -229,7 +229,7 @@ TEST_CASE("think is single-entry: re-entering from a host body fails loudly") {
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {bindings, 1}, nullptr};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, pools.arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   probe.brain = &brain;
   REQUIRE(brain.startup().isOk());
@@ -252,7 +252,7 @@ TEST_CASE("a program with no pages starts up and thinks as a no-op") {
   ExecutionContext ctx;
   RuntimeSurface surface{&ctx, {}, nullptr};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, pools.arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   REQUIRE(brain.startup().isOk());
   REQUIRE(brain.think(16.0f).isOk());
@@ -275,7 +275,7 @@ TEST_CASE("requesting the active page restarts its rules from their entry") {
   CountingObserver observer;
   RuntimeSurface surface{&ctx, {bindings, 1}, &observer};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, pools.arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   REQUIRE(brain.startup().isOk());
 
@@ -325,7 +325,7 @@ TEST_CASE(
   CountingObserver observer;
   RuntimeSurface surface{&ctx, {bindings, 1}, &observer};
   SchedulerStorage pools;
-  FiberScheduler scheduler(image, surface, pools.arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, pools.arena, wendoo::test::kDeviceProfileCaps);
   BrainRuntime brain(image, scheduler, surface);
   env.brain = &brain;
   REQUIRE(brain.startup().isOk());

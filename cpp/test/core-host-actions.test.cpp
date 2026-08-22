@@ -14,23 +14,23 @@
 #include <iterator>
 #include <vector>
 
-using mindcraft::CoreFuncId;
-using mindcraft::CoreHostActionEnv;
-using mindcraft::ExecutionContext;
-using mindcraft::findHostActionById;
-using mindcraft::GcMarker;
-using mindcraft::GcRoots;
-using mindcraft::HostActionBinding;
-using mindcraft::kCoreHostActions;
-using mindcraft::makeCoreHostActionBindings;
-using mindcraft::ManagedHeap;
-using mindcraft::mc_number_t;
-using mindcraft::RegionArena;
-using mindcraft::Span;
-using mindcraft::TARGET_ACTION_ID_BASE;
-using mindcraft::Value;
-using mindcraft::VmRng;
-namespace CoreHostActions = mindcraft::CoreHostActions;
+using wendoo::CoreFuncId;
+using wendoo::CoreHostActionEnv;
+using wendoo::ExecutionContext;
+using wendoo::findHostActionById;
+using wendoo::GcMarker;
+using wendoo::GcRoots;
+using wendoo::HostActionBinding;
+using wendoo::kCoreHostActions;
+using wendoo::makeCoreHostActionBindings;
+using wendoo::ManagedHeap;
+using wendoo::mc_number_t;
+using wendoo::RegionArena;
+using wendoo::Span;
+using wendoo::TARGET_ACTION_ID_BASE;
+using wendoo::Value;
+using wendoo::VmRng;
+namespace CoreHostActions = wendoo::CoreHostActions;
 
 TEST_CASE("action partition constant matches the TS declaration") {
   CHECK(TARGET_ACTION_ID_BASE == 1024);

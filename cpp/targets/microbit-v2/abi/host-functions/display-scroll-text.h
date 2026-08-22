@@ -12,7 +12,7 @@
 #include "targets/microbit-v2/abi/host-functions/native-receiver.h"
 #include "targets/microbit-v2/abi/type-atom-id.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 /**
@@ -47,7 +47,7 @@ inline constexpr uint32_t kScrollTextOptionsInBackgroundField = 1;
  * continues this round without parking on the animation. An unrecognized
  * receiver resolves the handle at once. `hostData` is the bound
  * {@link MicroBitV2DisplayScrollEnv}. Mirrors the `MicroBitDisplay.scrollText`
- * host function in packages/wodal/src/targets/microbit-v2/mindcraft/module.ts.
+ * host function in packages/wodal/src/targets/microbit-v2/wendoo/module.ts.
  */
 inline Status execScrollTextHostFn(void *hostData, ExecutionContext &ctx, Span<const Value> args,
                                    AsyncHandle handle)
@@ -89,4 +89,4 @@ inline Status execScrollTextHostFn(void *hostData, ExecutionContext &ctx, Span<c
     return Status::ok();
 }
 
-} // namespace mindcraft
+} // namespace wendoo

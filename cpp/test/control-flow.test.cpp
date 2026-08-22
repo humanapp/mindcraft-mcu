@@ -12,26 +12,26 @@
 #include <cstdint>
 #include <vector>
 
-using mindcraft::CoreTypeAtomId;
-using mindcraft::ErrorCode;
-using mindcraft::ExecutionContext;
-using mindcraft::FiberRecord;
-using mindcraft::FiberScheduler;
-using mindcraft::FiberState;
-using mindcraft::ManagedHeap;
-using mindcraft::Op;
-using mindcraft::ProgramImage;
-using mindcraft::RegionArena;
-using mindcraft::Result;
-using mindcraft::RunResult;
-using mindcraft::RunStatus;
-using mindcraft::RuntimeSurface;
-using mindcraft::Span;
-using mindcraft::Status;
-using mindcraft::Value;
-using mindcraft::ValueTag;
-using mindcraft::VmObserver;
-using mindcraft::test::kDeviceProfileCaps;
+using wendoo::CoreTypeAtomId;
+using wendoo::ErrorCode;
+using wendoo::ExecutionContext;
+using wendoo::FiberRecord;
+using wendoo::FiberScheduler;
+using wendoo::FiberState;
+using wendoo::ManagedHeap;
+using wendoo::Op;
+using wendoo::ProgramImage;
+using wendoo::RegionArena;
+using wendoo::Result;
+using wendoo::RunResult;
+using wendoo::RunStatus;
+using wendoo::RuntimeSurface;
+using wendoo::Span;
+using wendoo::Status;
+using wendoo::Value;
+using wendoo::ValueTag;
+using wendoo::VmObserver;
+using wendoo::test::kDeviceProfileCaps;
 
 namespace {
 
@@ -192,7 +192,7 @@ TEST_CASE("YIELD suspends the fiber to the next round and preserves locals") {
   RuntimeSurface surface{&ctx, {}, nullptr};
   std::vector<uint8_t> arenaStorage(16 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   const Result<uint32_t> spawned = scheduler.spawn(0);
   REQUIRE(spawned.isOk());
   const uint32_t fiberId = spawned.value();
@@ -226,7 +226,7 @@ TEST_CASE("a YIELD inside a sync action hook faults ScriptError and the hook run
   RuntimeSurface surface{&ctx, {}, nullptr};
   std::vector<uint8_t> arenaStorage(16 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
 
   const Status hook = scheduler.runActionHook(0, 0, 0);
   CHECK_FALSE(hook.isOk());
@@ -248,7 +248,7 @@ TEST_CASE("STORE_CALLSITE_VAR outside any action frame faults ScriptError") {
   REQUIRE(ctx.bindSlots(arena, 0, 1, 1));
   FaultObserver observer;
   RuntimeSurface surface{&ctx, {}, &observer};
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   REQUIRE(scheduler.spawn(0).isOk());
 
   scheduler.tick();
@@ -270,7 +270,7 @@ TEST_CASE("the operand stack grows on demand and faults StackOverflow at its cap
   RuntimeSurface surface{&ctx, {}, &observer};
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   const Result<uint32_t> spawned = scheduler.spawn(0);
   REQUIRE(spawned.isOk());
 
@@ -295,7 +295,7 @@ TEST_CASE("the frame stack grows on demand and faults StackOverflow at its cap")
   RuntimeSurface surface{&ctx, {}, &observer};
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   REQUIRE(scheduler.spawn(0).isOk());
 
   CHECK(scheduler.tick() == 1);
@@ -316,7 +316,7 @@ TEST_CASE("the locals region faults StackOverflow before the frame cap when loca
   RuntimeSurface surface{&ctx, {}, &observer};
   std::vector<uint8_t> arenaStorage(64 * 1024);
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   const Result<uint32_t> spawned = scheduler.spawn(0);
   REQUIRE(spawned.isOk());
 
@@ -351,7 +351,7 @@ TEST_CASE("the collector traces a grown operand stack") {
   RegionArena arena(Span<uint8_t>(arenaStorage.data(), arenaStorage.size()));
   ManagedHeap heap(arena);
   RuntimeSurface surface{&ctx, {}, nullptr, &heap};
-  FiberScheduler scheduler(image, surface, arena, mindcraft::test::kDeviceProfileCaps);
+  FiberScheduler scheduler(image, surface, arena, wendoo::test::kDeviceProfileCaps);
   const Result<uint32_t> spawned = scheduler.spawn(0);
   REQUIRE(spawned.isOk());
 
@@ -362,7 +362,7 @@ TEST_CASE("the collector traces a grown operand stack") {
   CHECK(record->state == FiberState::Runnable);
   REQUIRE(record->exec.stackDepth == kLists);
   // The stack outgrew its initial capacity.
-  CHECK(record->exec.stackCapacity > mindcraft::kInitialStackSlots);
+  CHECK(record->exec.stackCapacity > wendoo::kInitialStackSlots);
   CHECK(heap.liveListCount() == kLists);
 
   // A collection over the scheduler's roots must keep every list reachable

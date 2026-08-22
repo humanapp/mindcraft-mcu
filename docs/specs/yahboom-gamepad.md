@@ -56,7 +56,7 @@ Buffer tiles, user-code conversions, Buffer as a first-class value with `Buffer.
   posture.
 - **Colors name the buttons**: red = B1, green = B2, blue = B3, yellow = B4.
 - **Level signals, like buttons.** True while held; edge / one-shot behavior comes from composed
-  shapers (`external/mindcraft-lang/docs/specs/shapers.md`), not tile variants.
+  shapers (`external/wendoo-lang/docs/specs/shapers.md`), not tile variants.
 - **Stick press: deferred.** The hardware press (P8) exists and, in the vendor model, suppresses
   direction (the direction tiles read false while pressed), but a `[stick pressed]` tile is not in
   the first cut - add it when wanted, following the `[button]` pattern.
@@ -76,7 +76,7 @@ are no separate x/y output tiles; the struct + accessors are the one way to read
 
 **`position` is a shared user-declared struct type** - not a platform type. It is declared once in
 its own extension (`lib-codal-position`, the codal layer) and imported from
-`@lib/mindcraft-lang/lib-codal-position` by BOTH the gamepad (the stick sensor's and decoder's
+`@lib/wendoo-lang/lib-codal-position` by BOTH the gamepad (the stick sensor's and decoder's
 return types, the producers) AND the Cutebot chassis (the `cutebot steer` argument, the consumer),
 so producers and consumer speak one type. It is keyed by its exported symbol identity (the same
 `<file>::<binding>` scheme Systems use). The type travels in the
@@ -141,14 +141,14 @@ Position is a storable one" below.
 
 The four load-bearing declarations. `position.ts` sits in the shared `lib-codal-position`
 extension; the other three sit in the gamepad module and import `Position` from
-`@lib/mindcraft-lang/lib-codal-position`. Types are named by
+`@lib/wendoo-lang/lib-codal-position`. Types are named by
 **reference**: user types by their imported binding, core types by the ambient tokens
 (`BufferType`, `NumberType`, ...). String names are the deprecated form, and canonical registry
 names are lowercase (`"buffer"`, not `"Buffer"`) - one more reason refs are preferred.
 
 ```ts
 // position.ts (in lib-codal-position) -- the shared type, declared once, identity-keyed by its exported symbol
-import { StructType, type StructOf } from "mindcraft";
+import { StructType, type StructOf } from "wendoo";
 
 /** Stick position in game convention: x right-positive, y up-positive, both -100..100. */
 export const Position = StructType({
@@ -160,8 +160,8 @@ export const Position = StructType({
 export type Position = StructOf<typeof Position>;
 
 // stick-position.ts -- the inline producer
-import { Sensor, type Context } from "mindcraft";
-import { Position } from "@lib/mindcraft-lang/lib-codal-position";
+import { Sensor, type Context } from "wendoo";
+import { Position } from "@lib/wendoo-lang/lib-codal-position";
 import { readStickX, readStickY } from "./stick-read";
 
 export default Sensor({
@@ -174,8 +174,8 @@ export default Sensor({
 });
 
 // position-to-buffer.ts -- the wire encode as an implicit conversion
-import { Conversion } from "mindcraft";
-import { Position } from "@lib/mindcraft-lang/lib-codal-position";
+import { Conversion } from "wendoo";
+import { Position } from "@lib/wendoo-lang/lib-codal-position";
 import { PACKET_MAGIC } from "./protocol"; // 0x47 ('G'), shared with the decoder
 
 export default Conversion({
@@ -189,8 +189,8 @@ export default Conversion({
 });
 
 // decoded-stick-position.ts -- inline decoder: reads the received packet from the WHEN result
-import { Sensor, type Context } from "mindcraft";
-import { Position } from "@lib/mindcraft-lang/lib-codal-position";
+import { Sensor, type Context } from "wendoo";
+import { Position } from "@lib/wendoo-lang/lib-codal-position";
 import { PACKET_MAGIC } from "./protocol";
 
 export default Sensor({
@@ -199,7 +199,7 @@ export default Sensor({
   returnType: Position,            // config ref (cross-module type)
   consumesWhenResult: BufferType,  // reads the WHEN result as a Buffer; the editor offers + validates it accordingly
   onExecute(ctx: Context): Position {
-    const wr = ctx.getWhenResult();                       // MindcraftValue
+    const wr = ctx.getWhenResult();                       // WendooValue
     if (Buffer.isBuffer(wr) && wr.length() >= 3 && wr.get(0) === PACKET_MAGIC) {
       return Position({ x: wr.get(1) - 100, y: wr.get(2) - 100 });
     }

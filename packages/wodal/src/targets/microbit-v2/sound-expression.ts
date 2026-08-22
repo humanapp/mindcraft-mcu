@@ -1,4 +1,4 @@
-import { BUILT_IN_SOUNDS, findBuiltInSound } from "./mindcraft/built-in-sounds";
+import { BUILT_IN_SOUNDS, findBuiltInSound } from "./wendoo/built-in-sounds";
 
 /** Oscillator waveform a decoded segment is synthesized with. */
 export type SoundWaveform = "sine" | "sawtooth" | "triangle" | "square" | "noise";

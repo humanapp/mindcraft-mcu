@@ -14,17 +14,17 @@
 
 import assert from "node:assert/strict";
 import { before, describe, test } from "node:test";
-import { List } from "@mindcraft-lang/core";
-import { BrainDef, BrainTileModifierDef, type MindcraftEnvironment, mkActuatorTileId } from "@mindcraft-lang/core/app";
-import { type IBrainPageDef, type IBrainTileDef, mkPageTileId, RuleSide } from "@mindcraft-lang/core/brain";
+import { List } from "@wendoo-lang/core";
+import { BrainDef, BrainTileModifierDef, mkActuatorTileId, type WendooEnvironment } from "@wendoo-lang/core/app";
+import { type IBrainPageDef, type IBrainTileDef, mkPageTileId, RuleSide } from "@wendoo-lang/core/brain";
 import {
   type InsertionContext,
   parseTilesForSuggestions,
   suggestTiles,
-} from "@mindcraft-lang/core/brain/language-service";
-import { CoreHostActions, type LinkedBrainProgram, mkModifierTileId } from "@mindcraft-lang/core/runtime";
-import { buildWodalProgramImage, getWodalDeviceProfile, WodalDeviceProfileId } from "@mindcraft-lang/wodal";
-import { MicroBit, WodalMicroBitRuntime } from "@mindcraft-lang/wodal/targets/microbit-v2";
+} from "@wendoo-lang/core/brain/language-service";
+import { CoreHostActions, type LinkedBrainProgram, mkModifierTileId } from "@wendoo-lang/core/runtime";
+import { buildWodalProgramImage, getWodalDeviceProfile, WodalDeviceProfileId } from "@wendoo-lang/wodal";
+import { MicroBit, WodalMicroBitRuntime } from "@wendoo-lang/wodal/targets/microbit-v2";
 import {
   buildExtensionTestHarness,
   CUTEBOT_EXT_COORDINATE,
@@ -50,7 +50,7 @@ const MARK = {
 } as const;
 
 /** An always-true trigger, so a rule driving it fires every think its page is active. */
-const ALWAYS_SOURCE = `import { type Context, Sensor } from "mindcraft";
+const ALWAYS_SOURCE = `import { type Context, Sensor } from "wendoo";
 
 export default Sensor({
   name: "always",
@@ -62,7 +62,7 @@ export default Sensor({
 
 /** Source of a trigger that fires while `pin` reads high, so a test can turn a rule on and off per tick. */
 function gateSource(name: string, pin: number): string {
-  return `import { type Context, Sensor } from "mindcraft";
+  return `import { type Context, Sensor } from "wendoo";
 
 export default Sensor({
   name: ${JSON.stringify(name)},
@@ -75,7 +75,7 @@ export default Sensor({
 
 /** Source of a test-only actuator that sets the Movement drift trim to `value`. */
 function setDriftSource(id: string, name: string, value: number): string {
-  return `import { Actuator, type Context } from "mindcraft";
+  return `import { Actuator, type Context } from "wendoo";
 import { Movement } from "./movement";
 
 export default Actuator({
@@ -90,7 +90,7 @@ export default Actuator({
 
 /** Source of a test-only actuator that sets the Movement smoothing factor to `value`. */
 function setSmoothingSource(id: string, name: string, value: number): string {
-  return `import { Actuator, type Context } from "mindcraft";
+  return `import { Actuator, type Context } from "wendoo";
 import { Movement } from "./movement";
 
 export default Actuator({
@@ -105,7 +105,7 @@ export default Actuator({
 
 /** Source of a test-only sensor that reports whether a Movement getter returns `expected`. */
 function getterProbeSource(id: string, name: string, getter: "getDrift" | "getSmoothing", expected: number): string {
-  return `import { type Context, Sensor } from "mindcraft";
+  return `import { type Context, Sensor } from "wendoo";
 import { Movement } from "./movement";
 
 export default Sensor({
@@ -120,7 +120,7 @@ export default Sensor({
 
 /** Source of a test-only actuator that marks a rule firing by writing one byte to the observer address. */
 function observerSource(name: string, marker: number): string {
-  return `import { Actuator, type Context } from "mindcraft";
+  return `import { Actuator, type Context } from "wendoo";
 
 export default Actuator({
   name: ${JSON.stringify(name)},
@@ -194,7 +194,7 @@ interface RunResult {
   readonly program: LinkedBrainProgram;
 }
 
-const environment = { current: undefined as MindcraftEnvironment | undefined };
+const environment = { current: undefined as WendooEnvironment | undefined };
 const harnessRef = { current: undefined as ExtensionTestHarness | undefined };
 
 before(() => {
@@ -218,7 +218,7 @@ function sharedModifier(suffix: string): IBrainTileDef {
 }
 
 /** Resolves a registered core host tile (e.g. switch page) from the environment. */
-function coreTile(env: MindcraftEnvironment, tileId: string): IBrainTileDef {
+function coreTile(env: WendooEnvironment, tileId: string): IBrainTileDef {
   const tile = env.brainServices.edit.tiles.get(tileId);
   assert.ok(tile, `core tile ${tileId} should be registered`);
   return tile;
@@ -232,7 +232,7 @@ function pageArgTile(brainDef: BrainDef, page: IBrainPageDef): IBrainTileDef {
 }
 
 /** A one-page brain with one rule per `RuleSpec`, in order. */
-function brainWithRules(env: MindcraftEnvironment, name: string, rules: readonly RuleSpec[]): BrainDef {
+function brainWithRules(env: WendooEnvironment, name: string, rules: readonly RuleSpec[]): BrainDef {
   const brainDef = BrainDef.emptyBrainDef(env.brainServices, name);
   const page = brainDef.pages().get(0)!;
   for (const [index, spec] of rules.entries()) {
@@ -253,7 +253,7 @@ function brainWithRules(env: MindcraftEnvironment, name: string, rules: readonly
  * 4-byte command `[wheel, direction, speed, 0]` decodes to `+speed` for the
  * forward direction byte (0x02) and `-speed` for backward (0x01).
  */
-function run(env: MindcraftEnvironment, brainDef: BrainDef, schedule: readonly Step[]): RunResult {
+function run(env: WendooEnvironment, brainDef: BrainDef, schedule: readonly Step[]): RunResult {
   const built = buildWodalProgramImage({
     brainDef,
     environment: env,

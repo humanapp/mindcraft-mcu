@@ -12,7 +12,7 @@
 #include "targets/microbit-v2/abi/host-functions/native-receiver.h"
 #include "targets/microbit-v2/abi/type-atom-id.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 /**
@@ -50,7 +50,7 @@ inline constexpr uint32_t kDrawImageOptionsInBackgroundField = 2;
  * which takes no lease at all. An unrecognized receiver resolves the handle at
  * once. `hostData` is the bound {@link MicroBitV2DrawImageEnv}. Mirrors the
  * `MicroBitDisplay.drawImage` host function in
- * packages/wodal/src/targets/microbit-v2/mindcraft/module.ts.
+ * packages/wodal/src/targets/microbit-v2/wendoo/module.ts.
  */
 inline Status execDrawImageHostFn(void *hostData, ExecutionContext &ctx, Span<const Value> args,
                                   AsyncHandle handle)
@@ -95,4 +95,4 @@ inline Status execDrawImageHostFn(void *hostData, ExecutionContext &ctx, Span<co
     return Status::ok();
 }
 
-} // namespace mindcraft
+} // namespace wendoo

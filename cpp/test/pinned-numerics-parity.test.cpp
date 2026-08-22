@@ -14,7 +14,7 @@
 #include "doctest/doctest.h"
 #include "fixture-paths.h"
 
-using namespace mindcraft;
+using namespace wendoo;
 
 namespace {
 
@@ -166,7 +166,7 @@ TEST_CASE("the pinned-numeric translation unit rounds per operation (no FMA cont
 
 TEST_CASE("every committed pinned-numeric vector byte-matches the C++ body") {
   const std::string path =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/pinned-numerics-vectors.bin";
+      std::string(wendoo::test::kWodalFixturesDir) + "/pinned-numerics-vectors.bin";
   const std::vector<uint8_t> buf = readFile(path);
 
   Cursor cur{buf, 0};

@@ -1,12 +1,12 @@
 import react from "@vitejs/plugin-react";
 import path from "path";
 import { defineConfig } from "vite";
-import { uiPlugin } from "../../../external/mindcraft-lang/packages/ui/src/vite-plugin.ts";
+import { uiPlugin } from "../../../external/wendoo-lang/packages/ui/src/vite-plugin.ts";
 import { embeddedExtensions } from "./embedded-extensions.mjs";
 
 export default defineConfig({
   // Absolute base for the standalone web build (`npm run build`), matching
-  // apps/ecosim: it deploys to the S3 bucket root at microbit.mindcraft-lang.org,
+  // apps/ecosim: it deploys to the S3 bucket root at microbit.wendoo-lang.org,
   // where a relative base breaks a hard-loaded deep route -- its assets resolve
   // against the route path, so a load of /docs/x/y requests /docs/x/assets/...
   // and misses. The portable target-package build (`npm run package`) overrides
@@ -17,12 +17,12 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(process.cwd(), "./src"),
-      "@mindcraft-lang/assistant-panel": path.resolve(
+      "@wendoo-lang/assistant-panel": path.resolve(
         process.cwd(),
-        "../../external/mindcraft-lang/packages/assistant-panel/src"
+        "../../external/wendoo-lang/packages/assistant-panel/src"
       ),
-      "@mindcraft-lang/ui": path.resolve(process.cwd(), "../../external/mindcraft-lang/packages/ui/src"),
-      "@mindcraft-lang/docs": path.resolve(process.cwd(), "../../external/mindcraft-lang/packages/docs/src"),
+      "@wendoo-lang/ui": path.resolve(process.cwd(), "../../external/wendoo-lang/packages/ui/src"),
+      "@wendoo-lang/docs": path.resolve(process.cwd(), "../../external/wendoo-lang/packages/docs/src"),
     },
   },
   logLevel: "warning",

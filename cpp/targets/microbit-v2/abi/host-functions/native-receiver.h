@@ -7,7 +7,7 @@
 #include "core/runtime/value.h"
 #include "targets/microbit-v2/abi/type-atom-id.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 namespace detail
@@ -47,4 +47,4 @@ inline bool optionStructFlag(const ManagedHeap &heap, Span<const Value> args, ui
     return field.isBoolean() && field.asBoolean();
 }
 
-} // namespace mindcraft
+} // namespace wendoo

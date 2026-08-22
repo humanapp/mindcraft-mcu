@@ -12,7 +12,7 @@ microbit-v2 tile.
 | Composability | rule action (placed in `do`) |
 | Tile key      | core `pause` (label "pause"; key format per the existing core actuators) |
 | Action id     | TBD - appended at the next free **core** host-action id (after the 0-7 range) |
-| Module        | core (`mindcraft` core), all targets |
+| Module        | core (`wendoo` core), all targets |
 
 **First async core host action.** Every existing core host action is sync (`isAsync: false`,
 op 44 `HOST_ACTION_CALL`); `pause` is the first with `isAsync: true` (op 45

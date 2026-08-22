@@ -1,0 +1,17 @@
+{
+  "name": "Position",
+  "version": "0.1.4",
+  "identity": "wendoo-lang/lib-codal-position",
+  "description": "A two-axis position value type (x, y in -100..100 game convention) for WODAL-based targets.",
+  "files": [
+    "index.ts"
+  ],
+  "targets": {
+    "wendoo-lang/lib-codal": {
+      "packageVersion": "^0.2.0"
+    }
+  },
+  "app": {
+    "entry": "index.ts"
+  }
+}

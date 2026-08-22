@@ -5,12 +5,12 @@
 #include <cstdint>
 #include <iterator>
 
-using mindcraft::kOpCount;
-using mindcraft::kOperandSchema;
-using mindcraft::Op;
-using mindcraft::OperandEncoding;
-using mindcraft::operandSchemaFor;
-using mindcraft::OpOperandSchema;
+using wendoo::kOpCount;
+using wendoo::kOperandSchema;
+using wendoo::Op;
+using wendoo::OperandEncoding;
+using wendoo::operandSchemaFor;
+using wendoo::OpOperandSchema;
 
 TEST_CASE("Op values are wire-stable at the group boundaries") {
   CHECK(static_cast<uint8_t>(Op::PUSH_CONST_VAL) == 0);

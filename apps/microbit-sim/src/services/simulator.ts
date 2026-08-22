@@ -1,13 +1,13 @@
-import type { MindcraftEnvironment } from "@mindcraft-lang/core/app";
-import type { ErrorValue } from "@mindcraft-lang/core/runtime";
-import { buildWodalProgramImage, type WodalBuildInput } from "@mindcraft-lang/wodal";
+import type { WendooEnvironment } from "@wendoo-lang/core/app";
+import type { ErrorValue } from "@wendoo-lang/core/runtime";
+import { buildWodalProgramImage, type WodalBuildInput } from "@wendoo-lang/wodal";
 import {
   GestureInjector,
   MicroBit,
   type MicroBitSnapshot,
   type RadioSendRecord,
   WodalMicroBitRuntime,
-} from "@mindcraft-lang/wodal/targets/microbit-v2";
+} from "@wendoo-lang/wodal/targets/microbit-v2";
 import { SharedMedium } from "./shared-medium";
 
 /** One radio send buffered during a frame: its sender and the transmitted packet. */
@@ -53,7 +53,7 @@ export type FlashState =
 
 /**
  * One simulated microbit instance: its `MicroBit` device, the WODAL runtime bound to that device and
- * the shared Mindcraft environment, and its current flash state.
+ * the shared Wendoo environment, and its current flash state.
  */
 export class SimulatorInstance {
   readonly id: string;
@@ -66,7 +66,7 @@ export class SimulatorInstance {
   /** Current flash state; `empty` until a program is flashed. */
   flashState: FlashState = { status: "empty" };
 
-  constructor(id: string, environment: MindcraftEnvironment, onFiberFault?: (fault: InstanceFiberFault) => void) {
+  constructor(id: string, environment: WendooEnvironment, onFiberFault?: (fault: InstanceFiberFault) => void) {
     this.id = id;
     this.microbit = new MicroBit();
     this.runtime = new WodalMicroBitRuntime({
@@ -107,11 +107,11 @@ export class SimulatorInstance {
 /**
  * App-owned model of the simulated microbit fleet: the instance list, the shared medium each
  * instance registers into, and the tick driver that advances them. Construct against the shared
- * Mindcraft environment. Exposes the store subscribe/snapshot pattern for React consumers - the
+ * Wendoo environment. Exposes the store subscribe/snapshot pattern for React consumers - the
  * instance list and a per-frame counter.
  */
 export class MicrobitSimulator {
-  private readonly environment: MindcraftEnvironment;
+  private readonly environment: WendooEnvironment;
   private readonly medium = new SharedMedium();
   private readonly outbox: BufferedSend[] = [];
   private instances_: readonly SimulatorInstance[] = [];
@@ -122,7 +122,7 @@ export class MicrobitSimulator {
   private rafHandle: number | undefined;
   private lastFrameMs: number | undefined;
 
-  constructor(environment: MindcraftEnvironment) {
+  constructor(environment: WendooEnvironment) {
     this.environment = environment;
     this.addInstance();
   }

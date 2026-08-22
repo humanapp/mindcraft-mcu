@@ -2,7 +2,7 @@
 applyTo: "**"
 ---
 
-<!-- Adapted from external/mindcraft-lang/.github/instructions/global.instructions.md -->
+<!-- Adapted from external/wendoo-lang/.github/instructions/global.instructions.md -->
 
 # Global Instructions
 
@@ -118,7 +118,7 @@ unaffected; the ban is on deletion commands an agent writes.
 
 ## Generated Files -- Do Not Read
 
-Never read `external/mindcraft-lang/packages/ts-compiler/src/compiler/lib-dts.generated.ts`
+Never read `external/wendoo-lang/packages/ts-compiler/src/compiler/lib-dts.generated.ts`
 when exploring the codebase. It is a machine-generated file that repackages
 TypeScript's `lib.d.ts` as a string constant. It contains no project logic and
 is extremely large. Skip it in all searches and explorations.

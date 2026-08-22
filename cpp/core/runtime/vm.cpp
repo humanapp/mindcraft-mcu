@@ -13,7 +13,7 @@
 #include "core/runtime/type-registry.h"
 #include "core/runtime/when-result.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 namespace {
 
@@ -124,7 +124,7 @@ bool stringValueBytes(const Value& value, const ProgramImage& program, const Man
 /**
  * Reads struct field `fieldId` of `source`: dispatches to the type's native
  * getter when one is registered, else reads the managed slab slot. Mirrors
- * `readStructFieldById` in external/mindcraft-lang/.../vm.ts. Requires a
+ * `readStructFieldById` in external/wendoo-lang/.../vm.ts. Requires a
  * non-null `surface.heap`.
  */
 Value readStructFieldById(const RuntimeSurface& surface, const Value& source, uint32_t fieldId) {
@@ -141,7 +141,7 @@ Value readStructFieldById(const RuntimeSurface& surface, const Value& source, ui
  * Writes struct field `fieldId` of `source` as a pure store: dispatches to the
  * type's native setter when one is registered (returning its accept/reject),
  * else writes the managed slab slot. Mirrors `writeStructFieldById` in
- * external/mindcraft-lang/.../vm.ts. Requires a non-null `surface.heap`.
+ * external/wendoo-lang/.../vm.ts. Requires a non-null `surface.heap`.
  */
 bool writeStructFieldById(const RuntimeSurface& surface, const Value& source, uint32_t fieldId,
                           const Value& value) {
@@ -186,7 +186,7 @@ bool popValue(ExecutionState& state, Value& out) {
  * handler. Returns true and positions execution at the catch target when a
  * handler catches it; otherwise returns false and writes the escaping fault to
  * `out` (located at `siteFunc`/`sitePc`), which the caller returns. Mirrors
- * `throwValue` in external/mindcraft-lang/packages/core/src/runtime/vm.ts.
+ * `throwValue` in external/wendoo-lang/packages/core/src/runtime/vm.ts.
  */
 bool throwError(ExecutionState& state, ErrorCode code, uint32_t siteFunc, uint32_t sitePc,
                 RunResult& out) {
@@ -310,7 +310,7 @@ bool pushCallFrame(ExecutionState& state, const ProgramImage& program, uint32_t 
  * The action binding of the nearest enclosing action frame on `state`'s frame
  * stack, or nullptr when no live frame carries one. Mirrors
  * `getCurrentActionBinding` in
- * external/mindcraft-lang/packages/core/src/runtime/vm.ts.
+ * external/wendoo-lang/packages/core/src/runtime/vm.ts.
  */
 const ActionFrameBinding* currentActionBinding(const ExecutionState& state) {
   for (uint32_t i = state.frameDepth; i-- > 0;) {
@@ -324,7 +324,7 @@ const ActionFrameBinding* currentActionBinding(const ExecutionState& state) {
 /**
  * The rule funcId for `funcId`, or {@link kNoFuncId} when `funcId` is not a
  * rule entry. Mirrors `getRuleFuncIdForFunc` in
- * external/mindcraft-lang/packages/core/src/runtime/rule-services.ts.
+ * external/wendoo-lang/packages/core/src/runtime/rule-services.ts.
  */
 uint32_t resolveDirectRuleFuncId(const ProgramImage& program, uint32_t funcId) {
   if (program.hasRuleFuncIds) {
@@ -340,7 +340,7 @@ uint32_t resolveDirectRuleFuncId(const ProgramImage& program, uint32_t funcId) {
 /**
  * The rule funcId in scope for `frame`: its own rule binding when set, else its
  * function id resolved against the program's rule set. Mirrors
- * `resolveFrameRuleFuncId` in external/mindcraft-lang/.../vm.ts.
+ * `resolveFrameRuleFuncId` in external/wendoo-lang/.../vm.ts.
  */
 uint32_t resolveFrameRuleFuncId(const ProgramImage& program, const Frame& frame) {
   if (frame.ruleFuncId != kNoFuncId) {
@@ -354,7 +354,7 @@ uint32_t resolveFrameRuleFuncId(const ProgramImage& program, const Frame& frame)
  * when it is itself a rule entry, else the calling frame's rule in scope. So a
  * rule that calls a plain helper forwards its rule, and a `ctx.rule` access
  * inside the helper resolves to the calling rule's store. Mirrors
- * `resolveCalleeRuleFuncId` in external/mindcraft-lang/.../vm.ts.
+ * `resolveCalleeRuleFuncId` in external/wendoo-lang/.../vm.ts.
  */
 uint32_t resolveCalleeRuleFuncId(const ProgramImage& program, const Frame& caller,
                                  uint32_t calleeId) {
@@ -420,7 +420,7 @@ bool resolveBrainVarSlot(const ProgramImage& program, const ManagedHeap* heap,
  * Writes a rule-scoped variable by name to `ruleFuncId`'s own inner map,
  * allocating the outer store and the inner map on demand; never writes through
  * to ancestors. Mirrors `setByName` in
- * external/mindcraft-lang/packages/core/src/runtime/rule-services.ts. A write
+ * external/wendoo-lang/packages/core/src/runtime/rule-services.ts. A write
  * with no rule in scope is a no-op (returns true). Returns false on a name that
  * is neither a string nor a number, or when the heap cannot back an allocation.
  */
@@ -484,7 +484,7 @@ bool isContextVariableFunc(CoreFuncId id) {
  * Services a by-name context-variable host function over `args`. The
  * struct-method calling convention puts the receiver at arg 0; the variable
  * name is arg 1 and (for the setters) the value is arg 2. Mirrors the bodies in
- * external/mindcraft-lang/.../context-types.ts together with the brain and rule
+ * external/wendoo-lang/.../context-types.ts together with the brain and rule
  * variable services. Brain variables are slot-backed (an undeclared name reads
  * nil and writes are dropped); rule variables resolve the in-scope rule from
  * `frame`. Faults `HostError` without a context (or, for the rule setter,
@@ -551,7 +551,7 @@ Status dispatchContextVariableFunc(CoreFuncId id, Span<const Value> args,
  * dedicated reserved-key accessor. The only host argument is the struct-method
  * receiver at arg 0, which carries no data, so the caller's arg buffer is unused
  * here. Faults `HostError` without a context or heap. Mirrors the
- * `Context.getWhenResult` body in external/mindcraft-lang/.../context-types.ts.
+ * `Context.getWhenResult` body in external/wendoo-lang/.../context-types.ts.
  */
 Status dispatchGetWhenResult(const RuntimeSurface& surface, const ProgramImage& program,
                              const Frame& frame, Value& out) {
@@ -1961,7 +1961,7 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
       }
       // Object-rest copy: build a struct of the operand type from the source,
       // dropping the excluded field names and mapping the rest by name. Mirrors
-      // execStructCopyExcept in external/mindcraft-lang/.../vm.ts.
+      // execStructCopyExcept in external/wendoo-lang/.../vm.ts.
       const uint32_t numExclude = ins.a;
       if (state.stackDepth < numExclude + 1u) {
         return fault(ErrorCode::StackUnderflow);
@@ -2252,4 +2252,4 @@ RunResult runExecution(ExecutionState& state, const ProgramImage& program,
   return RunResult::yielded();
 }
 
-} // namespace mindcraft
+} // namespace wendoo

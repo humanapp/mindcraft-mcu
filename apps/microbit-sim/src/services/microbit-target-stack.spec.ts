@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import type { EmbeddedExtension } from "@mindcraft-lang/bridge-app";
-import { deriveProjectPlatformStack, resolveProjectExtensions } from "@mindcraft-lang/bridge-app";
-import { buildEmbeddedExtensionFromDir } from "@mindcraft-lang/bridge-app/node";
+import type { EmbeddedExtension } from "@wendoo-lang/bridge-app";
+import { deriveProjectPlatformStack, resolveProjectExtensions } from "@wendoo-lang/bridge-app";
+import { buildEmbeddedExtensionFromDir } from "@wendoo-lang/bridge-app/node";
 import { buildMicrobitCatalogOffers, MICROBIT_LAYER_COORDINATES } from "./microbit-extension-browser";
 import {
   CODAL_LIB_COORDINATE,
@@ -35,7 +35,7 @@ function microbitEmbedRecord(): EmbeddedExtension[] {
     ),
     buildEmbeddedExtensionFromDir(extensionDir("../../../../packages/wodal/lib"), CODAL_LIB_COORDINATE),
     buildEmbeddedExtensionFromDir(
-      extensionDir("../../../../external/mindcraft-lang/packages/core/lib"),
+      extensionDir("../../../../external/wendoo-lang/packages/core/lib"),
       CORE_LIB_COORDINATE
     ),
   ];

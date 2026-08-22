@@ -4,7 +4,7 @@
 
 #include "core/runtime/type-registry.h"
 
-namespace mindcraft {
+namespace wendoo {
 namespace {
 
 /**
@@ -747,4 +747,4 @@ void ManagedHeap::collect(GcRoots& roots) {
   });
 }
 
-} // namespace mindcraft
+} // namespace wendoo

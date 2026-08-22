@@ -8,7 +8,7 @@
 #include "core/runtime/value.h"
 #include "targets/microbit-v2/abi/host-binding-conversions.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 /**
@@ -34,4 +34,4 @@ inline Value execSetRadioGroup(void *hostData, ExecutionContext &ctx, Span<const
     return kVoidValue;
 }
 
-} // namespace mindcraft
+} // namespace wendoo

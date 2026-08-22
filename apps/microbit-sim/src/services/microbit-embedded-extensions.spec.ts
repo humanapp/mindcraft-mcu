@@ -2,16 +2,16 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { fileContentText } from "@mindcraft-lang/app-host";
-import type { EmbeddedExtension } from "@mindcraft-lang/bridge-app";
+import { fileContentText } from "@wendoo-lang/app-host";
+import type { EmbeddedExtension } from "@wendoo-lang/bridge-app";
 import {
   findEmbeddedExtensionsMissingStableIds,
   formatEmbeddedExtensionIdViolations,
   resolveProjectExtensions,
-} from "@mindcraft-lang/bridge-app";
-import { buildEmbeddedExtensionFromDir } from "@mindcraft-lang/bridge-app/node";
-import { createWorkspaceCompiler, type Mount, type WorkspaceSnapshot } from "@mindcraft-lang/ts-compiler";
-import { createMicroBitV2Environment } from "@mindcraft-lang/wodal/targets/microbit-v2";
+} from "@wendoo-lang/bridge-app";
+import { buildEmbeddedExtensionFromDir } from "@wendoo-lang/bridge-app/node";
+import { createWorkspaceCompiler, type Mount, type WorkspaceSnapshot } from "@wendoo-lang/ts-compiler";
+import { createMicroBitV2Environment } from "@wendoo-lang/wodal/targets/microbit-v2";
 import {
   CODAL_LIB_COORDINATE,
   CORE_LIB_COORDINATE,
@@ -24,7 +24,7 @@ function extensionDir(relativePath: string): string {
 }
 
 /**
- * The three embedded layers assembled from each extension's own `mindcraft.json`
+ * The three embedded layers assembled from each extension's own `wendoo.json`
  * `files` list through the shared loader -- the single content-assembly path the
  * app's Vite provider also uses. The layer stack is core <- wodal <- microbit-v2.
  */
@@ -36,7 +36,7 @@ function embeddedLayers(): EmbeddedExtension[] {
     ),
     buildEmbeddedExtensionFromDir(extensionDir("../../../../packages/wodal/lib"), CODAL_LIB_COORDINATE),
     buildEmbeddedExtensionFromDir(
-      extensionDir("../../../../external/mindcraft-lang/packages/core/lib"),
+      extensionDir("../../../../external/wendoo-lang/packages/core/lib"),
       CORE_LIB_COORDINATE
     ),
   ];
@@ -65,19 +65,19 @@ describe("microbit embedded layers -- transitive resolution of the core <- codal
     assert.deepEqual(mountFor(CORE_LIB_COORDINATE).dependencies, []);
 
     // Each layer carries its own ambient `.d.ts` as extension content and declares it in its manifest.
-    assert.deepEqual(mountFor(CORE_LIB_COORDINATE).ambient, ["mindcraft.core.d.ts"]);
-    assert.deepEqual(mountFor(CODAL_LIB_COORDINATE).ambient, ["mindcraft.codal.d.ts"]);
-    assert.deepEqual(mountFor(MICROBIT_V2_LIB_COORDINATE).ambient, ["mindcraft.microbit-v2.d.ts"]);
+    assert.deepEqual(mountFor(CORE_LIB_COORDINATE).ambient, ["wendoo.core.d.ts"]);
+    assert.deepEqual(mountFor(CODAL_LIB_COORDINATE).ambient, ["wendoo.codal.d.ts"]);
+    assert.deepEqual(mountFor(MICROBIT_V2_LIB_COORDINATE).ambient, ["wendoo.microbit-v2.d.ts"]);
     assert.match(
-      fileContentText(mountFor(CORE_LIB_COORDINATE).files.get("/mindcraft.core.d.ts") ?? "") ?? "",
+      fileContentText(mountFor(CORE_LIB_COORDINATE).files.get("/wendoo.core.d.ts") ?? "") ?? "",
       /declare var Buffer/
     );
     assert.match(
-      fileContentText(mountFor(CODAL_LIB_COORDINATE).files.get("/mindcraft.codal.d.ts") ?? "") ?? "",
+      fileContentText(mountFor(CODAL_LIB_COORDINATE).files.get("/wendoo.codal.d.ts") ?? "") ?? "",
       /interface Button/
     );
     assert.match(
-      fileContentText(mountFor(MICROBIT_V2_LIB_COORDINATE).files.get("/mindcraft.microbit-v2.d.ts") ?? "") ?? "",
+      fileContentText(mountFor(MICROBIT_V2_LIB_COORDINATE).files.get("/wendoo.microbit-v2.d.ts") ?? "") ?? "",
       /interface MicroBit\b/
     );
   });
@@ -102,8 +102,8 @@ describe("microbit embedded layers -- ambient declarations arrive through the re
       dependencyMounts: resolved.dependencyMounts,
     });
 
-    const crossLayer = `import { Actuator, type Context, type Image, type Button, type MicroBit } from "mindcraft";
-import { heart } from "@lib/mindcraft-lang/lib-microbit-v2";
+    const crossLayer = `import { Actuator, type Context, type Image, type Button, type MicroBit } from "wendoo";
+import { heart } from "@lib/wendoo-lang/lib-microbit-v2";
 
 const heartIcon: Image = heart();
 
@@ -138,15 +138,15 @@ export default Actuator({
     // each layer's `.libraries/<owner>/<repo>/` subtree.
     const controlled = compiler.getCompilerControlledFiles();
     assert.ok(
-      controlled.has(".libraries/mindcraft-lang/lib-core/mindcraft.core.d.ts"),
+      controlled.has(".libraries/wendoo-lang/lib-core/wendoo.core.d.ts"),
       "the core ambient materializes under .libraries/"
     );
     assert.ok(
-      controlled.has(".libraries/mindcraft-lang/lib-codal/mindcraft.codal.d.ts"),
+      controlled.has(".libraries/wendoo-lang/lib-codal/wendoo.codal.d.ts"),
       "the codal ambient materializes under .libraries/"
     );
     assert.ok(
-      controlled.has(".libraries/mindcraft-lang/lib-microbit-v2/mindcraft.microbit-v2.d.ts"),
+      controlled.has(".libraries/wendoo-lang/lib-microbit-v2/wendoo.microbit-v2.d.ts"),
       "the microbit-v2 ambient materializes under .libraries/"
     );
   });
@@ -171,11 +171,8 @@ describe("microbit embedded layers -- the manifest-driven bundle matches the han
       ["index.ts", read("../../../../packages/wodal/targets/microbit-v2/lib/index.ts")],
       ["image.ts", read("../../../../packages/wodal/targets/microbit-v2/lib/image.ts")],
       ["sounds.ts", read("../../../../packages/wodal/targets/microbit-v2/lib/sounds.ts")],
-      [
-        "mindcraft.microbit-v2.d.ts",
-        read("../../../../packages/wodal/targets/microbit-v2/lib/mindcraft.microbit-v2.d.ts"),
-      ],
-      ["mindcraft.json", read("../../../../packages/wodal/targets/microbit-v2/lib/mindcraft.json")],
+      ["wendoo.microbit-v2.d.ts", read("../../../../packages/wodal/targets/microbit-v2/lib/wendoo.microbit-v2.d.ts")],
+      ["wendoo.json", read("../../../../packages/wodal/targets/microbit-v2/lib/wendoo.json")],
     ]);
     const builtByPath = new Map(built.files.map((f) => [f.path, f.content]));
     assert.deepEqual(builtByPath, handAssembled);

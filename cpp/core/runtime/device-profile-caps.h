@@ -2,14 +2,14 @@
 
 #include <cstdint>
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * Scheduling and per-fiber resource caps a {@link FiberScheduler} runs under.
  * The target/host builds the struct from the device profile and passes it to
  * the scheduler's constructor. Mirrors the union of the TypeScript
  * `SchedulerConfig` and the cap fields of `VmConfig` in
- * external/mindcraft-lang/packages/core/src/runtime/vm-types.ts, which the
+ * external/wendoo-lang/packages/core/src/runtime/vm-types.ts, which the
  * reference carries as flat fields on the device profile.
  *
  * Every `max*` field is a runtime upper-bound guard, never a preallocation
@@ -53,4 +53,4 @@ struct DeviceProfileCaps {
   uint32_t maxHandles;
 };
 
-} // namespace mindcraft
+} // namespace wendoo

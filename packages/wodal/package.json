@@ -1,21 +1,21 @@
 {
-  "name": "@mindcraft-lang/wodal",
+  "name": "@wendoo-lang/wodal",
   "version": "0.2.1",
-  "description": "WODAL: A CODAL-inspired web device runtime for the Mindcraft bytecode VM.",
+  "description": "WODAL: A CODAL-inspired web device runtime for the Wendoo bytecode VM.",
   "license": "MIT",
   "type": "module",
   "author": "humanapp",
   "repository": {
     "type": "git",
-    "url": "https://github.com/humanapp/mindcraft-mcu.git",
+    "url": "https://github.com/humanapp/wendoo-mcu.git",
     "directory": "packages/wodal"
   },
   "bugs": {
-    "url": "https://github.com/humanapp/mindcraft-mcu/issues"
+    "url": "https://github.com/humanapp/wendoo-mcu/issues"
   },
-  "homepage": "https://github.com/humanapp/mindcraft-mcu/tree/main/packages/wodal#readme",
+  "homepage": "https://github.com/humanapp/wendoo-mcu/tree/main/packages/wodal#readme",
   "keywords": [
-    "mindcraft",
+    "wendoo",
     "microbit",
     "codal",
     "education",
@@ -55,20 +55,20 @@
       "import": "./dist/targets/microbit-v2/rehearsal/adapter.js"
     },
     "./package.json": "./package.json",
-    "./lib/mindcraft.codal.d.ts": {
-      "default": "./lib/mindcraft.codal.d.ts"
+    "./lib/wendoo.codal.d.ts": {
+      "default": "./lib/wendoo.codal.d.ts"
     },
-    "./targets/microbit-v2/lib/mindcraft.microbit-v2.d.ts": {
-      "default": "./targets/microbit-v2/lib/mindcraft.microbit-v2.d.ts"
+    "./targets/microbit-v2/lib/wendoo.microbit-v2.d.ts": {
+      "default": "./targets/microbit-v2/lib/wendoo.microbit-v2.d.ts"
     },
-    "./lib/mindcraft.json": {
-      "default": "./lib/mindcraft.json"
+    "./lib/wendoo.json": {
+      "default": "./lib/wendoo.json"
     },
     "./lib/index.ts": {
       "default": "./lib/index.ts"
     },
-    "./targets/microbit-v2/lib/mindcraft.json": {
-      "default": "./targets/microbit-v2/lib/mindcraft.json"
+    "./targets/microbit-v2/lib/wendoo.json": {
+      "default": "./targets/microbit-v2/lib/wendoo.json"
     },
     "./targets/microbit-v2/lib/index.ts": {
       "default": "./targets/microbit-v2/lib/index.ts"
@@ -77,13 +77,13 @@
       "default": "./targets/microbit-v2/lib/image.ts"
     }
   },
-  "mindcraftBuild": {
+  "wendooBuild": {
     "script": "build:prod",
     "outputs": ["dist"],
     "postProcessed": true
   },
   "scripts": {
-    "build:deps": "node ../../external/mindcraft-lang/scripts/build-packages.js .",
+    "build:deps": "node ../../external/wendoo-lang/scripts/build-packages.js .",
     "prebuild": "npm run build:deps",
     "build": "tsc -p tsconfig.json && npm run build:cli",
     "build:cli": "esbuild src/cli/wodal.ts --bundle --platform=node --format=esm --outfile=dist/cli/wodal.js",
@@ -102,19 +102,19 @@
     "format": "biome format ./src --write",
     "pretest": "npm run build:deps && npm run build:prod",
     "test": "tsx --tsconfig tsconfig.spec.json --test $(find src -name '*.spec.ts')",
-    "release:patch": "node ../../external/mindcraft-lang/scripts/release.js patch",
-    "release:minor": "node ../../external/mindcraft-lang/scripts/release.js minor",
-    "release:major": "node ../../external/mindcraft-lang/scripts/release.js major"
+    "release:patch": "node ../../external/wendoo-lang/scripts/release.js patch",
+    "release:minor": "node ../../external/wendoo-lang/scripts/release.js minor",
+    "release:major": "node ../../external/wendoo-lang/scripts/release.js major"
   },
   "dependencies": {
-    "@mindcraft-lang/assistant-bridge": "file:../../external/mindcraft-lang/packages/assistant-bridge",
-    "@mindcraft-lang/core": "file:../../external/mindcraft-lang/packages/core",
-    "@mindcraft-lang/service-api": "file:../../external/mindcraft-lang/packages/service-api",
+    "@wendoo-lang/assistant-bridge": "file:../../external/wendoo-lang/packages/assistant-bridge",
+    "@wendoo-lang/core": "file:../../external/wendoo-lang/packages/core",
+    "@wendoo-lang/service-api": "file:../../external/wendoo-lang/packages/service-api",
     "typescript": "~5.9.3"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.15",
-    "@mindcraft-lang/ts-compiler": "file:../../external/mindcraft-lang/packages/ts-compiler",
+    "@wendoo-lang/ts-compiler": "file:../../external/wendoo-lang/packages/ts-compiler",
     "@types/node": "^25.3.0",
     "esbuild": "^0.27.7",
     "tsx": "^4.21.0"

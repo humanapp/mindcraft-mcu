@@ -1,4 +1,4 @@
-import type { BrainDiagnosticEntry } from "@mindcraft-lang/bridge-app";
+import type { BrainDiagnosticEntry } from "@wendoo-lang/bridge-app";
 import type { FlashDiagnostic, InstanceFiberFault } from "./simulator";
 
 /**

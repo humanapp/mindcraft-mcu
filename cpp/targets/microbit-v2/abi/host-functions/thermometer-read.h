@@ -8,7 +8,7 @@
 #include "targets/microbit-v2/abi/host-functions/native-receiver.h"
 #include "targets/microbit-v2/abi/type-atom-id.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 namespace detail
@@ -35,7 +35,7 @@ inline ThermometerInputPort *thermometerReceiver(void *hostData, Span<const Valu
  * degrees Celsius (signed) through the thermometer port. Arg 0 is the
  * thermometer receiver; an unrecognized receiver reads 0. `hostData` is the
  * bound {@link DevicePorts}. Mirrors the `Thermometer.getTemperature` body in
- * packages/wodal/src/targets/microbit-v2/mindcraft/module.ts.
+ * packages/wodal/src/targets/microbit-v2/wendoo/module.ts.
  */
 inline Status execThermometerGetTemperature(void *hostData, Span<const Value> args, Value &result)
 {
@@ -44,4 +44,4 @@ inline Status execThermometerGetTemperature(void *hostData, Span<const Value> ar
     return Status::ok();
 }
 
-} // namespace mindcraft
+} // namespace wendoo

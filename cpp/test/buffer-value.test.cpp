@@ -16,25 +16,25 @@
 #include <string>
 #include <vector>
 
-using mindcraft::bufferBytes;
-using mindcraft::buffersEqual;
-using mindcraft::ByteSpan;
-using mindcraft::ConstValue;
-using mindcraft::ConstValueKind;
-using mindcraft::isTruthy;
-using mindcraft::kMicroBitV2TypeAtomIdCount;
-using mindcraft::LoadError;
-using mindcraft::Op;
-using mindcraft::ProgramImage;
-using mindcraft::ProgramReaderOptions;
-using mindcraft::readProgramImage;
-using mindcraft::RegionArena;
-using mindcraft::Result;
-using mindcraft::RunResult;
-using mindcraft::RunStatus;
-using mindcraft::Span;
-using mindcraft::Value;
-using mindcraft::ValueTag;
+using wendoo::bufferBytes;
+using wendoo::buffersEqual;
+using wendoo::ByteSpan;
+using wendoo::ConstValue;
+using wendoo::ConstValueKind;
+using wendoo::isTruthy;
+using wendoo::kMicroBitV2TypeAtomIdCount;
+using wendoo::LoadError;
+using wendoo::Op;
+using wendoo::ProgramImage;
+using wendoo::ProgramReaderOptions;
+using wendoo::readProgramImage;
+using wendoo::RegionArena;
+using wendoo::Result;
+using wendoo::RunResult;
+using wendoo::RunStatus;
+using wendoo::Span;
+using wendoo::Value;
+using wendoo::ValueTag;
 
 namespace {
 
@@ -96,7 +96,7 @@ TEST_CASE("a brain branches on buffer constants through isTruthy") {
 }
 
 TEST_CASE("the buffer-vectors fixture exposes truthiness and byte-for-byte equality") {
-  const std::string base = std::string(mindcraft::test::kCoreFixturesDir) + "/buffer-vectors";
+  const std::string base = std::string(wendoo::test::kCoreFixturesDir) + "/buffer-vectors";
   const std::vector<uint8_t> wire = readBinaryFile(base + ".mcprogram.bin");
 
   std::vector<uint8_t> storage(64 * 1024);

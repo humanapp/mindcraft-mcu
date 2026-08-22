@@ -2,7 +2,7 @@
  * The `otherwise` sensor: preceding-sibling derivation over the loaded program's
  * rule structure, and the read rule over the subject's firing record. Mirrors
  * `otherwise-sensor.spec.ts` in
- * external/mindcraft-lang/packages/core/src/brain.
+ * external/wendoo-lang/packages/core/src/brain.
  *
  * The budget cases at the end run a real two-rule page on a {@link BrainRuntime}
  * whose per-slice budget splits the subject's WHEN across two thinks.
@@ -43,29 +43,29 @@
 #include <cstdint>
 #include <vector>
 
-using mindcraft::BrainRuntime;
-using mindcraft::CoreHostActionEnv;
-using mindcraft::DeviceProfileCaps;
-using mindcraft::ErrorCode;
-using mindcraft::execOtherwise;
-using mindcraft::ExecutionContext;
-using mindcraft::FiberScheduler;
-using mindcraft::HostActionBinding;
-using mindcraft::kNoFuncId;
-using mindcraft::kVoidValue;
-using mindcraft::Op;
-using mindcraft::PageMetadata;
-using mindcraft::precedingSiblingRuleFuncId;
-using mindcraft::ProgramImage;
-using mindcraft::RegionArena;
-using mindcraft::RuleAncestor;
-using mindcraft::RuleFiringState;
-using mindcraft::RuntimeSurface;
-using mindcraft::Span;
-using mindcraft::Value;
-using mindcraft::VmObserver;
+using wendoo::BrainRuntime;
+using wendoo::CoreHostActionEnv;
+using wendoo::DeviceProfileCaps;
+using wendoo::ErrorCode;
+using wendoo::execOtherwise;
+using wendoo::ExecutionContext;
+using wendoo::FiberScheduler;
+using wendoo::HostActionBinding;
+using wendoo::kNoFuncId;
+using wendoo::kVoidValue;
+using wendoo::Op;
+using wendoo::PageMetadata;
+using wendoo::precedingSiblingRuleFuncId;
+using wendoo::ProgramImage;
+using wendoo::RegionArena;
+using wendoo::RuleAncestor;
+using wendoo::RuleFiringState;
+using wendoo::RuntimeSurface;
+using wendoo::Span;
+using wendoo::Value;
+using wendoo::VmObserver;
 
-namespace CoreHostActions = mindcraft::CoreHostActions;
+namespace CoreHostActions = wendoo::CoreHostActions;
 
 namespace {
 
@@ -164,7 +164,7 @@ struct OtherwiseObserver : VmObserver {
 
 /** One shared region with room for the pair's rule fibers and their execution regions. */
 struct SchedulerStorage {
-  static constexpr size_t kArenaBytes = 8 * (2048 + sizeof(mindcraft::FiberRecord) + 64) + 256;
+  static constexpr size_t kArenaBytes = 8 * (2048 + sizeof(wendoo::FiberRecord) + 64) + 256;
   std::array<uint8_t, kArenaBytes> bytes;
   RegionArena arena{Span<uint8_t>(bytes.data(), bytes.size())};
 };
@@ -251,9 +251,8 @@ SplitWhenRun runSplitWhenPair(bool subjectWhenValue, uint32_t ticks) {
   observer.subjectFuncId = 0;
   RuntimeSurface surface{&ctx, {bindings, 3}, &observer};
   SchedulerStorage pools;
-  FiberScheduler scheduler(
-      image, surface, pools.arena,
-      withDefaultBudget(mindcraft::test::kDeviceProfileCaps, kSplitSliceBudget));
+  FiberScheduler scheduler(image, surface, pools.arena,
+                           withDefaultBudget(wendoo::test::kDeviceProfileCaps, kSplitSliceBudget));
   BrainRuntime brain(image, scheduler, surface);
   REQUIRE(brain.startup().isOk());
   for (uint32_t i = 1; i <= ticks; i++) {

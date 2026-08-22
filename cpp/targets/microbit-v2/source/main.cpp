@@ -37,7 +37,7 @@ MicroBit uBit;
 namespace
 {
 
-using namespace mindcraft;
+using namespace wendoo;
 
 /** Milliseconds the firmware sleeps between host-loop ticks. */
 constexpr int kTickIntervalMs = 16;
@@ -212,7 +212,7 @@ int main()
     radioReceiveEnv.types = &types;
 
     HostLoop hostLoop(brain, ports);
-    const mindcraft::Status startupStatus = hostLoop.startup();
+    const wendoo::Status startupStatus = hostLoop.startup();
     if (!startupStatus.isOk())
     {
         uBit.serial.printf("mc E%d\r\n", static_cast<int>(startupStatus.error()));

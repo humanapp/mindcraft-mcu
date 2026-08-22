@@ -2,13 +2,13 @@
 
 #include <cstdint>
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * First type-atom id owned by a target; core type atoms are below this. Each
  * target's atoms are dense from here and are disambiguated across targets by
  * the program's device profile id. Mirrors TARGET_TYPE_ATOM_BASE in
- * external/mindcraft-lang/packages/core/src/runtime/abi-ids.ts.
+ * external/wendoo-lang/packages/core/src/runtime/abi-ids.ts.
  */
 inline constexpr uint32_t TARGET_TYPE_ATOM_BASE = 1024;
 
@@ -17,7 +17,7 @@ inline constexpr uint32_t TARGET_TYPE_ATOM_BASE = 1024;
  * (e.g. `Image`), dense from here. Above every target's own atom range, so
  * shared atoms validate independently of any target. Mirrors
  * SHARED_TYPE_ATOM_BASE in
- * external/mindcraft-lang/packages/core/src/runtime/abi-ids.ts.
+ * external/wendoo-lang/packages/core/src/runtime/abi-ids.ts.
  */
 inline constexpr uint32_t SHARED_TYPE_ATOM_BASE = 2048;
 
@@ -25,7 +25,7 @@ inline constexpr uint32_t SHARED_TYPE_ATOM_BASE = 2048;
  * Stable type-atom ids of the core nominal types: the scalar types, the named
  * core list type, and the built-in context structs. Mirrors the
  * CoreTypeAtomId enum in
- * external/mindcraft-lang/packages/core/src/runtime/abi-ids.ts. Serialized
+ * external/wendoo-lang/packages/core/src/runtime/abi-ids.ts. Serialized
  * programs reference nominal types by atom id, so the values are wire-stable:
  * never renumber or reuse a value; append new members at the next free id.
  *
@@ -51,4 +51,4 @@ enum class CoreTypeAtomId : uint32_t {
 /** Number of declared {@link CoreTypeAtomId} members; ids are dense from 0. */
 inline constexpr uint32_t kCoreTypeAtomIdCount = 12;
 
-} // namespace mindcraft
+} // namespace wendoo

@@ -32,7 +32,7 @@ always 6 and a present modifier slot carries the number `1`.
 | Kind          | sensor |
 | Stance        | poll sensor - events derived from polled state, no bus listener (see Behavior) |
 | Composability | non-inline (rule trigger only) - why `[A+B]` is its own tile |
-| Module        | microbit-v2 (`mindcraft.microbit-v2`) |
+| Module        | microbit-v2 (`wendoo.microbit-v2`) |
 | Labels        | `[A]` `[B]` `[A+B]` `[logo]` |
 
 Function/ABI ids are append-only (assigned at implementation, never
@@ -142,7 +142,7 @@ values**, tuned later:
 | double-click window  | 500 ms       | second press within this of a click -> `double click` (`DOUBLE_CLICK_WINDOW_MS`) |
 
 Both constants are pinned in the target layer in two mirrored copies:
-`packages/wodal/src/targets/microbit-v2/mindcraft/actions/button-sensor.ts` (the oracle) and
+`packages/wodal/src/targets/microbit-v2/wendoo/actions/button-sensor.ts` (the oracle) and
 `cpp/targets/microbit-v2/abi/host-actions/sensors/button-sensor.h` (the C++ mirror).
 
 ### Pinned state machine (per call site)

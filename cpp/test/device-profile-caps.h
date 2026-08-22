@@ -3,7 +3,7 @@
 #include "core/runtime/device-profile-caps.h"
 #include "targets/microbit-v2/abi/device-profile.h"
 
-namespace mindcraft::test {
+namespace wendoo::test {
 
 /**
  * The microbit-v2 caps the test suite runs every scheduler and standalone
@@ -26,4 +26,4 @@ inline constexpr DeviceProfileCaps withMaxHandles(DeviceProfileCaps caps, uint32
 inline constexpr DeviceProfileCaps kAsyncDeviceProfileCaps =
     withMaxHandles(kMicroBitV2DeviceProfileCaps, 16);
 
-} // namespace mindcraft::test
+} // namespace wendoo::test

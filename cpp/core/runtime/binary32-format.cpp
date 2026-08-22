@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <cstring>
 
-namespace mindcraft {
+namespace wendoo {
 namespace binary32 {
 
 namespace {
@@ -387,4 +387,4 @@ uint32_t formatNumber(float value, char* out) {
 }
 
 } // namespace binary32
-} // namespace mindcraft
+} // namespace wendoo

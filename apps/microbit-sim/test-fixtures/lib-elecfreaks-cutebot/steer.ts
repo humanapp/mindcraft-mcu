@@ -1,5 +1,5 @@
-import { Position } from "@lib/mindcraft-lang/lib-codal-position";
-import { Actuator, type Context, param } from "mindcraft";
+import { Position } from "@lib/wendoo-lang/lib-codal-position";
+import { Actuator, type Context, param } from "wendoo";
 import { Movement } from "./movement";
 
 /**

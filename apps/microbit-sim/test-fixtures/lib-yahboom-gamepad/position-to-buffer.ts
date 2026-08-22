@@ -1,5 +1,5 @@
-import { Position } from "@lib/mindcraft-lang/lib-codal-position";
-import { BufferType, Conversion } from "mindcraft";
+import { Position } from "@lib/wendoo-lang/lib-codal-position";
+import { BufferType, Conversion } from "wendoo";
 import { PACKET_MAGIC } from "./protocol";
 
 /**

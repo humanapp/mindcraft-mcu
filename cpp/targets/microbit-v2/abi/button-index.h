@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace mindcraft
+namespace wendoo
 {
 
 /**
@@ -18,4 +18,4 @@ enum class MicroBitButtonIndex : uint8_t
     Logo = 2,
 };
 
-} // namespace mindcraft
+} // namespace wendoo

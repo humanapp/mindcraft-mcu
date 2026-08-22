@@ -5,7 +5,7 @@
 #include <cmath>
 #include <limits>
 
-using mindcraft::toNonNegativeInteger;
+using wendoo::toNonNegativeInteger;
 
 TEST_CASE("toNonNegativeInteger truncates a positive value toward zero") {
   CHECK(toNonNegativeInteger(2.9f) == 2u);

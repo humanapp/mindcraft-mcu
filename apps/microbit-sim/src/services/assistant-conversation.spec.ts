@@ -7,31 +7,27 @@
 
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { ruleIdAt } from "@mindcraft-lang/assistant-bridge/testing";
-import type { EditedBrainWorkspaces, PersonActivity } from "@mindcraft-lang/assistant-panel";
-import {
-  assistantToolManifest,
-  createEditedBrainWorkspaces,
-  createPersonActivity,
-} from "@mindcraft-lang/assistant-panel";
-import { recordFor } from "@mindcraft-lang/assistant-panel/conversation/store";
-import type { AssistantChannel } from "@mindcraft-lang/assistant-panel/session/channel";
-import { AssistantMachine, AssistantStatus } from "@mindcraft-lang/assistant-panel/session/machine";
-import type { ScriptedService } from "@mindcraft-lang/assistant-panel/testing/scripted-service";
-import { runScriptedService } from "@mindcraft-lang/assistant-panel/testing/scripted-service";
+import { ruleIdAt } from "@wendoo-lang/assistant-bridge/testing";
+import type { EditedBrainWorkspaces, PersonActivity } from "@wendoo-lang/assistant-panel";
+import { assistantToolManifest, createEditedBrainWorkspaces, createPersonActivity } from "@wendoo-lang/assistant-panel";
+import { recordFor } from "@wendoo-lang/assistant-panel/conversation/store";
+import type { AssistantChannel } from "@wendoo-lang/assistant-panel/session/channel";
+import { AssistantMachine, AssistantStatus } from "@wendoo-lang/assistant-panel/session/machine";
+import type { ScriptedService } from "@wendoo-lang/assistant-panel/testing/scripted-service";
+import { runScriptedService } from "@wendoo-lang/assistant-panel/testing/scripted-service";
 import type {
   ConversationAssistantEntry,
   ConversationRecord,
   ConversationToolCall,
-} from "@mindcraft-lang/assistant-relay";
-import type { RelayLoopback } from "@mindcraft-lang/assistant-relay/testing";
-import { createRelayLoopback } from "@mindcraft-lang/assistant-relay/testing";
-import { List } from "@mindcraft-lang/core/app";
-import type { BrainPageDef, BrainRuleDef } from "@mindcraft-lang/core/brain/model";
-import { BrainCommandHistory, BrainDef } from "@mindcraft-lang/core/brain/model";
-import type { EditedBrain } from "@mindcraft-lang/ui";
-import { createMicroBitV2Environment } from "@mindcraft-lang/wodal/targets/microbit-v2";
-import { createTargetAdapter } from "@mindcraft-lang/wodal/targets/microbit-v2/rehearsal";
+} from "@wendoo-lang/assistant-relay";
+import type { RelayLoopback } from "@wendoo-lang/assistant-relay/testing";
+import { createRelayLoopback } from "@wendoo-lang/assistant-relay/testing";
+import { List } from "@wendoo-lang/core/app";
+import type { BrainPageDef, BrainRuleDef } from "@wendoo-lang/core/brain/model";
+import { BrainCommandHistory, BrainDef } from "@wendoo-lang/core/brain/model";
+import type { EditedBrain } from "@wendoo-lang/ui";
+import { createMicroBitV2Environment } from "@wendoo-lang/wodal/targets/microbit-v2";
+import { createTargetAdapter } from "@wendoo-lang/wodal/targets/microbit-v2/rehearsal";
 import { MICROBIT_V2_TARGET_COORDINATE } from "./microbit-extension-coordinates";
 
 /** The WHEN tiles one scripted turn authors: button A going down. */

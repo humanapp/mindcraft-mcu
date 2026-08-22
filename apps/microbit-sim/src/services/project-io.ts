@@ -2,10 +2,10 @@ import {
   buildActiveProjectExportDocument,
   type ImportAppChunkResult,
   type ProjectManager,
-} from "@mindcraft-lang/app-host";
+} from "@wendoo-lang/app-host";
 import { name as appName } from "../../package.json";
 
-/** App name microbit-sim's session chunk is keyed under in a `.mindcraft` document's manifest `app` map. */
+/** App name microbit-sim's session chunk is keyed under in a `.wendoo` document's manifest `app` map. */
 export const MICROBIT_SIM_APP_CHUNK_KEY = appName;
 
 /** Project app-data key holding the ordered list of brain ids. */
@@ -65,7 +65,7 @@ export function translateMicrobitSimAppChunk(appChunk: unknown): ImportAppChunkR
 }
 
 /**
- * Builds a shared `.mindcraft` document string for the active project: the
+ * Builds a shared `.wendoo` document string for the active project: the
  * common export document with microbit-sim's session chunk embedded in the
  * manifest's `app` map. Chunks stored for other apps are preserved.
  */

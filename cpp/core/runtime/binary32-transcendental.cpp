@@ -6,7 +6,7 @@
 // library by Stephen L. Moshier (Release 2.2, 1992), in explicit binary32
 // arithmetic: every operation is a native `float` op that rounds to binary32.
 
-namespace mindcraft {
+namespace wendoo {
 namespace binary32 {
 namespace {
 
@@ -493,4 +493,4 @@ bool multiplyAddRoundsTwice() {
 }
 
 } // namespace binary32
-} // namespace mindcraft
+} // namespace wendoo

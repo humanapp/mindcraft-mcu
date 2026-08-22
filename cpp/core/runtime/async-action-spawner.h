@@ -6,7 +6,7 @@
 #include "core/runtime/error-code.h"
 #include "core/runtime/value.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * Spawns a child fiber for an async bytecode action dispatched by
@@ -24,7 +24,7 @@ struct AsyncActionSpawner {
    * or {@link kNoHandleId} with `err` set on a fiber/handle cap or region
    * exhaustion. Mirrors `spawnBytecodeActionFiber` plus the handle wiring in
    * `execActionCallAsync` in
-   * external/mindcraft-lang/packages/core/src/runtime/vm.ts.
+   * external/wendoo-lang/packages/core/src/runtime/vm.ts.
    */
   virtual uint32_t spawnAsyncActionChild(uint32_t entryFuncId, uint32_t actionId,
                                          uint32_t callSiteId, uint32_t ruleFuncId,
@@ -34,4 +34,4 @@ protected:
   ~AsyncActionSpawner() = default;
 };
 
-} // namespace mindcraft
+} // namespace wendoo

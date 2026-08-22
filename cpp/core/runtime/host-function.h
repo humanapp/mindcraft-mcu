@@ -8,7 +8,7 @@
 #include "core/runtime/result.h"
 #include "core/runtime/value.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * A target host-function body: services one `HOST_CALL` whose funcId is at or
@@ -70,4 +70,4 @@ findTargetHostFuncById(Span<const TargetHostFuncBinding> bindings, uint32_t func
   return nullptr;
 }
 
-} // namespace mindcraft
+} // namespace wendoo

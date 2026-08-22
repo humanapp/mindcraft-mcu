@@ -1,12 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import {
-  ExtensionAddInputErrorCode,
-  ExtensionFetchErrorCode,
-  resolveExtensionAddInput,
-} from "@mindcraft-lang/app-host";
-import type { EmbeddedExtension, ExtensionCatalogEntry } from "@mindcraft-lang/bridge-app";
-import { ExtensionActionResultCode, resolveProjectExtensions } from "@mindcraft-lang/bridge-app";
+import { ExtensionAddInputErrorCode, ExtensionFetchErrorCode, resolveExtensionAddInput } from "@wendoo-lang/app-host";
+import type { EmbeddedExtension, ExtensionCatalogEntry } from "@wendoo-lang/bridge-app";
+import { ExtensionActionResultCode, resolveProjectExtensions } from "@wendoo-lang/bridge-app";
 import {
   buildMicrobitExtensionEntries,
   checkMicrobitExtensionUpdates,
@@ -27,7 +23,7 @@ import {
   MICROBIT_V2_LIB_REFERENCE,
 } from "./microbit-extension-coordinates";
 
-/** Build an embedded extension whose bundled `mindcraft.json` declares the given manifest fields. */
+/** Build an embedded extension whose bundled `wendoo.json` declares the given manifest fields. */
 function ext(
   coordinate: string,
   manifest: {
@@ -43,7 +39,7 @@ function ext(
     files: [
       { path: "index.ts", content: "export {};" },
       {
-        path: "mindcraft.json",
+        path: "wendoo.json",
         content: JSON.stringify({
           name: manifest.name ?? coordinate,
           version: manifest.version ?? "1.0.0",
@@ -56,8 +52,8 @@ function ext(
   };
 }
 
-const POSITION = "mindcraft-lang/microbit-position";
-const LEGACY = "mindcraft-lang/legacy-widget";
+const POSITION = "wendoo-lang/microbit-position";
+const LEGACY = "wendoo-lang/legacy-widget";
 
 const coreLib = ext(CORE_LIB_COORDINATE, { name: "Core", version: "0.2.1" });
 const wodalLib = ext(CODAL_LIB_COORDINATE, {
@@ -271,7 +267,7 @@ describe("uninstallMicrobitExtension -- round-trips through the host", () => {
   test("uninstalling a coordinate a still-installed add-on depends on is rejected and does not persist", async () => {
     const persistence = capturingPersistence();
     // A gamepad add-on that depends on the Position add-on, both installed.
-    const GAMEPAD = "mindcraft-lang/microbit-gamepad";
+    const GAMEPAD = "wendoo-lang/microbit-gamepad";
     const gamepadAddon = ext(GAMEPAD, {
       name: "Gamepad",
       version: "1.0.0",

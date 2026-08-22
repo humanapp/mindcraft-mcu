@@ -1,4 +1,4 @@
-import { Actuator, type Context, choice, modifier, optional, repeated } from "mindcraft";
+import { Actuator, type Context, choice, modifier, optional, repeated } from "wendoo";
 import { Movement, rateFromWords } from "./movement";
 
 /**

@@ -1,7 +1,7 @@
 /**
  * Pins the production fetch path for a version-form `gh:` pin. The published
  * chassis manifests declare their Position dependency as
- * `gh:mindcraft-lang/lib-codal-position@0.1.4`: the pin is the bare release
+ * `gh:wendoo-lang/lib-codal-position@0.1.4`: the pin is the bare release
  * version while the GitHub tag is `v0.1.4`. jsDelivr resolves a bare-version
  * specifier against v-prefixed tags, so the production URL builder must
  * forward the pin verbatim -- neither normalized to the tag spelling nor
@@ -10,7 +10,7 @@
 
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { createJsDelivrExtensionTransport, parseExtensionReference } from "@mindcraft-lang/app-host";
+import { createJsDelivrExtensionTransport, parseExtensionReference } from "@wendoo-lang/app-host";
 import { CODAL_POSITION_VERSION_REF } from "../extension-tests/published-library-fixtures";
 
 const CDN_BASE = "https://cdn.example.invalid";
@@ -35,8 +35,8 @@ describe("jsDelivr transport -- version-form pin URL construction", () => {
 
     const { urls, fetchImpl } = recordingFetch();
     const transport = createJsDelivrExtensionTransport({ cdnBaseUrl: CDN_BASE, fetchImpl });
-    const result = await transport.fetchFile(parsed.owner, parsed.repo, parsed.routing.pin, "mindcraft.json");
+    const result = await transport.fetchFile(parsed.owner, parsed.repo, parsed.routing.pin, "wendoo.json");
     assert.equal(result.ok, true, "the transport accepts a version-form pin");
-    assert.deepEqual(urls, [`${CDN_BASE}/gh/${parsed.owner}/${parsed.repo}@${parsed.routing.pin}/mindcraft.json`]);
+    assert.deepEqual(urls, [`${CDN_BASE}/gh/${parsed.owner}/${parsed.repo}@${parsed.routing.pin}/wendoo.json`]);
   });
 });

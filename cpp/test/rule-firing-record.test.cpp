@@ -1,7 +1,7 @@
 /**
  * The per-rule firing record the dispatch loop writes at the WHEN boundary
  * opcodes. Mirrors `rule-firing-record.spec.ts` in
- * external/mindcraft-lang/packages/core/src/runtime.
+ * external/wendoo-lang/packages/core/src/runtime.
  *
  * `WHEN_START` marks the rule Evaluating; both gates -- the truthiness gate
  * (`WHEN_END`) and the presence gate (`WHEN_END_PRESENT`) -- store the outcome
@@ -24,18 +24,18 @@
 #include <cstdint>
 #include <vector>
 
-using mindcraft::ExecutionContext;
-using mindcraft::Op;
-using mindcraft::ProgramImage;
-using mindcraft::RegionArena;
-using mindcraft::RuleFiringState;
-using mindcraft::runExecution;
-using mindcraft::RunResult;
-using mindcraft::RunStatus;
-using mindcraft::RuntimeSurface;
-using mindcraft::Span;
-using mindcraft::startExecution;
-using mindcraft::ValueTag;
+using wendoo::ExecutionContext;
+using wendoo::Op;
+using wendoo::ProgramImage;
+using wendoo::RegionArena;
+using wendoo::RuleFiringState;
+using wendoo::runExecution;
+using wendoo::RunResult;
+using wendoo::RunStatus;
+using wendoo::RuntimeSurface;
+using wendoo::Span;
+using wendoo::startExecution;
+using wendoo::ValueTag;
 
 namespace {
 
@@ -102,7 +102,7 @@ TEST_CASE("an unwritten firing record reads as fired") {
 
 TEST_CASE("a firing record write with no rule in scope is dropped") {
   FiringContext fixture;
-  fixture.ctx.setRuleFiringState(mindcraft::kNoFuncId, RuleFiringState::DidNotFire);
+  fixture.ctx.setRuleFiringState(wendoo::kNoFuncId, RuleFiringState::DidNotFire);
   fixture.ctx.setRuleFiringState(kRuleFiringCount, RuleFiringState::DidNotFire);
   for (uint32_t funcId = 0; funcId < kRuleFiringCount; funcId++) {
     CHECK(fixture.ctx.ruleFiringState(funcId) == RuleFiringState::DidFire);

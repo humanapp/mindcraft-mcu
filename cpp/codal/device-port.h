@@ -5,7 +5,7 @@
 #include "core/runtime/handle-table.h"
 #include "core/runtime/mc-number.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * Supplies the frames of a timed image draw to a {@link PixelDisplayPort}. The
@@ -404,4 +404,4 @@ struct DevicePorts {
   ThermometerInputPort* thermometer;
 };
 
-} // namespace mindcraft
+} // namespace wendoo

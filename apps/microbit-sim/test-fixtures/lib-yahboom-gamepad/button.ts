@@ -1,4 +1,4 @@
-import { type Context, modifier, optional, Sensor } from "mindcraft";
+import { type Context, modifier, optional, Sensor } from "wendoo";
 import { BUTTON_BLUE_PIN, BUTTON_GREEN_PIN, BUTTON_RED_PIN, BUTTON_YELLOW_PIN, readButtonPressed } from "./stick-read";
 
 /**

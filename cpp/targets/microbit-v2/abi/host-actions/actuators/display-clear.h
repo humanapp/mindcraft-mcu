@@ -5,7 +5,7 @@
 #include "core/runtime/execution-context.h"
 #include "core/runtime/value.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 /**
@@ -23,4 +23,4 @@ inline Value execDisplayClearAction(void *hostData, ExecutionContext &ctx, Span<
     return kVoidValue;
 }
 
-} // namespace mindcraft
+} // namespace wendoo

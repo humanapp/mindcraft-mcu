@@ -2,12 +2,12 @@
 
 #include <cstdint>
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * Numeric fault classifier carried by every VM error value. Mirrors the
  * `ErrorCode` enum in
- * external/mindcraft-lang/packages/core/src/runtime/value.ts. Values are
+ * external/wendoo-lang/packages/core/src/runtime/value.ts. Values are
  * wire-stable across the TS reference VM and this port; never renumber or
  * reuse a value.
  */
@@ -44,4 +44,4 @@ inline constexpr ErrorCodeName kErrorCodeNames[] = {
  */
 const char* errorCodeName(ErrorCode code);
 
-} // namespace mindcraft
+} // namespace wendoo

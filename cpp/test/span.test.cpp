@@ -2,8 +2,8 @@
 
 #include "core/platform/span.h"
 
-using mindcraft::ByteSpan;
-using mindcraft::Span;
+using wendoo::ByteSpan;
+using wendoo::Span;
 
 TEST_CASE("default span is empty") {
   ByteSpan span;

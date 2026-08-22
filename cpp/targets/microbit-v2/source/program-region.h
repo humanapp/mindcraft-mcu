@@ -5,7 +5,7 @@
 
 #include "core/platform/span.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 // The reserved on-flash program region, placed by mcprogram-region.ld; the
@@ -26,4 +26,4 @@ inline ByteSpan programFlashRegion()
     return ByteSpan(__mcprogram_region_start, size);
 }
 
-} // namespace mindcraft
+} // namespace wendoo

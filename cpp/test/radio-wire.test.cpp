@@ -15,14 +15,14 @@
 
 namespace {
 
-using mindcraft::decodeRadioFrame;
-using mindcraft::encodeRadioFrame;
-using mindcraft::kRadioMaxPacketSize;
-using mindcraft::RadioFrameInput;
-using mindcraft::radioNumberIsInteger;
-using mindcraft::RadioPacketType;
+using wendoo::decodeRadioFrame;
+using wendoo::encodeRadioFrame;
+using wendoo::kRadioMaxPacketSize;
+using wendoo::RadioFrameInput;
+using wendoo::radioNumberIsInteger;
+using wendoo::RadioPacketType;
 
-RadioFrameInput numberInput(mindcraft::mc_number_t value) {
+RadioFrameInput numberInput(wendoo::mc_number_t value) {
   RadioFrameInput in{};
   in.type = RadioPacketType::Number;
   in.value = value;
@@ -146,7 +146,7 @@ TEST_CASE("an over-long VALUE name truncates to 8 bytes") {
 TEST_CASE("decode reads back an encoded NUMBER, narrowing to f32") {
   uint8_t frame[kRadioMaxPacketSize];
   encodeRadioFrame(numberInput(1234), 50, 0, frame);
-  const mindcraft::RadioDecodedFrame decoded = decodeRadioFrame(frame);
+  const wendoo::RadioDecodedFrame decoded = decodeRadioFrame(frame);
   CHECK(decoded.type == 0);
   CHECK(decoded.value == 1234.0f);
   CHECK(decoded.time == 50);
@@ -158,7 +158,7 @@ TEST_CASE("decode narrows a DOUBLE payload to f32") {
   in.type = RadioPacketType::Double;
   in.value = 0.1f;
   encodeRadioFrame(in, 0, 0, frame);
-  const mindcraft::RadioDecodedFrame decoded = decodeRadioFrame(frame);
+  const wendoo::RadioDecodedFrame decoded = decodeRadioFrame(frame);
   CHECK(decoded.value == 0.1f);
 }
 
@@ -170,7 +170,7 @@ TEST_CASE("decode reads back a VALUE name and number") {
   in.name = asBytes("ax");
   in.nameLen = 2;
   encodeRadioFrame(in, 0, 0, frame);
-  const mindcraft::RadioDecodedFrame decoded = decodeRadioFrame(frame);
+  const wendoo::RadioDecodedFrame decoded = decodeRadioFrame(frame);
   CHECK(decoded.value == 9.0f);
   CHECK(decoded.nameLen == 2);
   CHECK(std::string(reinterpret_cast<const char*>(decoded.name), decoded.nameLen) == "ax");
@@ -183,7 +183,7 @@ TEST_CASE("decode reads back a STRING payload") {
   in.text = asBytes("hello");
   in.textLen = 5;
   encodeRadioFrame(in, 0, 0, frame);
-  const mindcraft::RadioDecodedFrame decoded = decodeRadioFrame(frame);
+  const wendoo::RadioDecodedFrame decoded = decodeRadioFrame(frame);
   CHECK(std::string(reinterpret_cast<const char*>(decoded.text), decoded.textLen) == "hello");
 }
 
@@ -193,7 +193,7 @@ TEST_CASE("a fixed MakeCode NUMBER byte sequence decodes to the expected value")
   bytes[1] = 0x02;
   bytes[2] = 0x01; // time 0x102
   bytes[9] = 0x07; // value 7
-  const mindcraft::RadioDecodedFrame decoded = decodeRadioFrame(bytes);
+  const wendoo::RadioDecodedFrame decoded = decodeRadioFrame(bytes);
   CHECK(decoded.value == 7.0f);
   CHECK(decoded.time == 0x102);
 }

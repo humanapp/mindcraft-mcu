@@ -9,7 +9,7 @@
 #include "core/runtime/managed-heap.h"
 #include "core/runtime/type-registry.h"
 
-namespace mindcraft {
+namespace wendoo {
 namespace {
 
 /**
@@ -34,7 +34,7 @@ uint32_t atomTypeId(const HostCallEnv& env, CoreTypeAtomId atomId) {
 
 /**
  * The key element type of a map value, mirroring `MapKeys` in
- * external/mindcraft-lang/.../map-builtins.ts: the map's declared key type when
+ * external/wendoo-lang/.../map-builtins.ts: the map's declared key type when
  * the value is typed, else the String atom.
  */
 uint32_t mapKeyElementType(const HostCallEnv& env, const Value& mapValue) {
@@ -1256,4 +1256,4 @@ Status callCoreHostFunction(CoreFuncId id, Span<const Value> args, const HostCal
   }
 }
 
-} // namespace mindcraft
+} // namespace wendoo

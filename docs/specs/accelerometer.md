@@ -22,7 +22,7 @@ through the **Device API** (see both below).
 | Tile key      | `microbit-v2.gesture` (label "gesture") |
 | Action id     | 1030 |
 | Function id   | 1047 |
-| Module        | microbit-v2 (`mindcraft.microbit-v2`) |
+| Module        | microbit-v2 (`wendoo.microbit-v2`) |
 
 Action and function ids are wire-stable: once assigned they are never changed or reused.
 
@@ -45,7 +45,7 @@ CODAL's 2G/3G/6G/8G impulse levels.
 
 **Every modifier emits a LEVEL signal: true on every tick the gesture is recognized**, false
 otherwise - uniform across all gestures. Edge / fire-once / toggle behavior is obtained by
-composing a **shaper** (`external/mindcraft-lang/docs/specs/shapers.md`), the same way for every sensor, rather
+composing a **shaper** (`external/wendoo-lang/docs/specs/shapers.md`), the same way for every sensor, rather
 than per-gesture variants here.
 
 ```

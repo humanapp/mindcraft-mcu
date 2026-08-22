@@ -1,18 +1,18 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import type { AuthoringWorkspace, ScenarioInput, SimulationRun } from "@mindcraft-lang/assistant-bridge";
-import { createAuthoringWorkspace, proposeEdit } from "@mindcraft-lang/assistant-bridge";
-import { FAKE_TARGET_IDENTITY, ruleIdAt } from "@mindcraft-lang/assistant-bridge/testing";
+import type { AuthoringWorkspace, ScenarioInput, SimulationRun } from "@wendoo-lang/assistant-bridge";
+import { createAuthoringWorkspace, proposeEdit } from "@wendoo-lang/assistant-bridge";
+import { FAKE_TARGET_IDENTITY, ruleIdAt } from "@wendoo-lang/assistant-bridge/testing";
 import {
   CoreTypeIds,
   mkActuatorTileId,
   mkOutputTileId,
   mkParameterTileId,
   mkSensorTileId,
-} from "@mindcraft-lang/core/app";
-import { CoreLiteralFactoryId, mkLiteralFactoryTileId } from "@mindcraft-lang/core/brain";
+} from "@wendoo-lang/core/app";
+import { CoreLiteralFactoryId, mkLiteralFactoryTileId } from "@wendoo-lang/core/brain";
 import { DEFAULT_TEMPERATURE } from "../../../core/thermometer";
-import { MicroBitV2HostActions, WodalMicroBitV2ParameterId } from "../mindcraft/tile-ids";
+import { MicroBitV2HostActions, WodalMicroBitV2ParameterId } from "../wendoo/tile-ids";
 import { createTargetAdapter } from "./adapter";
 
 /** The one role a scenario may put under study. */

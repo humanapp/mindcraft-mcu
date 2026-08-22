@@ -1,4 +1,4 @@
-# Mindcraft micro:bit Simulator
+# Wendoo micro:bit Simulator
 
 A browser-based simulator for the BBC micro:bit -- program its brain with tiles, watch it run in the simulator, then flash the same program onto a real board.
 

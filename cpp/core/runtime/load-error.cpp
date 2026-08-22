@@ -1,6 +1,6 @@
 #include "core/runtime/load-error.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 const char* loadErrorName(LoadError code) {
   for (const LoadErrorName& entry : kLoadErrorNames) {
@@ -11,4 +11,4 @@ const char* loadErrorName(LoadError code) {
   return nullptr;
 }
 
-} // namespace mindcraft
+} // namespace wendoo

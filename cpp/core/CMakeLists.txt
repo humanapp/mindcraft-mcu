@@ -1,6 +1,6 @@
 # The host-agnostic runtime library. Builds with exceptions and RTTI off; all
 # error propagation is by Status/Result return values.
-add_library(mindcraft-core STATIC
+add_library(wendoo-core STATIC
   codec/program-reader.cpp
   runtime/binary32-format.cpp
   runtime/binary32-parse.cpp
@@ -27,9 +27,9 @@ set_source_files_properties(
   PROPERTIES COMPILE_OPTIONS "-ffp-contract=off"
 )
 
-target_include_directories(mindcraft-core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)
+target_include_directories(wendoo-core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)
 
-target_compile_options(mindcraft-core PRIVATE
+target_compile_options(wendoo-core PRIVATE
   -fno-exceptions
   -fno-rtti
   -Wall

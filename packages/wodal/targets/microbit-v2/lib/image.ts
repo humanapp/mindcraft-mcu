@@ -1,4 +1,4 @@
-import type { Image } from "mindcraft";
+import type { Image } from "wendoo";
 
 /**
  * Builds an {@link Image} from a multiline art string.

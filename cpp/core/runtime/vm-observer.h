@@ -6,13 +6,13 @@
 #include "core/runtime/error-code.h"
 #include "core/runtime/value.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * Passive taps on the VM's host-binding surface. Implementations observe
  * only; they must not re-enter the VM, the scheduler, or the think loop.
  * Mirrors the observable subset of `VmEvents` in
- * external/mindcraft-lang/packages/core/src/runtime/vm-types.ts.
+ * external/wendoo-lang/packages/core/src/runtime/vm-types.ts.
  */
 class VmObserver {
 public:
@@ -71,4 +71,4 @@ protected:
   ~VmObserver() = default;
 };
 
-} // namespace mindcraft
+} // namespace wendoo

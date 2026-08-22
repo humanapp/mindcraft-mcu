@@ -11,7 +11,7 @@
       "name": "cpp tests (CodeLLDB)",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/cpp/build/debug/test/mindcraft-tests",
+      "program": "${workspaceFolder}/cpp/build/debug/test/wendoo-tests",
       "args": [],
       "cwd": "${workspaceFolder}/cpp",
       "preLaunchTask": "cpp: build (debug)"
@@ -21,7 +21,7 @@
       "type": "cppdbg",
       "request": "launch",
       "MIMode": "lldb",
-      "program": "${workspaceFolder}/cpp/build/debug/test/mindcraft-tests",
+      "program": "${workspaceFolder}/cpp/build/debug/test/wendoo-tests",
       "args": [],
       "cwd": "${workspaceFolder}/cpp",
       "preLaunchTask": "cpp: build (debug)"
@@ -31,17 +31,17 @@
       "presentation": { "hidden": true },
       "type": "node",
       "request": "launch",
-      "program": "${workspaceFolder}/external/mindcraft-lang/apps/vscode-extension/node_modules/@vscode/test-web/out/server/index.js",
+      "program": "${workspaceFolder}/external/wendoo-lang/apps/vscode-extension/node_modules/@vscode/test-web/out/server/index.js",
       "args": [
-        "--extensionDevelopmentPath=${workspaceFolder}/external/mindcraft-lang/apps/vscode-extension",
+        "--extensionDevelopmentPath=${workspaceFolder}/external/wendoo-lang/apps/vscode-extension",
         "--browser",
         "none",
         "--port",
         "3100",
         "--coi"
       ],
-      "outFiles": ["${workspaceFolder}/external/mindcraft-lang/apps/vscode-extension/dist/**/*.js"],
-      "preLaunchTask": "mindcraft-ext: dev",
+      "outFiles": ["${workspaceFolder}/external/wendoo-lang/apps/vscode-extension/dist/**/*.js"],
+      "preLaunchTask": "wendoo-ext: dev",
       "console": "integratedTerminal"
     },
     {
@@ -50,18 +50,18 @@
       "type": "chrome",
       "request": "launch",
       "url": "http://localhost:3100",
-      "webRoot": "${workspaceFolder}/external/mindcraft-lang/apps/vscode-extension",
+      "webRoot": "${workspaceFolder}/external/wendoo-lang/apps/vscode-extension",
       "sourceMaps": true
     },
     {
       "type": "node",
       "request": "launch",
       "name": "vscode-bridge: dev",
-      "runtimeExecutable": "${workspaceFolder}/external/mindcraft-lang/apps/vscode-bridge/node_modules/.bin/tsx",
+      "runtimeExecutable": "${workspaceFolder}/external/wendoo-lang/apps/vscode-bridge/node_modules/.bin/tsx",
       "runtimeArgs": ["--conditions=development"],
       "args": ["src/index.ts"],
-      "cwd": "${workspaceFolder}/external/mindcraft-lang/apps/vscode-bridge",
-      "envFile": "${workspaceFolder}/external/mindcraft-lang/apps/vscode-bridge/.env",
+      "cwd": "${workspaceFolder}/external/wendoo-lang/apps/vscode-bridge",
+      "envFile": "${workspaceFolder}/external/wendoo-lang/apps/vscode-bridge/.env",
       "preLaunchTask": "vscode-bridge: build",
       "console": "integratedTerminal",
       "sourceMaps": true,

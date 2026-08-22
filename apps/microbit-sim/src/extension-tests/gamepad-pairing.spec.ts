@@ -25,31 +25,31 @@
 
 import assert from "node:assert/strict";
 import { before, describe, test } from "node:test";
-import { List } from "@mindcraft-lang/core";
+import { List } from "@wendoo-lang/core";
 import {
   BrainDef,
   BrainTileModifierDef,
   CoreTypeIds,
-  type MindcraftEnvironment,
   mkActuatorTileId,
   mkSensorTileId,
-} from "@mindcraft-lang/core/app";
-import { type IBrainTileDef, mkAccessorTileId, mkVariableFactoryTileId, RuleSide } from "@mindcraft-lang/core/brain";
-import { __test__appendTile } from "@mindcraft-lang/core/brain/__test__";
+  type WendooEnvironment,
+} from "@wendoo-lang/core/app";
+import { type IBrainTileDef, mkAccessorTileId, mkVariableFactoryTileId, RuleSide } from "@wendoo-lang/core/brain";
+import { __test__appendTile } from "@wendoo-lang/core/brain/__test__";
 import {
   type InsertionContext,
   parseTilesForSuggestions,
   suggestTiles,
-} from "@mindcraft-lang/core/brain/language-service";
-import type { BrainTileFactoryDef } from "@mindcraft-lang/core/brain/tiles";
-import { mkStringValue, type TypeId } from "@mindcraft-lang/core/runtime";
-import { buildWodalProgramImage, getWodalDeviceProfile, WodalDeviceProfileId } from "@mindcraft-lang/wodal";
+} from "@wendoo-lang/core/brain/language-service";
+import type { BrainTileFactoryDef } from "@wendoo-lang/core/brain/tiles";
+import { mkStringValue, type TypeId } from "@wendoo-lang/core/runtime";
+import { buildWodalProgramImage, getWodalDeviceProfile, WodalDeviceProfileId } from "@wendoo-lang/wodal";
 import {
   type IncomingRadioPacket,
   MicroBit,
   type RadioSendRecord,
   WodalMicroBitRuntime,
-} from "@mindcraft-lang/wodal/targets/microbit-v2";
+} from "@wendoo-lang/wodal/targets/microbit-v2";
 import {
   buildExtensionTestHarness,
   CUTEBOT_EXT_COORDINATE,
@@ -82,7 +82,7 @@ const HORIZONTAL_PIN = 2;
 const PRESS_PIN = 8;
 const HORIZONTAL_REST = 502;
 
-const ALWAYS_SOURCE = `import { type Context, Sensor } from "mindcraft";
+const ALWAYS_SOURCE = `import { type Context, Sensor } from "wendoo";
 
 export default Sensor({
   name: "always",
@@ -97,7 +97,7 @@ export default Sensor({
  * bytes at the x and y observer addresses. Reading both in one rule lets both
  * decoder evaluations share one WHEN result, so the x/y pair is atomic.
  */
-const OBSERVE_PAIR_SOURCE = `import { Actuator, type Context, NumberType, param } from "mindcraft";
+const OBSERVE_PAIR_SOURCE = `import { Actuator, type Context, NumberType, param } from "wendoo";
 
 export default Actuator({
   name: "observe pair",
@@ -110,7 +110,7 @@ export default Actuator({
 `;
 
 /** A second Buffer-expected consumer: folds a packet's three bytes to one I2C write. */
-const FOLD_SOURCE = `import { Actuator, BufferType, type Context, param } from "mindcraft";
+const FOLD_SOURCE = `import { Actuator, BufferType, type Context, param } from "wendoo";
 
 export default Actuator({
   name: "buffer fold",
@@ -135,7 +135,7 @@ function workspaceTiles(): Record<string, string> {
   };
 }
 
-const environment = { current: undefined as MindcraftEnvironment | undefined };
+const environment = { current: undefined as WendooEnvironment | undefined };
 const bundleTiles = { current: [] as readonly IBrainTileDef[] };
 const harnessRef = { current: undefined as ExtensionTestHarness | undefined };
 
@@ -155,21 +155,21 @@ function userTile(name: string): IBrainTileDef {
 }
 
 /** Resolves a registered core/host tile by its action key. */
-function hostTile(env: MindcraftEnvironment, tileId: string): IBrainTileDef {
+function hostTile(env: WendooEnvironment, tileId: string): IBrainTileDef {
   const tile = env.brainServices.edit.tiles.get(tileId);
   assert.ok(tile, `host tile ${tileId} should be registered`);
   return tile;
 }
 
 /** The registered TypeId of the position struct. */
-function positionTypeId(env: MindcraftEnvironment): TypeId {
+function positionTypeId(env: WendooEnvironment): TypeId {
   const typeId = env.brainServices.runtime.types.resolveByName(POSITION_IDENTITY);
   assert.ok(typeId, "expected the position type to be registered");
   return typeId;
 }
 
 /** The accessor tile reading `field` off a position value. */
-function accessorTile(env: MindcraftEnvironment, field: string): IBrainTileDef {
+function accessorTile(env: WendooEnvironment, field: string): IBrainTileDef {
   const tileId = mkAccessorTileId(positionTypeId(env), field);
   const tile = bundleTiles.current.find((candidate) => candidate.tileId === tileId);
   assert.ok(tile, `expected the "${field}" accessor tile`);
@@ -177,7 +177,7 @@ function accessorTile(env: MindcraftEnvironment, field: string): IBrainTileDef {
 }
 
 /** Manufactures and registers a fresh position variable tile named `name` in `brainDef`. */
-function positionVariable(env: MindcraftEnvironment, brainDef: BrainDef, name: string): IBrainTileDef {
+function positionVariable(env: WendooEnvironment, brainDef: BrainDef, name: string): IBrainTileDef {
   const factory = bundleTiles.current.find((tile) => tile.tileId === mkVariableFactoryTileId(positionTypeId(env))) as
     | BrainTileFactoryDef
     | undefined;
@@ -189,7 +189,7 @@ function positionVariable(env: MindcraftEnvironment, brainDef: BrainDef, name: s
 }
 
 /** Builds a wodal image for `brainDef`, asserting the build succeeds. */
-function buildImage(env: MindcraftEnvironment, brainDef: BrainDef) {
+function buildImage(env: WendooEnvironment, brainDef: BrainDef) {
   const built = buildWodalProgramImage({
     brainDef,
     environment: env,
@@ -258,7 +258,7 @@ interface RunResult {
 }
 
 /** Runs one brain over `schedule`, injecting packets and pin levels, and taps the I2C bus. */
-function run(env: MindcraftEnvironment, brainDef: BrainDef, schedule: readonly Step[]): RunResult {
+function run(env: WendooEnvironment, brainDef: BrainDef, schedule: readonly Step[]): RunResult {
   const image = buildImage(env, brainDef);
   const microbit = new MicroBit();
   let tick = 0;
@@ -309,7 +309,7 @@ function observedAt(result: RunResult, address: number, tick: number): number {
 
 describe("cutebot steer bridge", () => {
   /** WHEN [radio receive buffer] DO [cutebot steer [decoded stick position]], fed a packet carrying (x, y). */
-  function steerBrain(env: MindcraftEnvironment): BrainDef {
+  function steerBrain(env: WendooEnvironment): BrainDef {
     const brainDef = BrainDef.emptyBrainDef(env.brainServices, "steer whole position");
     const rule = brainDef.pages().get(0)!.children().get(0)!;
     __test__appendTile(rule.when(), hostTile(env, mkSensorTileId(RADIO_RECEIVE_BUFFER)));
@@ -373,7 +373,7 @@ describe("decoded stick position", () => {
    * [decoded stick position][y]]`. Both decoder evaluations read the one rule's
    * WHEN result, so the x/y pair comes from a single packet.
    */
-  function decodeBrain(env: MindcraftEnvironment, name: string, when: IBrainTileDef): BrainDef {
+  function decodeBrain(env: WendooEnvironment, name: string, when: IBrainTileDef): BrainDef {
     const brainDef = BrainDef.emptyBrainDef(env.brainServices, name);
     const rule = brainDef.pages().get(0)!.children().get(0)!;
     __test__appendTile(rule.when(), when);
@@ -517,7 +517,7 @@ describe("position -> Buffer conversion reach", () => {
 
 /** Runs a sender and a receiver brain in lockstep, routing the sender's radio into the receiver. */
 function runPair(
-  env: MindcraftEnvironment,
+  env: WendooEnvironment,
   sender: BrainDef,
   receiver: BrainDef,
   schedule: readonly Step[]

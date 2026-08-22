@@ -2,11 +2,11 @@
 
 #include <cstdint>
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * Brain VM bytecode opcodes. Mirrors the Op enum in
- * external/mindcraft-lang/packages/core/src/runtime/bytecode.ts. Serialized
+ * external/wendoo-lang/packages/core/src/runtime/bytecode.ts. Serialized
  * programs record these values as the instruction opcode byte, so they are
  * wire-stable: never renumber or reuse a value. `RESERVED_111` and
  * `RESERVED_112` are reserved opcode numbers with no VM handler, kept so the
@@ -166,7 +166,7 @@ inline constexpr OperandSpec kUVarOpt{OperandEncoding::UVar, true};
 /**
  * Per-opcode operand layout for binary instruction serialization. Mirrors
  * OPERAND_SCHEMA in
- * external/mindcraft-lang/packages/core/src/runtime/bytecode.ts, one row per
+ * external/wendoo-lang/packages/core/src/runtime/bytecode.ts, one row per
  * declared {@link Op} member in declaration order. `SVar` marks the six
  * signed rel-offset opcodes (`JMP`, `JMP_IF_FALSE`, `JMP_IF_TRUE`,
  * `WHEN_END`, `WHEN_END_PRESENT`, `TRY`); the optional trailing `b` marks the four
@@ -250,4 +250,4 @@ inline constexpr OpOperandSchema kOperandSchema[] = {
  */
 const OpOperandSchema* operandSchemaFor(Op op);
 
-} // namespace mindcraft
+} // namespace wendoo

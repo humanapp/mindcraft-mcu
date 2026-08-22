@@ -9,7 +9,7 @@
 #include "core/runtime/value.h"
 #include "targets/microbit-v2/abi/host-binding-conversions.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 /**
@@ -84,4 +84,4 @@ inline Value execGestureSensor(void *hostData, ExecutionContext &ctx, Span<const
     return Value::boolean(code == static_cast<uint16_t>(detail::selectGesture(args)));
 }
 
-} // namespace mindcraft
+} // namespace wendoo

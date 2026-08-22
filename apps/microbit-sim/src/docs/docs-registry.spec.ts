@@ -3,9 +3,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { BrainTileModifierDef, type MindcraftEnvironment } from "@mindcraft-lang/core/app";
-import type { IBrainTileDef } from "@mindcraft-lang/core/brain";
-import { createMicroBitV2Environment } from "@mindcraft-lang/wodal/targets/microbit-v2";
+import { BrainTileModifierDef, type WendooEnvironment } from "@wendoo-lang/core/app";
+import type { IBrainTileDef } from "@wendoo-lang/core/brain";
+import { createMicroBitV2Environment } from "@wendoo-lang/wodal/targets/microbit-v2";
 import { conceptContent, patternContent, tileContent } from "./_generated/en";
 import { createMicrobitDocsRegistry } from "./docs-registry";
 import {
@@ -57,7 +57,7 @@ const CORE_ENTRIES_WITHOUT_CONTENT = [
  * Hidden and deprecated tiles are excluded, matching the suggestion engine's
  * filtering.
  */
-function visibleCatalogTiles(env: MindcraftEnvironment): IBrainTileDef[] {
+function visibleCatalogTiles(env: WendooEnvironment): IBrainTileDef[] {
   const tiles: IBrainTileDef[] = [];
   for (const catalog of env.tileCatalogs()) {
     const all = catalog.getAll();

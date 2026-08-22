@@ -1,6 +1,6 @@
 #include "core/runtime/error-code.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 const char* errorCodeName(ErrorCode code) {
   for (const ErrorCodeName& entry : kErrorCodeNames) {
@@ -11,4 +11,4 @@ const char* errorCodeName(ErrorCode code) {
   return nullptr;
 }
 
-} // namespace mindcraft
+} // namespace wendoo

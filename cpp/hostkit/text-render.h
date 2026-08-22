@@ -6,7 +6,7 @@
 
 #include "core/runtime/program.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /** Receives rendered text as a sequence of byte chunks. */
 class TextSink {
@@ -128,4 +128,4 @@ inline bool quoteStringTableEntry(TextWriter& w, const ProgramImage& image, uint
   return true;
 }
 
-} // namespace mindcraft
+} // namespace wendoo

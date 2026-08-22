@@ -14,7 +14,7 @@
 #include "targets/microbit-v2/abi/host-functions/native-receiver.h"
 #include "targets/microbit-v2/abi/type-atom-id.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 /**
@@ -46,7 +46,7 @@ struct MicroBitV2I2CWriteEnv
  * writes zero bytes). An unrecognized receiver pushes 0 without touching the
  * bus. `hostData` is the bound {@link MicroBitV2I2CWriteEnv}. Mirrors the
  * `I2C.writeBuffer` host function in
- * packages/wodal/src/targets/microbit-v2/mindcraft/module.ts.
+ * packages/wodal/src/targets/microbit-v2/wendoo/module.ts.
  */
 inline Status execI2CWriteBuffer(void *hostData, Span<const Value> args, Value &result)
 {
@@ -89,4 +89,4 @@ inline Status execI2CWriteBuffer(void *hostData, Span<const Value> args, Value &
     return Status::ok();
 }
 
-} // namespace mindcraft
+} // namespace wendoo

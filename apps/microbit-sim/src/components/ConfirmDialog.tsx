@@ -1,4 +1,4 @@
-import { Button } from "@mindcraft-lang/ui";
+import { Button } from "@wendoo-lang/ui";
 import { type ReactNode, useState } from "react";
 import { Modal } from "./Modal";
 

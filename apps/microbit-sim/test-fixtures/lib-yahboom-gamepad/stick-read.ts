@@ -1,4 +1,4 @@
-import type { Context } from "mindcraft";
+import type { Context } from "wendoo";
 
 /**
  * The Yahboom GHBit gamepad reads its controls off the mounted micro:bit's edge

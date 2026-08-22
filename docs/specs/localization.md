@@ -1,6 +1,6 @@
 # Localization
 
-Localization makes every user-visible string and document in Mindcraft renderable in the
+Localization makes every user-visible string and document in Wendoo renderable in the
 user's language. It covers the brain editor, the web apps, tile labels and type names,
 compiler diagnostics, and the documentation system. It does not touch the VM, bytecode,
 brain documents, or any persisted identity: localization is a display-time concern, and

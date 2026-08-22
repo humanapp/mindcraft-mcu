@@ -3,7 +3,7 @@
  * Builds this target's headless adapter artifact: bundles the rehearsal adapter
  * its device-runtime dependency publishes into one self-contained,
  * plain-Node-importable ES module, published under the target identity this
- * target's own mindcraft.json declares. Exits nonzero when a package the bundle
+ * target's own wendoo.json declares. Exits nonzero when a package the bundle
  * would carry was built before its own sources were last edited, when the
  * manifest declares no identity, or when the bundle fails.
  * Run through `npm run build:headless`.
@@ -15,14 +15,14 @@ import {
   assertDependencyDistsFresh,
   readTargetIdentity,
   StaleDependencyError,
-} from "@mindcraft-lang/assistant-bridge/kit/node";
+} from "@wendoo-lang/assistant-bridge/kit/node";
 import { build } from "esbuild";
 
 /** The device this app distributes, named as its device-runtime package subtree carries it. */
 const DEVICE = "microbit-v2";
 
 /** Device-runtime entry publishing this device's rehearsal adapter factory. */
-const ADAPTER_ENTRY = `@mindcraft-lang/wodal/targets/${DEVICE}/rehearsal`;
+const ADAPTER_ENTRY = `@wendoo-lang/wodal/targets/${DEVICE}/rehearsal`;
 
 const appDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 

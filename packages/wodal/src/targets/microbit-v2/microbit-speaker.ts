@@ -1,5 +1,5 @@
 import { OperationEnd, type OperationEndListener } from "../../core/operation-end";
-import { findBuiltInSound } from "./mindcraft/built-in-sounds";
+import { findBuiltInSound } from "./wendoo/built-in-sounds";
 
 /** The sound currently holding the speaker lease, as exposed to app adapters. */
 export interface SpeakerPlayingSnapshot {

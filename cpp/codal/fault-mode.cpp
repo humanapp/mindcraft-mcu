@@ -1,6 +1,6 @@
 #include "codal/fault-mode.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 void formatFaultCode(char* out, FaultDomain domain, uint16_t code) {
   char* cursor = out;
@@ -39,4 +39,4 @@ void showFaultPass(FaultDisplayPort& display, const char* code) {
   display.scrollFaultCode(code);
 }
 
-} // namespace mindcraft
+} // namespace wendoo

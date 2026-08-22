@@ -9,17 +9,17 @@
 #include <cstdint>
 #include <vector>
 
-using mindcraft::CallSiteBinding;
-using mindcraft::ConstValueKind;
-using mindcraft::CoreTypeAtomId;
-using mindcraft::kNoFuncId;
-using mindcraft::kNoTypeIdx;
-using mindcraft::LoadError;
-using mindcraft::MapKeyKind;
-using mindcraft::Op;
-using mindcraft::ProgramImage;
-using mindcraft::Result;
-using mindcraft::TypeTag;
+using wendoo::CallSiteBinding;
+using wendoo::ConstValueKind;
+using wendoo::CoreTypeAtomId;
+using wendoo::kNoFuncId;
+using wendoo::kNoTypeIdx;
+using wendoo::LoadError;
+using wendoo::MapKeyKind;
+using wendoo::Op;
+using wendoo::ProgramImage;
+using wendoo::Result;
+using wendoo::TypeTag;
 
 TEST_CASE("an empty program decodes with every pool empty") {
   WireBuilder w = programHeader(0, 7);
@@ -384,7 +384,7 @@ TEST_CASE("format versions other than 3 fail UnsupportedFormatVersion") {
 TEST_CASE("a var-int needing more than 32 bits fails VarIntOverflow") {
   // Six continuation-flagged bytes in the profileId position.
   WireBuilder sixBytes;
-  sixBytes.u8(0x89).u8('M').u8('B').u8('P').u8(mindcraft::kBinaryProgramFormatVersion);
+  sixBytes.u8(0x89).u8('M').u8('B').u8('P').u8(wendoo::kBinaryProgramFormatVersion);
   for (int i = 0; i < 5; i++) {
     sixBytes.u8(0x80);
   }
@@ -393,7 +393,7 @@ TEST_CASE("a var-int needing more than 32 bits fails VarIntOverflow") {
 
   // Five bytes whose 5th carries payload above bit 31.
   WireBuilder highBits;
-  highBits.u8(0x89).u8('M').u8('B').u8('P').u8(mindcraft::kBinaryProgramFormatVersion);
+  highBits.u8(0x89).u8('M').u8('B').u8('P').u8(wendoo::kBinaryProgramFormatVersion);
   highBits.u8(0xff).u8(0xff).u8(0xff).u8(0xff).u8(0x1f);
   CHECK(decodeError(highBits) == LoadError::VarIntOverflow);
 }

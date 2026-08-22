@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * Accelerometer gesture codes, transcribed verbatim from CODAL's
@@ -27,4 +27,4 @@ enum class AccelerometerGesture : uint16_t {
   Impact2G = 12,
 };
 
-} // namespace mindcraft
+} // namespace wendoo

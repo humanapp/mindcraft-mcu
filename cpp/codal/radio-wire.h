@@ -5,7 +5,7 @@
 
 #include "core/runtime/mc-number.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * MakeCode radio packet types, mirrored byte-for-byte from `pxt-common-packages`
@@ -215,4 +215,4 @@ inline RadioDecodedFrame decodeRadioFrame(const uint8_t* frame) {
   return out;
 }
 
-} // namespace mindcraft
+} // namespace wendoo

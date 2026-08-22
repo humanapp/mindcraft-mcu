@@ -13,19 +13,19 @@
 #include <cstdint>
 #include <iterator>
 
-using mindcraft::CONTEXT_MICROBIT_FIELD_ID;
-using mindcraft::kContextFieldCount;
-using mindcraft::kMicroBitFieldCount;
-using mindcraft::kMicroBitV2HostActions;
-using mindcraft::kMicroBitV2HostFuncIdCount;
-using mindcraft::kMicroBitV2TypeAtomIdCount;
-using mindcraft::MicroBitField;
-using mindcraft::MicroBitV2HostFuncId;
-using mindcraft::MicroBitV2TypeAtomId;
-using mindcraft::TARGET_ACTION_ID_BASE;
-using mindcraft::TARGET_FUNC_ID_BASE;
-using mindcraft::TARGET_TYPE_ATOM_BASE;
-namespace MicroBitV2HostActions = mindcraft::MicroBitV2HostActions;
+using wendoo::CONTEXT_MICROBIT_FIELD_ID;
+using wendoo::kContextFieldCount;
+using wendoo::kMicroBitFieldCount;
+using wendoo::kMicroBitV2HostActions;
+using wendoo::kMicroBitV2HostFuncIdCount;
+using wendoo::kMicroBitV2TypeAtomIdCount;
+using wendoo::MicroBitField;
+using wendoo::MicroBitV2HostFuncId;
+using wendoo::MicroBitV2TypeAtomId;
+using wendoo::TARGET_ACTION_ID_BASE;
+using wendoo::TARGET_FUNC_ID_BASE;
+using wendoo::TARGET_TYPE_ATOM_BASE;
+namespace MicroBitV2HostActions = wendoo::MicroBitV2HostActions;
 
 TEST_CASE("MicroBitV2HostFuncId values are wire-stable") {
   CHECK(static_cast<uint32_t>(MicroBitV2HostFuncId::DisplaySetPixelValue) == 1024);
@@ -93,11 +93,11 @@ TEST_CASE("the host-function binding table binds every declared device-API host 
   // The binding table closes the declared-but-unbound gap: a host function declared
   // in MicroBitV2HostFuncId but absent from the table faults at dispatch. Pin the
   // count and that DisplayClear (the device-API clear) resolves to a sync body.
-  mindcraft::DevicePorts ports{};
-  const auto bindings = mindcraft::makeMicroBitV2HostFuncBindings(ports);
-  CHECK(bindings.size() == mindcraft::kMicroBitV2HostFuncBindingCount);
-  CHECK(mindcraft::kMicroBitV2HostFuncBindingCount == 35);
-  const mindcraft::TargetHostFuncBinding* clearBinding = nullptr;
+  wendoo::DevicePorts ports{};
+  const auto bindings = wendoo::makeMicroBitV2HostFuncBindings(ports);
+  CHECK(bindings.size() == wendoo::kMicroBitV2HostFuncBindingCount);
+  CHECK(wendoo::kMicroBitV2HostFuncBindingCount == 35);
+  const wendoo::TargetHostFuncBinding* clearBinding = nullptr;
   for (const auto& binding : bindings) {
     if (binding.funcId == static_cast<uint32_t>(MicroBitV2HostFuncId::DisplayClear)) {
       clearBinding = &binding;
@@ -131,10 +131,9 @@ TEST_CASE("MicroBitV2TypeAtomId values are wire-stable") {
 }
 
 TEST_CASE("SharedTypeAtomId values are wire-stable") {
-  CHECK(static_cast<uint32_t>(mindcraft::SharedTypeAtomId::Image) == 2048);
-  CHECK(mindcraft::kSharedTypeAtomIdCount == 1);
-  CHECK(static_cast<uint32_t>(mindcraft::SharedTypeAtomId::Image) ==
-        mindcraft::SHARED_TYPE_ATOM_BASE);
+  CHECK(static_cast<uint32_t>(wendoo::SharedTypeAtomId::Image) == 2048);
+  CHECK(wendoo::kSharedTypeAtomIdCount == 1);
+  CHECK(static_cast<uint32_t>(wendoo::SharedTypeAtomId::Image) == wendoo::SHARED_TYPE_ATOM_BASE);
 }
 
 TEST_CASE("microbit-v2 host-action ids are wire-stable") {

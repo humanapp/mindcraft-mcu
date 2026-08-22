@@ -7,15 +7,15 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import { createIdbProjectStore, type ProjectFileSnapshot, ProjectManager } from "@mindcraft-lang/app-host";
-import type { EmbeddedExtension } from "@mindcraft-lang/bridge-app";
-import { AppEnvironmentHost, resolveProjectExtensions } from "@mindcraft-lang/bridge-app";
-import { buildEmbeddedExtensionFromDir } from "@mindcraft-lang/bridge-app/node";
-import { BrainDef, coreModule } from "@mindcraft-lang/core/app";
-import type { IBrainDef, IBrainRuleDef, IBrainTileDef } from "@mindcraft-lang/core/brain";
-import { createWorkspaceCompiler, type WorkspaceCompileResult } from "@mindcraft-lang/ts-compiler";
-import { createWodalSharedModule, getWodalDeviceProfile, WodalDeviceProfileId } from "@mindcraft-lang/wodal";
-import { createMicroBitV2Environment } from "@mindcraft-lang/wodal/targets/microbit-v2";
+import { createIdbProjectStore, type ProjectFileSnapshot, ProjectManager } from "@wendoo-lang/app-host";
+import type { EmbeddedExtension } from "@wendoo-lang/bridge-app";
+import { AppEnvironmentHost, resolveProjectExtensions } from "@wendoo-lang/bridge-app";
+import { buildEmbeddedExtensionFromDir } from "@wendoo-lang/bridge-app/node";
+import { BrainDef, coreModule } from "@wendoo-lang/core/app";
+import type { IBrainDef, IBrainRuleDef, IBrainTileDef } from "@wendoo-lang/core/brain";
+import { createWorkspaceCompiler, type WorkspaceCompileResult } from "@wendoo-lang/ts-compiler";
+import { createWodalSharedModule, getWodalDeviceProfile, WodalDeviceProfileId } from "@wendoo-lang/wodal";
+import { createMicroBitV2Environment } from "@wendoo-lang/wodal/targets/microbit-v2";
 import {
   CODAL_LIB_COORDINATE,
   CORE_LIB_COORDINATE,
@@ -47,10 +47,8 @@ const globalShim = globalThis as unknown as { localStorage?: Storage; sessionSto
 globalShim.localStorage ??= memoryStorage();
 globalShim.sessionStorage ??= memoryStorage();
 
-/** Absolute path of the built `mindcraft` CLI bin. */
-const CLI_BIN = fileURLToPath(
-  new URL("../../../../external/mindcraft-lang/packages/cli/dist/main.js", import.meta.url)
-);
+/** Absolute path of the built `wendoo` CLI bin. */
+const CLI_BIN = fileURLToPath(new URL("../../../../external/wendoo-lang/packages/cli/dist/main.js", import.meta.url));
 
 /**
  * Environment for every git and CLI invocation: user and system git
@@ -61,9 +59,9 @@ const GIT_TEST_ENV: NodeJS.ProcessEnv = {
   ...process.env,
   GIT_CONFIG_GLOBAL: "/dev/null",
   GIT_CONFIG_SYSTEM: "/dev/null",
-  GIT_AUTHOR_NAME: "Mindcraft Test",
+  GIT_AUTHOR_NAME: "Wendoo Test",
   GIT_AUTHOR_EMAIL: "test@example.invalid",
-  GIT_COMMITTER_NAME: "Mindcraft Test",
+  GIT_COMMITTER_NAME: "Wendoo Test",
   GIT_COMMITTER_EMAIL: "test@example.invalid",
 };
 
@@ -95,7 +93,7 @@ function layerDir(relativePath: string): string {
   return fileURLToPath(new URL(relativePath, import.meta.url));
 }
 
-/** The three platform layers, assembled from their own `mindcraft.json` files lists. */
+/** The three platform layers, assembled from their own `wendoo.json` files lists. */
 function layerEmbeds(): EmbeddedExtension[] {
   return [
     buildEmbeddedExtensionFromDir(
@@ -103,10 +101,7 @@ function layerEmbeds(): EmbeddedExtension[] {
       MICROBIT_V2_LIB_COORDINATE
     ),
     buildEmbeddedExtensionFromDir(layerDir("../../../../packages/wodal/lib"), CODAL_LIB_COORDINATE),
-    buildEmbeddedExtensionFromDir(
-      layerDir("../../../../external/mindcraft-lang/packages/core/lib"),
-      CORE_LIB_COORDINATE
-    ),
+    buildEmbeddedExtensionFromDir(layerDir("../../../../external/wendoo-lang/packages/core/lib"), CORE_LIB_COORDINATE),
   ];
 }
 
@@ -114,7 +109,7 @@ function layerEmbeds(): EmbeddedExtension[] {
 const DEMO_COORDINATE = "demo-org/demo-bot";
 
 const SENSOR_PATH = "tiles/demo-button-pressed.ts";
-const SENSOR_SOURCE = `import { Sensor, type Context } from "mindcraft";
+const SENSOR_SOURCE = `import { Sensor, type Context } from "wendoo";
 
 export default Sensor({
   name: "demo-button-pressed",
@@ -125,7 +120,7 @@ export default Sensor({
 `;
 
 const ACTUATOR_PATH = "tiles/demo-set-pixel.ts";
-const ACTUATOR_SOURCE = `import { Actuator, type Context } from "mindcraft";
+const ACTUATOR_SOURCE = `import { Actuator, type Context } from "wendoo";
 
 export default Actuator({
   name: "demo-set-pixel",
@@ -189,7 +184,7 @@ after(async () => {
 describe("published extension demo brain", () => {
   it(
     "survives export, unpack, publish, and mounting under the coordinate namespace",
-    { skip: existsSync(CLI_BIN) ? false : "mindcraft CLI bin not built in this checkout" },
+    { skip: existsSync(CLI_BIN) ? false : "wendoo CLI bin not built in this checkout" },
     async () => {
       // -- Author: a project whose own tiles a demo brain uses, in a real app host --
       const projectManager = new ProjectManager(await createIdbProjectStore("published-demo-brain"));
@@ -197,7 +192,7 @@ describe("published extension demo brain", () => {
       let lastCompile: WorkspaceCompileResult | undefined;
       const host = new AppEnvironmentHost({
         projectManager,
-        modules: [coreModule(), createWodalSharedModule(), profile.createMindcraftModule()],
+        modules: [coreModule(), createWodalSharedModule(), profile.createWendooModule()],
         mounts: [],
         embeddedExtensions: layerEmbeds(),
         onDidCompile: (result) => {
@@ -243,15 +238,15 @@ describe("published extension demo brain", () => {
       host.dispose();
 
       // -- Graduate: unpack the export and publish it to a local bare remote --
-      const root = await mkdtemp(path.join(tmpdir(), "mindcraft-demo-brain-"));
+      const root = await mkdtemp(path.join(tmpdir(), "wendoo-demo-brain-"));
       scratchDirs.push(root);
-      await writeFile(path.join(root, "demo-bot.mindcraft"), documentText, "utf8");
+      await writeFile(path.join(root, "demo-bot.wendoo"), documentText, "utf8");
       const remote = path.join(root, `${DEMO_COORDINATE}.git`);
       await mkdir(remote, { recursive: true });
       await runGit(root, "-c", "init.defaultBranch=main", "init", "--quiet", "--bare", remote);
 
       const project = path.join(root, "project");
-      const unpacked = await runCli(root, "unpack", "demo-bot.mindcraft", project, "--coordinate", DEMO_COORDINATE);
+      const unpacked = await runCli(root, "unpack", "demo-bot.wendoo", project, "--coordinate", DEMO_COORDINATE);
       assert.equal(unpacked.code, 0, unpacked.stderr);
 
       // The export's embedded: layer reference publishes as-is, with no
@@ -290,7 +285,7 @@ describe("published extension demo brain", () => {
       env.replaceActionBundle(consumerCompile.bundle);
 
       // -- Load: the demo brain from the published manifest, under the coordinate namespace --
-      const publishedManifest = JSON.parse(await readFile(path.join(clone, "mindcraft.json"), "utf8")) as {
+      const publishedManifest = JSON.parse(await readFile(path.join(clone, "wendoo.json"), "utf8")) as {
         brains: Record<string, unknown>;
       };
       const persistedBrain = publishedManifest.brains[brainId];

@@ -1,9 +1,9 @@
-import type { TargetAdapter, TargetManifest } from "@mindcraft-lang/assistant-bridge";
-import type { RehearsalWorld, WorldDriver, WorldStaging } from "@mindcraft-lang/assistant-bridge/kit";
-import { createRehearsalAdapter } from "@mindcraft-lang/assistant-bridge/kit";
-import type { NumberPrecision } from "@mindcraft-lang/core/runtime";
-import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../mindcraft/device-profile";
-import { createWodalSharedModule } from "../../../mindcraft/shared-module";
+import type { TargetAdapter, TargetManifest } from "@wendoo-lang/assistant-bridge";
+import type { RehearsalWorld, WorldDriver, WorldStaging } from "@wendoo-lang/assistant-bridge/kit";
+import { createRehearsalAdapter } from "@wendoo-lang/assistant-bridge/kit";
+import type { NumberPrecision } from "@wendoo-lang/core/runtime";
+import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../wendoo/device-profile";
+import { createWodalSharedModule } from "../../../wendoo/shared-module";
 import { microBitV2TileDocs } from "./tile-docs";
 import { createDeviceWorld, PERCEPT_KINDS, STATE_CHANNELS } from "./world";
 
@@ -30,7 +30,7 @@ const MANIFEST: TargetManifest = {
  * host-input seams.
  */
 const driver: WorldDriver = {
-  modules: () => [createWodalSharedModule(), PROFILE.createMindcraftModule()],
+  modules: () => [createWodalSharedModule(), PROFILE.createWendooModule()],
   subjects: () => [DEVICE_SUBJECT],
   inputKinds: () => PERCEPT_KINDS,
   stateChannels: () => STATE_CHANNELS,
@@ -43,7 +43,7 @@ const driver: WorldDriver = {
  * rehearses a brain by running it headlessly on one simulated device at the
  * device profile's numeric precision.
  *
- * @param targetIdentity Mindcraft identity the adapter reports, as the
+ * @param targetIdentity Wendoo identity the adapter reports, as the
  * `identity` the target package distributing this device declares.
  */
 export function createTargetAdapter(targetIdentity: string): TargetAdapter {

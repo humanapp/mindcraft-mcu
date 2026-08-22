@@ -4,7 +4,7 @@
 
 #include "core/runtime/bytecode.h"
 
-namespace mindcraft {
+namespace wendoo {
 namespace {
 
 bool emitTypeEntry(TextWriter& w, const ProgramImage& image, uint32_t idx) {
@@ -531,4 +531,4 @@ bool writeCanonicalProgramDump(const ProgramImage& image, TextSink& sink) {
   return true;
 }
 
-} // namespace mindcraft
+} // namespace wendoo

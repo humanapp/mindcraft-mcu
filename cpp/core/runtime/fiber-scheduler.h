@@ -17,7 +17,7 @@
 #include "core/runtime/value.h"
 #include "core/runtime/vm.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * Slot counts a freshly spawned fiber's four regions (operand stack, locals,
@@ -34,7 +34,7 @@ inline constexpr uint32_t kNoFiberId = 0;
 
 /**
  * Lifecycle state of a fiber. Mirrors `FiberState` in
- * external/mindcraft-lang/packages/core/src/runtime/vm-types.ts.
+ * external/wendoo-lang/packages/core/src/runtime/vm-types.ts.
  */
 enum class FiberState : uint8_t {
   /** Eligible for a slice in a scheduler round. */
@@ -82,7 +82,7 @@ struct FiberRecord {
  * through the records; spawn faults `ErrorCode::StackOverflow` at
  * {@link DeviceProfileCaps::maxFibers} or when the region is exhausted. Mirrors
  * `FiberScheduler` in
- * external/mindcraft-lang/packages/core/src/runtime/vm.ts under the
+ * external/wendoo-lang/packages/core/src/runtime/vm.ts under the
  * round-tick semantics.
  *
  * Single-entry: only the host think loop may call {@link tick}; host
@@ -126,7 +126,7 @@ public:
    * and must finish in it. Returns ok when the hook completes; fails with the fault
    * code when it faults, and with `ErrorCode::ScriptError` when it cannot
    * finish in one slice (it suspended). Mirrors `runBytecodeHook` in
-   * external/mindcraft-lang/packages/core/src/runtime/brain-runtime.ts.
+   * external/wendoo-lang/packages/core/src/runtime/brain-runtime.ts.
    */
   Status runActionHook(uint32_t funcId, uint32_t actionId, uint32_t callSiteId);
 
@@ -138,7 +138,7 @@ public:
    * bytecode declares the param. Returns ok when it completes; fails with the
    * fault code when it faults, and with `ErrorCode::ScriptError` when it cannot
    * finish in one slice (it suspended). Mirrors `runSystemFunction` in
-   * external/mindcraft-lang/packages/core/src/runtime/brain-runtime.ts.
+   * external/wendoo-lang/packages/core/src/runtime/brain-runtime.ts.
    */
   Status runSystemFunction(uint32_t funcId);
 
@@ -194,7 +194,7 @@ public:
    * the next round (the round-tick rule). Safe to call from the host loop after
    * external callbacks have settled handles out of band. Mirrors the
    * `onHandleCompleted` drain in
-   * external/mindcraft-lang/packages/core/src/runtime/vm.ts.
+   * external/wendoo-lang/packages/core/src/runtime/vm.ts.
    */
   void drainCompletedHandles();
 
@@ -309,4 +309,4 @@ private:
   uint32_t nextInlineFiberId_ = 0xffffffffu;
 };
 
-} // namespace mindcraft
+} // namespace wendoo

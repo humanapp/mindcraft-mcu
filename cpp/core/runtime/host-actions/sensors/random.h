@@ -6,7 +6,7 @@
 #include "core/runtime/host-actions/core-host-action-env.h"
 #include "core/runtime/value.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * Sensor body: the next pseudo-random number in `[0, 1)`. `hostData` is the
@@ -19,4 +19,4 @@ inline Value execRandom(void* hostData, ExecutionContext& ctx, Span<const Value>
   return Value::number(env.rng->next());
 }
 
-} // namespace mindcraft
+} // namespace wendoo

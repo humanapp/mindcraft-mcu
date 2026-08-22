@@ -1,21 +1,21 @@
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
-import type { FileContent } from "@mindcraft-lang/app-host";
-import { applyCatalogMove, parseExtensionReference } from "@mindcraft-lang/app-host";
-import type { EmbeddedExtension, FetchedExtensionContentMap } from "@mindcraft-lang/bridge-app";
-import { resolveProjectExtensions } from "@mindcraft-lang/bridge-app";
-import { buildEmbeddedExtensionFromDir } from "@mindcraft-lang/bridge-app/node";
-import type { CompiledActionBundle } from "@mindcraft-lang/core";
-import type { MindcraftEnvironment } from "@mindcraft-lang/core/app";
-import type { IBrainTileDef } from "@mindcraft-lang/core/brain";
-import type { TypeId } from "@mindcraft-lang/core/runtime";
+import type { FileContent } from "@wendoo-lang/app-host";
+import { applyCatalogMove, parseExtensionReference } from "@wendoo-lang/app-host";
+import type { EmbeddedExtension, FetchedExtensionContentMap } from "@wendoo-lang/bridge-app";
+import { resolveProjectExtensions } from "@wendoo-lang/bridge-app";
+import { buildEmbeddedExtensionFromDir } from "@wendoo-lang/bridge-app/node";
+import type { CompiledActionBundle } from "@wendoo-lang/core";
+import type { WendooEnvironment } from "@wendoo-lang/core/app";
+import type { IBrainTileDef } from "@wendoo-lang/core/brain";
+import type { TypeId } from "@wendoo-lang/core/runtime";
 import {
   createWorkspaceCompiler,
   type Mount,
   qualifiedClassName,
   type WorkspaceSnapshot,
-} from "@mindcraft-lang/ts-compiler";
-import { createMicroBitV2Environment } from "@mindcraft-lang/wodal/targets/microbit-v2";
+} from "@wendoo-lang/ts-compiler";
+import { createMicroBitV2Environment } from "@wendoo-lang/wodal/targets/microbit-v2";
 import { microbitLibraryCatalog, microbitLibraryCatalogMoves } from "../services/microbit-extension-browser";
 import {
   CODAL_LIB_COORDINATE,
@@ -44,7 +44,7 @@ export { CUTEBOT_EXT_COORDINATE, YAHBOOM_GAMEPAD_EXT_COORDINATE } from "../servi
 
 /**
  * The microbit-sim embed record: the runnable target and the three platform
- * layers, each assembled from its own `mindcraft.json` `files` list through the
+ * layers, each assembled from its own `wendoo.json` `files` list through the
  * shared loader -- the single content-assembly path the app's Vite provider
  * also uses. Feature libraries are not bundled; they resolve as published `gh:`
  * content served by the fixture snapshots.
@@ -58,7 +58,7 @@ function baseEmbedRecord(): EmbeddedExtension[] {
     ),
     buildEmbeddedExtensionFromDir(extensionDir("../../../../packages/wodal/lib"), CODAL_LIB_COORDINATE),
     buildEmbeddedExtensionFromDir(
-      extensionDir("../../../../external/mindcraft-lang/packages/core/lib"),
+      extensionDir("../../../../external/wendoo-lang/packages/core/lib"),
       CORE_LIB_COORDINATE
     ),
   ];
@@ -91,7 +91,7 @@ export interface HarnessOptions {
 /** A compiled extension test environment: the runtime env, the combined bundle, and tile lookups. */
 export interface ExtensionTestHarness {
   /** The micro:bit v2 runtime environment with the compiled bundle installed. */
-  env: MindcraftEnvironment;
+  env: WendooEnvironment;
   /** The combined action bundle spanning the workspace and every installed extension. */
   bundle: CompiledActionBundle;
   /** Resolves a compiled tile by its display label. */

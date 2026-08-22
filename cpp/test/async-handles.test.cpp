@@ -15,29 +15,29 @@
 #include <cstdint>
 #include <vector>
 
-using mindcraft::AsyncHandle;
-using mindcraft::BrainRuntime;
-using mindcraft::ErrorCode;
-using mindcraft::ExecutionContext;
-using mindcraft::FiberRecord;
-using mindcraft::FiberScheduler;
-using mindcraft::Handle;
-using mindcraft::HandleState;
-using mindcraft::HandleTable;
-using mindcraft::HostActionBinding;
-using mindcraft::mc_number_t;
-using mindcraft::Op;
-using mindcraft::ProgramImage;
-using mindcraft::RegionArena;
-using mindcraft::RunResult;
-using mindcraft::RunStatus;
-using mindcraft::RuntimeSurface;
-using mindcraft::Span;
-using mindcraft::Status;
-using mindcraft::TargetHostFuncBinding;
-using mindcraft::Value;
-using mindcraft::VmObserver;
-using mindcraft::test::kAsyncDeviceProfileCaps;
+using wendoo::AsyncHandle;
+using wendoo::BrainRuntime;
+using wendoo::ErrorCode;
+using wendoo::ExecutionContext;
+using wendoo::FiberRecord;
+using wendoo::FiberScheduler;
+using wendoo::Handle;
+using wendoo::HandleState;
+using wendoo::HandleTable;
+using wendoo::HostActionBinding;
+using wendoo::mc_number_t;
+using wendoo::Op;
+using wendoo::ProgramImage;
+using wendoo::RegionArena;
+using wendoo::RunResult;
+using wendoo::RunStatus;
+using wendoo::RuntimeSurface;
+using wendoo::Span;
+using wendoo::Status;
+using wendoo::TargetHostFuncBinding;
+using wendoo::Value;
+using wendoo::VmObserver;
+using wendoo::test::kAsyncDeviceProfileCaps;
 
 namespace {
 
@@ -132,10 +132,10 @@ Status execAsyncResolveNow(void* hostData, ExecutionContext&, Span<const Value> 
 
 Value execPump(void* hostData, ExecutionContext& ctx, Span<const Value>) {
   static_cast<AsyncSettleScheduler*>(hostData)->pump(ctx.currentTick);
-  return mindcraft::kVoidValue;
+  return wendoo::kVoidValue;
 }
 
-Value execRecord(void*, ExecutionContext&, Span<const Value>) { return mindcraft::kVoidValue; }
+Value execRecord(void*, ExecutionContext&, Span<const Value>) { return wendoo::kVoidValue; }
 
 /** Records resume-order markers (record action arg 0) and fiber faults. */
 struct AsyncObserver : VmObserver {
@@ -398,13 +398,13 @@ TEST_CASE("AWAIT inside a sync action frame faults ScriptError") {
   const ProgramImage image = b.build(storage);
 
   Machine machine;
-  REQUIRE(mindcraft::startExecution(machine.state, image, 0, {}).isOk());
+  REQUIRE(wendoo::startExecution(machine.state, image, 0, {}).isOk());
   // Mark the entry frame as a synchronous action frame; an AWAIT in it cannot
   // suspend and must fault before touching the handle table.
   machine.state.frames[0].hasActionBinding = true;
-  machine.state.frames[0].actionBinding = mindcraft::ActionFrameBinding{0, 0, false};
+  machine.state.frames[0].actionBinding = wendoo::ActionFrameBinding{0, 0, false};
   machine.state.budget = 10;
-  const RunResult result = mindcraft::runExecution(machine.state, image);
+  const RunResult result = wendoo::runExecution(machine.state, image);
   REQUIRE(result.status == RunStatus::Fault);
   CHECK(result.error == ErrorCode::ScriptError);
 }
@@ -419,10 +419,10 @@ TEST_CASE("AWAIT with no async capability configured faults HostError") {
   const ProgramImage image = b.build(storage);
 
   Machine machine;
-  REQUIRE(mindcraft::startExecution(machine.state, image, 0, {}).isOk());
+  REQUIRE(wendoo::startExecution(machine.state, image, 0, {}).isOk());
   machine.state.stack[machine.state.stackDepth++] = Value::handle(1);
   machine.state.budget = 10;
-  const RunResult result = mindcraft::runExecution(machine.state, image);
+  const RunResult result = wendoo::runExecution(machine.state, image);
   REQUIRE(result.status == RunStatus::Fault);
   CHECK(result.error == ErrorCode::HostError);
 }
@@ -493,8 +493,8 @@ TEST_CASE("spawnAsyncActionChild runs a bytecode action child and resolves its r
   FiberScheduler scheduler(image, surface, fx.pools.arena, kAsyncDeviceProfileCaps);
 
   ErrorCode err = ErrorCode::HostError;
-  const uint32_t hid = scheduler.spawnAsyncActionChild(1, 0, 0, mindcraft::kNoFuncId, {}, err);
-  REQUIRE(hid != mindcraft::kNoHandleId);
+  const uint32_t hid = scheduler.spawnAsyncActionChild(1, 0, 0, wendoo::kNoFuncId, {}, err);
+  REQUIRE(hid != wendoo::kNoHandleId);
   Handle* pending = scheduler.handles().get(hid);
   REQUIRE(pending != nullptr);
   CHECK(pending->state == HandleState::Pending);
@@ -522,8 +522,8 @@ TEST_CASE("a faulting bytecode action child rejects its result handle") {
   FiberScheduler scheduler(image, surface, fx.pools.arena, kAsyncDeviceProfileCaps);
 
   ErrorCode err = ErrorCode::HostError;
-  const uint32_t hid = scheduler.spawnAsyncActionChild(1, 0, 0, mindcraft::kNoFuncId, {}, err);
-  REQUIRE(hid != mindcraft::kNoHandleId);
+  const uint32_t hid = scheduler.spawnAsyncActionChild(1, 0, 0, wendoo::kNoFuncId, {}, err);
+  REQUIRE(hid != wendoo::kNoHandleId);
 
   scheduler.tick();
   Handle* settled = scheduler.handles().get(hid);
@@ -549,8 +549,8 @@ TEST_CASE("cancelling an async-action child cancels its pending result handle") 
   FiberScheduler scheduler(image, surface, fx.pools.arena, kAsyncDeviceProfileCaps);
 
   ErrorCode err = ErrorCode::HostError;
-  const uint32_t hid = scheduler.spawnAsyncActionChild(1, 0, 0, mindcraft::kNoFuncId, {}, err);
-  REQUIRE(hid != mindcraft::kNoHandleId);
+  const uint32_t hid = scheduler.spawnAsyncActionChild(1, 0, 0, wendoo::kNoFuncId, {}, err);
+  REQUIRE(hid != wendoo::kNoHandleId);
   REQUIRE(scheduler.handles().get(hid)->state == HandleState::Pending);
 
   // The first child draws the top of the descending inline fiber id space.
@@ -567,10 +567,10 @@ TEST_CASE("the handle table guards its cap and settles only from pending") {
 
   const uint32_t a = handles.createPending();
   const uint32_t b = handles.createPending();
-  CHECK(a != mindcraft::kNoHandleId);
-  CHECK(b != mindcraft::kNoHandleId);
+  CHECK(a != wendoo::kNoHandleId);
+  CHECK(b != wendoo::kNoHandleId);
   // The cap is a guard: a third handle past maxHandles fails to carve.
-  CHECK(handles.createPending() == mindcraft::kNoHandleId);
+  CHECK(handles.createPending() == wendoo::kNoHandleId);
 
   CHECK(handles.resolve(a, Value::number(1)));
   // A second settle of the same handle is illegal and is a no-op.

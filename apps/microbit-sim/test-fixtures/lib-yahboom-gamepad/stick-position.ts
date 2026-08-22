@@ -1,5 +1,5 @@
-import { Position } from "@lib/mindcraft-lang/lib-codal-position";
-import { type Context, Sensor } from "mindcraft";
+import { Position } from "@lib/wendoo-lang/lib-codal-position";
+import { type Context, Sensor } from "wendoo";
 import { readStickX, readStickY } from "./stick-read";
 
 /**

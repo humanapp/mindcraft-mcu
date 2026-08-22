@@ -8,28 +8,28 @@
 #include <cstdint>
 #include <cstring>
 
-using mindcraft::ActionCallSite;
-using mindcraft::BytecodeAction;
-using mindcraft::ByteSpan;
-using mindcraft::CallSiteBinding;
-using mindcraft::ConstMapEntry;
-using mindcraft::ConstValue;
-using mindcraft::ConstValueKind;
-using mindcraft::CoreTypeAtomId;
-using mindcraft::FunctionBytecode;
-using mindcraft::Instr;
-using mindcraft::kNoFuncId;
-using mindcraft::kNoTypeIdx;
-using mindcraft::MapKeyKind;
-using mindcraft::Op;
-using mindcraft::PageMetadata;
-using mindcraft::ProgramImage;
-using mindcraft::RegionArena;
-using mindcraft::RuleAncestor;
-using mindcraft::Span;
-using mindcraft::StringRef;
-using mindcraft::TypeEntry;
-using mindcraft::TypeTag;
+using wendoo::ActionCallSite;
+using wendoo::BytecodeAction;
+using wendoo::ByteSpan;
+using wendoo::CallSiteBinding;
+using wendoo::ConstMapEntry;
+using wendoo::ConstValue;
+using wendoo::ConstValueKind;
+using wendoo::CoreTypeAtomId;
+using wendoo::FunctionBytecode;
+using wendoo::Instr;
+using wendoo::kNoFuncId;
+using wendoo::kNoTypeIdx;
+using wendoo::MapKeyKind;
+using wendoo::Op;
+using wendoo::PageMetadata;
+using wendoo::ProgramImage;
+using wendoo::RegionArena;
+using wendoo::RuleAncestor;
+using wendoo::Span;
+using wendoo::StringRef;
+using wendoo::TypeEntry;
+using wendoo::TypeTag;
 
 TEST_CASE("a synthetic program image constructs in one arena and reads back") {
   // String data stands in for the encoded program buffer the image borrows

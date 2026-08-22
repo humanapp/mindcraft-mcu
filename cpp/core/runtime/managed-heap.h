@@ -9,7 +9,7 @@
 #include "core/runtime/region-arena.h"
 #include "core/runtime/value.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 class TypeRegistry;
 
@@ -458,4 +458,4 @@ private:
   const TypeRegistry* types_ = nullptr;
 };
 
-} // namespace mindcraft
+} // namespace wendoo

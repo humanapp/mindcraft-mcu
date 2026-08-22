@@ -13,7 +13,7 @@
 namespace {
 
 // Decodes the committed accelerometer read-back table emitted by
-// packages/wodal/src/targets/microbit-v2/mindcraft/accelerometer-read-vectors.spec.ts
+// packages/wodal/src/targets/microbit-v2/wendoo/accelerometer-read-vectors.spec.ts
 // (that spec documents the full byte layout): a magic header, a tick count, and
 // per tick a setpoint mask, the masked setpoints, and the eight-field read-back.
 struct Cursor {
@@ -70,7 +70,7 @@ constexpr uint8_t kSetRoll = 1 << 3;
 
 // Whole degrees for a radian orientation, matching CODAL's
 // int getPitch() { return (int)((360.0f*radians)/(2.0f*(float)PI)); }.
-int32_t degreesFromRadians(mindcraft::mc_number_t radians) {
+int32_t degreesFromRadians(wendoo::mc_number_t radians) {
   const float twoPi = 2.0f * static_cast<float>(3.141592653589793);
   return static_cast<int32_t>((360.0f * radians) / twoPi);
 }
@@ -78,13 +78,13 @@ int32_t degreesFromRadians(mindcraft::mc_number_t radians) {
 // Host-side injectable accelerometer port: radians are the primary orientation
 // reading and degrees derive from them, mirroring CODAL. Other reads return
 // their held field, initialized to the wodal Accelerometer's resting defaults.
-struct SettableAccelerometer : mindcraft::AccelerometerInputPort {
+struct SettableAccelerometer : wendoo::AccelerometerInputPort {
   int32_t gesture = 0;
   int32_t x = 0;
   int32_t y = 0;
   int32_t z = -1000;
-  mindcraft::mc_number_t pitchRadians = 0;
-  mindcraft::mc_number_t rollRadians = 0;
+  wendoo::mc_number_t pitchRadians = 0;
+  wendoo::mc_number_t rollRadians = 0;
 
   uint16_t getGesture() override { return static_cast<uint16_t>(gesture); }
   int32_t getX() override { return x; }
@@ -92,15 +92,15 @@ struct SettableAccelerometer : mindcraft::AccelerometerInputPort {
   int32_t getZ() override { return z; }
   int32_t getPitch() override { return degreesFromRadians(pitchRadians); }
   int32_t getRoll() override { return degreesFromRadians(rollRadians); }
-  mindcraft::mc_number_t getPitchRadians() override { return pitchRadians; }
-  mindcraft::mc_number_t getRollRadians() override { return rollRadians; }
+  wendoo::mc_number_t getPitchRadians() override { return pitchRadians; }
+  wendoo::mc_number_t getRollRadians() override { return rollRadians; }
 };
 
 } // namespace
 
 TEST_CASE("accelerometer port read-back matches the wodal schedule") {
   const std::string path =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/accelerometer-read-vectors.bin";
+      std::string(wendoo::test::kWodalFixturesDir) + "/accelerometer-read-vectors.bin";
   const std::vector<uint8_t> buf = readFile(path);
   Cursor cursor{buf};
 
@@ -113,7 +113,7 @@ TEST_CASE("accelerometer port read-back matches the wodal schedule") {
   REQUIRE(tickCount > 0u);
 
   SettableAccelerometer accelerometer;
-  mindcraft::AccelerometerInputPort& port = accelerometer;
+  wendoo::AccelerometerInputPort& port = accelerometer;
 
   for (uint32_t tick = 0; tick < tickCount; tick++) {
     const uint8_t mask = cursor.u8();

@@ -10,7 +10,7 @@
   },
   "include": ["*.ts"],
   "files": [
-    "../../../../../external/mindcraft-lang/packages/core/lib/mindcraft.core.d.ts",
-    "../../../lib/mindcraft.codal.d.ts"
+    "../../../../../external/wendoo-lang/packages/core/lib/wendoo.core.d.ts",
+    "../../../lib/wendoo.codal.d.ts"
   ]
 }

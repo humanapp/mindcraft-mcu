@@ -5,7 +5,7 @@
 #include "core/runtime/execution-context.h"
 #include "core/runtime/host-action.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 BrainRuntime::BrainRuntime(const ProgramImage& program, FiberScheduler& scheduler,
                            const RuntimeSurface& surface)
@@ -337,4 +337,4 @@ Status BrainRuntime::runSystemThinks() {
   return Status::ok();
 }
 
-} // namespace mindcraft
+} // namespace wendoo

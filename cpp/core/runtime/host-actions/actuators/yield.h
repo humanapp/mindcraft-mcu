@@ -4,7 +4,7 @@
 #include "core/runtime/execution-context.h"
 #include "core/runtime/value.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * Actuator body: yield. The body is a no-op; the rule's cooperative suspension
@@ -17,4 +17,4 @@ inline Value execYield(void* hostData, ExecutionContext& ctx, Span<const Value> 
   return kVoidValue;
 }
 
-} // namespace mindcraft
+} // namespace wendoo

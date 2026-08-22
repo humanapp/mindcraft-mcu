@@ -8,7 +8,7 @@
 #include "core/runtime/program.h"
 #include "core/runtime/value.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * The rule immediately above `ruleFuncId` at its own nesting level, or
@@ -74,4 +74,4 @@ inline Value execOtherwise(void* hostData, ExecutionContext& ctx, Span<const Val
   return Value::boolean(ctx.ruleFiringState(subject) == RuleFiringState::DidNotFire);
 }
 
-} // namespace mindcraft
+} // namespace wendoo

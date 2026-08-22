@@ -1,4 +1,4 @@
-import { type Context, modifier, optional, Sensor } from "mindcraft";
+import { type Context, modifier, optional, Sensor } from "wendoo";
 import { DIRECTION_DOWN, DIRECTION_LEFT, DIRECTION_RIGHT, DIRECTION_UP, readStickDirection } from "./stick-read";
 
 /**

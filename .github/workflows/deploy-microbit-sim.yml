@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 env:
-  S3_BUCKET: microbit.mindcraft-lang.org
+  S3_BUCKET: microbit.wendoo-lang.org
   AWS_REGION: us-east-1
 
 jobs:

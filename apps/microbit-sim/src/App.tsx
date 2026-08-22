@@ -1,5 +1,5 @@
-import { AssistantProvider } from "@mindcraft-lang/assistant-panel";
-import { DocsSidebar, DocsSidebarProvider } from "@mindcraft-lang/docs";
+import { AssistantProvider } from "@wendoo-lang/assistant-panel";
+import { DocsSidebar, DocsSidebarProvider } from "@wendoo-lang/docs";
 import { useMemo, useSyncExternalStore } from "react";
 import { Toaster } from "sonner";
 import { createMicrobitTileVisualResolver, microbitDataTypeIcons, microbitDataTypeNames } from "./brain/editor-config";
@@ -11,7 +11,7 @@ import { Simulator } from "./components/Simulator";
 import { useMicrobitSimEnvironment } from "./contexts/microbit-sim-environment";
 import { createDocsTileCatalog, createMicrobitDocsRegistry } from "./docs/docs-registry";
 
-/** Root application component for the Mindcraft micro:bit target. */
+/** Root application component for the Wendoo micro:bit target. */
 export function App() {
   const store = useMicrobitSimEnvironment();
   const chrome = store.chrome;

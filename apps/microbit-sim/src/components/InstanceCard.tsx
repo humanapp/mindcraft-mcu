@@ -1,4 +1,4 @@
-import { Popover, PopoverContent, PopoverTrigger } from "@mindcraft-lang/ui";
+import { Popover, PopoverContent, PopoverTrigger } from "@wendoo-lang/ui";
 import { MoreHorizontal, Pencil } from "lucide-react";
 import { useState, useSyncExternalStore } from "react";
 import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";

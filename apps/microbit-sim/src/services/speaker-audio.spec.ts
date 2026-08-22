@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { renderBuiltInSoundToPcm, type SpeakerPlayingSnapshot } from "@mindcraft-lang/wodal/targets/microbit-v2";
+import { renderBuiltInSoundToPcm, type SpeakerPlayingSnapshot } from "@wendoo-lang/wodal/targets/microbit-v2";
 import type { AudioBufferLike, AudioBufferSourceNodeLike, AudioContextLike, AudioNodeLike } from "./speaker-audio";
 import { SpeakerAudio } from "./speaker-audio";
 

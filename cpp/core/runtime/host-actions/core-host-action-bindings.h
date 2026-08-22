@@ -16,7 +16,7 @@
 #include "core/runtime/host-actions/sensors/random.h"
 #include "core/runtime/host-actions/sensors/timeout.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /** Number of core host-action bindings the table holds. */
 inline constexpr uint32_t kCoreHostActionBindingCount = 9;
@@ -43,4 +43,4 @@ makeCoreHostActionBindings(CoreHostActionEnv& env) {
   }};
 }
 
-} // namespace mindcraft
+} // namespace wendoo

@@ -9,11 +9,11 @@
 #include "core/runtime/bytecode.h"
 #include "core/runtime/core-type-atom-id.h"
 
-namespace mindcraft {
+namespace wendoo {
 namespace {
 
 // Wire framing constants of the binary `.mcprogram` format; values mirror
-// external/mindcraft-lang/packages/core/src/runtime/brain-program-binary-codec.ts.
+// external/wendoo-lang/packages/core/src/runtime/brain-program-binary-codec.ts.
 constexpr uint8_t kMagic[4] = {0x89, 0x4d, 0x42, 0x50}; // 0x89 "MBP"
 
 constexpr uint8_t kPresenceActs = 1;
@@ -877,4 +877,4 @@ Result<ProgramImage, LoadError> readProgramImage(ByteSpan wire, RegionArena& are
   return Result<ProgramImage, LoadError>::ok(image);
 }
 
-} // namespace mindcraft
+} // namespace wendoo

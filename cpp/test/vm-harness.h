@@ -18,7 +18,7 @@
 
 /**
  * Composes a synthetic program section by section and decodes it into a
- * {@link mindcraft::ProgramImage} for dispatch-loop and scheduler tests.
+ * {@link wendoo::ProgramImage} for dispatch-loop and scheduler tests.
  */
 class ProgramBuilder {
 public:
@@ -29,7 +29,7 @@ public:
   }
 
   /** Appends an atom type-table entry. */
-  ProgramBuilder& atomType(mindcraft::CoreTypeAtomId atomId) {
+  ProgramBuilder& atomType(wendoo::CoreTypeAtomId atomId) {
     typeCount_++;
     types_.u8(0).varUint(static_cast<uint32_t>(atomId));
     return *this;
@@ -169,21 +169,21 @@ public:
   /**
    * Appends one instruction to the open function, encoding the operands the
    * opcode's schema requires. An optional trailing operand is encoded present
-   * (sentinel-biased) for any value other than {@link mindcraft::kNoTypeIdx},
+   * (sentinel-biased) for any value other than {@link wendoo::kNoTypeIdx},
    * which encodes it absent.
    */
-  ProgramBuilder& instr(mindcraft::Op op, int32_t a = 0, int32_t b = 0, int32_t c = 0) {
-    const mindcraft::OpOperandSchema* schema = mindcraft::operandSchemaFor(op);
+  ProgramBuilder& instr(wendoo::Op op, int32_t a = 0, int32_t b = 0, int32_t c = 0) {
+    const wendoo::OpOperandSchema* schema = wendoo::operandSchemaFor(op);
     REQUIRE(schema != nullptr);
     FunctionSpec& fn = functions_.back();
     fn.body.u8(static_cast<uint8_t>(op));
     const int32_t operands[3] = {a, b, c};
     for (uint8_t i = 0; i < schema->operandCount; i++) {
-      const mindcraft::OperandSpec& spec = schema->operands[i];
+      const wendoo::OperandSpec& spec = schema->operands[i];
       if (spec.optional) {
         const uint32_t value = static_cast<uint32_t>(operands[i]);
-        fn.body.varUint(value == mindcraft::kNoTypeIdx ? 0 : value + 1);
-      } else if (spec.encoding == mindcraft::OperandEncoding::SVar) {
+        fn.body.varUint(value == wendoo::kNoTypeIdx ? 0 : value + 1);
+      } else if (spec.encoding == wendoo::OperandEncoding::SVar) {
         fn.body.varInt(operands[i]);
       } else {
         fn.body.varUint(static_cast<uint32_t>(operands[i]));
@@ -196,10 +196,10 @@ public:
   /**
    * Appends a brain variable slot named by string-table entry `nameStringIdx`.
    * `initValueIdx` is the slot's starting value as a value-pool index, or
-   * {@link mindcraft::kNoVariableInit} for a slot that starts holding no value.
+   * {@link wendoo::kNoVariableInit} for a slot that starts holding no value.
    */
   ProgramBuilder& brainVariable(uint32_t nameStringIdx,
-                                uint32_t initValueIdx = mindcraft::kNoVariableInit) {
+                                uint32_t initValueIdx = wendoo::kNoVariableInit) {
     variables_.push_back({nameStringIdx, initValueIdx});
     return *this;
   }
@@ -243,7 +243,7 @@ public:
    * builder keeps the encoded wire alive: the image borrows its string
    * bytes, so the builder must outlive the image.
    */
-  mindcraft::ProgramImage build(std::vector<uint8_t>& storage) {
+  wendoo::ProgramImage build(std::vector<uint8_t>& storage) {
     // Presence bits: ACTS is bit 0, RULF is bit 1.
     const uint8_t presence =
         static_cast<uint8_t>((actions_.empty() ? 0 : 1) | (ruleFuncs_.empty() ? 0 : 2));
@@ -265,7 +265,7 @@ public:
     w.varUint(static_cast<uint32_t>(variables_.size()));
     for (const VariableSlot& slot : variables_) {
       varsSlot(w, slot.nameStringIdx,
-               slot.initValueIdx == mindcraft::kNoVariableInit ? 0 : slot.initValueIdx + 1);
+               slot.initValueIdx == wendoo::kNoVariableInit ? 0 : slot.initValueIdx + 1);
     }
     if (!actions_.empty()) {
       w.varUint(static_cast<uint32_t>(actions_.size()));
@@ -341,43 +341,43 @@ private:
  * and the regions never grow.
  */
 struct Machine {
-  explicit Machine(uint32_t stackLimit = mindcraft::test::kDeviceProfileCaps.maxStackSize,
-                   uint32_t localsLimit = mindcraft::test::kDeviceProfileCaps.maxLocalsSize,
-                   uint32_t frameLimit = mindcraft::test::kDeviceProfileCaps.maxFrameDepth,
-                   uint32_t handlerLimit = mindcraft::test::kDeviceProfileCaps.maxHandlers) {
+  explicit Machine(uint32_t stackLimit = wendoo::test::kDeviceProfileCaps.maxStackSize,
+                   uint32_t localsLimit = wendoo::test::kDeviceProfileCaps.maxLocalsSize,
+                   uint32_t frameLimit = wendoo::test::kDeviceProfileCaps.maxFrameDepth,
+                   uint32_t handlerLimit = wendoo::test::kDeviceProfileCaps.maxHandlers) {
     state.stack = stackStorage.data();
     state.stackLimit = stackLimit;
-    state.stackCapacity = mindcraft::test::kDeviceProfileCaps.maxStackSize;
+    state.stackCapacity = wendoo::test::kDeviceProfileCaps.maxStackSize;
     state.stackDepth = 0;
     state.locals = localsStorage.data();
     state.localsLimit = localsLimit;
-    state.localsCapacity = mindcraft::test::kDeviceProfileCaps.maxLocalsSize;
+    state.localsCapacity = wendoo::test::kDeviceProfileCaps.maxLocalsSize;
     state.localsDepth = 0;
     state.frames = frameStorage.data();
     state.frameLimit = frameLimit;
-    state.frameCapacity = mindcraft::test::kDeviceProfileCaps.maxFrameDepth;
+    state.frameCapacity = wendoo::test::kDeviceProfileCaps.maxFrameDepth;
     state.frameDepth = 0;
     state.handlers = handlerStorage.data();
     state.handlerLimit = handlerLimit;
-    state.handlerCapacity = mindcraft::test::kDeviceProfileCaps.maxHandlers;
+    state.handlerCapacity = wendoo::test::kDeviceProfileCaps.maxHandlers;
     state.handlerDepth = 0;
     state.allocator = nullptr;
     state.budget = 0;
   }
 
-  std::array<mindcraft::Value, mindcraft::test::kDeviceProfileCaps.maxStackSize> stackStorage;
-  std::array<mindcraft::Value, mindcraft::test::kDeviceProfileCaps.maxLocalsSize> localsStorage;
-  std::array<mindcraft::Frame, mindcraft::test::kDeviceProfileCaps.maxFrameDepth> frameStorage;
-  std::array<mindcraft::Handler, mindcraft::test::kDeviceProfileCaps.maxHandlers> handlerStorage;
-  mindcraft::ExecutionState state;
+  std::array<wendoo::Value, wendoo::test::kDeviceProfileCaps.maxStackSize> stackStorage;
+  std::array<wendoo::Value, wendoo::test::kDeviceProfileCaps.maxLocalsSize> localsStorage;
+  std::array<wendoo::Frame, wendoo::test::kDeviceProfileCaps.maxFrameDepth> frameStorage;
+  std::array<wendoo::Handler, wendoo::test::kDeviceProfileCaps.maxHandlers> handlerStorage;
+  wendoo::ExecutionState state;
 };
 
 /** Starts function 0 with `args` and runs it under `budget` against `surface`. */
-inline mindcraft::RunResult runProgram(Machine& machine, const mindcraft::ProgramImage& image,
-                                       mindcraft::Span<const mindcraft::Value> args = {},
-                                       int32_t budget = 1000,
-                                       const mindcraft::RuntimeSurface& surface = {}) {
-  REQUIRE(mindcraft::startExecution(machine.state, image, 0, args).isOk());
+inline wendoo::RunResult runProgram(Machine& machine, const wendoo::ProgramImage& image,
+                                    wendoo::Span<const wendoo::Value> args = {},
+                                    int32_t budget = 1000,
+                                    const wendoo::RuntimeSurface& surface = {}) {
+  REQUIRE(wendoo::startExecution(machine.state, image, 0, args).isOk());
   machine.state.budget = budget;
-  return mindcraft::runExecution(machine.state, image, surface);
+  return wendoo::runExecution(machine.state, image, surface);
 }

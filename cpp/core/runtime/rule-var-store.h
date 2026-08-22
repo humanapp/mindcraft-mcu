@@ -5,7 +5,7 @@
 #include "core/runtime/mc-number.h"
 #include "core/runtime/value.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /**
  * The parent rule of `ruleFuncId` per {@link ExecutionContext::ruleAncestors},
@@ -28,7 +28,7 @@ inline uint32_t parentRuleFuncId(const ExecutionContext& ctx, uint32_t ruleFuncI
  * and the WHEN-result accessor route through it, so the walk lives in exactly one
  * place. Returns nil when no rule is in scope, no store has been allocated, or
  * the name is unset along the whole chain. Mirrors `getByName` in
- * external/mindcraft-lang/packages/core/src/runtime/rule-services.ts.
+ * external/wendoo-lang/packages/core/src/runtime/rule-services.ts.
  */
 inline Value ruleVarGet(const ExecutionContext& ctx, const ManagedHeap& heap, uint32_t ruleFuncId,
                         const MapKey& nameKey) {
@@ -50,4 +50,4 @@ inline Value ruleVarGet(const ExecutionContext& ctx, const ManagedHeap& heap, ui
   return kNilValue;
 }
 
-} // namespace mindcraft
+} // namespace wendoo

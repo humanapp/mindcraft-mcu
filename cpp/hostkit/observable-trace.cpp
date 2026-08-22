@@ -3,7 +3,7 @@
 #include "core/runtime/buffer-value.h"
 #include "core/runtime/managed-heap.h"
 
-namespace mindcraft {
+namespace wendoo {
 namespace {
 
 /** Value token standing in for a value kind the trace format does not render. */
@@ -363,4 +363,4 @@ bool ObservableTraceWriter::enumSymbolBytes(const Value& value, const uint8_t*& 
                           length);
 }
 
-} // namespace mindcraft
+} // namespace wendoo

@@ -4,11 +4,11 @@
 
 #include <cstdint>
 
-using mindcraft::kScrollDisplaySpacing;
-using mindcraft::kScrollDisplayWidth;
-using mindcraft::kScrollStepsPerCharacter;
-using mindcraft::scrollDurationMs;
-using mindcraft::scrollStepCount;
+using wendoo::kScrollDisplaySpacing;
+using wendoo::kScrollDisplayWidth;
+using wendoo::kScrollStepsPerCharacter;
+using wendoo::scrollDurationMs;
+using wendoo::scrollStepCount;
 
 namespace {
 

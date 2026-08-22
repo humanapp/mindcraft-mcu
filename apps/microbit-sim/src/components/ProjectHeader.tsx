@@ -1,7 +1,7 @@
-import { parseExtensionReference, type UnstableDependency } from "@mindcraft-lang/app-host";
-import type { ExtensionTransactionToasts, LibraryUninstallImpact } from "@mindcraft-lang/bridge-app";
-import { presentExtensionTransaction, runGuardedLibraryUninstall } from "@mindcraft-lang/bridge-app";
-import { useDocsSidebar } from "@mindcraft-lang/docs";
+import { parseExtensionReference, type UnstableDependency } from "@wendoo-lang/app-host";
+import type { ExtensionTransactionToasts, LibraryUninstallImpact } from "@wendoo-lang/bridge-app";
+import { presentExtensionTransaction, runGuardedLibraryUninstall } from "@wendoo-lang/bridge-app";
+import { useDocsSidebar } from "@wendoo-lang/docs";
 import {
   Button,
   DropdownMenu,
@@ -13,7 +13,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   ExtensionBrowserDialog,
-} from "@mindcraft-lang/ui";
+} from "@wendoo-lang/ui";
 import {
   Blocks,
   BookOpen,
@@ -88,7 +88,7 @@ const refreshToasts: ExtensionTransactionToasts = {
 
 function projectFilename(name: string): string {
   const slug = name.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-+|-+$/g, "");
-  return `${slug || "project"}.mindcraft`;
+  return `${slug || "project"}.wendoo`;
 }
 
 /** Top bar showing the active project with create, open, import, and export controls. */
@@ -267,7 +267,7 @@ export function ProjectHeader() {
   };
 
   const handleImport = async () => {
-    const file = await pickFile(".mindcraft,.json");
+    const file = await pickFile(".wendoo,.json");
     if (!file) {
       return;
     }
@@ -295,7 +295,7 @@ export function ProjectHeader() {
       />
       <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-y-2 px-4 py-3 sm:px-6">
         <div className="flex items-center gap-2">
-          <h1 className="text-base font-bold">Mindcraft / micro:bit</h1>
+          <h1 className="text-base font-bold">Wendoo / micro:bit</h1>
           <span className="text-sm text-muted-foreground">/</span>
           <InlineRename value={projectName} ariaLabel="project name" onRename={(name) => store.renameProject(name)} />
         </div>
@@ -394,23 +394,23 @@ export function ProjectHeader() {
                   <DropdownMenuItem asChild>
                     <a
                       data-testid="homepage-link"
-                      href="https://mindcraft-lang.org"
+                      href="https://wendoo-lang.org"
                       target="_blank"
                       rel="noopener noreferrer"
                     >
                       <Globe />
-                      Mindcraft Homepage
+                      Wendoo Homepage
                     </a>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <a
                       data-testid="github-link"
-                      href="https://github.com/humanapp/mindcraft-lang"
+                      href="https://github.com/humanapp/wendoo-lang"
                       target="_blank"
                       rel="noopener noreferrer"
                     >
                       <GithubIcon />
-                      Mindcraft Github
+                      Wendoo Github
                     </a>
                   </DropdownMenuItem>
                 </DropdownMenuSubContent>

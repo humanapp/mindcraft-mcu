@@ -18,14 +18,13 @@ std::vector<char> readBinaryFile(const std::string& path) {
 } // namespace
 
 TEST_CASE("core fixture root resolves to committed binary fixtures") {
-  std::string path = std::string(mindcraft::test::kCoreFixturesDir) + "/control-flow.mcprogram.bin";
+  std::string path = std::string(wendoo::test::kCoreFixturesDir) + "/control-flow.mcprogram.bin";
   std::vector<char> bytes = readBinaryFile(path);
   CHECK(bytes.size() > 0);
 }
 
 TEST_CASE("wodal fixture root resolves to committed binary fixtures") {
-  std::string path =
-      std::string(mindcraft::test::kWodalFixturesDir) + "/button-display.mcprogram.bin";
+  std::string path = std::string(wendoo::test::kWodalFixturesDir) + "/button-display.mcprogram.bin";
   std::vector<char> bytes = readBinaryFile(path);
   CHECK(bytes.size() > 0);
 }

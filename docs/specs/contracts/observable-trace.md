@@ -6,7 +6,7 @@ externally visible effects across a tick schedule. The TypeScript device runtime
 (`cpp/test/trace-parity.test.cpp`) renders its own trace for the same program and
 schedule and byte-compares. This file is the cross-VM contract for what the trace
 records; the line grammar itself is defined and versioned in
-`packages/wodal/src/targets/microbit-v2/mindcraft/observable-trace.ts`
+`packages/wodal/src/targets/microbit-v2/wendoo/observable-trace.ts`
 (`OBSERVABLE_TRACE_FORMAT_VERSION`) and mirrored by
 `cpp/hostkit/observable-trace.h`.
 
@@ -82,7 +82,7 @@ count in minimal lowercase hex followed by one value token per element, in order
 renders this way. These value-token kinds are additive in format version 1;
 native-backed struct arguments do not render. The line grammar is defined and
 versioned in
-`packages/wodal/src/targets/microbit-v2/mindcraft/observable-trace.ts` and mirrored
+`packages/wodal/src/targets/microbit-v2/wendoo/observable-trace.ts` and mirrored
 by `cpp/hostkit/observable-trace.cpp`.
 
 ## Port-crossing numeric conversion (pinned)
@@ -108,7 +108,7 @@ Integer coordinates inside the matrix narrow as the identity, so goldens authore
 with such coordinates are unaffected by this rule.
 
 The reference implementations are
-`packages/wodal/src/targets/microbit-v2/mindcraft/actions/display-pixel-conversion.ts`
+`packages/wodal/src/targets/microbit-v2/wendoo/actions/display-pixel-conversion.ts`
 and `cpp/targets/microbit-v2/abi/host-binding-conversions.h`; the
 `pixel-conversion` golden exercises a fractional coordinate (truncates), an
 out-of-matrix coordinate (crosses but stores nothing), an over-bright value

@@ -11,7 +11,7 @@
 #include "targets/microbit-v2/abi/host-functions/native-receiver.h"
 #include "targets/microbit-v2/abi/type-atom-id.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 /**
@@ -47,7 +47,7 @@ inline constexpr uint32_t kPlaySoundOptionsInBackgroundField = 1;
  * round without parking on the playback. An unrecognized receiver resolves the
  * handle at once. `hostData` is the bound {@link MicroBitV2PlaySoundEnv}.
  * Mirrors the `MicroBitAudio.playSound` host function in
- * packages/wodal/src/targets/microbit-v2/mindcraft/module.ts.
+ * packages/wodal/src/targets/microbit-v2/wendoo/module.ts.
  */
 inline Status execAudioPlaySoundHostFn(void *hostData, ExecutionContext &ctx,
                                        Span<const Value> args, AsyncHandle handle)
@@ -87,4 +87,4 @@ inline Status execAudioPlaySoundHostFn(void *hostData, ExecutionContext &ctx,
     return Status::ok();
 }
 
-} // namespace mindcraft
+} // namespace wendoo

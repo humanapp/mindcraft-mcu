@@ -4,7 +4,7 @@
 
 #include "codal/device-port.h"
 
-namespace mindcraft {
+namespace wendoo {
 
 /** Diagnostic-code family a device fault was raised from. */
 enum class FaultDomain : uint8_t {
@@ -38,4 +38,4 @@ void formatFaultCode(char* out, FaultDomain domain, uint16_t code);
  */
 void showFaultPass(FaultDisplayPort& display, const char* code);
 
-} // namespace mindcraft
+} // namespace wendoo

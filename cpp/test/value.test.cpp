@@ -4,17 +4,17 @@
 
 #include <cstdint>
 
-using mindcraft::ErrorCode;
-using mindcraft::kFalseValue;
-using mindcraft::kManagedStringRefBit;
-using mindcraft::kNilValue;
-using mindcraft::kNoCaptures;
-using mindcraft::kStringRefIndexMask;
-using mindcraft::kTrueValue;
-using mindcraft::kUnknownValue;
-using mindcraft::kVoidValue;
-using mindcraft::Value;
-using mindcraft::ValueTag;
+using wendoo::ErrorCode;
+using wendoo::kFalseValue;
+using wendoo::kManagedStringRefBit;
+using wendoo::kNilValue;
+using wendoo::kNoCaptures;
+using wendoo::kStringRefIndexMask;
+using wendoo::kTrueValue;
+using wendoo::kUnknownValue;
+using wendoo::kVoidValue;
+using wendoo::Value;
+using wendoo::ValueTag;
 
 TEST_CASE("visible-type tags carry the NativeType numbers") {
   CHECK(static_cast<int8_t>(ValueTag::Unknown) == -1);

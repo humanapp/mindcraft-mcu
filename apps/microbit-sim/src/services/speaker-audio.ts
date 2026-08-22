@@ -2,7 +2,7 @@ import {
   renderAllBuiltInSoundsToPcm,
   type SpeakerPlayingSnapshot,
   SYNTH_SAMPLE_RATE,
-} from "@mindcraft-lang/wodal/targets/microbit-v2";
+} from "@wendoo-lang/wodal/targets/microbit-v2";
 
 /** The narrow slice of a Web Audio node the renderer connects and disconnects. */
 export interface AudioNodeLike {

@@ -11,7 +11,7 @@
 #include "targets/microbit-v2/abi/host-functions/native-receiver.h"
 #include "targets/microbit-v2/abi/type-atom-id.h"
 
-namespace mindcraft
+namespace wendoo
 {
 
 /**
@@ -22,7 +22,7 @@ namespace mindcraft
  * whose coordinate is outside the matrix, and an unrecognized receiver is a
  * no-op. `hostData` is the bound {@link DevicePorts}. Mirrors the
  * `MicroBitDisplay.setPixelValue` body in
- * packages/wodal/src/targets/microbit-v2/mindcraft/module.ts.
+ * packages/wodal/src/targets/microbit-v2/wendoo/module.ts.
  */
 inline Status execDisplaySetPixelValue(void *hostData, Span<const Value> args, Value &result)
 {
@@ -39,4 +39,4 @@ inline Status execDisplaySetPixelValue(void *hostData, Span<const Value> args, V
     return Status::ok();
 }
 
-} // namespace mindcraft
+} // namespace wendoo
