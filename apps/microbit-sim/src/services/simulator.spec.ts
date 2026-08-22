@@ -10,20 +10,20 @@ import {
   mkNumberValue,
   mkSensorTileId,
   type WendooEnvironment,
-} from "@wendoo-lang/core/app";
-import { __test__appendTile } from "@wendoo-lang/core/brain/__test__";
-import { ErrorCode, type LinkedBrainProgramJson, linkedBrainProgramFromJson, Op } from "@wendoo-lang/core/runtime";
+} from "@wendoo/core/app";
+import { __test__appendTile } from "@wendoo/core/brain/__test__";
+import { ErrorCode, type LinkedBrainProgramJson, linkedBrainProgramFromJson, Op } from "@wendoo/core/runtime";
 import {
   buildWodalProgramImage,
   getWodalDeviceProfile,
   type WodalBuildInput,
   WodalDeviceProfileId,
-} from "@wendoo-lang/wodal";
+} from "@wendoo/wodal";
 import {
   createMicroBitV2Environment,
   MicroBitV2HostActions,
   WodalMicroBitV2ModifierId,
-} from "@wendoo-lang/wodal/targets/microbit-v2";
+} from "@wendoo/wodal/targets/microbit-v2";
 import { type InstanceFiberFault, MicrobitSimulator } from "./simulator";
 
 /**

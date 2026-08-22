@@ -16,18 +16,18 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { UniqueSet } from "@wendoo-lang/core";
+import { UniqueSet } from "@wendoo/core";
 import {
   BrainTileOutputDef,
   CoreTypeIds,
   mkOutputTileId,
   mkSensorTileId,
   type WendooEnvironment,
-} from "@wendoo-lang/core/app";
-import type { IBrainRuleDef, IBrainTileDef } from "@wendoo-lang/core/brain";
-import { BrainDef } from "@wendoo-lang/core/brain/model";
-import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@wendoo-lang/ts-compiler";
-import { TEST_PROJECT_NAMESPACE } from "@wendoo-lang/ts-compiler/testing";
+} from "@wendoo/core/app";
+import type { IBrainRuleDef, IBrainTileDef } from "@wendoo/core/brain";
+import { BrainDef } from "@wendoo/core/brain/model";
+import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@wendoo/ts-compiler";
+import { TEST_PROJECT_NAMESPACE } from "@wendoo/ts-compiler/testing";
 import { createMicroBitV2Environment } from "./environment";
 import { MicroBitV2HostActions } from "./tile-ids";
 

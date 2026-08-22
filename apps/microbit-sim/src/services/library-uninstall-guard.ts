@@ -1,11 +1,11 @@
-import type { FileContent, ProjectFileSystem } from "@wendoo-lang/app-host";
+import type { FileContent, ProjectFileSystem } from "@wendoo/app-host";
 import type {
   EmbeddedExtension,
   FetchedExtensionContentMap,
   LibraryUninstallImpact,
   UninstallGuardBrain,
-} from "@wendoo-lang/bridge-app";
-import { collectLibraryUninstallImpact } from "@wendoo-lang/bridge-app";
+} from "@wendoo/bridge-app";
+import { collectLibraryUninstallImpact } from "@wendoo/bridge-app";
 
 /** The slice of a cached brain the guard reads. */
 export interface GuardedBrain {

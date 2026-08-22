@@ -7,8 +7,8 @@ import {
   NativeType,
   type StructValue,
   type Value,
-} from "@wendoo-lang/core/app";
-import { mkBufferValueFromHex } from "@wendoo-lang/core/runtime";
+} from "@wendoo/core/app";
+import { mkBufferValueFromHex } from "@wendoo/core/runtime";
 import { ImageField } from "../../../wendoo/shared-type-ids";
 import { MICROBIT_LED_MATRIX_SIZE } from "../constants";
 

@@ -1,4 +1,4 @@
-import { stream } from "@wendoo-lang/core";
+import { stream } from "@wendoo/core";
 import {
   type AsyncHandle,
   BrainTileLiteralDef,
@@ -27,8 +27,8 @@ import {
   VOID_VALUE,
   type WendooModule,
   type WendooModuleApi,
-} from "@wendoo-lang/core/app";
-import { bufferByteAt, bufferLength, isBufferValue, mkBufferValue } from "@wendoo-lang/core/runtime";
+} from "@wendoo/core/app";
+import { bufferByteAt, bufferLength, isBufferValue, mkBufferValue } from "@wendoo/core/runtime";
 import { Accelerometer } from "../../../core/accelerometer";
 import { Button } from "../../../core/button";
 import { Gpio } from "../../../core/gpio";

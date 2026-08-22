@@ -1,5 +1,5 @@
-import type { WendooModule } from "@wendoo-lang/core/app";
-import type { LinkedBrainProgram, NumberPrecision } from "@wendoo-lang/core/runtime";
+import type { WendooModule } from "@wendoo/core/app";
+import type { LinkedBrainProgram, NumberPrecision } from "@wendoo/core/runtime";
 import { createMicroBitV2Module } from "../targets/microbit-v2/wendoo/module";
 import { createMicroBitV2ProgramImage } from "../targets/microbit-v2/wendoo/program-image";
 import {

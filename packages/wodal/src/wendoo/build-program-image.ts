@@ -1,4 +1,4 @@
-import type { LinkedBrainProgram } from "@wendoo-lang/core/runtime";
+import type { LinkedBrainProgram } from "@wendoo/core/runtime";
 import { getWodalDeviceProfile, type WodalDeviceProfileId } from "./device-profile";
 import type { WodalProgramImage } from "./program-image";
 

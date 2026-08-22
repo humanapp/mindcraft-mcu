@@ -1,5 +1,5 @@
-import type { ExecutionContext } from "@wendoo-lang/core/app";
-import type { HandleId } from "@wendoo-lang/core/runtime";
+import type { ExecutionContext } from "@wendoo/core/app";
+import type { HandleId } from "@wendoo/core/runtime";
 import type { OperationEnd } from "../../../core/operation-end";
 import { MicroBit } from "../microbit";
 

@@ -1,4 +1,4 @@
-import type { ExtensionResolutionWarning } from "@wendoo-lang/bridge-app";
+import type { ExtensionResolutionWarning } from "@wendoo/bridge-app";
 import { unresolvedLibraryCoordinates } from "./resolution-warnings";
 
 /** Stable id of the unresolved-libraries warning toast. Re-issuing with this id updates the toast in place. */

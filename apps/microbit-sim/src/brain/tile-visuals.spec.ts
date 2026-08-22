@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import type { IBrainTileDef } from "@wendoo-lang/core/brain";
-import { tileSentenceWord } from "@wendoo-lang/core/brain/language-service";
-import { createDefaultLocalizer } from "@wendoo-lang/core/localization";
-import { createMicroBitV2Environment } from "@wendoo-lang/wodal/targets/microbit-v2";
+import type { IBrainTileDef } from "@wendoo/core/brain";
+import { tileSentenceWord } from "@wendoo/core/brain/language-service";
+import { createDefaultLocalizer } from "@wendoo/core/localization";
+import { createMicroBitV2Environment } from "@wendoo/wodal/targets/microbit-v2";
 import { buildMicrobitBrainEditorConfig, createMicrobitTileVisualResolver } from "./editor-config";
 import { tileVisuals } from "./tile-visuals";
 

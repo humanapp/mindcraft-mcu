@@ -1,4 +1,4 @@
-import type { ProjectManifest } from "@wendoo-lang/app-host";
+import type { ProjectManifest } from "@wendoo/app-host";
 import { useEffect, useState } from "react";
 import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";
 import { Modal } from "./Modal";

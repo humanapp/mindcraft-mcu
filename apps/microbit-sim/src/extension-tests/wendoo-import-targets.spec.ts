@@ -8,14 +8,14 @@ import {
   DEFAULT_PROJECT_NAME,
   importProjectDocument,
   ProjectManager,
-} from "@wendoo-lang/app-host";
-import type { EmbeddedExtension } from "@wendoo-lang/bridge-app";
-import { AppEnvironmentHost } from "@wendoo-lang/bridge-app";
-import { buildEmbeddedExtensionFromDir } from "@wendoo-lang/bridge-app/node";
-import { coreModule } from "@wendoo-lang/core/app";
-import { createProfileNumerics } from "@wendoo-lang/core/runtime";
-import { isCompilerControlledPath } from "@wendoo-lang/ts-compiler";
-import { createWodalSharedModule, getWodalDeviceProfile, WodalDeviceProfileId } from "@wendoo-lang/wodal";
+} from "@wendoo/app-host";
+import type { EmbeddedExtension } from "@wendoo/bridge-app";
+import { AppEnvironmentHost } from "@wendoo/bridge-app";
+import { buildEmbeddedExtensionFromDir } from "@wendoo/bridge-app/node";
+import { coreModule } from "@wendoo/core/app";
+import { createProfileNumerics } from "@wendoo/core/runtime";
+import { isCompilerControlledPath } from "@wendoo/ts-compiler";
+import { createWodalSharedModule, getWodalDeviceProfile, WodalDeviceProfileId } from "@wendoo/wodal";
 import { microbitLibraryCatalogMoves } from "../services/microbit-extension-browser";
 import {
   CODAL_LIB_COORDINATE,

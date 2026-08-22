@@ -1,5 +1,5 @@
-import type { IBrainDef, WendooEnvironment } from "@wendoo-lang/core/app";
-import type { LinkedBrainProgram } from "@wendoo-lang/core/runtime";
+import type { IBrainDef, WendooEnvironment } from "@wendoo/core/app";
+import type { LinkedBrainProgram } from "@wendoo/core/runtime";
 import type { WodalDeviceProfile, WodalDeviceProfileId } from "./device-profile";
 import type { WodalProgramImage } from "./program-image";
 

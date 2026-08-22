@@ -6,7 +6,7 @@ import {
   mkNumberValue,
   type ReadonlyList,
   type Value,
-} from "@wendoo-lang/core/app";
+} from "@wendoo/core/app";
 import { getMicroBitContextDevice } from "../context";
 import { MicroBitV2HostActions } from "../tile-ids";
 

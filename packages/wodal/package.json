@@ -1,5 +1,5 @@
 {
-  "name": "@wendoo-lang/wodal",
+  "name": "@wendoo/wodal",
   "version": "0.2.1",
   "description": "WODAL: A CODAL-inspired web device runtime for the Wendoo bytecode VM.",
   "license": "MIT",
@@ -107,14 +107,14 @@
     "release:major": "node ../../external/wendoo-lang/scripts/release.js major"
   },
   "dependencies": {
-    "@wendoo-lang/assistant-bridge": "file:../../external/wendoo-lang/packages/assistant-bridge",
-    "@wendoo-lang/core": "file:../../external/wendoo-lang/packages/core",
-    "@wendoo-lang/service-api": "file:../../external/wendoo-lang/packages/service-api",
+    "@wendoo/assistant-bridge": "file:../../external/wendoo-lang/packages/assistant-bridge",
+    "@wendoo/core": "file:../../external/wendoo-lang/packages/core",
+    "@wendoo/service-api": "file:../../external/wendoo-lang/packages/service-api",
     "typescript": "~5.9.3"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.15",
-    "@wendoo-lang/ts-compiler": "file:../../external/wendoo-lang/packages/ts-compiler",
+    "@wendoo/ts-compiler": "file:../../external/wendoo-lang/packages/ts-compiler",
     "@types/node": "^25.3.0",
     "esbuild": "^0.27.7",
     "tsx": "^4.21.0"

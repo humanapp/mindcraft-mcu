@@ -24,7 +24,7 @@ import {
   linkedBrainProgramFromJson,
   NativeType,
   Op,
-} from "@wendoo-lang/core/runtime";
+} from "@wendoo/core/runtime";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../wendoo/device-profile";
 import { shouldWriteGolden } from "../../../wendoo/golden-regeneration";
 import { parseWodalProgramImageBytes, serializeWodalProgramImageBytes } from "../../../wendoo/program-image-binary";

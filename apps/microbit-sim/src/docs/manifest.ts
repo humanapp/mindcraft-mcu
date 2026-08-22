@@ -9,9 +9,9 @@
 // (npm run generate:docs).
 // ---------------------------------------------------------------------------
 
-import type { BrainTileKind } from "@wendoo-lang/core/app";
-import type { AppPatternDocMeta } from "@wendoo-lang/docs";
-import { MICROBIT_V2_TILE_DOCS } from "@wendoo-lang/wodal/targets/microbit-v2";
+import type { BrainTileKind } from "@wendoo/core/app";
+import type { AppPatternDocMeta } from "@wendoo/docs";
+import { MICROBIT_V2_TILE_DOCS } from "@wendoo/wodal/targets/microbit-v2";
 import { tileContent } from "./_generated/en";
 
 /**

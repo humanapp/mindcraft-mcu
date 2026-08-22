@@ -1,4 +1,4 @@
-import type { FolderAppDataCodec, FolderHostMessage, FolderHostPort, FolderHostSession } from "@wendoo-lang/bridge-app";
+import type { FolderAppDataCodec, FolderHostMessage, FolderHostPort, FolderHostSession } from "@wendoo/bridge-app";
 import {
   connectFolderHostSession,
   FOLDER_HOST_MODE_FOLDER,
@@ -6,7 +6,7 @@ import {
   FOLDER_HOST_MODE_URL_PARAM,
   FolderSessionError,
   FolderSessionErrorCode,
-} from "@wendoo-lang/bridge-app";
+} from "@wendoo/bridge-app";
 import { name as appName } from "../../package.json";
 import {
   BRAINS_INDEX_KEY,

@@ -103,7 +103,7 @@
       }
     },
     "app": {
-      "@wendoo-lang/microbit-sim": {
+      "@wendoo/microbit-sim": {
         "brainOrder": [
           "gkIOi3pfMfDsy6yC",
           "6r44shQiaucjP4ar"

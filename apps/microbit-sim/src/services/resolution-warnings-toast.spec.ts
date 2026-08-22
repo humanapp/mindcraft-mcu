@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import type { ExtensionResolutionWarning } from "@wendoo-lang/bridge-app";
+import type { ExtensionResolutionWarning } from "@wendoo/bridge-app";
 import {
   RESOLUTION_WARNINGS_TOAST_ID,
   type ResolutionWarningsToastSource,

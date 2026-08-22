@@ -15,14 +15,14 @@ import {
   assertDependencyDistsFresh,
   readTargetIdentity,
   StaleDependencyError,
-} from "@wendoo-lang/assistant-bridge/kit/node";
+} from "@wendoo/assistant-bridge/kit/node";
 import { build } from "esbuild";
 
 /** The device this app distributes, named as its device-runtime package subtree carries it. */
 const DEVICE = "microbit-v2";
 
 /** Device-runtime entry publishing this device's rehearsal adapter factory. */
-const ADAPTER_ENTRY = `@wendoo-lang/wodal/targets/${DEVICE}/rehearsal`;
+const ADAPTER_ENTRY = `@wendoo/wodal/targets/${DEVICE}/rehearsal`;
 
 const appDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 

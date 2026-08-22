@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { Dict } from "@wendoo-lang/core";
+import { Dict } from "@wendoo/core";
 import {
   type AsyncHandle,
   type ExecutionContext,
@@ -15,10 +15,10 @@ import {
   NIL_VALUE,
   type Value,
   type WendooEnvironment,
-} from "@wendoo-lang/core/app";
-import { BrainDef } from "@wendoo-lang/core/brain/model";
-import { BrainTileLiteralDef } from "@wendoo-lang/core/brain/tiles";
-import { CoreTypeIds, type LinkedBrainProgram } from "@wendoo-lang/core/runtime";
+} from "@wendoo/core/app";
+import { BrainDef } from "@wendoo/core/brain/model";
+import { BrainTileLiteralDef } from "@wendoo/core/brain/tiles";
+import { CoreTypeIds, type LinkedBrainProgram } from "@wendoo/core/runtime";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Environment } from "./environment";
 import { createMicroBitV2ProgramImage } from "./program-image";

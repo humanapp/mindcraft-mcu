@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { Dict, List } from "@wendoo-lang/core";
-import type { WendooEnvironment } from "@wendoo-lang/core/app";
-import type { IBrainTileDef } from "@wendoo-lang/core/brain";
-import { BrainDef } from "@wendoo-lang/core/brain/model";
+import { Dict, List } from "@wendoo/core";
+import type { WendooEnvironment } from "@wendoo/core/app";
+import type { IBrainTileDef } from "@wendoo/core/brain";
+import { BrainDef } from "@wendoo/core/brain/model";
 import {
   BYTECODE_VERSION,
   type LinkedBrainProgram,
@@ -14,8 +14,8 @@ import {
   type PageMetadata,
   type Program,
   VOID_VALUE,
-} from "@wendoo-lang/core/runtime";
-import { WENDOO_PROGRAM_IMAGE_FORMAT, WENDOO_PROGRAM_IMAGE_VERSION } from "@wendoo-lang/service-api";
+} from "@wendoo/core/runtime";
+import { WENDOO_PROGRAM_IMAGE_FORMAT, WENDOO_PROGRAM_IMAGE_VERSION } from "@wendoo/service-api";
 import {
   type AmbientFile,
   buildCompiledActionBundle,
@@ -23,8 +23,8 @@ import {
   type ProjectCompileResult,
   type UserAuthoredProgram,
   UserTileProject,
-} from "@wendoo-lang/ts-compiler";
-import { TEST_PROJECT_NAMESPACE } from "@wendoo-lang/ts-compiler/testing";
+} from "@wendoo/ts-compiler";
+import { TEST_PROJECT_NAMESPACE } from "@wendoo/ts-compiler/testing";
 import { WodalDeviceProfileId } from "../../../wendoo/device-profile";
 import type { WodalProgramImage } from "../../../wendoo/program-image";
 import { WodalProgramLoadValidationCode } from "../../../wendoo/program-load";

@@ -2,22 +2,22 @@ import "fake-indexeddb/auto";
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import type { ExtensionFetchTransport } from "@wendoo-lang/app-host";
+import type { ExtensionFetchTransport } from "@wendoo/app-host";
 import {
   createIdbProjectStore,
   DEFAULT_PROJECT_NAME,
   importProjectDocument,
   type ProjectFileSnapshot,
   ProjectManager,
-} from "@wendoo-lang/app-host";
-import type { EmbeddedExtension } from "@wendoo-lang/bridge-app";
-import { AppEnvironmentHost, CatalogMoveWarningCode, INSTALLED_EXTENSIONS_APP_DATA_KEY } from "@wendoo-lang/bridge-app";
-import { buildEmbeddedExtensionFromDir } from "@wendoo-lang/bridge-app/node";
-import { coreModule } from "@wendoo-lang/core/app";
-import type { IBrainDef, IBrainRuleDef, IBrainTileDef } from "@wendoo-lang/core/brain";
-import { createProfileNumerics } from "@wendoo-lang/core/runtime";
-import { isCompilerControlledPath, type WorkspaceCompileResult } from "@wendoo-lang/ts-compiler";
-import { createWodalSharedModule, getWodalDeviceProfile, WodalDeviceProfileId } from "@wendoo-lang/wodal";
+} from "@wendoo/app-host";
+import type { EmbeddedExtension } from "@wendoo/bridge-app";
+import { AppEnvironmentHost, CatalogMoveWarningCode, INSTALLED_EXTENSIONS_APP_DATA_KEY } from "@wendoo/bridge-app";
+import { buildEmbeddedExtensionFromDir } from "@wendoo/bridge-app/node";
+import { coreModule } from "@wendoo/core/app";
+import type { IBrainDef, IBrainRuleDef, IBrainTileDef } from "@wendoo/core/brain";
+import { createProfileNumerics } from "@wendoo/core/runtime";
+import { isCompilerControlledPath, type WorkspaceCompileResult } from "@wendoo/ts-compiler";
+import { createWodalSharedModule, getWodalDeviceProfile, WodalDeviceProfileId } from "@wendoo/wodal";
 import { microbitLibraryCatalogMoves } from "../services/microbit-extension-browser";
 import {
   CODAL_LIB_COORDINATE,

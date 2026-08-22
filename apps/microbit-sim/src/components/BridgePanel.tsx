@@ -1,5 +1,5 @@
-import { useDocsSidebar } from "@wendoo-lang/docs";
-import { Switch } from "@wendoo-lang/ui";
+import { useDocsSidebar } from "@wendoo/docs";
+import { Switch } from "@wendoo/ui";
 import { Check, CircleHelp, Copy } from "lucide-react";
 import { useEffect, useId, useState, useSyncExternalStore } from "react";
 import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { CatalogMoveWarningCode, type ExtensionResolutionWarning } from "@wendoo-lang/bridge-app";
+import { CatalogMoveWarningCode, type ExtensionResolutionWarning } from "@wendoo/bridge-app";
 import { unresolvedLibraryCoordinates } from "./resolution-warnings";
 
 const MOVE_FAILED_WARNING: ExtensionResolutionWarning = {

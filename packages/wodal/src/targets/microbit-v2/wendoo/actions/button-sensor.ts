@@ -16,7 +16,7 @@ import {
   setCallSiteState,
   TRUE_VALUE,
   type Value,
-} from "@wendoo-lang/core/app";
+} from "@wendoo/core/app";
 import type { MicroBit } from "../../microbit";
 import { getMicroBitContextDevice } from "../context";
 import { Modifier } from "../modifiers";

@@ -4,24 +4,24 @@ import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import { describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import type { ExtensionFetchTransport } from "@wendoo-lang/app-host";
-import { createIdbProjectStore, DEFAULT_PROJECT_NAME, ProjectManager } from "@wendoo-lang/app-host";
-import type { EmbeddedExtension, UserTileApplyResult } from "@wendoo-lang/bridge-app";
-import { AppEnvironmentHost } from "@wendoo-lang/bridge-app";
-import { buildEmbeddedExtensionFromDir } from "@wendoo-lang/bridge-app/node";
-import { type BrainDef, coreModule, mkVariableFactoryTileId } from "@wendoo-lang/core/app";
-import type { IBrainDef } from "@wendoo-lang/core/brain";
-import { TypeDiagCode } from "@wendoo-lang/core/brain/compiler";
-import { BrainRuleDef } from "@wendoo-lang/core/brain/model";
-import type { BrainTileFactoryDef } from "@wendoo-lang/core/brain/tiles";
-import { createProfileNumerics } from "@wendoo-lang/core/runtime";
-import { isCompilerControlledPath, type WorkspaceCompileResult } from "@wendoo-lang/ts-compiler";
+import type { ExtensionFetchTransport } from "@wendoo/app-host";
+import { createIdbProjectStore, DEFAULT_PROJECT_NAME, ProjectManager } from "@wendoo/app-host";
+import type { EmbeddedExtension, UserTileApplyResult } from "@wendoo/bridge-app";
+import { AppEnvironmentHost } from "@wendoo/bridge-app";
+import { buildEmbeddedExtensionFromDir } from "@wendoo/bridge-app/node";
+import { type BrainDef, coreModule, mkVariableFactoryTileId } from "@wendoo/core/app";
+import type { IBrainDef } from "@wendoo/core/brain";
+import { TypeDiagCode } from "@wendoo/core/brain/compiler";
+import { BrainRuleDef } from "@wendoo/core/brain/model";
+import type { BrainTileFactoryDef } from "@wendoo/core/brain/tiles";
+import { createProfileNumerics } from "@wendoo/core/runtime";
+import { isCompilerControlledPath, type WorkspaceCompileResult } from "@wendoo/ts-compiler";
 import {
   createWodalSharedModule,
   getWodalDeviceProfile,
   type WodalDeviceProfile,
   WodalDeviceProfileId,
-} from "@wendoo-lang/wodal";
+} from "@wendoo/wodal";
 import {
   buildMicrobitExtensionEntries,
   installMicrobitReference,

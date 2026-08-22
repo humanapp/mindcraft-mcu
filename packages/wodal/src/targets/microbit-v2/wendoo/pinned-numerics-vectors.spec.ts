@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync, writeFileSync } from "node:fs";
 import { describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { List } from "@wendoo-lang/core";
+import { List } from "@wendoo/core";
 import {
   CoreFuncId,
   type ExecutionContext,
@@ -11,7 +11,7 @@ import {
   NativeType,
   NIL_VALUE,
   type Value,
-} from "@wendoo-lang/core/runtime";
+} from "@wendoo/core/runtime";
 import { shouldWriteGolden } from "../../../wendoo/golden-regeneration";
 import { createMicroBitV2Environment } from "./environment";
 

@@ -4,10 +4,10 @@ import type {
   ExtensionFetchFileResult,
   ExtensionFetchTransport,
   ExtensionVersionListResult,
-} from "@wendoo-lang/app-host";
-import { parseExtensionReference, WENDOO_JSON_PATH } from "@wendoo-lang/app-host";
-import type { FetchedExtensionContentMap } from "@wendoo-lang/bridge-app";
-import { buildEmbeddedExtensionFromDir } from "@wendoo-lang/bridge-app/node";
+} from "@wendoo/app-host";
+import { parseExtensionReference, WENDOO_JSON_PATH } from "@wendoo/app-host";
+import type { FetchedExtensionContentMap } from "@wendoo/bridge-app";
+import { buildEmbeddedExtensionFromDir } from "@wendoo/bridge-app/node";
 import { microbitCatalogEntryRef, microbitLibraryCatalogMoves } from "../services/microbit-extension-browser";
 import {
   CODAL_POSITION_EXT_COORDINATE,

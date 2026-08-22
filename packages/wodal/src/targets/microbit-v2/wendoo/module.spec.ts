@@ -16,8 +16,8 @@ import {
   type StructTypeDef,
   type Value,
   type WendooEnvironment,
-} from "@wendoo-lang/core/app";
-import { bufferToHex, isBufferValue, mkBufferValueFromHex } from "@wendoo-lang/core/runtime";
+} from "@wendoo/core/app";
+import { bufferToHex, isBufferValue, mkBufferValueFromHex } from "@wendoo/core/runtime";
 import { ImageField, WODAL_SHARED_TYPE_IDS } from "../../../wendoo/shared-type-ids";
 import { MicroBit } from "../microbit";
 import { BUILT_IN_IMAGES, builtInImageHex, builtInImageTileId } from "./built-in-images";

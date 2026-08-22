@@ -19,9 +19,9 @@ import {
   mkParameterTileId,
   mkSensorTileId,
   type WendooEnvironment,
-} from "@wendoo-lang/core/app";
-import { BrainDef, type BrainRuleDef } from "@wendoo-lang/core/brain/model";
-import type { LinkedBrainProgram } from "@wendoo-lang/core/runtime";
+} from "@wendoo/core/app";
+import { BrainDef, type BrainRuleDef } from "@wendoo/core/brain/model";
+import type { LinkedBrainProgram } from "@wendoo/core/runtime";
 import { buildWodalProgramImage } from "../../../wendoo/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../wendoo/device-profile";
 import type { WodalProgramImage } from "../../../wendoo/program-image";

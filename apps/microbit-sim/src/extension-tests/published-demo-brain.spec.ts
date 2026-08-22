@@ -7,15 +7,15 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import { createIdbProjectStore, type ProjectFileSnapshot, ProjectManager } from "@wendoo-lang/app-host";
-import type { EmbeddedExtension } from "@wendoo-lang/bridge-app";
-import { AppEnvironmentHost, resolveProjectExtensions } from "@wendoo-lang/bridge-app";
-import { buildEmbeddedExtensionFromDir } from "@wendoo-lang/bridge-app/node";
-import { BrainDef, coreModule } from "@wendoo-lang/core/app";
-import type { IBrainDef, IBrainRuleDef, IBrainTileDef } from "@wendoo-lang/core/brain";
-import { createWorkspaceCompiler, type WorkspaceCompileResult } from "@wendoo-lang/ts-compiler";
-import { createWodalSharedModule, getWodalDeviceProfile, WodalDeviceProfileId } from "@wendoo-lang/wodal";
-import { createMicroBitV2Environment } from "@wendoo-lang/wodal/targets/microbit-v2";
+import { createIdbProjectStore, type ProjectFileSnapshot, ProjectManager } from "@wendoo/app-host";
+import type { EmbeddedExtension } from "@wendoo/bridge-app";
+import { AppEnvironmentHost, resolveProjectExtensions } from "@wendoo/bridge-app";
+import { buildEmbeddedExtensionFromDir } from "@wendoo/bridge-app/node";
+import { BrainDef, coreModule } from "@wendoo/core/app";
+import type { IBrainDef, IBrainRuleDef, IBrainTileDef } from "@wendoo/core/brain";
+import { createWorkspaceCompiler, type WorkspaceCompileResult } from "@wendoo/ts-compiler";
+import { createWodalSharedModule, getWodalDeviceProfile, WodalDeviceProfileId } from "@wendoo/wodal";
+import { createMicroBitV2Environment } from "@wendoo/wodal/targets/microbit-v2";
 import {
   CODAL_LIB_COORDINATE,
   CORE_LIB_COORDINATE,

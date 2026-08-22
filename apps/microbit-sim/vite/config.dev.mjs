@@ -11,21 +11,21 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(process.cwd(), "./src"),
-      "@wendoo-lang/assistant-panel": path.resolve(
+      "@wendoo/assistant-panel": path.resolve(
         process.cwd(),
         "../../external/wendoo-lang/packages/assistant-panel/src"
       ),
-      "@wendoo-lang/ui": path.resolve(process.cwd(), "../../external/wendoo-lang/packages/ui/src"),
-      "@wendoo-lang/docs": path.resolve(process.cwd(), "../../external/wendoo-lang/packages/docs/src"),
+      "@wendoo/ui": path.resolve(process.cwd(), "../../external/wendoo-lang/packages/ui/src"),
+      "@wendoo/docs": path.resolve(process.cwd(), "../../external/wendoo-lang/packages/docs/src"),
     },
   },
   optimizeDeps: {
-    // @wendoo-lang/ui is not listed here: it is aliased to source, so it is
+    // @wendoo/ui is not listed here: it is aliased to source, so it is
     // never prebundled anyway, and excluding it stops the dep scanner from
     // walking into it. Its Radix imports would then be discovered only on the
     // first page request, mid-load, and the modules served before that pass
     // finishes get a second React instance.
-    exclude: ["@wendoo-lang/core"],
+    exclude: ["@wendoo/core"],
   },
   server: {
     fs: {

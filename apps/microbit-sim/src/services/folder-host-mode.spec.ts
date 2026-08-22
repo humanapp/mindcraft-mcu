@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { FolderAppMessage, FolderHostMessage, FolderHostPort } from "@wendoo-lang/bridge-app";
+import type { FolderAppMessage, FolderHostMessage, FolderHostPort } from "@wendoo/bridge-app";
 import {
   FOLDER_HOST_MODE_FOLDER,
   FOLDER_HOST_MODE_GLOBAL,
   FolderSessionError,
   FolderSessionErrorCode,
   WORKSPACE_FOLDER_PROJECT_COLLECTION_ID,
-} from "@wendoo-lang/bridge-app";
+} from "@wendoo/bridge-app";
 import {
   appChromeForMode,
   connectMicrobitFolderSession,

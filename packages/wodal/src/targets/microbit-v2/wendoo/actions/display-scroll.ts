@@ -14,7 +14,7 @@ import {
   type ReadonlyList,
   type Value,
   VOID_VALUE,
-} from "@wendoo-lang/core/app";
+} from "@wendoo/core/app";
 import { getMicroBitContextDevice, reportDeviceOperationEnding } from "../context";
 import { SCROLL_DEFAULT_DELAY_MS, scrollDurationMs } from "../display-scroll";
 import { hasModifier, Modifier } from "../modifiers";

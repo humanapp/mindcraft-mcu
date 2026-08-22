@@ -6,8 +6,8 @@ import {
   mkActuatorTileId,
   mkSensorTileId,
   type WendooEnvironment,
-} from "@wendoo-lang/core/app";
-import { BrainDef } from "@wendoo-lang/core/brain/model";
+} from "@wendoo/core/app";
+import { BrainDef } from "@wendoo/core/brain/model";
 import { createMicroBitV2Environment } from "../targets/microbit-v2/wendoo/environment";
 import { createMicroBitV2Module } from "../targets/microbit-v2/wendoo/module";
 import { MicroBitV2HostActions } from "../targets/microbit-v2/wendoo/tile-ids";

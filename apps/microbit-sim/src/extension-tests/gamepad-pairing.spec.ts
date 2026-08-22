@@ -25,7 +25,7 @@
 
 import assert from "node:assert/strict";
 import { before, describe, test } from "node:test";
-import { List } from "@wendoo-lang/core";
+import { List } from "@wendoo/core";
 import {
   BrainDef,
   BrainTileModifierDef,
@@ -33,23 +33,19 @@ import {
   mkActuatorTileId,
   mkSensorTileId,
   type WendooEnvironment,
-} from "@wendoo-lang/core/app";
-import { type IBrainTileDef, mkAccessorTileId, mkVariableFactoryTileId, RuleSide } from "@wendoo-lang/core/brain";
-import { __test__appendTile } from "@wendoo-lang/core/brain/__test__";
-import {
-  type InsertionContext,
-  parseTilesForSuggestions,
-  suggestTiles,
-} from "@wendoo-lang/core/brain/language-service";
-import type { BrainTileFactoryDef } from "@wendoo-lang/core/brain/tiles";
-import { mkStringValue, type TypeId } from "@wendoo-lang/core/runtime";
-import { buildWodalProgramImage, getWodalDeviceProfile, WodalDeviceProfileId } from "@wendoo-lang/wodal";
+} from "@wendoo/core/app";
+import { type IBrainTileDef, mkAccessorTileId, mkVariableFactoryTileId, RuleSide } from "@wendoo/core/brain";
+import { __test__appendTile } from "@wendoo/core/brain/__test__";
+import { type InsertionContext, parseTilesForSuggestions, suggestTiles } from "@wendoo/core/brain/language-service";
+import type { BrainTileFactoryDef } from "@wendoo/core/brain/tiles";
+import { mkStringValue, type TypeId } from "@wendoo/core/runtime";
+import { buildWodalProgramImage, getWodalDeviceProfile, WodalDeviceProfileId } from "@wendoo/wodal";
 import {
   type IncomingRadioPacket,
   MicroBit,
   type RadioSendRecord,
   WodalMicroBitRuntime,
-} from "@wendoo-lang/wodal/targets/microbit-v2";
+} from "@wendoo/wodal/targets/microbit-v2";
 import {
   buildExtensionTestHarness,
   CUTEBOT_EXT_COORDINATE,

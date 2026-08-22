@@ -1,5 +1,5 @@
-import type { LinkedBrainProgram } from "@wendoo-lang/core/runtime";
-import { WENDOO_PROGRAM_IMAGE_FORMAT, WENDOO_PROGRAM_IMAGE_VERSION } from "@wendoo-lang/service-api";
+import type { LinkedBrainProgram } from "@wendoo/core/runtime";
+import { WENDOO_PROGRAM_IMAGE_FORMAT, WENDOO_PROGRAM_IMAGE_VERSION } from "@wendoo/service-api";
 import { WodalDeviceProfileId } from "../../../wendoo/device-profile-id";
 import type { WodalProgramImage } from "../../../wendoo/program-image";
 

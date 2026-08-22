@@ -2,7 +2,7 @@ import {
   renderAllBuiltInSoundsToPcm,
   type SpeakerPlayingSnapshot,
   SYNTH_SAMPLE_RATE,
-} from "@wendoo-lang/wodal/targets/microbit-v2";
+} from "@wendoo/wodal/targets/microbit-v2";
 
 /** The narrow slice of a Web Audio node the renderer connects and disconnects. */
 export interface AudioNodeLike {

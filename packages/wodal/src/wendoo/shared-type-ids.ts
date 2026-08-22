@@ -1,4 +1,4 @@
-import { mkTypeId, NativeType } from "@wendoo-lang/core/app";
+import { mkTypeId, NativeType } from "@wendoo/core/app";
 
 /**
  * Stable type-atom ids of the wodal-shared nominal types: structs common to

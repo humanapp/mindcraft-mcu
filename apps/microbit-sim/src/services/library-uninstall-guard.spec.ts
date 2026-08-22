@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { createInMemoryProjectFileSystem } from "@wendoo-lang/app-host";
-import type { EmbeddedExtension } from "@wendoo-lang/bridge-app";
+import { createInMemoryProjectFileSystem } from "@wendoo/app-host";
+import type { EmbeddedExtension } from "@wendoo/bridge-app";
 import { collectMicrobitLibraryUninstallImpact, type UninstallGuardHost } from "./library-uninstall-guard";
 
 const CUTEBOT = "acme/lib-cutebot";

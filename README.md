@@ -43,7 +43,7 @@ host functions, actuators, and device adapters -- never through opcode subsets.
 
 | Package | Description |
 |---------|-------------|
-| [@wendoo-lang/wodal](packages/wodal/) | WODAL -- a CODAL-inspired web device runtime for the Wendoo bytecode VM. Models micro:bit peripherals, event/fiber mechanics, and radio through host-loop drains. Ships a `wodal` CLI. |
+| [@wendoo/wodal](packages/wodal/) | WODAL -- a CODAL-inspired web device runtime for the Wendoo bytecode VM. Models micro:bit peripherals, event/fiber mechanics, and radio through host-loop drains. Ships a `wodal` CLI. |
 
 ## Apps
 

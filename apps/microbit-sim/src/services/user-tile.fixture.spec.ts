@@ -3,19 +3,19 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import { createIdbProjectStore, importProjectDocument, ProjectManager } from "@wendoo-lang/app-host";
-import { AppEnvironmentHost } from "@wendoo-lang/bridge-app";
-import { BrainDef, coreModule } from "@wendoo-lang/core/app";
-import { createProfileNumerics } from "@wendoo-lang/core/runtime";
-import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@wendoo-lang/ts-compiler";
-import { TEST_PROJECT_NAMESPACE } from "@wendoo-lang/ts-compiler/testing";
+import { createIdbProjectStore, importProjectDocument, ProjectManager } from "@wendoo/app-host";
+import { AppEnvironmentHost } from "@wendoo/bridge-app";
+import { BrainDef, coreModule } from "@wendoo/core/app";
+import { createProfileNumerics } from "@wendoo/core/runtime";
+import { type AmbientFile, buildCompiledActionBundle, UserTileProject } from "@wendoo/ts-compiler";
+import { TEST_PROJECT_NAMESPACE } from "@wendoo/ts-compiler/testing";
 import {
   buildWodalProgramImage,
   createWodalSharedModule,
   getWodalDeviceProfile,
   WodalDeviceProfileId,
-} from "@wendoo-lang/wodal";
-import { createMicroBitV2Environment } from "@wendoo-lang/wodal/targets/microbit-v2";
+} from "@wendoo/wodal";
+import { createMicroBitV2Environment } from "@wendoo/wodal/targets/microbit-v2";
 import { name as appName } from "../../package.json";
 import { buildMicrobitSimExportDocument, translateMicrobitSimAppChunk } from "./project-io";
 

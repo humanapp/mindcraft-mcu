@@ -1,4 +1,4 @@
-import { CoreTypeIds, mkTypeId, NativeType, type ParameterTileInput, param } from "@wendoo-lang/core/app";
+import { CoreTypeIds, mkTypeId, NativeType, type ParameterTileInput, param } from "@wendoo/core/app";
 import { SOUND_EMOJI_TYPE_ID } from "./built-in-sounds";
 import { WodalMicroBitV2ParameterId } from "./tile-ids";
 

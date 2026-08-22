@@ -1,4 +1,4 @@
-import { Button, Input } from "@wendoo-lang/ui";
+import { Button, Input } from "@wendoo/ui";
 import { useEffect, useRef, useState } from "react";
 import { Modal } from "./Modal";
 

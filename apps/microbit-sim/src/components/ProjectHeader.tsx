@@ -1,7 +1,7 @@
-import { parseExtensionReference, type UnstableDependency } from "@wendoo-lang/app-host";
-import type { ExtensionTransactionToasts, LibraryUninstallImpact } from "@wendoo-lang/bridge-app";
-import { presentExtensionTransaction, runGuardedLibraryUninstall } from "@wendoo-lang/bridge-app";
-import { useDocsSidebar } from "@wendoo-lang/docs";
+import { parseExtensionReference, type UnstableDependency } from "@wendoo/app-host";
+import type { ExtensionTransactionToasts, LibraryUninstallImpact } from "@wendoo/bridge-app";
+import { presentExtensionTransaction, runGuardedLibraryUninstall } from "@wendoo/bridge-app";
+import { useDocsSidebar } from "@wendoo/docs";
 import {
   Button,
   DropdownMenu,
@@ -13,7 +13,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   ExtensionBrowserDialog,
-} from "@wendoo-lang/ui";
+} from "@wendoo/ui";
 import {
   Blocks,
   BookOpen,

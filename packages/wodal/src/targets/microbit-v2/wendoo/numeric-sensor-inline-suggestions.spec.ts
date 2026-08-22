@@ -10,12 +10,12 @@
 
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { List } from "@wendoo-lang/core";
-import type { WendooEnvironment } from "@wendoo-lang/core/app";
-import { type IBrainTileDef, mkOperatorTileId, RuleSide, TilePlacement } from "@wendoo-lang/core/brain";
-import { parseTilesForSuggestions, suggestTiles } from "@wendoo-lang/core/brain/language-service";
-import { BrainDef } from "@wendoo-lang/core/brain/model";
-import { CoreOpId, CoreTypeIds, mkSensorTileId } from "@wendoo-lang/core/runtime";
+import { List } from "@wendoo/core";
+import type { WendooEnvironment } from "@wendoo/core/app";
+import { type IBrainTileDef, mkOperatorTileId, RuleSide, TilePlacement } from "@wendoo/core/brain";
+import { parseTilesForSuggestions, suggestTiles } from "@wendoo/core/brain/language-service";
+import { BrainDef } from "@wendoo/core/brain/model";
+import { CoreOpId, CoreTypeIds, mkSensorTileId } from "@wendoo/core/runtime";
 import { createMicroBitV2Environment } from "./environment";
 import { MicroBitV2HostActions } from "./tile-ids";
 

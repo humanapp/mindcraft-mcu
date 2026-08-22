@@ -1,9 +1,9 @@
-import type { UserTileMetadata } from "@wendoo-lang/bridge-app";
-import type { ActionKind, WendooEnvironment } from "@wendoo-lang/core/app";
-import { mkActionTileId } from "@wendoo-lang/core/app";
-import type { ITileCatalog } from "@wendoo-lang/core/brain";
-import type { DocsRegistry, DocsTileEntry } from "@wendoo-lang/docs";
-import { buildDocsRegistry } from "@wendoo-lang/docs";
+import type { UserTileMetadata } from "@wendoo/bridge-app";
+import type { ActionKind, WendooEnvironment } from "@wendoo/core/app";
+import { mkActionTileId } from "@wendoo/core/app";
+import type { ITileCatalog } from "@wendoo/core/brain";
+import type { DocsRegistry, DocsTileEntry } from "@wendoo/docs";
+import { buildDocsRegistry } from "@wendoo/docs";
 import { conceptContent, patternContent } from "./_generated/en";
 import {
   conceptOrder,

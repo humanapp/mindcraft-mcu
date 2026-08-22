@@ -14,15 +14,15 @@
 import assert from "node:assert/strict";
 import { before, describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { fileContentText } from "@wendoo-lang/app-host";
-import type { EmbeddedExtension } from "@wendoo-lang/bridge-app";
-import { applyCompiledUserTiles, collectMetadataFromCompile, resolveProjectExtensions } from "@wendoo-lang/bridge-app";
-import { buildEmbeddedExtensionFromDir } from "@wendoo-lang/bridge-app/node";
-import type { WendooEnvironment } from "@wendoo-lang/core/app";
-import { mkActuatorTileId, mkSensorTileId } from "@wendoo-lang/core/app";
-import type { IBrainTileDef } from "@wendoo-lang/core/brain";
-import { createWorkspaceCompiler, type WorkspaceCompileResult, type WorkspaceSnapshot } from "@wendoo-lang/ts-compiler";
-import { createMicroBitV2Environment } from "@wendoo-lang/wodal/targets/microbit-v2";
+import { fileContentText } from "@wendoo/app-host";
+import type { EmbeddedExtension } from "@wendoo/bridge-app";
+import { applyCompiledUserTiles, collectMetadataFromCompile, resolveProjectExtensions } from "@wendoo/bridge-app";
+import { buildEmbeddedExtensionFromDir } from "@wendoo/bridge-app/node";
+import type { WendooEnvironment } from "@wendoo/core/app";
+import { mkActuatorTileId, mkSensorTileId } from "@wendoo/core/app";
+import type { IBrainTileDef } from "@wendoo/core/brain";
+import { createWorkspaceCompiler, type WorkspaceCompileResult, type WorkspaceSnapshot } from "@wendoo/ts-compiler";
+import { createMicroBitV2Environment } from "@wendoo/wodal/targets/microbit-v2";
 import {
   groupTilesByLibrary,
   type TileSourceLibrary,

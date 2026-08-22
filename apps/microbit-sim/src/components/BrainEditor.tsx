@@ -1,7 +1,7 @@
-import { useAssistant } from "@wendoo-lang/assistant-panel";
-import type { BrainDef } from "@wendoo-lang/core/app";
-import { useDocsSidebar } from "@wendoo-lang/docs";
-import { BrainEditorDialog, BrainEditorProvider } from "@wendoo-lang/ui";
+import { useAssistant } from "@wendoo/assistant-panel";
+import type { BrainDef } from "@wendoo/core/app";
+import { useDocsSidebar } from "@wendoo/docs";
+import { BrainEditorDialog, BrainEditorProvider } from "@wendoo/ui";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { buildMicrobitBrainEditorConfig } from "@/brain/editor-config";
 import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";

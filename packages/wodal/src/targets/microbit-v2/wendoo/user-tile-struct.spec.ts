@@ -14,19 +14,14 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import type { WendooEnvironment } from "@wendoo-lang/core/app";
-import type { IBrainTileDef } from "@wendoo-lang/core/brain";
-import { mkAccessorTileId, mkVariableFactoryTileId } from "@wendoo-lang/core/brain";
-import { BrainDef } from "@wendoo-lang/core/brain/model";
-import { type BrainTileFactoryDef, BrainTileOperatorDef } from "@wendoo-lang/core/brain/tiles";
-import { type LinkedBrainProgram, linkedBrainProgramToJson } from "@wendoo-lang/core/runtime";
-import {
-  type AmbientFile,
-  buildCompiledActionBundle,
-  qualifiedClassName,
-  UserTileProject,
-} from "@wendoo-lang/ts-compiler";
-import { TEST_PROJECT_NAMESPACE } from "@wendoo-lang/ts-compiler/testing";
+import type { WendooEnvironment } from "@wendoo/core/app";
+import type { IBrainTileDef } from "@wendoo/core/brain";
+import { mkAccessorTileId, mkVariableFactoryTileId } from "@wendoo/core/brain";
+import { BrainDef } from "@wendoo/core/brain/model";
+import { type BrainTileFactoryDef, BrainTileOperatorDef } from "@wendoo/core/brain/tiles";
+import { type LinkedBrainProgram, linkedBrainProgramToJson } from "@wendoo/core/runtime";
+import { type AmbientFile, buildCompiledActionBundle, qualifiedClassName, UserTileProject } from "@wendoo/ts-compiler";
+import { TEST_PROJECT_NAMESPACE } from "@wendoo/ts-compiler/testing";
 import { buildWodalProgramImage } from "../../../wendoo/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../wendoo/device-profile";
 import { shouldWriteGolden } from "../../../wendoo/golden-regeneration";

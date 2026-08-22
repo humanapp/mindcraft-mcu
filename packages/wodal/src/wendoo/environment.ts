@@ -1,5 +1,5 @@
-import { coreModule, createWendooEnvironment, type WendooEnvironment } from "@wendoo-lang/core/app";
-import { createProfileNumerics } from "@wendoo-lang/core/runtime";
+import { coreModule, createWendooEnvironment, type WendooEnvironment } from "@wendoo/core/app";
+import { createProfileNumerics } from "@wendoo/core/runtime";
 import { getWodalDeviceProfile } from "./device-profile";
 import type { WodalDeviceProfileId } from "./device-profile-id";
 import { createWodalSharedModule } from "./shared-module";

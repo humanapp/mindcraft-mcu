@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import type { AuthoringWorkspace, SimulationRun } from "@wendoo-lang/assistant-bridge";
-import { createAuthoringWorkspace, proposeEdit } from "@wendoo-lang/assistant-bridge";
-import { FAKE_TARGET_IDENTITY, ruleIdAt } from "@wendoo-lang/assistant-bridge/testing";
-import { mkActuatorTileId, mkParameterTileId } from "@wendoo-lang/core/app";
-import { CoreLiteralFactoryId, mkLiteralFactoryTileId } from "@wendoo-lang/core/brain";
+import type { AuthoringWorkspace, SimulationRun } from "@wendoo/assistant-bridge";
+import { createAuthoringWorkspace, proposeEdit } from "@wendoo/assistant-bridge";
+import { FAKE_TARGET_IDENTITY, ruleIdAt } from "@wendoo/assistant-bridge/testing";
+import { mkActuatorTileId, mkParameterTileId } from "@wendoo/core/app";
+import { CoreLiteralFactoryId, mkLiteralFactoryTileId } from "@wendoo/core/brain";
 import { builtInSoundTileId, findBuiltInSound } from "../wendoo/built-in-sounds";
 import { MicroBitV2HostActions, WodalMicroBitV2ParameterId } from "../wendoo/tile-ids";
 import { createTargetAdapter } from "./adapter";

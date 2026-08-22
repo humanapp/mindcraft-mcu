@@ -10,7 +10,7 @@
 
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { createJsDelivrExtensionTransport, parseExtensionReference } from "@wendoo-lang/app-host";
+import { createJsDelivrExtensionTransport, parseExtensionReference } from "@wendoo/app-host";
 import { CODAL_POSITION_VERSION_REF } from "../extension-tests/published-library-fixtures";
 
 const CDN_BASE = "https://cdn.example.invalid";

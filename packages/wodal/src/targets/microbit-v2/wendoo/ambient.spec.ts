@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { coreModule, createWendooEnvironment, type WendooEnvironment } from "@wendoo-lang/core/app";
+import { coreModule, createWendooEnvironment, type WendooEnvironment } from "@wendoo/core/app";
 import { buildLayeredPlatformAmbients } from "../../../../scripts/ambient-layers";
 import { createMicroBitV2Environment } from "./environment";
 

@@ -7,27 +7,23 @@
 
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { ruleIdAt } from "@wendoo-lang/assistant-bridge/testing";
-import type { EditedBrainWorkspaces, PersonActivity } from "@wendoo-lang/assistant-panel";
-import { assistantToolManifest, createEditedBrainWorkspaces, createPersonActivity } from "@wendoo-lang/assistant-panel";
-import { recordFor } from "@wendoo-lang/assistant-panel/conversation/store";
-import type { AssistantChannel } from "@wendoo-lang/assistant-panel/session/channel";
-import { AssistantMachine, AssistantStatus } from "@wendoo-lang/assistant-panel/session/machine";
-import type { ScriptedService } from "@wendoo-lang/assistant-panel/testing/scripted-service";
-import { runScriptedService } from "@wendoo-lang/assistant-panel/testing/scripted-service";
-import type {
-  ConversationAssistantEntry,
-  ConversationRecord,
-  ConversationToolCall,
-} from "@wendoo-lang/assistant-relay";
-import type { RelayLoopback } from "@wendoo-lang/assistant-relay/testing";
-import { createRelayLoopback } from "@wendoo-lang/assistant-relay/testing";
-import { List } from "@wendoo-lang/core/app";
-import type { BrainPageDef, BrainRuleDef } from "@wendoo-lang/core/brain/model";
-import { BrainCommandHistory, BrainDef } from "@wendoo-lang/core/brain/model";
-import type { EditedBrain } from "@wendoo-lang/ui";
-import { createMicroBitV2Environment } from "@wendoo-lang/wodal/targets/microbit-v2";
-import { createTargetAdapter } from "@wendoo-lang/wodal/targets/microbit-v2/rehearsal";
+import { ruleIdAt } from "@wendoo/assistant-bridge/testing";
+import type { EditedBrainWorkspaces, PersonActivity } from "@wendoo/assistant-panel";
+import { assistantToolManifest, createEditedBrainWorkspaces, createPersonActivity } from "@wendoo/assistant-panel";
+import { recordFor } from "@wendoo/assistant-panel/conversation/store";
+import type { AssistantChannel } from "@wendoo/assistant-panel/session/channel";
+import { AssistantMachine, AssistantStatus } from "@wendoo/assistant-panel/session/machine";
+import type { ScriptedService } from "@wendoo/assistant-panel/testing/scripted-service";
+import { runScriptedService } from "@wendoo/assistant-panel/testing/scripted-service";
+import type { ConversationAssistantEntry, ConversationRecord, ConversationToolCall } from "@wendoo/assistant-relay";
+import type { RelayLoopback } from "@wendoo/assistant-relay/testing";
+import { createRelayLoopback } from "@wendoo/assistant-relay/testing";
+import { List } from "@wendoo/core/app";
+import type { BrainPageDef, BrainRuleDef } from "@wendoo/core/brain/model";
+import { BrainCommandHistory, BrainDef } from "@wendoo/core/brain/model";
+import type { EditedBrain } from "@wendoo/ui";
+import { createMicroBitV2Environment } from "@wendoo/wodal/targets/microbit-v2";
+import { createTargetAdapter } from "@wendoo/wodal/targets/microbit-v2/rehearsal";
 import { MICROBIT_V2_TARGET_COORDINATE } from "./microbit-extension-coordinates";
 
 /** The WHEN tiles one scripted turn authors: button A going down. */

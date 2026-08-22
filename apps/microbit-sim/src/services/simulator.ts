@@ -1,13 +1,13 @@
-import type { WendooEnvironment } from "@wendoo-lang/core/app";
-import type { ErrorValue } from "@wendoo-lang/core/runtime";
-import { buildWodalProgramImage, type WodalBuildInput } from "@wendoo-lang/wodal";
+import type { WendooEnvironment } from "@wendoo/core/app";
+import type { ErrorValue } from "@wendoo/core/runtime";
+import { buildWodalProgramImage, type WodalBuildInput } from "@wendoo/wodal";
 import {
   GestureInjector,
   MicroBit,
   type MicroBitSnapshot,
   type RadioSendRecord,
   WodalMicroBitRuntime,
-} from "@wendoo-lang/wodal/targets/microbit-v2";
+} from "@wendoo/wodal/targets/microbit-v2";
 import { SharedMedium } from "./shared-medium";
 
 /** One radio send buffered during a frame: its sender and the transmitted packet. */

@@ -1,5 +1,5 @@
-import { AssistantProvider } from "@wendoo-lang/assistant-panel";
-import { DocsSidebar, DocsSidebarProvider } from "@wendoo-lang/docs";
+import { AssistantProvider } from "@wendoo/assistant-panel";
+import { DocsSidebar, DocsSidebarProvider } from "@wendoo/docs";
 import { useMemo, useSyncExternalStore } from "react";
 import { Toaster } from "sonner";
 import { createMicrobitTileVisualResolver, microbitDataTypeIcons, microbitDataTypeNames } from "./brain/editor-config";

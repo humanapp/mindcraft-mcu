@@ -8,8 +8,8 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
-} from "@wendoo-lang/ui";
-import { buildWodalProgramImage } from "@wendoo-lang/wodal";
+} from "@wendoo/ui";
+import { buildWodalProgramImage } from "@wendoo/wodal";
 import { MoreHorizontal, Plus, Usb } from "lucide-react";
 import { useId, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";

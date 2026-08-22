@@ -6,16 +6,11 @@
 
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import type {
-  AuthoringWorkspace,
-  DispatchObservation,
-  ScenarioInput,
-  SimulationRun,
-} from "@wendoo-lang/assistant-bridge";
-import { createAuthoringWorkspace, DispatchOutcome, proposeEdit, summarizeRun } from "@wendoo-lang/assistant-bridge";
-import { FAKE_TARGET_IDENTITY, ruleIdAt } from "@wendoo-lang/assistant-bridge/testing";
-import { mkActuatorTileId, mkModifierTileId, mkSensorTileId } from "@wendoo-lang/core/app";
-import { CoreLiteralFactoryId, mkLiteralFactoryTileId } from "@wendoo-lang/core/brain";
+import type { AuthoringWorkspace, DispatchObservation, ScenarioInput, SimulationRun } from "@wendoo/assistant-bridge";
+import { createAuthoringWorkspace, DispatchOutcome, proposeEdit, summarizeRun } from "@wendoo/assistant-bridge";
+import { FAKE_TARGET_IDENTITY, ruleIdAt } from "@wendoo/assistant-bridge/testing";
+import { mkActuatorTileId, mkModifierTileId, mkSensorTileId } from "@wendoo/core/app";
+import { CoreLiteralFactoryId, mkLiteralFactoryTileId } from "@wendoo/core/brain";
 import { SCROLL_DEFAULT_DELAY_MS, scrollDurationMs } from "../wendoo/display-scroll";
 import { MicroBitV2HostActions, WodalMicroBitV2ModifierId } from "../wendoo/tile-ids";
 import { createTargetAdapter } from "./adapter";

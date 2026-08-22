@@ -5,8 +5,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { BrainDef, mkActuatorTileId, mkSensorTileId, type WendooEnvironment } from "@wendoo-lang/core/app";
-import type { LinkedBrainProgram } from "@wendoo-lang/core/runtime";
+import { BrainDef, mkActuatorTileId, mkSensorTileId, type WendooEnvironment } from "@wendoo/core/app";
+import type { LinkedBrainProgram } from "@wendoo/core/runtime";
 import {
   buildWodalProgramImage,
   type FirmwareMetadata,
@@ -15,8 +15,8 @@ import {
   WodalDeviceProfileId,
   type WodalProgramImage,
   wodalProgramBytes,
-} from "@wendoo-lang/wodal";
-import { createMicroBitV2Environment, MicroBitV2HostActions } from "@wendoo-lang/wodal/targets/microbit-v2";
+} from "@wendoo/wodal";
+import { createMicroBitV2Environment, MicroBitV2HostActions } from "@wendoo/wodal/targets/microbit-v2";
 import { patchFirmwareForImage, programBytesFromImage } from "./firmware-deploy";
 
 const ASSET_DIR = fileURLToPath(new URL("../assets/firmware/", import.meta.url));

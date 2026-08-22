@@ -33,14 +33,14 @@ import {
   mkParameterTileId,
   mkSensorTileId,
   type WendooEnvironment,
-} from "@wendoo-lang/core/app";
-import { BrainDef, type BrainRuleDef } from "@wendoo-lang/core/brain/model";
+} from "@wendoo/core/app";
+import { BrainDef, type BrainRuleDef } from "@wendoo/core/brain/model";
 import {
   BrainRuntime,
   type LinkedBrainProgram,
   linkedBrainProgramToJson,
   type PlatformServices,
-} from "@wendoo-lang/core/runtime";
+} from "@wendoo/core/runtime";
 import { buildWodalProgramImage } from "../../../wendoo/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../wendoo/device-profile";
 import { shouldWriteGolden } from "../../../wendoo/golden-regeneration";

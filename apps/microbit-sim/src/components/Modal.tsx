@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@wendoo-lang/ui";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@wendoo/ui";
 import { type ReactNode, useEffect } from "react";
 
 interface ModalProps {

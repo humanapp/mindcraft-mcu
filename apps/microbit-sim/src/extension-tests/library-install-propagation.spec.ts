@@ -21,15 +21,15 @@ import {
   createInMemoryProjectFileSystem,
   type ProjectFileSystem,
   type ProjectManager,
-} from "@wendoo-lang/app-host";
-import { AppEnvironmentHost, type EmbeddedExtension } from "@wendoo-lang/bridge-app";
-import { buildEmbeddedExtensionFromDir } from "@wendoo-lang/bridge-app/node";
-import { List } from "@wendoo-lang/core";
-import { coreModule, mkActuatorTileId, mkSensorTileId } from "@wendoo-lang/core/app";
-import { type ITileCatalog, RuleSide } from "@wendoo-lang/core/brain";
-import { type InsertionContext, suggestTiles } from "@wendoo-lang/core/brain/language-service";
-import { createProfileNumerics } from "@wendoo-lang/core/runtime";
-import { createWodalSharedModule, getWodalDeviceProfile, WodalDeviceProfileId } from "@wendoo-lang/wodal";
+} from "@wendoo/app-host";
+import { AppEnvironmentHost, type EmbeddedExtension } from "@wendoo/bridge-app";
+import { buildEmbeddedExtensionFromDir } from "@wendoo/bridge-app/node";
+import { List } from "@wendoo/core";
+import { coreModule, mkActuatorTileId, mkSensorTileId } from "@wendoo/core/app";
+import { type ITileCatalog, RuleSide } from "@wendoo/core/brain";
+import { type InsertionContext, suggestTiles } from "@wendoo/core/brain/language-service";
+import { createProfileNumerics } from "@wendoo/core/runtime";
+import { createWodalSharedModule, getWodalDeviceProfile, WodalDeviceProfileId } from "@wendoo/wodal";
 import { buildMicrobitBrainEditorConfig } from "../brain/editor-config";
 import { createMicrobitDocsRegistry } from "../docs/docs-registry";
 import {

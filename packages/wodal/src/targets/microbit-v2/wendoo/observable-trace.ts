@@ -158,8 +158,8 @@
  *   `ErrorCode`. Fault messages are implementation-defined and never render.
  */
 
-import { NativeType, type ReadonlyList, type Value } from "@wendoo-lang/core/app";
-import { bufferToHex, type NumberPrecision, type VmEvents } from "@wendoo-lang/core/runtime";
+import { NativeType, type ReadonlyList, type Value } from "@wendoo/core/app";
+import { bufferToHex, type NumberPrecision, type VmEvents } from "@wendoo/core/runtime";
 import { RADIO_RAW_PACKET_TYPE, RadioPacketType, type RadioSendRecord } from "../../../core/radio";
 
 /** Current observable trace format version. */

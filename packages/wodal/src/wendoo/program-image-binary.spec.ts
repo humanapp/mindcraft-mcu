@@ -17,7 +17,7 @@ import assert from "node:assert/strict";
 import { readFileSync, writeFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { stream } from "@wendoo-lang/core";
+import { stream } from "@wendoo/core";
 import {
   type BrainProgramValueJson,
   binaryProgramByteReport,
@@ -26,7 +26,7 @@ import {
   linkedBrainProgramToCanonicalDump,
   linkedBrainProgramToJson,
   type NumberPrecision,
-} from "@wendoo-lang/core/runtime";
+} from "@wendoo/core/runtime";
 import { createMicroBitV2Environment } from "../targets/microbit-v2/wendoo/environment";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "./device-profile";
 import { shouldWriteGolden } from "./golden-regeneration";

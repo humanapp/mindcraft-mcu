@@ -1,4 +1,4 @@
-import { stream } from "@wendoo-lang/core";
+import { stream } from "@wendoo/core";
 import {
   BitSet,
   type BrainTileOutputDef,
@@ -18,8 +18,8 @@ import {
   setCallSiteState,
   setSensorOutput,
   type Value,
-} from "@wendoo-lang/core/app";
-import { mkBufferValue } from "@wendoo-lang/core/runtime";
+} from "@wendoo/core/app";
+import { mkBufferValue } from "@wendoo/core/runtime";
 import { type RADIO_RAW_PACKET_TYPE, RadioPacketType, type ReceivedRadioPacket } from "../../../../core/radio";
 import { getMicroBitContextDevice } from "../context";
 import { MicroBitV2HostActions } from "../tile-ids";

@@ -7,9 +7,9 @@
 
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { BrainDef } from "@wendoo-lang/core/app";
-import { buildWodalProgramImage, getWodalDeviceProfile, WodalDeviceProfileId } from "@wendoo-lang/wodal";
-import { MicroBit, WodalMicroBitRuntime } from "@wendoo-lang/wodal/targets/microbit-v2";
+import { BrainDef } from "@wendoo/core/app";
+import { buildWodalProgramImage, getWodalDeviceProfile, WodalDeviceProfileId } from "@wendoo/wodal";
+import { MicroBit, WodalMicroBitRuntime } from "@wendoo/wodal/targets/microbit-v2";
 import { MICROBIT_V2_LIB_COORDINATE } from "../services/microbit-extension-coordinates";
 import { buildExtensionTestHarness } from "./extension-test-harness";
 

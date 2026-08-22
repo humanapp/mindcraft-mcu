@@ -17,7 +17,7 @@ import {
   linkedBrainProgramFromJson,
   Op,
   type VmEvents,
-} from "@wendoo-lang/core/runtime";
+} from "@wendoo/core/runtime";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../wendoo/device-profile";
 import { MicroBit } from "../microbit";
 import { createMicroBitV2Environment } from "./environment";

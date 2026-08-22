@@ -1,7 +1,7 @@
 import { writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { coreModule, createWendooEnvironment, type WendooEnvironment } from "@wendoo-lang/core/app";
+import { coreModule, createWendooEnvironment, type WendooEnvironment } from "@wendoo/core/app";
 import { createMicroBitV2Environment } from "../src/targets/microbit-v2/wendoo/environment";
 import { buildLayeredPlatformAmbients } from "./ambient-layers";
 

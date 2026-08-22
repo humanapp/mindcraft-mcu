@@ -16,8 +16,8 @@ import {
   type ReadonlyList,
   type Value,
   VOID_VALUE,
-} from "@wendoo-lang/core/app";
-import { type BufferValue, bufferByteAt, bufferLength, isBufferValue } from "@wendoo-lang/core/runtime";
+} from "@wendoo/core/app";
+import { type BufferValue, bufferByteAt, bufferLength, isBufferValue } from "@wendoo/core/runtime";
 import { RadioPacketType, type RadioSendRecord, radioNumberIsInteger } from "../../../../core/radio";
 import { getMicroBitContextDevice } from "../context";
 import { MicroBitV2HostActions, WodalMicroBitV2ParameterId } from "../tile-ids";

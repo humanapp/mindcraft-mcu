@@ -1,4 +1,4 @@
-import type { WendooEnvironment } from "@wendoo-lang/core/app";
+import type { WendooEnvironment } from "@wendoo/core/app";
 import {
   type BrainEvents,
   BrainRuntime,
@@ -7,8 +7,8 @@ import {
   linkedBrainProgramFromJson,
   type PlatformServices,
   type VmEvents,
-} from "@wendoo-lang/core/runtime";
-import type { EventEmitterConsumer } from "@wendoo-lang/core/util";
+} from "@wendoo/core/runtime";
+import type { EventEmitterConsumer } from "@wendoo/core/util";
 import { toNonNegativeInteger } from "../../../core/numeric";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../wendoo/device-profile";
 import type { WodalProgramImage } from "../../../wendoo/program-image";

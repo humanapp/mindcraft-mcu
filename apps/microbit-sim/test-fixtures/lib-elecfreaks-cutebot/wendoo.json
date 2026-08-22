@@ -37,7 +37,7 @@
     }
   },
   "app": {
-    "@wendoo-lang/microbit-sim": {
+    "@wendoo/microbit-sim": {
       "brainOrder": [],
       "simulator": {
         "order": [

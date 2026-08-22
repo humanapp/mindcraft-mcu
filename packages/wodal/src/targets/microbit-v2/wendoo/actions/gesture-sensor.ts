@@ -12,7 +12,7 @@ import {
   type ReadonlyList,
   TRUE_VALUE,
   type Value,
-} from "@wendoo-lang/core/app";
+} from "@wendoo/core/app";
 import { AccelerometerGesture } from "../../../../core/accelerometer";
 import { getMicroBitContextDevice } from "../context";
 import { Modifier } from "../modifiers";

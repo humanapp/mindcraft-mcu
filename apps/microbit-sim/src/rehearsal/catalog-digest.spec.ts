@@ -5,9 +5,9 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import type { TargetAdapter } from "@wendoo-lang/assistant-bridge";
-import { catalogDigest } from "@wendoo-lang/assistant-bridge";
-import { installedTiles } from "@wendoo-lang/assistant-panel";
+import type { TargetAdapter } from "@wendoo/assistant-bridge";
+import { catalogDigest } from "@wendoo/assistant-bridge";
+import { installedTiles } from "@wendoo/assistant-panel";
 import { build } from "esbuild";
 import { MICROBIT_V2_TARGET_COORDINATE } from "../services/microbit-extension-coordinates";
 
@@ -20,7 +20,7 @@ const targetIdentity = (
 ).identity;
 
 /** Device-runtime entry publishing this device's adapter factory. */
-const ADAPTER_ENTRY = "@wendoo-lang/wodal/targets/microbit-v2/rehearsal";
+const ADAPTER_ENTRY = "@wendoo/wodal/targets/microbit-v2/rehearsal";
 
 /** The headless adapter artifact `npm run build:headless` produces. */
 const artifactPath = join(APP_DIR, "dist-headless", "rehearsal", "adapter.js");

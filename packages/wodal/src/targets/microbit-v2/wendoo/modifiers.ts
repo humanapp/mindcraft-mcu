@@ -1,4 +1,4 @@
-import { isNilValue, type ModifierTileInput, mod, type ReadonlyList, type Value } from "@wendoo-lang/core/app";
+import { isNilValue, type ModifierTileInput, mod, type ReadonlyList, type Value } from "@wendoo/core/app";
 import { WodalMicroBitV2ModifierId } from "./tile-ids";
 
 /** Whether the modifier arg at `slotId` is present (a non-nil value), i.e. its tile is attached. */

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { LinkedBrainProgram } from "@wendoo-lang/core/runtime";
-import { WENDOO_PROGRAM_IMAGE_FORMAT, WENDOO_PROGRAM_IMAGE_VERSION } from "@wendoo-lang/service-api";
+import type { LinkedBrainProgram } from "@wendoo/core/runtime";
+import { WENDOO_PROGRAM_IMAGE_FORMAT, WENDOO_PROGRAM_IMAGE_VERSION } from "@wendoo/service-api";
 import { WODAL_MICROBIT_V2_MODULE_ID } from "../targets/microbit-v2/wendoo/module";
 import {
   getWodalDeviceProfile,

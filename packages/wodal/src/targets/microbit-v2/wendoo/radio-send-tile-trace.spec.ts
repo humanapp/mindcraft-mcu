@@ -19,9 +19,9 @@ import {
   mkNumberValue,
   mkSensorTileId,
   type WendooEnvironment,
-} from "@wendoo-lang/core/app";
-import { BrainDef } from "@wendoo-lang/core/brain/model";
-import { type LinkedBrainProgram, linkedBrainProgramToJson } from "@wendoo-lang/core/runtime";
+} from "@wendoo/core/app";
+import { BrainDef } from "@wendoo/core/brain/model";
+import { type LinkedBrainProgram, linkedBrainProgramToJson } from "@wendoo/core/runtime";
 import { buildWodalProgramImage } from "../../../wendoo/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../wendoo/device-profile";
 import { shouldWriteGolden } from "../../../wendoo/golden-regeneration";

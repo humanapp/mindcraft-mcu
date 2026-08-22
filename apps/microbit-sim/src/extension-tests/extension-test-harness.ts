@@ -1,21 +1,16 @@
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
-import type { FileContent } from "@wendoo-lang/app-host";
-import { applyCatalogMove, parseExtensionReference } from "@wendoo-lang/app-host";
-import type { EmbeddedExtension, FetchedExtensionContentMap } from "@wendoo-lang/bridge-app";
-import { resolveProjectExtensions } from "@wendoo-lang/bridge-app";
-import { buildEmbeddedExtensionFromDir } from "@wendoo-lang/bridge-app/node";
-import type { CompiledActionBundle } from "@wendoo-lang/core";
-import type { WendooEnvironment } from "@wendoo-lang/core/app";
-import type { IBrainTileDef } from "@wendoo-lang/core/brain";
-import type { TypeId } from "@wendoo-lang/core/runtime";
-import {
-  createWorkspaceCompiler,
-  type Mount,
-  qualifiedClassName,
-  type WorkspaceSnapshot,
-} from "@wendoo-lang/ts-compiler";
-import { createMicroBitV2Environment } from "@wendoo-lang/wodal/targets/microbit-v2";
+import type { FileContent } from "@wendoo/app-host";
+import { applyCatalogMove, parseExtensionReference } from "@wendoo/app-host";
+import type { EmbeddedExtension, FetchedExtensionContentMap } from "@wendoo/bridge-app";
+import { resolveProjectExtensions } from "@wendoo/bridge-app";
+import { buildEmbeddedExtensionFromDir } from "@wendoo/bridge-app/node";
+import type { CompiledActionBundle } from "@wendoo/core";
+import type { WendooEnvironment } from "@wendoo/core/app";
+import type { IBrainTileDef } from "@wendoo/core/brain";
+import type { TypeId } from "@wendoo/core/runtime";
+import { createWorkspaceCompiler, type Mount, qualifiedClassName, type WorkspaceSnapshot } from "@wendoo/ts-compiler";
+import { createMicroBitV2Environment } from "@wendoo/wodal/targets/microbit-v2";
 import { microbitLibraryCatalog, microbitLibraryCatalogMoves } from "../services/microbit-extension-browser";
 import {
   CODAL_LIB_COORDINATE,

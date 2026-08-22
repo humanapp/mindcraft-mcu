@@ -1,16 +1,16 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import type { EmbeddedExtension } from "@wendoo-lang/bridge-app";
+import type { EmbeddedExtension } from "@wendoo/bridge-app";
 import {
   collectMetadataFromCompile,
   findEmbeddedExtensionsMissingStableIds,
   formatEmbeddedExtensionIdViolations,
   resolveProjectExtensions,
-} from "@wendoo-lang/bridge-app";
-import { buildEmbeddedExtensionFromDir } from "@wendoo-lang/bridge-app/node";
-import { createWorkspaceCompiler, type Mount, type WorkspaceSnapshot } from "@wendoo-lang/ts-compiler";
-import { createMicroBitV2Environment } from "@wendoo-lang/wodal/targets/microbit-v2";
+} from "@wendoo/bridge-app";
+import { buildEmbeddedExtensionFromDir } from "@wendoo/bridge-app/node";
+import { createWorkspaceCompiler, type Mount, type WorkspaceSnapshot } from "@wendoo/ts-compiler";
+import { createMicroBitV2Environment } from "@wendoo/wodal/targets/microbit-v2";
 import {
   CODAL_POSITION_GH_REF,
   publishedLibraryFetched,

@@ -1,8 +1,8 @@
-import { assertUnreachable } from "@wendoo-lang/core";
-import { CoreTypeIds, type WendooEnvironment } from "@wendoo-lang/core/app";
-import type { BrainTileKind, IBrainTileDef } from "@wendoo-lang/core/brain";
-import type { BrainEditorConfig, TileColorDef, TileVisual } from "@wendoo-lang/ui";
-import { adjustColor, saturateColor } from "@wendoo-lang/ui";
+import { assertUnreachable } from "@wendoo/core";
+import { CoreTypeIds, type WendooEnvironment } from "@wendoo/core/app";
+import type { BrainTileKind, IBrainTileDef } from "@wendoo/core/brain";
+import type { BrainEditorConfig, TileColorDef, TileVisual } from "@wendoo/ui";
+import { adjustColor, saturateColor } from "@wendoo/ui";
 import { ICON_BASE, tileVisuals } from "./tile-visuals";
 
 /** The default icon URL a tile of the given kind falls back to, or undefined when the kind has no kind-specific default. */

@@ -38,8 +38,8 @@ import {
   mkParameterTileId,
   mkSensorTileId,
   type WendooEnvironment,
-} from "@wendoo-lang/core/app";
-import { BrainDef } from "@wendoo-lang/core/brain/model";
+} from "@wendoo/core/app";
+import { BrainDef } from "@wendoo/core/brain/model";
 import {
   BrainRuntime,
   CoreHostActions,
@@ -48,7 +48,7 @@ import {
   NativeType,
   Op,
   type PlatformServices,
-} from "@wendoo-lang/core/runtime";
+} from "@wendoo/core/runtime";
 import { buildWodalProgramImage } from "../../../wendoo/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../wendoo/device-profile";
 import { shouldWriteGolden } from "../../../wendoo/golden-regeneration";

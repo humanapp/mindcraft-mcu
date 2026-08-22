@@ -13,8 +13,8 @@ import {
   repeated,
   type Value,
   VOID_VALUE,
-} from "@wendoo-lang/core/app";
-import { bufferByteAt, bufferLength, isBufferValue } from "@wendoo-lang/core/runtime";
+} from "@wendoo/core/app";
+import { bufferByteAt, bufferLength, isBufferValue } from "@wendoo/core/runtime";
 import { toNonNegativeInteger } from "../../../../core/numeric";
 import { ImageField } from "../../../../wendoo/shared-type-ids";
 import { MICROBIT_LED_MATRIX_SIZE } from "../../constants";

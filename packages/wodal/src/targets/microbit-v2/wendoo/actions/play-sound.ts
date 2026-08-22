@@ -11,7 +11,7 @@ import {
   type ReadonlyList,
   type Value,
   VOID_VALUE,
-} from "@wendoo-lang/core/app";
+} from "@wendoo/core/app";
 import { DEFAULT_BUILT_IN_SOUND_NAME, SoundEmojiField } from "../built-in-sounds";
 import { getMicroBitContextDevice, reportDeviceOperationEnding } from "../context";
 import { hasModifier, Modifier } from "../modifiers";

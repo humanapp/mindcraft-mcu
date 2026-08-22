@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { LinkedBrainProgram } from "@wendoo-lang/core/runtime";
-import { WENDOO_PROGRAM_IMAGE_FORMAT, WENDOO_PROGRAM_IMAGE_VERSION } from "@wendoo-lang/service-api";
+import type { LinkedBrainProgram } from "@wendoo/core/runtime";
+import { WENDOO_PROGRAM_IMAGE_FORMAT, WENDOO_PROGRAM_IMAGE_VERSION } from "@wendoo/service-api";
 import { createWodalProgramImage } from "./build-program-image";
 import { WodalDeviceProfileId } from "./device-profile";
 import { parseWodalProgramImage, serializeWodalProgramImageJson } from "./program-image";

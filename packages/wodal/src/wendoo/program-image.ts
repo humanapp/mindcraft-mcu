@@ -8,7 +8,7 @@ import {
   type WendooProgramImageParseResult,
   WendooProgramImageValidationCode,
   type WendooProgramImageValidationError,
-} from "@wendoo-lang/service-api";
+} from "@wendoo/service-api";
 import { isWodalDeviceProfileId, type WodalDeviceProfileId } from "./device-profile-id";
 
 /** Validation code constants used by WODAL program image diagnostics. */

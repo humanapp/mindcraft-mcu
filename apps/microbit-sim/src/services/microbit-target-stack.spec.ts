@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import type { EmbeddedExtension } from "@wendoo-lang/bridge-app";
-import { deriveProjectPlatformStack, resolveProjectExtensions } from "@wendoo-lang/bridge-app";
-import { buildEmbeddedExtensionFromDir } from "@wendoo-lang/bridge-app/node";
+import type { EmbeddedExtension } from "@wendoo/bridge-app";
+import { deriveProjectPlatformStack, resolveProjectExtensions } from "@wendoo/bridge-app";
+import { buildEmbeddedExtensionFromDir } from "@wendoo/bridge-app/node";
 import { buildMicrobitCatalogOffers, MICROBIT_LAYER_COORDINATES } from "./microbit-extension-browser";
 import {
   CODAL_LIB_COORDINATE,

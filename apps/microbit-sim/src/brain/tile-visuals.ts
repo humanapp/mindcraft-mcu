@@ -15,16 +15,16 @@ import {
   mkParameterTileId,
   mkSensorTileId,
   mkVariableFactoryTileId,
-} from "@wendoo-lang/core/app";
-import type { TileVisual } from "@wendoo-lang/ui";
-import { staticAssetUrl } from "@wendoo-lang/ui";
-import { WODAL_SHARED_TYPE_IDS } from "@wendoo-lang/wodal";
+} from "@wendoo/core/app";
+import type { TileVisual } from "@wendoo/ui";
+import { staticAssetUrl } from "@wendoo/ui";
+import { WODAL_SHARED_TYPE_IDS } from "@wendoo/wodal";
 import {
   MicroBitV2HostActions,
   SOUND_EMOJI_TYPE_ID,
   WodalMicroBitV2ModifierId,
   WodalMicroBitV2ParameterId,
-} from "@wendoo-lang/wodal/targets/microbit-v2";
+} from "@wendoo/wodal/targets/microbit-v2";
 
 /** Base URL of the app's tile and data-type icon assets. */
 export const ICON_BASE = staticAssetUrl("assets/brain/icons");

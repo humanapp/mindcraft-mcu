@@ -31,10 +31,10 @@ import {
   mkParameterTileId,
   mkSensorTileId,
   type WendooEnvironment,
-} from "@wendoo-lang/core/app";
-import { mkOperatorTileId } from "@wendoo-lang/core/brain";
-import { BrainDef, type BrainPageDef, type BrainRuleDef } from "@wendoo-lang/core/brain/model";
-import { type LinkedBrainProgram, linkedBrainProgramToJson } from "@wendoo-lang/core/runtime";
+} from "@wendoo/core/app";
+import { mkOperatorTileId } from "@wendoo/core/brain";
+import { BrainDef, type BrainPageDef, type BrainRuleDef } from "@wendoo/core/brain/model";
+import { type LinkedBrainProgram, linkedBrainProgramToJson } from "@wendoo/core/runtime";
 import { type IncomingRadioPacket, RadioPacketType, radioNumberIsInteger } from "../../../core/radio";
 import { buildWodalProgramImage } from "../../../wendoo/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../wendoo/device-profile";

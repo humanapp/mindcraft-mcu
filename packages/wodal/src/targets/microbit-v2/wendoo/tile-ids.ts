@@ -8,7 +8,7 @@
  * `mkParameterTileId`.
  */
 
-import type { HostActionIds } from "@wendoo-lang/core/app";
+import type { HostActionIds } from "@wendoo/core/app";
 
 /**
  * Stable numeric funcIds for the microbit-v2 host functions: the native

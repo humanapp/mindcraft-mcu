@@ -1,11 +1,6 @@
-import type {
-  OperationEnding,
-  ScenarioInput,
-  ScenarioInputKind,
-  SubjectStateChannel,
-} from "@wendoo-lang/assistant-bridge";
-import { DispatchOutcome } from "@wendoo-lang/assistant-bridge";
-import type { RehearsalWorld, WorldStaging } from "@wendoo-lang/assistant-bridge/kit";
+import type { OperationEnding, ScenarioInput, ScenarioInputKind, SubjectStateChannel } from "@wendoo/assistant-bridge";
+import { DispatchOutcome } from "@wendoo/assistant-bridge";
+import type { RehearsalWorld, WorldStaging } from "@wendoo/assistant-bridge/kit";
 import { AccelerometerGesture } from "../../../core/accelerometer";
 import { GestureInjector } from "../../../core/gesture-injector";
 import { OperationEnd } from "../../../core/operation-end";

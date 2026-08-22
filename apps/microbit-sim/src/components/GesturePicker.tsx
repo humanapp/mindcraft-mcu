@@ -1,4 +1,4 @@
-import { AccelerometerGesture } from "@wendoo-lang/wodal/targets/microbit-v2";
+import { AccelerometerGesture } from "@wendoo/wodal/targets/microbit-v2";
 import { useEffect, useState } from "react";
 import type { SimulatorInstance } from "@/services/simulator";
 

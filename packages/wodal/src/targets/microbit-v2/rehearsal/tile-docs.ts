@@ -1,4 +1,4 @@
-import { pairTileDocs } from "@wendoo-lang/assistant-bridge/kit";
+import { pairTileDocs } from "@wendoo/assistant-bridge/kit";
 import { MICROBIT_V2_TILE_DOC_CONTENT } from "../wendoo/_generated/tile-doc-content";
 import { MICROBIT_V2_TILE_DOCS } from "../wendoo/tile-docs";
 

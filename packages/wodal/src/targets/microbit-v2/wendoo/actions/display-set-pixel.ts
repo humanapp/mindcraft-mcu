@@ -9,7 +9,7 @@ import {
   type ReadonlyList,
   type Value,
   VOID_VALUE,
-} from "@wendoo-lang/core/app";
+} from "@wendoo/core/app";
 import { getMicroBitContextDevice } from "../context";
 import { Param } from "../parameters";
 import { MicroBitV2HostActions } from "../tile-ids";

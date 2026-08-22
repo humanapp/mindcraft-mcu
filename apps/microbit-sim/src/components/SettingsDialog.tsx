@@ -1,4 +1,4 @@
-import { Button, Input } from "@wendoo-lang/ui";
+import { Button, Input } from "@wendoo/ui";
 import { useState } from "react";
 import { useMicrobitSimEnvironment } from "@/contexts/microbit-sim-environment";
 import { type AppSettings, DEFAULT_APP_SETTINGS } from "@/services/app-settings";

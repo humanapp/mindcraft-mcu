@@ -5,7 +5,7 @@ import {
   WENDOO_PROGRAM_IMAGE_FORMAT,
   WENDOO_PROGRAM_IMAGE_VERSION,
   WendooProgramImageEncoding,
-} from "@wendoo-lang/service-api";
+} from "@wendoo/service-api";
 import { WodalDeviceProfileId } from "./device-profile";
 import {
   parseWodalProgramImage,

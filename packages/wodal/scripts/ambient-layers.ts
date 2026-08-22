@@ -1,5 +1,5 @@
-import type { ITypeRegistry } from "@wendoo-lang/core/runtime";
-import { buildPlatformAmbientDeclarations } from "@wendoo-lang/ts-compiler";
+import type { ITypeRegistry } from "@wendoo/core/runtime";
+import { buildPlatformAmbientDeclarations } from "@wendoo/ts-compiler";
 
 /**
  * Names of the wodal-general device types whose ambient `"wendoo"`

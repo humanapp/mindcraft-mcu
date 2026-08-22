@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { before, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import { createIdbProjectStore, importProjectDocument, ProjectManager } from "@wendoo-lang/app-host";
-import { AppEnvironmentHost } from "@wendoo-lang/bridge-app";
-import { BrainDef, coreModule } from "@wendoo-lang/core/app";
-import { createWodalSharedModule, getWodalDeviceProfile, WodalDeviceProfileId } from "@wendoo-lang/wodal";
+import { createIdbProjectStore, importProjectDocument, ProjectManager } from "@wendoo/app-host";
+import { AppEnvironmentHost } from "@wendoo/bridge-app";
+import { BrainDef, coreModule } from "@wendoo/core/app";
+import { createWodalSharedModule, getWodalDeviceProfile, WodalDeviceProfileId } from "@wendoo/wodal";
 import { name as appName } from "../../package.json";
 import {
   BRAINS_INDEX_KEY,

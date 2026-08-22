@@ -3,9 +3,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { BrainTileModifierDef, type WendooEnvironment } from "@wendoo-lang/core/app";
-import type { IBrainTileDef } from "@wendoo-lang/core/brain";
-import { createMicroBitV2Environment } from "@wendoo-lang/wodal/targets/microbit-v2";
+import { BrainTileModifierDef, type WendooEnvironment } from "@wendoo/core/app";
+import type { IBrainTileDef } from "@wendoo/core/brain";
+import { createMicroBitV2Environment } from "@wendoo/wodal/targets/microbit-v2";
 import { conceptContent, patternContent, tileContent } from "./_generated/en";
 import { createMicrobitDocsRegistry } from "./docs-registry";
 import {

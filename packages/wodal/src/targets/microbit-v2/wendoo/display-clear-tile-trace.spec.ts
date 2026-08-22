@@ -23,14 +23,14 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { CoreHostActions, mkActuatorTileId, mkSensorTileId, type WendooEnvironment } from "@wendoo-lang/core/app";
-import { BrainDef } from "@wendoo-lang/core/brain/model";
+import { CoreHostActions, mkActuatorTileId, mkSensorTileId, type WendooEnvironment } from "@wendoo/core/app";
+import { BrainDef } from "@wendoo/core/brain/model";
 import {
   BrainRuntime,
   type LinkedBrainProgram,
   linkedBrainProgramToJson,
   type PlatformServices,
-} from "@wendoo-lang/core/runtime";
+} from "@wendoo/core/runtime";
 import { buildWodalProgramImage } from "../../../wendoo/build-kernel";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../wendoo/device-profile";
 import { shouldWriteGolden } from "../../../wendoo/golden-regeneration";

@@ -16,18 +16,14 @@
 
 import assert from "node:assert/strict";
 import { before, describe, test } from "node:test";
-import { List } from "@wendoo-lang/core";
-import { BrainDef, BrainTileModifierDef, type WendooEnvironment } from "@wendoo-lang/core/app";
-import { type IBrainTileDef, mkAccessorTileId, mkVariableFactoryTileId, RuleSide } from "@wendoo-lang/core/brain";
-import {
-  type InsertionContext,
-  parseTilesForSuggestions,
-  suggestTiles,
-} from "@wendoo-lang/core/brain/language-service";
-import { type BrainTileFactoryDef, BrainTileOperatorDef } from "@wendoo-lang/core/brain/tiles";
-import type { LinkedBrainProgram, TypeId } from "@wendoo-lang/core/runtime";
-import { buildWodalProgramImage, getWodalDeviceProfile, WodalDeviceProfileId } from "@wendoo-lang/wodal";
-import { MicroBit, WodalMicroBitRuntime } from "@wendoo-lang/wodal/targets/microbit-v2";
+import { List } from "@wendoo/core";
+import { BrainDef, BrainTileModifierDef, type WendooEnvironment } from "@wendoo/core/app";
+import { type IBrainTileDef, mkAccessorTileId, mkVariableFactoryTileId, RuleSide } from "@wendoo/core/brain";
+import { type InsertionContext, parseTilesForSuggestions, suggestTiles } from "@wendoo/core/brain/language-service";
+import { type BrainTileFactoryDef, BrainTileOperatorDef } from "@wendoo/core/brain/tiles";
+import type { LinkedBrainProgram, TypeId } from "@wendoo/core/runtime";
+import { buildWodalProgramImage, getWodalDeviceProfile, WodalDeviceProfileId } from "@wendoo/wodal";
+import { MicroBit, WodalMicroBitRuntime } from "@wendoo/wodal/targets/microbit-v2";
 import {
   buildExtensionTestHarness,
   type ExtensionTestHarness,

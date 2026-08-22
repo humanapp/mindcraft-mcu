@@ -9,11 +9,11 @@ import {
   type ProjectCollection,
   type ProjectFileSystem,
   type ProjectManager,
-} from "@wendoo-lang/app-host";
-import { AppEnvironmentHost, createVfsAssetUrlProvider, type EmbeddedExtension } from "@wendoo-lang/bridge-app";
-import { coreModule, mkActuatorTileId, mkSensorTileId } from "@wendoo-lang/core/app";
-import type { IBrainTileDef } from "@wendoo-lang/core/brain";
-import { declarationMount, isCompilerControlledPath, type Mount } from "@wendoo-lang/ts-compiler";
+} from "@wendoo/app-host";
+import { AppEnvironmentHost, createVfsAssetUrlProvider, type EmbeddedExtension } from "@wendoo/bridge-app";
+import { coreModule, mkActuatorTileId, mkSensorTileId } from "@wendoo/core/app";
+import type { IBrainTileDef } from "@wendoo/core/brain";
+import { declarationMount, isCompilerControlledPath, type Mount } from "@wendoo/ts-compiler";
 import { buildMicrobitBrainEditorConfig } from "../brain/editor-config";
 
 function readText(relativePath: string): string {

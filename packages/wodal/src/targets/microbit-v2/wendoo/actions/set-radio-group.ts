@@ -11,7 +11,7 @@ import {
   type ReadonlyList,
   type Value,
   VOID_VALUE,
-} from "@wendoo-lang/core/app";
+} from "@wendoo/core/app";
 import { RADIO_DEFAULT_GROUP } from "../../../../core/radio";
 import { getMicroBitContextDevice } from "../context";
 import { MicroBitV2HostActions } from "../tile-ids";

@@ -7,7 +7,7 @@ import {
   NativeType,
   type StructValue,
   type Value,
-} from "@wendoo-lang/core/app";
+} from "@wendoo/core/app";
 
 /** TypeId of the `SoundEmoji` value struct the built-in sound literals carry. */
 export const SOUND_EMOJI_TYPE_ID = mkTypeId(NativeType.Struct, "SoundEmoji");

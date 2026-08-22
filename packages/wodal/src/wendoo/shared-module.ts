@@ -1,4 +1,4 @@
-import { CoreTypeIds, List, type WendooModule, type WendooModuleApi } from "@wendoo-lang/core/app";
+import { CoreTypeIds, List, type WendooModule, type WendooModuleApi } from "@wendoo/core/app";
 import { ImageField, WodalSharedTypeAtomId } from "./shared-type-ids";
 
 /** Wendoo module ID for the wodal-shared types installed by every target. */

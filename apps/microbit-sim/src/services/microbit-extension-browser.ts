@@ -4,8 +4,8 @@ import type {
   ExtensionFetchError,
   ExtensionFetchErrorCode,
   ExtensionUpdateApplication,
-} from "@wendoo-lang/app-host";
-import { parseExtensionReference, validateExtensionCatalogDocument } from "@wendoo-lang/app-host";
+} from "@wendoo/app-host";
+import { parseExtensionReference, validateExtensionCatalogDocument } from "@wendoo/app-host";
 import {
   type AppEnvironmentHost,
   buildExtensionCatalog,
@@ -20,8 +20,8 @@ import {
   installEmbeddedExtension,
   installExtensionReference,
   uninstallExtension,
-} from "@wendoo-lang/bridge-app";
-import type { ExtensionBrowserEntry } from "@wendoo-lang/ui";
+} from "@wendoo/bridge-app";
+import type { ExtensionBrowserEntry } from "@wendoo/ui";
 import {
   CODAL_LIB_COORDINATE,
   CORE_LIB_COORDINATE,

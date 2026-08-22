@@ -7,7 +7,7 @@
  * `wodal patch` CLI's output.
  */
 
-import { type LinkedBrainProgram, linkedBrainProgramToJson } from "@wendoo-lang/core/runtime";
+import { type LinkedBrainProgram, linkedBrainProgramToJson } from "@wendoo/core/runtime";
 import {
   type FirmwareMetadata,
   type FirmwarePatchResult,
@@ -15,7 +15,7 @@ import {
   serializeWodalProgramImageJson,
   type WodalProgramImage,
   wodalProgramBytes,
-} from "@wendoo-lang/wodal";
+} from "@wendoo/wodal";
 
 /**
  * Serializes a built program image to the binary `.mcprogram` payload the patcher

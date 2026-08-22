@@ -17,12 +17,12 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(process.cwd(), "./src"),
-      "@wendoo-lang/assistant-panel": path.resolve(
+      "@wendoo/assistant-panel": path.resolve(
         process.cwd(),
         "../../external/wendoo-lang/packages/assistant-panel/src"
       ),
-      "@wendoo-lang/ui": path.resolve(process.cwd(), "../../external/wendoo-lang/packages/ui/src"),
-      "@wendoo-lang/docs": path.resolve(process.cwd(), "../../external/wendoo-lang/packages/docs/src"),
+      "@wendoo/ui": path.resolve(process.cwd(), "../../external/wendoo-lang/packages/ui/src"),
+      "@wendoo/docs": path.resolve(process.cwd(), "../../external/wendoo-lang/packages/docs/src"),
     },
   },
   logLevel: "warning",

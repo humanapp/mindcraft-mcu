@@ -10,7 +10,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { WendooEnvironment } from "@wendoo-lang/core/app";
+import type { WendooEnvironment } from "@wendoo/core/app";
 import {
   BrainRuntime,
   CoreHostActions,
@@ -20,7 +20,7 @@ import {
   Op,
   type PlatformServices,
   type VmEvents,
-} from "@wendoo-lang/core/runtime";
+} from "@wendoo/core/runtime";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../wendoo/device-profile";
 import { WODAL_SHARED_TYPE_IDS, WodalSharedTypeAtomId } from "../../../wendoo/shared-type-ids";
 import { MicroBit } from "../microbit";

@@ -1,4 +1,4 @@
-import type { WendooEnvironment } from "@wendoo-lang/core/app";
+import type { WendooEnvironment } from "@wendoo/core/app";
 import { WodalDeviceProfileId } from "../../../wendoo/device-profile";
 import { createWodalEnvironment } from "../../../wendoo/environment";
 

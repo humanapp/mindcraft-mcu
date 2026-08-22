@@ -1,7 +1,7 @@
-import type { TargetAdapter, TargetManifest } from "@wendoo-lang/assistant-bridge";
-import type { RehearsalWorld, WorldDriver, WorldStaging } from "@wendoo-lang/assistant-bridge/kit";
-import { createRehearsalAdapter } from "@wendoo-lang/assistant-bridge/kit";
-import type { NumberPrecision } from "@wendoo-lang/core/runtime";
+import type { TargetAdapter, TargetManifest } from "@wendoo/assistant-bridge";
+import type { RehearsalWorld, WorldDriver, WorldStaging } from "@wendoo/assistant-bridge/kit";
+import { createRehearsalAdapter } from "@wendoo/assistant-bridge/kit";
+import type { NumberPrecision } from "@wendoo/core/runtime";
 import { getWodalDeviceProfile, WodalDeviceProfileId } from "../../../wendoo/device-profile";
 import { createWodalSharedModule } from "../../../wendoo/shared-module";
 import { microBitV2TileDocs } from "./tile-docs";

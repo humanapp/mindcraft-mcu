@@ -1,4 +1,4 @@
-import type { IncomingRadioPacket, RadioSendRecord } from "@wendoo-lang/wodal/targets/microbit-v2";
+import type { IncomingRadioPacket, RadioSendRecord } from "@wendoo/wodal/targets/microbit-v2";
 
 /**
  * Signal strength in -dBm stamped on every packet delivered through the

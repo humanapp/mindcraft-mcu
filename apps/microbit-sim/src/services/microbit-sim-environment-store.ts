@@ -9,16 +9,16 @@ import {
   ProjectManager,
   type ProjectManifest,
   WENDOO_JSON_PATH,
-} from "@wendoo-lang/app-host";
-import type { AssistantConnect, EditedBrainWorkspaces, PersonActivity } from "@wendoo-lang/assistant-panel";
+} from "@wendoo/app-host";
+import type { AssistantConnect, EditedBrainWorkspaces, PersonActivity } from "@wendoo/assistant-panel";
 import {
   assistantSessionUrl,
   assistantToolManifest,
   createEditedBrainWorkspaces,
   createPersonActivity,
   createWebSocketConnect,
-} from "@wendoo-lang/assistant-panel";
-import type { RelayToolManifest } from "@wendoo-lang/assistant-relay";
+} from "@wendoo/assistant-panel";
+import type { RelayToolManifest } from "@wendoo/assistant-relay";
 import {
   type AppBridgeState,
   AppEnvironmentHost,
@@ -32,7 +32,7 @@ import {
   type UserTileApplyResult,
   type VfsAssetUrlProvider,
   type WorkspaceCompileDiagnostic,
-} from "@wendoo-lang/bridge-app";
+} from "@wendoo/bridge-app";
 import {
   BrainDef,
   coreModule,
@@ -40,19 +40,19 @@ import {
   createWendooEnvironment,
   logger,
   type WendooEnvironment,
-} from "@wendoo-lang/core/app";
-import { createDefaultLocalizer } from "@wendoo-lang/core/localization";
-import { createProfileNumerics } from "@wendoo-lang/core/runtime";
-import { isCompilerControlledPath, type Mount } from "@wendoo-lang/ts-compiler";
-import type { PrintTransport } from "@wendoo-lang/ui";
+} from "@wendoo/core/app";
+import { createDefaultLocalizer } from "@wendoo/core/localization";
+import { createProfileNumerics } from "@wendoo/core/runtime";
+import { isCompilerControlledPath, type Mount } from "@wendoo/ts-compiler";
+import type { PrintTransport } from "@wendoo/ui";
 import {
   createWodalSharedModule,
   getWodalDeviceProfile,
   type WodalBuildInput,
   type WodalDeviceProfile,
   WodalDeviceProfileId,
-} from "@wendoo-lang/wodal";
-import { createTargetAdapter } from "@wendoo-lang/wodal/targets/microbit-v2/rehearsal";
+} from "@wendoo/wodal";
+import { createTargetAdapter } from "@wendoo/wodal/targets/microbit-v2/rehearsal";
 import { name as appName } from "../../package.json";
 import { type AppSettings, loadAppSettings, normalizeAppSettings, persistAppSettings } from "./app-settings";
 import { loadBindingToken, saveBindingToken } from "./binding-token-persistence";

@@ -30,12 +30,12 @@ import {
   type ExtensionFetchTransport,
   type ProjectFileSystem,
   type ProjectManager,
-} from "@wendoo-lang/app-host";
-import { AppEnvironmentHost, type EmbeddedExtension, resolveProjectExtensions } from "@wendoo-lang/bridge-app";
-import { buildEmbeddedExtensionFromDir } from "@wendoo-lang/bridge-app/node";
-import { coreModule } from "@wendoo-lang/core/app";
-import { createProfileNumerics } from "@wendoo-lang/core/runtime";
-import { createWodalSharedModule, getWodalDeviceProfile, WodalDeviceProfileId } from "@wendoo-lang/wodal";
+} from "@wendoo/app-host";
+import { AppEnvironmentHost, type EmbeddedExtension, resolveProjectExtensions } from "@wendoo/bridge-app";
+import { buildEmbeddedExtensionFromDir } from "@wendoo/bridge-app/node";
+import { coreModule } from "@wendoo/core/app";
+import { createProfileNumerics } from "@wendoo/core/runtime";
+import { createWodalSharedModule, getWodalDeviceProfile, WodalDeviceProfileId } from "@wendoo/wodal";
 import {
   buildMicrobitCatalogOffers,
   buildMicrobitExtensionEntries,

@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import type { FileContent } from "@wendoo-lang/app-host";
-import type { EmbeddedExtension, ResolvedExtensions } from "@wendoo-lang/bridge-app";
-import { resolveProjectExtensions } from "@wendoo-lang/bridge-app";
-import { buildEmbeddedExtensionFromDir } from "@wendoo-lang/bridge-app/node";
-import { createWorkspaceCompiler, type Mount, type WorkspaceSnapshot } from "@wendoo-lang/ts-compiler";
-import { createMicroBitV2Environment } from "@wendoo-lang/wodal/targets/microbit-v2";
+import type { FileContent } from "@wendoo/app-host";
+import type { EmbeddedExtension, ResolvedExtensions } from "@wendoo/bridge-app";
+import { resolveProjectExtensions } from "@wendoo/bridge-app";
+import { buildEmbeddedExtensionFromDir } from "@wendoo/bridge-app/node";
+import { createWorkspaceCompiler, type Mount, type WorkspaceSnapshot } from "@wendoo/ts-compiler";
+import { createMicroBitV2Environment } from "@wendoo/wodal/targets/microbit-v2";
 import {
   CODAL_LIB_COORDINATE,
   CORE_LIB_COORDINATE,

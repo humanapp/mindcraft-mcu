@@ -1,8 +1,4 @@
-import {
-  buildActiveProjectExportDocument,
-  type ImportAppChunkResult,
-  type ProjectManager,
-} from "@wendoo-lang/app-host";
+import { buildActiveProjectExportDocument, type ImportAppChunkResult, type ProjectManager } from "@wendoo/app-host";
 import { name as appName } from "../../package.json";
 
 /** App name microbit-sim's session chunk is keyed under in a `.wendoo` document's manifest `app` map. */

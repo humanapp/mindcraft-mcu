@@ -21,12 +21,12 @@
     /* Path mapping */
     "paths": {
       "@/*": ["./src/*"],
-      "@wendoo-lang/assistant-panel": ["../../external/wendoo-lang/packages/assistant-panel/src/index.ts"],
-      "@wendoo-lang/assistant-panel/*": ["../../external/wendoo-lang/packages/assistant-panel/src/*"],
-      "@wendoo-lang/ui": ["../../external/wendoo-lang/packages/ui/src/index.ts"],
-      "@wendoo-lang/ui/*": ["../../external/wendoo-lang/packages/ui/src/*"],
-      "@wendoo-lang/docs": ["../../external/wendoo-lang/packages/docs/src/index.ts"],
-      "@wendoo-lang/docs/*": ["../../external/wendoo-lang/packages/docs/src/*"]
+      "@wendoo/assistant-panel": ["../../external/wendoo-lang/packages/assistant-panel/src/index.ts"],
+      "@wendoo/assistant-panel/*": ["../../external/wendoo-lang/packages/assistant-panel/src/*"],
+      "@wendoo/ui": ["../../external/wendoo-lang/packages/ui/src/index.ts"],
+      "@wendoo/ui/*": ["../../external/wendoo-lang/packages/ui/src/*"],
+      "@wendoo/docs": ["../../external/wendoo-lang/packages/docs/src/index.ts"],
+      "@wendoo/docs/*": ["../../external/wendoo-lang/packages/docs/src/*"]
     }
   },
   "include": ["src"],

@@ -1,4 +1,4 @@
-import { stream } from "@wendoo-lang/core";
+import { stream } from "@wendoo/core";
 import {
   type ITypeRegistry,
   type LinkedBrainProgram,
@@ -6,8 +6,8 @@ import {
   linkedBrainProgramFromBytes,
   linkedBrainProgramFromJson,
   linkedBrainProgramToBytes,
-} from "@wendoo-lang/core/runtime";
-import { detectWendooProgramImageEncoding, WendooProgramImageEncoding } from "@wendoo-lang/service-api";
+} from "@wendoo/core/runtime";
+import { detectWendooProgramImageEncoding, WendooProgramImageEncoding } from "@wendoo/service-api";
 import { getWodalDeviceProfile, type WodalDeviceProfileId } from "./device-profile";
 import { createWodalEnvironment } from "./environment";
 import { parseWodalProgramImage, type WodalProgramImage } from "./program-image";

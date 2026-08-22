@@ -9,15 +9,15 @@
 
 import assert from "node:assert/strict";
 import { before, describe, test } from "node:test";
-import type { BrainServices, IBrainPageDef, IBrainTileDef } from "@wendoo-lang/core/brain";
+import type { BrainServices, IBrainPageDef, IBrainTileDef } from "@wendoo/core/brain";
 import {
   mkActuatorTileId,
   mkModifierTileId,
   mkOperatorTileId,
   mkParameterTileId,
   mkSensorTileId,
-} from "@wendoo-lang/core/brain";
-import { __test__appendTile } from "@wendoo-lang/core/brain/__test__";
+} from "@wendoo/core/brain";
+import { __test__appendTile } from "@wendoo/core/brain/__test__";
 import {
   paragraphText,
   projectPageParagraph,
@@ -25,19 +25,19 @@ import {
   segmentDisplayText,
   sentenceText,
   whenTriggerWord,
-} from "@wendoo-lang/core/brain/language-service";
-import { BrainDef, type BrainPageDef, type BrainRuleDef } from "@wendoo-lang/core/brain/model";
-import { BrainTileLiteralDef } from "@wendoo-lang/core/brain/tiles";
-import type { Localizer } from "@wendoo-lang/core/localization";
-import { createDefaultLocalizer } from "@wendoo-lang/core/localization";
-import { CoreHostActions, CoreOpId, CoreTypeIds } from "@wendoo-lang/core/runtime";
-import { composePivotReading, composeSentenceReading } from "@wendoo-lang/ui/brain-editor/sentence-composer";
+} from "@wendoo/core/brain/language-service";
+import { BrainDef, type BrainPageDef, type BrainRuleDef } from "@wendoo/core/brain/model";
+import { BrainTileLiteralDef } from "@wendoo/core/brain/tiles";
+import type { Localizer } from "@wendoo/core/localization";
+import { createDefaultLocalizer } from "@wendoo/core/localization";
+import { CoreHostActions, CoreOpId, CoreTypeIds } from "@wendoo/core/runtime";
+import { composePivotReading, composeSentenceReading } from "@wendoo/ui/brain-editor/sentence-composer";
 import {
   createMicroBitV2Environment,
   MicroBitV2HostActions,
   WodalMicroBitV2ModifierId as Mod,
   WodalMicroBitV2ParameterId as Param,
-} from "@wendoo-lang/wodal/targets/microbit-v2";
+} from "@wendoo/wodal/targets/microbit-v2";
 
 let services: BrainServices;
 let localizer: Localizer;

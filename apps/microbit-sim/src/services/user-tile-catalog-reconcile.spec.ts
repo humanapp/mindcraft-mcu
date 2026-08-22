@@ -16,18 +16,14 @@ import {
   type ProjectCollection,
   type ProjectFileSystem,
   type ProjectManager,
-} from "@wendoo-lang/app-host";
-import type { AppEnvironmentHostOptions } from "@wendoo-lang/bridge-app";
-import { AppEnvironmentHost } from "@wendoo-lang/bridge-app";
-import { List } from "@wendoo-lang/core";
-import { coreModule, mkActuatorTileId } from "@wendoo-lang/core/app";
-import { type IBrainTileDef, type ITileCatalog, RuleSide } from "@wendoo-lang/core/brain";
-import {
-  type InsertionContext,
-  parseTilesForSuggestions,
-  suggestTiles,
-} from "@wendoo-lang/core/brain/language-service";
-import { declarationMount, isCompilerControlledPath, type Mount } from "@wendoo-lang/ts-compiler";
+} from "@wendoo/app-host";
+import type { AppEnvironmentHostOptions } from "@wendoo/bridge-app";
+import { AppEnvironmentHost } from "@wendoo/bridge-app";
+import { List } from "@wendoo/core";
+import { coreModule, mkActuatorTileId } from "@wendoo/core/app";
+import { type IBrainTileDef, type ITileCatalog, RuleSide } from "@wendoo/core/brain";
+import { type InsertionContext, parseTilesForSuggestions, suggestTiles } from "@wendoo/core/brain/language-service";
+import { declarationMount, isCompilerControlledPath, type Mount } from "@wendoo/ts-compiler";
 
 function readText(relativePath: string): string {
   return readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), "utf8");
