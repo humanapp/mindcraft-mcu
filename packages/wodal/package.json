@@ -7,13 +7,13 @@
   "author": "humanapp",
   "repository": {
     "type": "git",
-    "url": "https://github.com/humanapp/wendoo-mcu.git",
+    "url": "https://github.com/wendoo-lang/wendoo-mcu.git",
     "directory": "packages/wodal"
   },
   "bugs": {
-    "url": "https://github.com/humanapp/wendoo-mcu/issues"
+    "url": "https://github.com/wendoo-lang/wendoo-mcu/issues"
   },
-  "homepage": "https://github.com/humanapp/wendoo-mcu/tree/main/packages/wodal#readme",
+  "homepage": "https://github.com/wendoo-lang/wendoo-mcu/tree/main/packages/wodal#readme",
   "keywords": [
     "wendoo",
     "microbit",

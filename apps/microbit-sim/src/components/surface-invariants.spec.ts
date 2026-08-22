@@ -107,7 +107,7 @@ describe("the header menu exposes a Learn more submenu with external links", () 
 
     assert.ok(source.includes('href="https://wendoo-lang.org"'), "expected the homepage link's exact href");
     assert.ok(
-      source.includes('href="https://github.com/humanapp/wendoo-lang"'),
+      source.includes('href="https://github.com/wendoo-lang/wendoo-lang"'),
       "expected the github link's exact href"
     );
   });

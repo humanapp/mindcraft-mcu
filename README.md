@@ -1,6 +1,6 @@
 # Wendoo MCU
 
-Bring [Wendoo](https://github.com/humanapp/wendoo-lang) brains to the
+Bring [Wendoo](https://github.com/wendoo-lang/wendoo-lang) brains to the
 [BBC micro:bit](https://microbit.org/).
 
 Wendoo programs are built by arranging **tiles** -- typed, composable tokens
@@ -14,7 +14,7 @@ accelerometer, audio, radio, GPIO, I2C, light and temperature sensors, and robot
 chassis drivers) exposed to brains as sensors and actuators.
 
 The Wendoo language, compiler, and reference VM live in the upstream
-[wendoo-lang](https://github.com/humanapp/wendoo-lang) repository, included
+[wendoo-lang](https://github.com/wendoo-lang/wendoo-lang) repository, included
 here as a git submodule under `external/`. The TypeScript reference VM is the
 executable specification; the native VM and the web runtime both mirror its
 observable bytecode semantics byte-for-byte.
@@ -64,7 +64,7 @@ into its own `node_modules`; cross-package links use `file:` dependencies. The
 Wendoo language lives in a submodule.
 
 ```bash
-git clone https://github.com/humanapp/wendoo-mcu.git
+git clone https://github.com/wendoo-lang/wendoo-mcu.git
 cd wendoo-mcu
 
 # Install every package and app, and build the packages the apps resolve as
@@ -95,7 +95,7 @@ and WODAL are all held to them.
 ## Contributing
 
 To report a bug or request a feature, please
-[open an issue](https://github.com/humanapp/wendoo-mcu/issues).
+[open an issue](https://github.com/wendoo-lang/wendoo-mcu/issues).
 
 ## License
 

@@ -405,7 +405,7 @@ export function ProjectHeader() {
                   <DropdownMenuItem asChild>
                     <a
                       data-testid="github-link"
-                      href="https://github.com/humanapp/wendoo-lang"
+                      href="https://github.com/wendoo-lang/wendoo-lang"
                       target="_blank"
                       rel="noopener noreferrer"
                     >
